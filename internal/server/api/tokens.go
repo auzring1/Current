@@ -2,7 +2,6 @@ package api
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/auzring1/auzring/gen/dbq"
 	"github.com/auzring1/auzring/internal/server/audit"
+	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/shared/bundle"
 	"github.com/auzring1/auzring/internal/shared/pkix"
@@ -113,7 +113,7 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		id := uuid.New()
-		h := TokenHash(tokStr)
+		h := auth.EnrollmentTokenHash(tokStr)
 		if err := q.CreateEnrollmentToken(r.Context(), dbq.CreateEnrollmentTokenParams{ID: id, OrgID: p.OrgID, SiteID: site.ID,
 			Name: req.Name, TokenHash: h, MaxUses: req.MaxUses, ExpiresAt: now.Add(time.Duration(req.ExpiresInHours) * time.Hour),
 			RequireApproval: req.RequireApproval, CreatedBy: p.UserID}); err != nil {
@@ -169,12 +169,6 @@ func (s *server) revokeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// TokenHash is the stored hash of an enrollment token secret.
-func TokenHash(secret string) []byte {
-	h := sha256.Sum256([]byte("auzring/enroll-token/v1\x00" + secret))
-	return h[:]
 }
 
 func spkiPin(c *x509.Certificate) string { return pkix.SPKIPin(c) }

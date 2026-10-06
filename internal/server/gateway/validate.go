@@ -1,0 +1,54 @@
+package gateway
+
+import (
+	"errors"
+	"math"
+	"strconv"
+
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+)
+
+// validateHardware bounds attacker-controlled inventory (SECURITY T-DEV-2/3).
+func validateHardware(hw *agentv1.HardwareInventory) error {
+	strs := []string{hw.Hostname, hw.Fqdn, hw.Domain, hw.OsCaption, hw.OsDisplayVersion, hw.OsEdition, hw.OsVersion,
+		hw.Arch, hw.Manufacturer, hw.Model, hw.Serial, hw.SmbiosUuid, hw.Chassis, hw.BiosVersion, hw.CpuModel,
+		hw.LastLoggedOnUser, hw.Timezone}
+	for _, s := range strs {
+		if len(s) > 1024 {
+			return errors.New("hardware field too long")
+		}
+	}
+	if len(hw.Disks) > 64 || len(hw.Interfaces) > 64 || len(hw.PendingRebootReasons) > 16 {
+		return errors.New("too many hardware entries")
+	}
+	for _, d := range hw.Disks {
+		if len(d.Mount) > 256 || len(d.Filesystem) > 64 {
+			return errors.New("disk field too long")
+		}
+	}
+	for _, n := range hw.Interfaces {
+		if len(n.Name) > 256 || len(n.Mac) > 64 || len(n.Addresses) > 32 {
+			return errors.New("interface field too long")
+		}
+		for _, a := range n.Addresses {
+			if len(a) > 64 {
+				return errors.New("address too long")
+			}
+		}
+	}
+	for _, r := range hw.PendingRebootReasons {
+		if len(r) > 128 {
+			return errors.New("reboot reason too long")
+		}
+	}
+	return nil
+}
+
+func clampI64(v uint64) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
+}
+
+func itoa(v uint32) string { return strconv.FormatUint(uint64(v), 10) }

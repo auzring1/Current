@@ -47,3 +47,10 @@ func HashRecoveryCode(code string) []byte {
 
 // LooksLikeRecoveryCode distinguishes recovery codes from 6-digit TOTP codes.
 func LooksLikeRecoveryCode(s string) bool { return len(NormalizeRecoveryCode(s)) == 12 }
+
+// EnrollmentTokenHash is the stored hash of an enrollment token secret.
+// Tokens are 256-bit random values, so a fast hash is appropriate.
+func EnrollmentTokenHash(secret string) []byte {
+	h := sha256.Sum256([]byte("auzring/enroll-token/v1\x00" + secret))
+	return h[:]
+}
