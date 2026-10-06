@@ -31,13 +31,13 @@ const (
 
 // Verification errors map to SecurityEvent kinds.
 var (
-	ErrUnknownKey    = errors.New("envelope: unknown or invalid signing key")
-	ErrBadSignature  = errors.New("envelope: bad signature")
-	ErrMalformed     = errors.New("envelope: malformed payload")
-	ErrWrongDevice   = errors.New("envelope: not addressed to this device")
-	ErrExpired       = errors.New("envelope: outside validity window")
-	ErrReplay        = errors.New("envelope: job already seen")
-	ErrUnsupported   = errors.New("envelope: unsupported version or type")
+	ErrUnknownKey   = errors.New("envelope: unknown or invalid signing key")
+	ErrBadSignature = errors.New("envelope: bad signature")
+	ErrMalformed    = errors.New("envelope: malformed payload")
+	ErrWrongDevice  = errors.New("envelope: not addressed to this device")
+	ErrExpired      = errors.New("envelope: outside validity window")
+	ErrReplay       = errors.New("envelope: job already seen")
+	ErrUnsupported  = errors.New("envelope: unsupported version or type")
 )
 
 // Sign serializes env and signs it with key. keyID identifies the signing cert.

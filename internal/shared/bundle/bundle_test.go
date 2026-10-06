@@ -34,12 +34,12 @@ func TestRoundTrip(t *testing.T) {
 
 func TestRejects(t *testing.T) {
 	cases := map[string]func(*Bundle){
-		"version":  func(b *Bundle) { b.V = 2 },
-		"gateway":  func(b *Bundle) { b.Gateway = "nohostport" },
-		"pin":      func(b *Bundle) { b.RootPin = "md5/abc" },
-		"pinlen":   func(b *Bundle) { b.RootPin = "sha256/YWJj" },
-		"token":    func(b *Bundle) { b.Token = "short" },
-		"org":      func(b *Bundle) { b.Org = "x" },
+		"version": func(b *Bundle) { b.V = 2 },
+		"gateway": func(b *Bundle) { b.Gateway = "nohostport" },
+		"pin":     func(b *Bundle) { b.RootPin = "md5/abc" },
+		"pinlen":  func(b *Bundle) { b.RootPin = "sha256/YWJj" },
+		"token":   func(b *Bundle) { b.Token = "short" },
+		"org":     func(b *Bundle) { b.Org = "x" },
 	}
 	for name, mut := range cases {
 		b := valid()

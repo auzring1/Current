@@ -75,6 +75,8 @@ CREATE TABLE sessions (
     abs_expires_at   timestamptz NOT NULL,
     mfa_verified_at  timestamptz,
     mfa_failures     integer NOT NULL DEFAULT 0,
+    -- TOTP secret offered to a user who must (re-)enroll MFA, sealed with the KEK.
+    pending_totp_enc bytea,
     ip               text NOT NULL DEFAULT '',
     user_agent       text NOT NULL DEFAULT '',
     csrf_token       text NOT NULL

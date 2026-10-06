@@ -125,7 +125,7 @@ type Authority struct {
 	Issuing    KeyPair
 	JobSigning KeyPair
 
-	rootPool *x509.CertPool
+	rootPool  *x509.CertPool
 	interPool *x509.CertPool
 }
 

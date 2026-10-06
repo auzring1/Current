@@ -24,9 +24,9 @@ type memLedger map[string]bool
 func (m memLedger) Seen(id string) (bool, error) { return m[id], nil }
 
 type fixture struct {
-	root    *x509.Certificate
-	signer  *x509.Certificate
-	key     ed25519.PrivateKey
+	root   *x509.Certificate
+	signer *x509.Certificate
+	key    ed25519.PrivateKey
 }
 
 func newFixture(t *testing.T) fixture {

@@ -78,7 +78,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID uuid.UUID) erro
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id_hash, user_id, created_at, last_seen_at, idle_expires_at, abs_expires_at, mfa_verified_at, mfa_failures, ip, user_agent, csrf_token FROM sessions WHERE id_hash = $1
+SELECT id_hash, user_id, created_at, last_seen_at, idle_expires_at, abs_expires_at, mfa_verified_at, mfa_failures, pending_totp_enc, ip, user_agent, csrf_token FROM sessions WHERE id_hash = $1
 `
 
 func (q *Queries) GetSession(ctx context.Context, idHash []byte) (Session, error) {
@@ -93,6 +93,7 @@ func (q *Queries) GetSession(ctx context.Context, idHash []byte) (Session, error
 		&i.AbsExpiresAt,
 		&i.MfaVerifiedAt,
 		&i.MfaFailures,
+		&i.PendingTotpEnc,
 		&i.Ip,
 		&i.UserAgent,
 		&i.CsrfToken,
@@ -109,6 +110,20 @@ func (q *Queries) IncrementSessionMFAFailures(ctx context.Context, idHash []byte
 	var mfa_failures int32
 	err := row.Scan(&mfa_failures)
 	return mfa_failures, err
+}
+
+const setSessionPendingTOTP = `-- name: SetSessionPendingTOTP :exec
+UPDATE sessions SET pending_totp_enc = $2 WHERE id_hash = $1
+`
+
+type SetSessionPendingTOTPParams struct {
+	IDHash         []byte
+	PendingTotpEnc []byte
+}
+
+func (q *Queries) SetSessionPendingTOTP(ctx context.Context, arg SetSessionPendingTOTPParams) error {
+	_, err := q.db.Exec(ctx, setSessionPendingTOTP, arg.IDHash, arg.PendingTotpEnc)
+	return err
 }
 
 const touchSession = `-- name: TouchSession :exec

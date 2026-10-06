@@ -20,3 +20,6 @@ DELETE FROM sessions WHERE user_id = $1;
 
 -- name: DeleteExpiredSessions :execrows
 DELETE FROM sessions WHERE idle_expires_at < $1 OR abs_expires_at < $1;
+
+-- name: SetSessionPendingTOTP :exec
+UPDATE sessions SET pending_totp_enc = $2 WHERE id_hash = $1;
