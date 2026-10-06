@@ -56,7 +56,7 @@ You dismissed the clarifying questions, so I went with these defaults. Changing 
 3. **Scale target: up to ~10k devices per installation** on one server container. The gateway is designed so it can be split out later, and Phase 6 includes a load test with 10k simulated agents.
 4. **Repository:** the previous Brick Breaker game has been deleted, as you instructed.
 
-Remaining decisions only you can make are listed in [DECISIONS.md, "Open decisions for the owner"](DECISIONS.md#open-decisions-for-the-owner).
+Owner decisions (resolved and still open) are tracked in [DECISIONS.md](DECISIONS.md#owner-decisions).
 
 ## 4. Phased roadmap
 
