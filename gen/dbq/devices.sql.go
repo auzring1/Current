@@ -585,7 +585,7 @@ const updateDeviceHardware = `-- name: UpdateDeviceHardware :execrows
 UPDATE devices
 SET hardware = $2, hardware_rev = $3, hardware_updated_at = $4, hostname = $5, os_caption = $6,
     os_build = $7, arch = $8, serial = $9, pending_reboot = $10
-WHERE id = $1 AND hardware_rev < $3
+WHERE id = $1
 `
 
 type UpdateDeviceHardwareParams struct {
@@ -601,6 +601,7 @@ type UpdateDeviceHardwareParams struct {
 	PendingReboot     bool
 }
 
+// Hardware is a full snapshot sent in order on one stream: latest wins.
 func (q *Queries) UpdateDeviceHardware(ctx context.Context, arg UpdateDeviceHardwareParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateDeviceHardware,
 		arg.ID,

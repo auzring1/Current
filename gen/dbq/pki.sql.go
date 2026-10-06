@@ -153,3 +153,26 @@ func (q *Queries) RevokeDeviceCertsExcept(ctx context.Context, arg RevokeDeviceC
 	)
 	return err
 }
+
+const revokeSupersededCerts = `-- name: RevokeSupersededCerts :exec
+UPDATE device_certs SET revoked_at = $3, revoke_reason = 'superseded'
+WHERE device_id = $1 AND serial <> $2 AND revoked_at IS NULL AND not_after < $4
+`
+
+type RevokeSupersededCertsParams struct {
+	DeviceID  uuid.UUID
+	Serial    string
+	RevokedAt *time.Time
+	NotAfter  time.Time
+}
+
+// Called when a device connects with a renewed certificate: older certs are retired.
+func (q *Queries) RevokeSupersededCerts(ctx context.Context, arg RevokeSupersededCertsParams) error {
+	_, err := q.db.Exec(ctx, revokeSupersededCerts,
+		arg.DeviceID,
+		arg.Serial,
+		arg.RevokedAt,
+		arg.NotAfter,
+	)
+	return err
+}

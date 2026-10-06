@@ -22,3 +22,8 @@ WHERE device_id = $1 AND revoked_at IS NULL;
 -- name: RevokeDeviceCertsExcept :exec
 UPDATE device_certs SET revoked_at = $3, revoke_reason = $4
 WHERE device_id = $1 AND serial <> $2 AND revoked_at IS NULL;
+
+-- name: RevokeSupersededCerts :exec
+-- Called when a device connects with a renewed certificate: older certs are retired.
+UPDATE device_certs SET revoked_at = $3, revoke_reason = 'superseded'
+WHERE device_id = $1 AND serial <> $2 AND revoked_at IS NULL AND not_after < $4;

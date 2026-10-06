@@ -80,4 +80,5 @@ UPDATE devices SET last_seen_at = $2, uptime_s = $3, pending_reboot = $4, logged
 UPDATE devices
 SET hardware = $2, hardware_rev = $3, hardware_updated_at = $4, hostname = $5, os_caption = $6,
     os_build = $7, arch = $8, serial = $9, pending_reboot = $10
-WHERE id = $1 AND hardware_rev < $3;
+-- Hardware is a full snapshot sent in order on one stream: latest wins.
+WHERE id = $1;
