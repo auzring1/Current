@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package auzring.agent.v1;
+
+option go_package = "github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1";
+
+enum InventorySection {
+  INVENTORY_SECTION_UNSPECIFIED = 0;
+  INVENTORY_SECTION_HARDWARE = 1;
+  INVENTORY_SECTION_USERS = 2;
+  INVENTORY_SECTION_SOFTWARE = 3;
+  INVENTORY_SECTION_WU = 4;
+}
+
+// InventoryReport carries one section. Phase 1 sends HARDWARE as a full
+// snapshot whenever it changes (it is small). SOFTWARE deltas arrive in Phase 2.
+message InventoryReport {
+  uint64 seq = 1;
+  InventorySection section = 2;
+  uint64 rev = 3;
+  oneof body {
+    HardwareInventory hardware = 10;
+  }
+}
+
+message HardwareInventory {
+  string hostname = 1;
+  string fqdn = 2;
+  string domain = 3;
+  string os_caption = 4;
+  string os_display_version = 5;
+  string os_edition = 6;
+  uint32 os_build = 7;
+  uint32 os_ubr = 8;
+  string os_version = 9;
+  string arch = 10;
+  string manufacturer = 11;
+  string model = 12;
+  string serial = 13;
+  string smbios_uuid = 14;
+  string chassis = 15;
+  string bios_version = 16;
+  string cpu_model = 17;
+  uint32 cpu_logical_cores = 18;
+  uint64 ram_bytes = 19;
+  repeated Disk disks = 20;
+  repeated NetInterface interfaces = 21;
+  string last_logged_on_user = 22;
+  bool pending_reboot = 23;
+  repeated string pending_reboot_reasons = 24;
+  string timezone = 25;
+  int64 boot_time = 26;
+}
+
+message Disk {
+  string mount = 1;
+  string filesystem = 2;
+  uint64 size_bytes = 3;
+  uint64 free_bytes = 4;
+}
+
+message NetInterface {
+  string name = 1;
+  string mac = 2;
+  repeated string addresses = 3;
+}

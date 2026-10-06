@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package auzring.agent.v1;
+
+option go_package = "github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1";
+
+// SignedEnvelope carries a job. The signature covers exactly `payload`
+// (a serialized JobEnvelope) prefixed with the domain separator
+// "auzring/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
+message SignedEnvelope {
+  bytes payload = 1;
+  bytes signature = 2;
+  bytes key_id = 3;
+}
+
+enum JobType {
+  JOB_TYPE_UNSPECIFIED = 0;
+  JOB_TYPE_INVENTORY_FULL = 1;
+  JOB_TYPE_SOFTWARE_INSTALL = 2;
+  JOB_TYPE_SOFTWARE_UNINSTALL = 3;
+  JOB_TYPE_SOFTWARE_UPDATE = 4;
+  JOB_TYPE_WU_SCAN = 5;
+  JOB_TYPE_WU_INSTALL = 6;
+  JOB_TYPE_WU_HIDE = 7;
+  JOB_TYPE_REBOOT = 8;
+  JOB_TYPE_AGENT_UPDATE = 9;
+  JOB_TYPE_CANCEL = 10;
+  JOB_TYPE_CONFIG = 11;
+}
+
+message JobEnvelope {
+  uint32 version = 1;
+  string job_id = 2;
+  string org_id = 3;
+  string device_id = 4;
+  string target_user_sid = 5;
+  int64 issued_at = 6;
+  int64 not_before = 7;
+  int64 expires_at = 8;
+  bytes nonce = 9;
+  uint32 attempt = 10;
+  string deployment_id = 11;
+  JobType type = 13;
+  oneof body {
+    InventoryBody inventory = 26;
+  }
+}
+
+// InventoryBody requests a full inventory of the listed sections (all if empty).
+message InventoryBody {
+  repeated uint32 sections = 1;
+}
