@@ -47,13 +47,13 @@ type Config struct {
 	MasterKey []byte
 
 	// DeviceCertLifetime and renewal grace (shortened only in tests).
-	DeviceCertLifetime  time.Duration
-	DeviceRenewGrace    time.Duration
-	EnrollPollInterval  time.Duration
-	HeartbeatInterval   time.Duration
-	SessionIdleTimeout  time.Duration
-	SessionAbsTimeout   time.Duration
-	LogLevel            string
+	DeviceCertLifetime time.Duration
+	DeviceRenewGrace   time.Duration
+	EnrollPollInterval time.Duration
+	HeartbeatInterval  time.Duration
+	SessionIdleTimeout time.Duration
+	SessionAbsTimeout  time.Duration
+	LogLevel           string
 }
 
 // Load reads configuration from the process environment.

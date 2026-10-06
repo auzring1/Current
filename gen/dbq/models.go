@@ -125,17 +125,18 @@ type RoleBinding struct {
 }
 
 type Session struct {
-	IDHash        []byte
-	UserID        uuid.UUID
-	CreatedAt     time.Time
-	LastSeenAt    time.Time
-	IdleExpiresAt time.Time
-	AbsExpiresAt  time.Time
-	MfaVerifiedAt *time.Time
-	MfaFailures   int32
-	Ip            string
-	UserAgent     string
-	CsrfToken     string
+	IDHash         []byte
+	UserID         uuid.UUID
+	CreatedAt      time.Time
+	LastSeenAt     time.Time
+	IdleExpiresAt  time.Time
+	AbsExpiresAt   time.Time
+	MfaVerifiedAt  *time.Time
+	MfaFailures    int32
+	PendingTotpEnc []byte
+	Ip             string
+	UserAgent      string
+	CsrfToken      string
 }
 
 type SetupState struct {
