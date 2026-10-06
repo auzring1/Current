@@ -2,16 +2,22 @@
 
 Defaults chosen during planning. Each entry can be overridden. Entries marked **OWNER** are yours to decide; the others are engineering defaults.
 
-## Open decisions for the owner
-| # | Decision | Default I'm assuming | Impact if changed later |
+## Owner decisions
+
+### Resolved (2026-10-06, Phase 1 kickoff)
+| # | Decision | Resolution |
+|---|---|---|
+| O1 | Source and distribution model | **Closed source.** Only permissive dependencies (MIT/BSD/Apache-2.0/ISC; MPL-2.0 file-level). No GPL/AGPL. Enforced by the license check in CI. |
+| O2 | Minimum Windows version | **Windows 10 1809+, Windows 11, Server 2019+.** |
+| O3 | Scale per installation | **~10,000 devices.** |
+| O4 | Product name, domain, IANA PEN, security contact | Keep codename **"Auzring"** and placeholder contacts for now. |
+| O6 | Agent installer | The agent binary is the installer: `auzring-agent.exe install --server <host:port> --token <enrollment string>` and `auzring-agent.exe uninstall`. **The MSI is built with WiX v7** (EULA accepted in the build config) as a *thin wrapper* that runs those commands. MSI work happens in **Phase 5**, not before. |
+
+### Still open
+| # | Decision | Default I'm assuming | Needed by |
 |---|---|---|---|
-| O1 | Source and distribution model | Proprietary, closed binaries; permissive-only dependencies (MIT/BSD/Apache-2.0/ISC; MPL-2.0 file-level) | High if changed to open-core (module boundaries) |
-| O2 | Minimum Windows version | Windows 10 1809+, Windows 11, Server 2019+ | Server 2016: medium (MSI/EXE only). Server 2012 R2: very high (not Go) |
-| O3 | Scale per installation | ~10k devices; single server container; gateway can be split later | 50k: medium (separate gateways, NATS or LISTEN/NOTIFY fan-out) |
-| O4 | Product name, domain, IANA PEN, security contact | Codename "Auzring"; placeholders in docs | Low |
-| O5 | Code-signing certificate for agent and MSI | Azure Trusted Signing or an OV/EV certificate held in a cloud HSM | Needed by Phase 5 |
-| O6 | WiX licensing (v6+ needs the Open Source Maintenance Fee for commercial use) | Use WiX and pay the OSMF; alternatives: WiX v5 pinned, or msitools | Low (Phase 5) |
-| O7 | Vendor release-signing key custody | Cloud KMS (e.g. AWS KMS or Azure Key Vault HSM) with a protected CI environment | Needed by Phase 5 |
+| O5 | Code-signing certificate for agent and MSI | Azure Trusted Signing or an OV/EV certificate held in a cloud HSM | Phase 5 |
+| O7 | Vendor release-signing key custody | Cloud KMS (e.g. AWS KMS or Azure Key Vault HSM) with a protected CI environment | Phase 5 |
 | O8 | License-key model (per device count? feature tiers? updates for N years?) | Ed25519-signed offline license: licensee, max devices, features, update-eligibility end date | Phase 6 |
 | O9 | Telemetry back to us | **None.** No phone-home of any kind | n/a |
 
