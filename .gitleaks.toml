@@ -1,0 +1,13 @@
+# Secret scanning config (CI: gitleaks-action). Keep allow-list entries exact
+# and justified; never allow-list whole files or paths.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secrets"
+regexes = [
+  # Throwaway admin password used only by tests/demos against ephemeral databases.
+  '''Granite-Lantern-Pickle-42''',
+  # Prose in docs/PLAN.md ("Ed25519-signed license documents").
+  '''Ed25519-signed''',
+]
