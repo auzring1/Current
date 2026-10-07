@@ -2,6 +2,7 @@ package vercmp
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -103,4 +104,14 @@ func FuzzKey(f *testing.F) {
 			t.Fatalf("key too long for %q", a)
 		}
 	})
+}
+
+func TestHugeNumericSegmentHasNoKey(t *testing.T) {
+	// Segments are capped so the one-byte digit-length prefix can never wrap.
+	if Key("1"+strings.Repeat("0", maxDigits)) != nil {
+		t.Fatal("over-long segment accepted")
+	}
+	if Key("1"+strings.Repeat("0", maxDigits-1)) == nil {
+		t.Fatal("longest allowed segment rejected")
+	}
 }

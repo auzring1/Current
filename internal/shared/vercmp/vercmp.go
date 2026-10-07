@@ -48,7 +48,7 @@ func Key(v string) []byte {
 			out = append(out, s.val...)
 			out = append(out, 0x00)
 		} else {
-			out = append(out, tagNum, byte(len(s.val)))
+			out = append(out, tagNum, byte(len(s.val))) // #nosec G115 -- parse caps segments at maxDigits
 			out = append(out, s.val...)
 		}
 		if len(out) > MaxKeyLen {

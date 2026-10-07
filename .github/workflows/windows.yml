@@ -78,6 +78,21 @@ jobs:
           $status = Get-Content "$env:ProgramData\Auzring\status.json" | ConvertFrom-Json
           if ($status.state -ne "connected") { Get-Content "$env:ProgramData\Auzring\logs\agent.log"; throw "agent not connected: $($status.state)" }
 
+          # Software and user inventory reached the server (real registry, MSI, AppX collectors).
+          $psql = "$env:PGBIN\psql.exe"
+          $n = 0
+          for ($i = 0; $i -lt 40 -and $n -lt 5; $i++) {
+            Start-Sleep -Seconds 2
+            $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_ci -tAc "SELECT coalesce(max(software_count),0) FROM devices")
+          }
+          Write-Host "software items reported: $n"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_ci -c "SELECT source, scope, count(*) FROM software_installs GROUP BY 1,2 ORDER BY 1,2"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_ci -c "SELECT username, domain, loaded, is_admin FROM device_users"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_ci -c "SELECT hardware->'disks' AS disks FROM devices"
+          if ($n -lt 5) { Get-Content "$env:ProgramData\Auzring\logs\agent.log"; throw "software inventory missing ($n items)" }
+          $u = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_ci -tAc "SELECT count(*) FROM device_users")
+          if ($u -lt 1) { throw "no user profiles reported" }
+
           # Service runs as LocalSystem with a quoted path.
           $svc = Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'"
           if ($svc.StartName -ne "LocalSystem") { throw "service account is $($svc.StartName)" }

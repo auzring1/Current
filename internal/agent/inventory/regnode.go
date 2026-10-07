@@ -18,12 +18,3 @@ type RegNode interface {
 	DWord(name string) (uint32, bool)
 	Close()
 }
-
-// openAll opens each path in turn and returns the first that exists.
-func openIf(n RegNode, path string) RegNode {
-	sub, err := n.Open(path)
-	if err != nil {
-		return nil
-	}
-	return sub
-}

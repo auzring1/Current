@@ -75,16 +75,15 @@ func addApp(root *fakeNode, uninstallPath, key, name, version string) *fakeNode 
 
 // fakePlatform implements Platform from in-memory data.
 type fakePlatform struct {
-	hklm      *fakeNode
-	hives     map[string]*fakeNode // SID -> hive root
-	hiveErr   map[string]error
-	profiles  []Profile
-	profErr   error
-	msi       []MSIProduct
-	msiErr    error
-	dirs      map[string][]DirEntry
-	pf        string
-	collected int
+	hklm     *fakeNode
+	hives    map[string]*fakeNode // SID -> hive root
+	hiveErr  map[string]error
+	profiles []Profile
+	profErr  error
+	msi      []MSIProduct
+	msiErr   error
+	dirs     map[string][]DirEntry
+	pf       string
 }
 
 func newFakePlatform() *fakePlatform {
