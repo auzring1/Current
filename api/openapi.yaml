@@ -16,6 +16,9 @@ tags:
   - name: devices
   - name: enrollment
   - name: audit
+  - name: inventory
+  - name: groups
+  - name: reports
 paths:
   /setup/status:
     get:
@@ -290,6 +293,273 @@ paths:
                 required: [items]
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+  /devices/{id}/software:
+    get:
+      tags: [inventory]
+      summary: Software installed on a device (requires devices:read)
+      description: System components (hidden in Add/Remove Programs) are omitted unless `include_system=true`.
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: include_system, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, revision, truncated]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DeviceSoftware" } }
+                  total: { type: integer }
+                  revision: { type: integer, description: Software inventory revision applied by the server }
+                  updated_at: { type: string, format: date-time, nullable: true }
+                  truncated: { type: boolean, description: The agent hit its item cap; the list is incomplete }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/software/history:
+    get:
+      tags: [inventory]
+      summary: Software installs, removals and version changes on a device, newest first (requires devices:read)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: before, in: query, description: Return entries with an id below this one, schema: { type: integer, minimum: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/SoftwareChange" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/users:
+    get:
+      tags: [inventory]
+      summary: User profiles on a device (requires devices:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DeviceUser" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /software:
+    get:
+      tags: [inventory]
+      summary: Fleet-wide software, one row per product (requires devices:read)
+      description: Products are grouped by normalized title, so "7-Zip 23.01 (x64)" and "7-Zip 24.08" are one product.
+      parameters:
+        - { name: q, in: query, description: Case-insensitive substring of product or publisher, schema: { type: string, maxLength: 200 } }
+        - { name: include_system, in: query, schema: { type: boolean, default: false } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/SoftwareTitle" } }
+                  total: { type: integer }
+  /software/{id}:
+    get:
+      tags: [inventory]
+      summary: One product with its versions across the fleet, newest first (requires devices:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name, publisher, versions]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  publisher: { type: string }
+                  versions:
+                    type: array
+                    items:
+                      type: object
+                      required: [version, device_count]
+                      properties:
+                        version: { type: string }
+                        device_count: { type: integer }
+        "404": { $ref: "#/components/responses/Error" }
+  /software/{id}/installs:
+    get:
+      tags: [inventory]
+      summary: Devices that have a product (requires devices:read)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: version, in: query, description: Exact version string, schema: { type: string, maxLength: 128 } }
+        - { name: older_than, in: query, description: Only installs with a version strictly lower than this, schema: { type: string, maxLength: 128 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/TitleInstall" } }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /groups:
+    get:
+      tags: [groups]
+      summary: Dynamic groups (requires groups:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Group" } }
+    post:
+      tags: [groups]
+      summary: Create a dynamic group (requires groups:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /groups/preview:
+    post:
+      tags: [groups]
+      summary: Evaluate an unsaved filter and list the matching devices (requires groups:read)
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [filter]
+              properties:
+                filter: { $ref: "#/components/schemas/Filter" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupMembers" }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /groups/{id}:
+    get:
+      tags: [groups]
+      summary: One group (requires groups:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [groups]
+      summary: Replace a group's name, description and filter (requires groups:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [groups]
+      summary: Delete a group (requires groups:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /groups/{id}/devices:
+    get:
+      tags: [groups]
+      summary: Current members of a dynamic group (requires groups:read)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupMembers" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /reports/software.csv:
+    get:
+      tags: [reports]
+      summary: CSV of every install on active devices (requires inventory:export; audited)
+      description: Cells that would be read as spreadsheet formulas (leading `=`, `+`, `-`, `@`, tab, CR) are prefixed with `'`.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: title_id, in: query, schema: { type: string, format: uuid } }
+        - { name: include_system, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: CSV download
+          content:
+            text/csv:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /reports/devices.csv:
+    get:
+      tags: [reports]
+      summary: CSV of active devices, optionally one group's members (requires inventory:export; audited)
+      parameters:
+        - { name: group_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: CSV download
+          content:
+            text/csv:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /events:
     get:
       tags: [devices]
@@ -376,6 +646,131 @@ components:
             name: { type: string }
         permissions: { type: array, items: { type: string } }
         csrf_token: { type: string }
+    DeviceSoftware:
+      type: object
+      required: [title_id, name, version, source, scope, system_component, first_seen_at, last_seen_at]
+      properties:
+        title_id: { type: string, format: uuid }
+        name: { type: string }
+        version: { type: string }
+        publisher: { type: string }
+        source: { type: string, enum: [reg64, reg32, hku, hku32, msi, appx, portable] }
+        scope: { type: string, enum: [machine, user] }
+        user_sid: { type: string, description: Empty for machine-scope installs }
+        install_date: { type: string }
+        install_location: { type: string }
+        product_code: { type: string }
+        system_component: { type: boolean }
+        first_seen_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+    SoftwareChange:
+      type: object
+      required: [id, name, scope, change, observed_at]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        scope: { type: string }
+        user_sid: { type: string }
+        change: { type: string, enum: [added, removed, version] }
+        old_version: { type: string }
+        new_version: { type: string }
+        observed_at: { type: string, format: date-time }
+    DeviceUser:
+      type: object
+      required: [sid, username, domain, loaded, is_admin]
+      properties:
+        sid: { type: string }
+        username: { type: string }
+        domain: { type: string }
+        profile_path: { type: string }
+        last_logon_at: { type: string, format: date-time, nullable: true }
+        loaded: { type: boolean }
+        is_admin: { type: boolean }
+    SoftwareTitle:
+      type: object
+      required: [id, name, publisher, device_count, version_count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        publisher: { type: string }
+        device_count: { type: integer }
+        version_count: { type: integer }
+    TitleInstall:
+      type: object
+      required: [device_id, hostname, online, version, scope, source]
+      properties:
+        device_id: { type: string, format: uuid }
+        hostname: { type: string }
+        online: { type: boolean }
+        version: { type: string }
+        scope: { type: string }
+        user_sid: { type: string }
+        source: { type: string }
+        install_date: { type: string }
+        install_location: { type: string }
+        last_seen_at: { type: string, format: date-time }
+    Filter:
+      type: object
+      description: |
+        Filter tree. `op` is one of `and`, `or`, `not` (use `children`), `device`
+        (`field`, `cmp`, `value`) or `software` (`title`, optional `match`, `publisher`,
+        `version`, `scope`). Allowed fields and limits are in docs/DATA_MODEL.md.
+      required: [op]
+      properties:
+        op: { type: string, enum: [and, or, not, device, software] }
+        children: { type: array, items: { $ref: "#/components/schemas/Filter" } }
+        field: { type: string }
+        cmp: { type: string }
+        value: {}
+        title: { type: string }
+        match: { type: string, enum: [exact, prefix, contains] }
+        publisher: { type: string }
+        scope: { type: string, enum: [machine, user] }
+        version:
+          type: object
+          required: [cmp, value]
+          properties:
+            cmp: { type: string, enum: [lt, le, gt, ge, eq, ne] }
+            value: { type: string }
+    GroupInput:
+      type: object
+      additionalProperties: false
+      required: [name, filter]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 1000 }
+        filter: { $ref: "#/components/schemas/Filter" }
+    Group:
+      type: object
+      required: [id, name, description, filter, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        filter: { $ref: "#/components/schemas/Filter" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    GroupMembers:
+      type: object
+      required: [items, total]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, hostname, online]
+            properties:
+              id: { type: string, format: uuid }
+              hostname: { type: string }
+              chassis: { type: string }
+              manufacturer: { type: string }
+              model: { type: string }
+              os_caption: { type: string }
+              os_build: { type: string }
+              online: { type: boolean }
+              last_seen_at: { type: string, format: date-time, nullable: true }
+              software_count: { type: integer }
     Device:
       type: object
       required: [id, site_id, status, hostname, online, enrolled_at]
@@ -402,6 +797,10 @@ components:
         pending_reboot: { type: boolean }
         logged_on_user: { type: string }
         replaces_device_id: { type: string, format: uuid, nullable: true }
+        chassis: { type: string }
+        software_count: { type: integer }
+        software_updated_at: { type: string, format: date-time, nullable: true }
+        inventory_truncated: { type: boolean }
         hardware: { $ref: "#/components/schemas/Hardware" }
         certificates:
           type: array
@@ -445,6 +844,7 @@ components:
               filesystem: { type: string }
               size_bytes: { type: string }
               free_bytes: { type: string }
+              bitlocker: { type: string, enum: [protected, unprotected, encrypting, decrypting, unknown, unsupported, ""] }
         interfaces:
           type: array
           items:

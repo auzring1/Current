@@ -9,6 +9,9 @@ const (
 	PermEnrollmentRead  = "enrollment:read"
 	PermEnrollmentWrite = "enrollment:write"
 	PermAuditRead       = "audit:read"
+	PermGroupsRead      = "groups:read"
+	PermGroupsWrite     = "groups:write"
+	PermInventoryExport = "inventory:export"
 )
 
 // Roles.
@@ -19,9 +22,10 @@ const (
 )
 
 var rolePerms = map[string][]string{
-	RoleAdmin:    {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermEnrollmentWrite, PermAuditRead},
-	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead},
-	RoleReadOnly: {PermDevicesRead},
+	RoleAdmin: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermEnrollmentWrite, PermAuditRead,
+		PermGroupsRead, PermGroupsWrite, PermInventoryExport},
+	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermGroupsRead, PermGroupsWrite, PermInventoryExport},
+	RoleReadOnly: {PermDevicesRead, PermGroupsRead},
 }
 
 // PermissionsFor returns the sorted union of permissions for org-scoped roles.

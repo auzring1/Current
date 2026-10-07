@@ -648,6 +648,619 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/devices/{id}/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Software installed on a device (requires devices:read)
+         * @description System components (hidden in Add/Remove Programs) are omitted unless `include_system=true`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    include_system?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["DeviceSoftware"][];
+                            total: number;
+                            /** @description Software inventory revision applied by the server */
+                            revision: number;
+                            /** Format: date-time */
+                            updated_at?: string | null;
+                            /** @description The agent hit its item cap; the list is incomplete */
+                            truncated: boolean;
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/software/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Software installs, removals and version changes on a device, newest first (requires devices:read) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Return entries with an id below this one */
+                    before?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SoftwareChange"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** User profiles on a device (requires devices:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["DeviceUser"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet-wide software, one row per product (requires devices:read)
+         * @description Products are grouped by normalized title, so "7-Zip 23.01 (x64)" and "7-Zip 24.08" are one product.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Case-insensitive substring of product or publisher */
+                    q?: string;
+                    include_system?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SoftwareTitle"][];
+                            total: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/software/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One product with its versions across the fleet, newest first (requires devices:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            publisher: string;
+                            versions: {
+                                version: string;
+                                device_count: number;
+                            }[];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/software/{id}/installs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices that have a product (requires devices:read) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Exact version string */
+                    version?: string;
+                    /** @description Only installs with a version strictly lower than this */
+                    older_than?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["TitleInstall"][];
+                            total: number;
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dynamic groups (requires groups:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Group"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a dynamic group (requires groups:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GroupInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate an unsaved filter and list the matching devices (requires groups:read) */
+        post: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        filter: components["schemas"]["Filter"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupMembers"];
+                    };
+                };
+                422: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One group (requires groups:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        /** Replace a group's name, description and filter (requires groups:write) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GroupInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Delete a group (requires groups:write) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current members of a dynamic group (requires groups:read) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupMembers"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/software.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * CSV of every install on active devices (requires inventory:export; audited)
+         * @description Cells that would be read as spreadsheet formulas (leading `=`, `+`, `-`, `@`, tab, CR) are prefixed with `'`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    title_id?: string;
+                    include_system?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV download */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/devices.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CSV of active devices, optionally one group's members (requires inventory:export; audited) */
+        get: {
+            parameters: {
+                query?: {
+                    group_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV download */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -716,6 +1329,128 @@ export interface components {
             permissions: string[];
             csrf_token: string;
         };
+        DeviceSoftware: {
+            /** Format: uuid */
+            title_id: string;
+            name: string;
+            version: string;
+            publisher?: string;
+            /** @enum {string} */
+            source: "reg64" | "reg32" | "hku" | "hku32" | "msi" | "appx" | "portable";
+            /** @enum {string} */
+            scope: "machine" | "user";
+            /** @description Empty for machine-scope installs */
+            user_sid?: string;
+            install_date?: string;
+            install_location?: string;
+            product_code?: string;
+            system_component: boolean;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+        };
+        SoftwareChange: {
+            id: number;
+            name: string;
+            scope: string;
+            user_sid?: string;
+            /** @enum {string} */
+            change: "added" | "removed" | "version";
+            old_version?: string;
+            new_version?: string;
+            /** Format: date-time */
+            observed_at: string;
+        };
+        DeviceUser: {
+            sid: string;
+            username: string;
+            domain: string;
+            profile_path?: string;
+            /** Format: date-time */
+            last_logon_at?: string | null;
+            loaded: boolean;
+            is_admin: boolean;
+        };
+        SoftwareTitle: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            publisher: string;
+            device_count: number;
+            version_count: number;
+        };
+        TitleInstall: {
+            /** Format: uuid */
+            device_id: string;
+            hostname: string;
+            online: boolean;
+            version: string;
+            scope: string;
+            user_sid?: string;
+            source: string;
+            install_date?: string;
+            install_location?: string;
+            /** Format: date-time */
+            last_seen_at?: string;
+        };
+        /**
+         * @description Filter tree. `op` is one of `and`, `or`, `not` (use `children`), `device`
+         *     (`field`, `cmp`, `value`) or `software` (`title`, optional `match`, `publisher`,
+         *     `version`, `scope`). Allowed fields and limits are in docs/DATA_MODEL.md.
+         */
+        Filter: {
+            /** @enum {string} */
+            op: "and" | "or" | "not" | "device" | "software";
+            children?: components["schemas"]["Filter"][];
+            field?: string;
+            cmp?: string;
+            value?: unknown;
+            title?: string;
+            /** @enum {string} */
+            match?: "exact" | "prefix" | "contains";
+            publisher?: string;
+            /** @enum {string} */
+            scope?: "machine" | "user";
+            version?: {
+                /** @enum {string} */
+                cmp: "lt" | "le" | "gt" | "ge" | "eq" | "ne";
+                value: string;
+            };
+        };
+        GroupInput: {
+            name: string;
+            description?: string;
+            filter: components["schemas"]["Filter"];
+        };
+        Group: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            filter: components["schemas"]["Filter"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        GroupMembers: {
+            total: number;
+            items: {
+                /** Format: uuid */
+                id: string;
+                hostname: string;
+                chassis?: string;
+                manufacturer?: string;
+                model?: string;
+                os_caption?: string;
+                os_build?: string;
+                online: boolean;
+                /** Format: date-time */
+                last_seen_at?: string | null;
+                software_count?: number;
+            }[];
+        };
         Device: {
             /** Format: uuid */
             id: string;
@@ -747,6 +1482,11 @@ export interface components {
             logged_on_user?: string;
             /** Format: uuid */
             replaces_device_id?: string | null;
+            chassis?: string;
+            software_count?: number;
+            /** Format: date-time */
+            software_updated_at?: string | null;
+            inventory_truncated?: boolean;
             hardware?: components["schemas"]["Hardware"];
             certificates?: {
                 serial: string;
@@ -785,6 +1525,8 @@ export interface components {
                 filesystem?: string;
                 size_bytes?: string;
                 free_bytes?: string;
+                /** @enum {string} */
+                bitlocker?: "protected" | "unprotected" | "encrypting" | "decrypting" | "unknown" | "unsupported" | "";
             }[];
             interfaces?: {
                 name?: string;

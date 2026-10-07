@@ -35,6 +35,30 @@ func (q *Queries) FinishSoftwareSync(ctx context.Context, arg FinishSoftwareSync
 	return err
 }
 
+const getSoftwareTitle = `-- name: GetSoftwareTitle :one
+SELECT id, org_id, normalized_name, normalized_publisher, display_name, display_publisher, created_at FROM software_titles WHERE id = $1::uuid AND org_id = $2::uuid
+`
+
+type GetSoftwareTitleParams struct {
+	ID    uuid.UUID
+	OrgID uuid.UUID
+}
+
+func (q *Queries) GetSoftwareTitle(ctx context.Context, arg GetSoftwareTitleParams) (SoftwareTitle, error) {
+	row := q.db.QueryRow(ctx, getSoftwareTitle, arg.ID, arg.OrgID)
+	var i SoftwareTitle
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.NormalizedName,
+		&i.NormalizedPublisher,
+		&i.DisplayName,
+		&i.DisplayPublisher,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listDeviceSoftware = `-- name: ListDeviceSoftware :many
 SELECT si.source, si.scope, si.user_sid, si.item_key, si.title_id, si.name, si.version, si.publisher,
        si.install_date, si.install_location, si.uninstall_string, si.quiet_uninstall_string, si.product_code,
@@ -107,13 +131,14 @@ func (q *Queries) ListDeviceSoftware(ctx context.Context, arg ListDeviceSoftware
 
 const listDeviceSoftwareHistory = `-- name: ListDeviceSoftwareHistory :many
 SELECT id, title_id, name, scope, user_sid, change, old_version, new_version, observed_at
-FROM software_history WHERE device_id = $1 AND ($2::bigint = 0 OR id < $2) ORDER BY id DESC LIMIT $3
+FROM software_history WHERE device_id = $1::uuid AND ($2::bigint = 0 OR id < $2::bigint)
+ORDER BY id DESC LIMIT $3::int
 `
 
 type ListDeviceSoftwareHistoryParams struct {
 	DeviceID uuid.UUID
-	Column2  int64
-	Limit    int32
+	BeforeID int64
+	RowLimit int32
 }
 
 type ListDeviceSoftwareHistoryRow struct {
@@ -129,7 +154,7 @@ type ListDeviceSoftwareHistoryRow struct {
 }
 
 func (q *Queries) ListDeviceSoftwareHistory(ctx context.Context, arg ListDeviceSoftwareHistoryParams) ([]ListDeviceSoftwareHistoryRow, error) {
-	rows, err := q.db.Query(ctx, listDeviceSoftwareHistory, arg.DeviceID, arg.Column2, arg.Limit)
+	rows, err := q.db.Query(ctx, listDeviceSoftwareHistory, arg.DeviceID, arg.BeforeID, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +206,121 @@ func (q *Queries) ListDeviceUsers(ctx context.Context, deviceID uuid.UUID) ([]De
 			&i.Loaded,
 			&i.IsAdmin,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitleInstalls = `-- name: ListTitleInstalls :many
+SELECT d.id AS device_id, d.hostname, d.online, si.version, si.scope, si.user_sid, si.source,
+       si.install_date, si.install_location, si.last_seen_at,
+       count(*) OVER ()::bigint AS total
+FROM software_installs si
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE si.title_id = $1::uuid AND d.org_id = $2::uuid
+  AND ($3::text = '' OR si.version = $3::text)
+  AND ($4::bytea IS NULL OR si.version_key < $4::bytea)
+ORDER BY lower(d.hostname), d.id, si.user_sid, si.source, si.item_key
+LIMIT $6::int OFFSET $5::int
+`
+
+type ListTitleInstallsParams struct {
+	TitleID   uuid.UUID
+	OrgID     uuid.UUID
+	Version   string
+	OlderThan []byte
+	RowOffset int32
+	RowLimit  int32
+}
+
+type ListTitleInstallsRow struct {
+	DeviceID        uuid.UUID
+	Hostname        string
+	Online          bool
+	Version         string
+	Scope           string
+	UserSid         string
+	Source          string
+	InstallDate     string
+	InstallLocation string
+	LastSeenAt      time.Time
+	Total           int64
+}
+
+func (q *Queries) ListTitleInstalls(ctx context.Context, arg ListTitleInstallsParams) ([]ListTitleInstallsRow, error) {
+	rows, err := q.db.Query(ctx, listTitleInstalls,
+		arg.TitleID,
+		arg.OrgID,
+		arg.Version,
+		arg.OlderThan,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitleInstallsRow{}
+	for rows.Next() {
+		var i ListTitleInstallsRow
+		if err := rows.Scan(
+			&i.DeviceID,
+			&i.Hostname,
+			&i.Online,
+			&i.Version,
+			&i.Scope,
+			&i.UserSid,
+			&i.Source,
+			&i.InstallDate,
+			&i.InstallLocation,
+			&i.LastSeenAt,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitleVersions = `-- name: ListTitleVersions :many
+SELECT si.version, count(DISTINCT si.device_id)::int AS device_count
+FROM software_installs si
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE si.title_id = $1::uuid AND d.org_id = $2::uuid
+GROUP BY si.version, si.version_key
+ORDER BY si.version_key DESC NULLS LAST, si.version
+`
+
+type ListTitleVersionsParams struct {
+	TitleID uuid.UUID
+	OrgID   uuid.UUID
+}
+
+type ListTitleVersionsRow struct {
+	Version     string
+	DeviceCount int32
+}
+
+// Versions of one product across the fleet, newest first (by comparable version key).
+func (q *Queries) ListTitleVersions(ctx context.Context, arg ListTitleVersionsParams) ([]ListTitleVersionsRow, error) {
+	rows, err := q.db.Query(ctx, listTitleVersions, arg.TitleID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitleVersionsRow{}
+	for rows.Next() {
+		var i ListTitleVersionsRow
+		if err := rows.Scan(&i.Version, &i.DeviceCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -335,6 +475,73 @@ type ReplaceUsersDeleteParams struct {
 func (q *Queries) ReplaceUsersDelete(ctx context.Context, arg ReplaceUsersDeleteParams) error {
 	_, err := q.db.Exec(ctx, replaceUsersDelete, arg.DeviceID, arg.Sids)
 	return err
+}
+
+const searchSoftwareTitles = `-- name: SearchSoftwareTitles :many
+SELECT st.id, st.display_name, st.display_publisher,
+       count(DISTINCT si.device_id)::int AS device_count,
+       count(DISTINCT si.version)::int AS version_count,
+       count(*) OVER ()::bigint AS total
+FROM software_titles st
+JOIN software_installs si ON si.title_id = st.id
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE st.org_id = $1::uuid
+  AND ($2::boolean OR NOT si.system_component)
+  AND ($3::text = '' OR strpos(st.normalized_name, $3::text) > 0 OR strpos(st.normalized_publisher, $3::text) > 0)
+GROUP BY st.id
+ORDER BY device_count DESC, lower(st.display_name), st.id
+LIMIT $5::int OFFSET $4::int
+`
+
+type SearchSoftwareTitlesParams struct {
+	OrgID         uuid.UUID
+	IncludeSystem bool
+	Q             string
+	RowOffset     int32
+	RowLimit      int32
+}
+
+type SearchSoftwareTitlesRow struct {
+	ID               uuid.UUID
+	DisplayName      string
+	DisplayPublisher string
+	DeviceCount      int32
+	VersionCount     int32
+	Total            int64
+}
+
+// Fleet-wide software list: one row per product with how many (active) devices have it.
+func (q *Queries) SearchSoftwareTitles(ctx context.Context, arg SearchSoftwareTitlesParams) ([]SearchSoftwareTitlesRow, error) {
+	rows, err := q.db.Query(ctx, searchSoftwareTitles,
+		arg.OrgID,
+		arg.IncludeSystem,
+		arg.Q,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchSoftwareTitlesRow{}
+	for rows.Next() {
+		var i SearchSoftwareTitlesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.DisplayPublisher,
+			&i.DeviceCount,
+			&i.VersionCount,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setUsersRev = `-- name: SetUsersRev :exec
