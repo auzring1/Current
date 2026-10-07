@@ -153,6 +153,23 @@ message JobResult {
   int64 started_at = 8;
   int64 finished_at = 9;
   bool already_satisfied = 10;       // pre-check found the target state; nothing was run
+  repeated WuUpdateResult wu_results = 11;  // WU_INSTALL: one entry per requested update
+}
+
+enum WuResult {
+  WU_RESULT_UNSPECIFIED = 0;
+  WU_RESULT_INSTALLED = 1;
+  WU_RESULT_INSTALLED_REBOOT = 2;     // installed, restart required to finish
+  WU_RESULT_FAILED = 3;
+  WU_RESULT_NOT_APPLICABLE = 4;       // the scan no longer offers it (already installed or superseded)
+  WU_RESULT_DOWNLOAD_FAILED = 5;
+}
+
+message WuUpdateResult {
+  string update_id = 1;
+  int32 revision = 2;
+  WuResult result = 3;
+  int32 hresult = 4;
 }
 
 message FetchContentRequest {

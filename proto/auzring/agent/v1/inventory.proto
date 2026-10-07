@@ -24,6 +24,7 @@ message InventoryReport {
     UsersInventory users = 11;
     SoftwareDelta software_delta = 12;
     SoftwareChunk software_chunk = 13;
+    WuInventory wu = 14;
   }
   // True when the agent hit its item cap and the inventory is incomplete.
   bool truncated = 20;
@@ -142,4 +143,60 @@ message NetInterface {
   string name = 1;
   string mac = 2;
   repeated string addresses = 3;
+}
+
+// ---- Windows Update (Phase 4) ----
+
+enum WuUpdateState {
+  WU_UPDATE_STATE_UNSPECIFIED = 0;
+  WU_UPDATE_STATE_MISSING = 1;         // applicable and not installed
+  WU_UPDATE_STATE_DOWNLOADED = 2;      // applicable, content already on the machine
+  WU_UPDATE_STATE_HIDDEN = 3;          // applicable but hidden (declined) on this machine
+  WU_UPDATE_STATE_PENDING_REBOOT = 4;  // installed, waiting for a restart
+  WU_UPDATE_STATE_FAILED = 5;          // the last installation attempt failed
+}
+
+message WuUpdate {
+  string update_id = 1;
+  int32 revision = 2;
+  string title = 3;
+  repeated string kb = 4;
+  string classification = 5;        // "Security Updates", "Critical Updates", "Drivers", ...
+  string severity = 6;              // MSRC: Critical | Important | Moderate | Low | "" (unrated)
+  repeated string products = 7;
+  bool is_driver = 8;
+  string driver_class = 9;
+  string driver_hwid = 10;
+  string driver_version = 11;
+  int64 release_date = 12;          // unix seconds, 0 = unknown
+  string support_url = 13;
+  uint64 size_bytes = 14;
+  bool reboot_required = 15;        // installing it needs a restart
+  WuUpdateState state = 16;
+  string last_error = 17;           // e.g. "0x80070643" for FAILED
+}
+
+// WuPolicyInfo says who is in charge of updates on this machine, so administrators are not
+// surprised when another tool (WSUS, Intune, a GPO) fights Auzring.
+message WuPolicyInfo {
+  bool wsus_configured = 1;         // UseWUServer = 1
+  string wsus_server = 2;
+  bool wufb_deferrals = 3;          // quality/feature deferral or pause policies present
+  bool no_auto_update = 4;          // "Configure Automatic Updates" = disabled
+  uint32 au_options = 5;            // AUOptions when the GPO is set, else 0
+  bool active_hours_policy = 6;
+  bool wu_service_disabled = 7;     // the wuauserv service cannot start
+  string effective_source = 8;      // "windows_update" | "microsoft_update" | "wsus"
+  repeated string notes = 9;
+}
+
+// WuInventory is a full snapshot of what Windows Update says about this machine.
+message WuInventory {
+  repeated WuUpdate updates = 1;
+  WuPolicyInfo policy = 2;
+  bool reboot_required = 3;
+  int64 scanned_at = 4;
+  int32 service = 5;                // WuService used for the scan
+  bool truncated = 6;
+  string scan_error = 7;            // set when the scan failed; updates is then empty
 }
