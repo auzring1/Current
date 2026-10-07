@@ -20,6 +20,17 @@ func IsService() bool {
 
 type handler struct{ run func(context.Context) error }
 
+var restartReq = make(chan struct{}, 1)
+
+// RequestRestart makes the service stop with a failure exit code, so the service manager's
+// recovery action starts it again (used after an agent update switched the binary slot).
+func RequestRestart() {
+	select {
+	case restartReq <- struct{}{}:
+	default:
+	}
+}
+
 // Run hands control to the SCM until the service is stopped.
 func Run(name string, run func(context.Context) error) error {
 	return svc.Run(name, &handler{run: run})
@@ -49,6 +60,14 @@ func (h *handler) Execute(_ []string, req <-chan svc.ChangeRequest, st chan<- sv
 				}
 				return false, 0
 			}
+		case <-restartReq:
+			st <- svc.Status{State: svc.StopPending, WaitHint: 20000}
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(20 * time.Second):
+			}
+			return false, 1 // non-zero: counts as a failure, so the restart recovery action fires
 		case err := <-done:
 			cancel()
 			if err != nil {

@@ -119,6 +119,9 @@ func Install(o Options) error {
 		{Type: mgr.ServiceRestart, Delay: 2 * time.Minute},
 	}, 24*60*60); err != nil {
 		fmt.Fprintln(o.Out, "warning: could not set service recovery actions:", err)
+	} else if err := s.SetRecoveryActionsOnNonCrashFailures(true); err != nil {
+		// Needed so that a deliberate non-zero exit (restart into an updated version) is restarted.
+		fmt.Fprintln(o.Out, "warning: could not enable restart after a non-zero exit:", err)
 	}
 	if err := setServiceDACL(s.Handle); err != nil {
 		fmt.Fprintln(o.Out, "warning: could not restrict service permissions:", err)

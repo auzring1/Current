@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/selfupdate"
 	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
@@ -422,6 +423,14 @@ func tailFile(path string) string {
 // ---- Windows Update and restarts ----
 
 // WindowsUpdate returns the WUA client.
+func (p *winPlatform) SelfUpdater() selfupdate.Platform {
+	return selfupdate.NewWindows(p.dataDir, func() {
+		if RequestServiceRestart != nil {
+			RequestServiceRestart()
+		}
+	})
+}
+
 func (p *winPlatform) WindowsUpdate() wu.Client { return wu.NewClient(p.dataDir) }
 
 var procAbortShutdown = windows.NewLazySystemDLL("advapi32.dll").NewProc("AbortSystemShutdownW")

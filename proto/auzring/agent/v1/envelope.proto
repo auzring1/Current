@@ -51,6 +51,7 @@ message JobEnvelope {
     WuHideBody wu_hide = 24;
     RebootBody reboot = 25;
     InventoryBody inventory = 26;
+    AgentUpdateBody agent_update = 27;
     CancelBody cancel = 28;
   }
 }
@@ -254,6 +255,16 @@ message UninstallBody {
   // the agent removes the row only if its DisplayVersion is older than this version, and
   // treats a row that is already gone as success. Empty = unconditional uninstall.
   string remove_older_than = 12;
+}
+
+// AgentUpdateBody carries a vendor-signed release manifest. The customer server signs the job
+// (the usual envelope), but the agent trusts the release only because the manifest verifies
+// under a vendor release key compiled into the agent (docs/PROTOCOL.md §5.4).
+message AgentUpdateBody {
+  bytes manifest = 1;     // the exact bytes the vendor signed (JSON, see internal/shared/release)
+  bytes signature = 2;    // Ed25519 over "auzring/release/v1\0" || manifest
+  bytes key_id = 3;       // first 8 bytes of SHA-256 of the vendor public key
+  uint32 timeout_s = 4;
 }
 
 message CancelBody {

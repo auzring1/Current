@@ -71,3 +71,6 @@ web/test-results/
 web/playwright-report/
 web/blob-report/
 *.tsbuildinfo
+
+# Local Claude Code state (agent worktrees)
+.claude/

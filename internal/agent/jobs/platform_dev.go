@@ -11,10 +11,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/selfupdate"
 	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
@@ -23,8 +25,10 @@ import (
 // browser test. It runs "installers" as plain executables and has no registry,
 // so detection uses files. It is never shipped (the product agent is Windows-only).
 type devPlatform struct {
-	dir string
-	pf  string
+	dir    string
+	pf     string
+	suOnce sync.Once
+	su     *selfupdate.Dev
 }
 
 // NewPlatform returns the development platform rooted at dataDir. The fake
@@ -113,6 +117,15 @@ func (p *devPlatform) Run(ctx context.Context, s RunSpec) (RunResult, error) {
 }
 
 // WindowsUpdate is the scripted development client (see wu.DevFile).
+// SelfUpdater returns the development slot simulation (one instance per platform so tests can hook its restart).
+func (p *devPlatform) SelfUpdater() selfupdate.Platform { return p.Dev() }
+
+// Dev exposes the slot simulation to tests and the browser test.
+func (p *devPlatform) Dev() *selfupdate.Dev {
+	p.suOnce.Do(func() { p.su = selfupdate.NewDev(p.dir) })
+	return p.su
+}
+
 func (p *devPlatform) WindowsUpdate() wu.Client { return wu.NewClient(p.dir) }
 
 // Reboot records the request instead of restarting the developer's machine.

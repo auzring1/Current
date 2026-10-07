@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -43,6 +44,13 @@ type Engine struct {
 	PollUserJobs time.Duration
 	// MaxIdle bounds how long the loop sleeps without any wake source (default 5 min).
 	MaxIdle time.Duration
+	// DataDir, Version and ReleaseKeys support agent self-update. ReleaseKeys defaults to the
+	// vendor keys compiled into the binary (tests inject their own).
+	DataDir     string
+	Version     string
+	ReleaseKeys []ed25519.PublicKey
+	// RollbackWindow overrides the time a new version has to become healthy (tests).
+	RollbackWindow time.Duration
 	// Trust returns the pinned root, job-signing certificates and identity the
 	// user-context helper needs to re-verify a job.
 	Trust func() (root []byte, signing [][]byte, deviceID, orgID string)
@@ -185,6 +193,12 @@ func (e *Engine) Accept(se *agentv1.SignedEnvelope, env *agentv1.JobEnvelope) {
 			return
 		}
 		e.setState(r, agentv1.JobState_JOB_STATE_ACCEPTED, "", nil)
+	case agentv1.JobType_JOB_TYPE_AGENT_UPDATE:
+		if err := ValidateAgentUpdate(env); err != nil {
+			reject(err.Error(), agentv1.SecurityEventKind_SECURITY_EVENT_KIND_UNSPECIFIED)
+			return
+		}
+		e.setState(r, agentv1.JobState_JOB_STATE_ACCEPTED, "", nil)
 	default:
 		reject("unsupported job type", agentv1.SecurityEventKind_SECURITY_EVENT_KIND_UNSPECIFIED)
 		return
@@ -212,6 +226,7 @@ func (e *Engine) cancelJob(target string, self *Record) {
 // Run processes the queue until ctx ends.
 func (e *Engine) Run(ctx context.Context) {
 	e.init()
+	e.SelfUpdateStartup()
 	var sessions <-chan struct{}
 	if e.P != nil {
 		sessions = e.P.SessionEvents()
@@ -275,6 +290,14 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 		if r.terminal() {
 			if r.Keep > 0 && now.Unix() > r.Keep {
 				_ = e.Store.JobDelete(r.JobID)
+			}
+			continue
+		}
+		if r.AwaitRestart {
+			// An agent update waits for the restart. If the outcome never arrives (state lost), do
+			// not leave the job hanging forever.
+			if r.Started > 0 && now.Unix() > r.Started+3600 {
+				e.finishAwait(r.JobID, false, "the outcome of the agent update is unknown")
 			}
 			continue
 		}
@@ -361,9 +384,14 @@ func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope
 		out = e.wuHide(jctx, env)
 	case agentv1.JobType_JOB_TYPE_REBOOT:
 		out = e.rebootJob(env)
+	case agentv1.JobType_JOB_TYPE_AGENT_UPDATE:
+		out = e.agentUpdate(jctx, r, env)
 	}
 	if out == nil {
 		out = fail("unsupported job type")
+	}
+	if out.deferred { // the service is restarting into a new version; the job ends after that
+		return
 	}
 	now := e.now()
 	if r.Cancel || errors.Is(jctx.Err(), context.Canceled) && ctx.Err() == nil {
@@ -432,6 +460,7 @@ type outcome struct {
 	reason    string
 	waitUser  bool
 	cancelled bool
+	deferred  bool // the job outcome is reported later (agent update waiting for its restart)
 }
 
 func fail(format string, a ...any) *outcome {
