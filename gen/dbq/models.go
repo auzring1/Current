@@ -47,6 +47,7 @@ type CatalogInstaller struct {
 	MinOs           string
 	Detection       []byte
 	UsesContentBlob bool
+	Unsupported     string
 }
 
 type CatalogPackage struct {

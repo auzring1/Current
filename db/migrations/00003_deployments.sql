@@ -65,7 +65,8 @@ CREATE TABLE catalog_installers (
     expected_codes         integer[] NOT NULL DEFAULT '{}',
     min_os                 text NOT NULL DEFAULT '',
     detection              jsonb NOT NULL DEFAULT '[]',     -- generated or admin-defined rules
-    uses_content_blob      boolean NOT NULL DEFAULT false   -- served by the gateway from content_blobs
+    uses_content_blob      boolean NOT NULL DEFAULT false,  -- served by the gateway from content_blobs
+    unsupported            text NOT NULL DEFAULT ''         -- why this installer cannot be deployed ('' = deployable)
 );
 CREATE INDEX catalog_installers_version ON catalog_installers (version_id);
 
