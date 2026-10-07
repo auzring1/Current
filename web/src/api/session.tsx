@@ -5,11 +5,14 @@ import { api, ApiError, setCsrf, type SessionInfo } from "./client";
 interface SessionCtx {
   session: SessionInfo | null;
   loading: boolean;
+  /** Holds the permission organization-wide. Use for pages and actions that need an org-wide role. */
+  canOrg: (perm: string) => boolean;
+  /** Holds the permission organization-wide or for some sites (device pages). */
   can: (perm: string) => boolean;
   refresh: () => Promise<unknown>;
 }
 
-const Ctx = createContext<SessionCtx>({ session: null, loading: true, can: () => false, refresh: async () => undefined });
+const Ctx = createContext<SessionCtx>({ session: null, loading: true, can: () => false, canOrg: () => false, refresh: async () => undefined });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
@@ -34,7 +37,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         loading: q.isLoading,
-        can: (p) => !!session?.permissions.includes(p),
+        canOrg: (p) => !!session?.permissions.includes(p),
+        can: (p) => !!session?.permissions.includes(p) || !!session?.scoped_permissions?.includes(p),
         refresh: () => qc.invalidateQueries({ queryKey: ["session"] }),
       }}
     >

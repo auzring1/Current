@@ -4,10 +4,12 @@ import { Alert, Anchor, Button, Center, Paper, PasswordInput, Stack, Text, TextI
 import { api, errorMessage, setCsrf } from "../api/client";
 import { useSession } from "../api/session";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
+import { getAssertion, webauthnSupported } from "../api/webauthn";
 
 type Stage =
   | { kind: "password" }
-  | { kind: "verify" }
+  | { kind: "change_password" }
+  | { kind: "verify"; methods: string[] }
   | { kind: "enroll"; secret: string; uri: string }
   | { kind: "codes"; codes: string[] };
 
@@ -17,6 +19,8 @@ export function LoginPage() {
   const [stage, setStage] = useState<Stage>({ kind: "password" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
   const [code, setCode] = useState("");
   const [useRecovery, setUseRecovery] = useState(false);
   const [err, setErr] = useState("");
@@ -34,15 +38,33 @@ export function LoginPage() {
     }
   };
 
+  type Next = { mfa: string; csrf_token: string; totp_secret?: string; otpauth_uri?: string; methods?: string[] };
+  const proceed = (r: Next) => {
+    setCsrf(r.csrf_token);
+    if (r.mfa === "change_password") setStage({ kind: "change_password" });
+    else if (r.mfa === "enroll") setStage({ kind: "enroll", secret: r.totp_secret ?? "", uri: r.otpauth_uri ?? "" });
+    else setStage({ kind: "verify", methods: r.methods ?? ["totp"] });
+  };
+
   const login = () =>
     run(async () => {
-      const r = await api<{ mfa: string; csrf_token: string; totp_secret?: string; otpauth_uri?: string }>("POST", "/auth/login", {
-        email: email.trim(),
-        password,
-      });
+      proceed(await api<Next>("POST", "/auth/login", { email: email.trim(), password }));
+    });
+
+  const changePassword = () =>
+    run(async () => {
+      if (newPassword !== newPassword2) throw new Error("The two new passwords are not the same.");
+      proceed(await api<Next>("POST", "/auth/change-password", { current_password: password, new_password: newPassword }));
       setPassword("");
-      setCsrf(r.csrf_token);
-      setStage(r.mfa === "enroll" ? { kind: "enroll", secret: r.totp_secret ?? "", uri: r.otpauth_uri ?? "" } : { kind: "verify" });
+      setNewPassword("");
+      setNewPassword2("");
+    });
+
+  const useKey = () =>
+    run(async () => {
+      const begin = await api<{ ceremony: string; options: { publicKey: Record<string, unknown> } }>("POST", "/auth/webauthn/begin", {});
+      const cred = await getAssertion(begin.options);
+      await finish(await api("POST", `/auth/webauthn/finish?ceremony=${begin.ceremony}`, cred));
     });
 
   const finish = async (r: { csrf_token: string; recovery_codes?: string[] }) => {
@@ -84,9 +106,26 @@ export function LoginPage() {
               </Stack>
             </form>
           )}
+          {stage.kind === "change_password" && (
+            <form onSubmit={(e) => (e.preventDefault(), void changePassword())}>
+              <Stack>
+                <Alert color="blue">An administrator set a temporary password for you. Choose your own to continue.</Alert>
+                <PasswordInput label="New password" value={newPassword} onChange={(e) => setNewPassword(e.currentTarget.value)} autoComplete="new-password" required autoFocus />
+                <PasswordInput label="Repeat the new password" value={newPassword2} onChange={(e) => setNewPassword2(e.currentTarget.value)} autoComplete="new-password" required />
+                <Button type="submit" loading={busy}>
+                  Change password
+                </Button>
+              </Stack>
+            </form>
+          )}
           {stage.kind === "verify" && (
             <form onSubmit={(e) => (e.preventDefault(), void verify())}>
               <Stack>
+                {stage.methods.includes("webauthn") && webauthnSupported() && (
+                  <Button variant="default" onClick={() => void useKey()} loading={busy}>
+                    Use a security key
+                  </Button>
+                )}
                 {useRecovery ? (
                   <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="off" autoFocus />
                 ) : (
@@ -95,7 +134,7 @@ export function LoginPage() {
                     <CodeInput autoFocus value={code} onChange={setCode} />
                   </>
                 )}
-                <Button type="submit" loading={busy} disabled={!code}>
+                <Button type="submit" loading={busy} disabled={!code} style={{ display: stage.methods.includes("totp") || useRecovery ? undefined : "none" }}>
                   Verify
                 </Button>
                 <Anchor component="button" type="button" size="sm" onClick={() => (setUseRecovery(!useRecovery), setCode(""))}>
