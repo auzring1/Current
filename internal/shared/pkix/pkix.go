@@ -25,6 +25,15 @@ import (
 // (docs/DECISIONS.md O4). Agents will accept both during a transition.
 var OIDJobSigning = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 32473, 7231, 1, 1}
 
+// CertBackdate is how far NotBefore is set in the past on every certificate
+// we issue, to tolerate clock skew. Lifetime computations must subtract it.
+const CertBackdate = 5 * time.Minute
+
+// Lifetime returns the intended validity period of a certificate we issued.
+func Lifetime(c *x509.Certificate) time.Duration {
+	return c.NotAfter.Sub(c.NotBefore) - CertBackdate
+}
+
 // DeviceURIPrefix is the URI SAN prefix carrying the device ID.
 const DeviceURIPrefix = "urn:auzring:device:"
 

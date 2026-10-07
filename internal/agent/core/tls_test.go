@@ -55,3 +55,17 @@ func TestBackoff(t *testing.T) {
 		t.Fatalf("after reset: %v", d)
 	}
 }
+
+func TestRenewDueIgnoresBackdate(t *testing.T) {
+	now := time.Now()
+	// A freshly issued 12 s certificate (backdated 5 min) is not due yet.
+	fresh := &x509.Certificate{NotBefore: now.Add(-pkix.CertBackdate), NotAfter: now.Add(12 * time.Second)}
+	a := &Agent{Now: func() time.Time { return now }}
+	if a.renewDue(fresh) {
+		t.Fatal("fresh certificate considered due for renewal")
+	}
+	a.Now = func() time.Time { return now.Add(9 * time.Second) }
+	if !a.renewDue(fresh) {
+		t.Fatal("certificate with < 1/3 lifetime left not due")
+	}
+}

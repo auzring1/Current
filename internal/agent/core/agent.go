@@ -406,6 +406,10 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	defer hbTick.Stop()
 	hwTick := time.NewTicker(hardwareEvery)
 	defer hwTick.Stop()
+	// Renewal is checked on its own timer, scaled to the certificate lifetime.
+	renewEvery := min(max(pkix.Lifetime(cert)/10, time.Second), time.Hour)
+	renewTick := time.NewTicker(renewEvery)
+	defer renewTick.Stop()
 	if err := a.sendHeartbeat(ctx, stream, true); err != nil {
 		return a.now().Sub(start), 0, err
 	}
@@ -437,8 +441,11 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 			if err := a.sendHeartbeat(ctx, stream, false); err != nil {
 				return a.now().Sub(start), 0, err
 			}
+		case <-renewTick.C:
 			if a.renewDue(cert) {
-				if err := a.renew(ctx, client, id); err == nil {
+				if err := a.renew(ctx, client, id); err != nil {
+					a.Log.Error("certificate renewal failed; will retry", "err", err)
+				} else {
 					return a.now().Sub(start), time.Second, nil
 				}
 			}
@@ -485,8 +492,7 @@ func (a *Agent) retryHint(err error) time.Duration {
 func (a *Agent) serverNow() time.Time { return a.now().Add(a.clockOffset) }
 
 func (a *Agent) renewDue(cert *x509.Certificate) bool {
-	life := cert.NotAfter.Sub(cert.NotBefore)
-	return cert.NotAfter.Sub(a.serverNow()) < life/3
+	return cert.NotAfter.Sub(a.serverNow()) < pkix.Lifetime(cert)/3
 }
 
 // renew creates a NEW key, gets it certified, then switches over.

@@ -35,7 +35,7 @@ const (
 	jobSigningLifetime = 2 * 365 * 24 * time.Hour
 	// GatewayLifetime is the gateway TLS certificate lifetime.
 	GatewayLifetime = 90 * 24 * time.Hour
-	backdate        = 5 * time.Minute
+	backdate        = spkix.CertBackdate
 )
 
 // KeyPair is a certificate plus its private key.
