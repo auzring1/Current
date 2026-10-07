@@ -26,6 +26,82 @@ type AuditLog struct {
 	Hash       []byte
 }
 
+type CatalogInstaller struct {
+	ID              uuid.UUID
+	VersionID       uuid.UUID
+	Architecture    string
+	Scope           string
+	InstallerType   string
+	NestedType      string
+	NestedPath      string
+	Url             string
+	Sha256          []byte
+	Size            int64
+	FileName        string
+	SignerSubject   string
+	ProductCode     string
+	UpgradeCode     string
+	Switches        []byte
+	SuccessCodes    []int32
+	ExpectedCodes   []int32
+	MinOs           string
+	Detection       []byte
+	UsesContentBlob bool
+}
+
+type CatalogPackage struct {
+	ID           uuid.UUID
+	OrgID        uuid.UUID
+	Source       string
+	Identifier   string
+	Name         string
+	Publisher    string
+	Homepage     string
+	License      string
+	Description  string
+	Verified     bool
+	SelfUpdating bool
+	ImportedAt   time.Time
+	ImportedBy   *uuid.UUID
+}
+
+type CatalogVersion struct {
+	ID             uuid.UUID
+	PackageID      uuid.UUID
+	Version        string
+	VersionKey     []byte
+	ManifestSha256 []byte
+	ImportedAt     time.Time
+}
+
+type ContentBlob struct {
+	OrgID      uuid.UUID
+	Sha256     []byte
+	Size       int64
+	FileName   string
+	UploadedBy *uuid.UUID
+	CreatedAt  time.Time
+}
+
+type Deployment struct {
+	ID                  uuid.UUID
+	OrgID               uuid.UUID
+	Name                string
+	Action              string
+	PackageID           uuid.UUID
+	VersionID           *uuid.UUID
+	Scope               string
+	TargetGroupIds      []uuid.UUID
+	TargetDeviceIds     []uuid.UUID
+	StartsAt            time.Time
+	ExpiresAt           time.Time
+	MaintWindow         []byte
+	UnverifiedConfirmed bool
+	Status              string
+	CreatedBy           uuid.UUID
+	CreatedAt           time.Time
+}
+
 type Device struct {
 	ID                 uuid.UUID
 	OrgID              uuid.UUID
@@ -115,6 +191,50 @@ type Group struct {
 	CreatedBy   uuid.UUID
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Kind        string
+}
+
+type GroupMember struct {
+	GroupID  uuid.UUID
+	DeviceID uuid.UUID
+	AddedBy  *uuid.UUID
+	AddedAt  time.Time
+}
+
+type Job struct {
+	ID              uuid.UUID
+	OrgID           uuid.UUID
+	DeploymentID    *uuid.UUID
+	DeviceID        uuid.UUID
+	UserSid         string
+	Type            string
+	Title           string
+	Body            []byte
+	DependsOn       *uuid.UUID
+	NotBefore       time.Time
+	ExpiresAt       time.Time
+	Attempt         int32
+	Status          string
+	StatusReason    string
+	Envelope        []byte
+	CreatedAt       time.Time
+	SentAt          *time.Time
+	AckedAt         *time.Time
+	StartedAt       *time.Time
+	FinishedAt      *time.Time
+	ExitCode        *int32
+	DetectionPassed *bool
+	RebootRequired  bool
+	Result          []byte
+}
+
+type JobEvent struct {
+	ID      int64
+	JobID   uuid.UUID
+	Ts      time.Time
+	Kind    string
+	Message string
+	Data    []byte
 }
 
 type MfaRecoveryCode struct {
@@ -131,10 +251,29 @@ type MfaTotp struct {
 	ConfirmedAt  time.Time
 }
 
+type OrgSetting struct {
+	OrgID           uuid.UUID
+	UserScopePolicy string
+	UpdatedAt       time.Time
+}
+
 type Organization struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+}
+
+type PackageOverride struct {
+	OrgID            uuid.UUID
+	PackageID        uuid.UUID
+	SilentArgs       []string
+	ExtraDetection   []byte
+	Pin              string
+	Excluded         bool
+	UserScopePolicy  string
+	SelfUpdatePolicy string
+	UpdatedBy        *uuid.UUID
+	UpdatedAt        time.Time
 }
 
 type PkiMaterial struct {

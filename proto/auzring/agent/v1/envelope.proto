@@ -41,9 +41,154 @@ message JobEnvelope {
   uint32 attempt = 10;
   string deployment_id = 11;
   JobType type = 13;
+  // Optional: the job must not start outside this window (evaluated on the device).
+  MaintenanceWindow window = 12;
   oneof body {
+    InstallBody install = 20;
+    UninstallBody uninstall = 21;
     InventoryBody inventory = 26;
+    CancelBody cancel = 28;
   }
+}
+
+// MaintenanceWindow is evaluated in device-local time unless tz is set.
+message MaintenanceWindow {
+  repeated uint32 days = 1;      // 0 = Sunday .. 6 = Saturday; empty = every day
+  uint32 start_minute = 2;       // minutes after local midnight, 0..1439
+  uint32 duration_minutes = 3;   // 1..1440
+  string tz = 4;                 // IANA name; empty = device-local
+}
+
+enum InstallScope {
+  INSTALL_SCOPE_UNSPECIFIED = 0;
+  INSTALL_SCOPE_MACHINE = 1;
+  INSTALL_SCOPE_USER = 2;
+}
+
+enum InstallerType {
+  INSTALLER_TYPE_UNSPECIFIED = 0;
+  INSTALLER_TYPE_MSI = 1;
+  INSTALLER_TYPE_MSIX = 2;
+  INSTALLER_TYPE_INNO = 3;
+  INSTALLER_TYPE_NSIS = 4;
+  INSTALLER_TYPE_BURN = 5;
+  INSTALLER_TYPE_EXE = 6;
+  INSTALLER_TYPE_PORTABLE = 7;
+  INSTALLER_TYPE_ZIP = 8;
+}
+
+enum JobOutcome {
+  JOB_OUTCOME_UNSPECIFIED = 0;
+  JOB_OUTCOME_SUCCESS = 1;
+  JOB_OUTCOME_REBOOT_REQUIRED = 2;
+  JOB_OUTCOME_RETRYABLE = 3;
+  JOB_OUTCOME_FAILED = 4;
+}
+
+enum ContentSourceKind {
+  CONTENT_SOURCE_KIND_UNSPECIFIED = 0;
+  CONTENT_SOURCE_KIND_SERVER = 1;   // gateway FetchContent, authorized by this job
+  CONTENT_SOURCE_KIND_VENDOR = 2;   // HTTPS URL from the catalog
+}
+
+// ContentSource is untrusted: bytes must match Installer.sha256 whatever the origin.
+message ContentSource {
+  ContentSourceKind kind = 1;
+  string url = 2;  // vendor sources only
+}
+
+message SignerPin {
+  string subject = 1;            // expected certificate subject (CN/O), exact match
+  bytes thumbprint_sha256 = 2;   // optional pin of the leaf certificate
+}
+
+message Installer {
+  InstallerType type = 1;
+  InstallerType nested_type = 2;  // for ZIP: type of the installer inside
+  string nested_path = 3;         // for ZIP: relative path inside the archive
+  bytes sha256 = 4;               // 32 bytes, mandatory
+  uint64 size = 5;                // mandatory upper bound for the download
+  string file_name = 6;           // base name only
+  SignerPin signer_pin = 7;
+  repeated ContentSource sources = 8;
+  repeated string args = 9;       // pre-built argument tokens (validated by the agent again)
+  repeated int32 success_codes = 10;
+  map<int32, JobOutcome> code_map = 11;
+  string product_code = 12;       // MSI {GUID}
+}
+
+enum DetectionKind {
+  DETECTION_KIND_UNSPECIFIED = 0;
+  DETECTION_KIND_MSI_PRODUCT = 1;  // key = {GUID}
+  DETECTION_KIND_REGISTRY = 2;     // key = Uninstall subkey (hive chosen by scope); value_name optional
+  DETECTION_KIND_FILE = 3;         // key = path (allow-listed environment variables only)
+  DETECTION_KIND_APPX = 4;         // key = package family or name prefix
+}
+
+enum VersionCmp {
+  VERSION_CMP_UNSPECIFIED = 0;     // presence only
+  VERSION_CMP_EQ = 1;
+  VERSION_CMP_GE = 2;
+}
+
+message Detection {
+  DetectionKind kind = 1;
+  string key = 2;
+  string value_name = 3;
+  string version = 4;
+  VersionCmp cmp = 5;
+}
+
+message Preconditions {
+  uint32 min_free_mb = 1;
+  uint32 os_build_min = 2;
+}
+
+enum RebootAllow {
+  REBOOT_ALLOW_UNSPECIFIED = 0;
+  REBOOT_ALLOW_NEVER = 1;       // report "reboot required" only
+}
+
+message InstallBody {
+  string package_id = 1;          // catalog identifier, informational
+  string name = 2;
+  string version = 3;
+  InstallScope scope = 4;
+  Installer installer = 5;
+  repeated Detection detection = 6;   // pre-check (skip if satisfied) and post-check
+  Preconditions preconditions = 7;
+  uint32 timeout_s = 8;
+  uint32 max_retries = 9;
+  uint32 retry_backoff_s = 10;
+  RebootAllow reboot = 11;
+  bool allow_downgrade = 12;
+  bool update = 13;               // an upgrade of an existing install (job type SOFTWARE_UPDATE)
+}
+
+enum UninstallMethod {
+  UNINSTALL_METHOD_UNSPECIFIED = 0;
+  UNINSTALL_METHOD_AUTO = 1;      // product code, then quiet string, then uninstall string + known switches
+  UNINSTALL_METHOD_PRODUCT_CODE = 2;
+}
+
+// UninstallBody names an inventory row; the agent re-reads that row's
+// uninstall data from its own registry and never trusts command lines from the server.
+message UninstallBody {
+  string package_id = 1;
+  string name = 2;
+  InstallScope scope = 3;
+  string item_source = 4;         // reg64 | reg32 | hku | hku32 | msi
+  string item_key = 5;            // Uninstall subkey name or MSI product code
+  string product_code = 6;        // optional, validated
+  UninstallMethod method = 7;
+  repeated string extra_args = 8; // validated tokens appended for EXE uninstallers
+  uint32 timeout_s = 9;
+  uint32 max_retries = 10;
+  uint32 retry_backoff_s = 11;
+}
+
+message CancelBody {
+  string job_id = 1;
 }
 
 // InventoryBody requests a full inventory of the listed sections (all if empty).

@@ -97,6 +97,425 @@ func (JobType) EnumDescriptor() ([]byte, []int) {
 	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{0}
 }
 
+type InstallScope int32
+
+const (
+	InstallScope_INSTALL_SCOPE_UNSPECIFIED InstallScope = 0
+	InstallScope_INSTALL_SCOPE_MACHINE     InstallScope = 1
+	InstallScope_INSTALL_SCOPE_USER        InstallScope = 2
+)
+
+// Enum value maps for InstallScope.
+var (
+	InstallScope_name = map[int32]string{
+		0: "INSTALL_SCOPE_UNSPECIFIED",
+		1: "INSTALL_SCOPE_MACHINE",
+		2: "INSTALL_SCOPE_USER",
+	}
+	InstallScope_value = map[string]int32{
+		"INSTALL_SCOPE_UNSPECIFIED": 0,
+		"INSTALL_SCOPE_MACHINE":     1,
+		"INSTALL_SCOPE_USER":        2,
+	}
+)
+
+func (x InstallScope) Enum() *InstallScope {
+	p := new(InstallScope)
+	*p = x
+	return p
+}
+
+func (x InstallScope) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InstallScope) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[1].Descriptor()
+}
+
+func (InstallScope) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[1]
+}
+
+func (x InstallScope) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InstallScope.Descriptor instead.
+func (InstallScope) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{1}
+}
+
+type InstallerType int32
+
+const (
+	InstallerType_INSTALLER_TYPE_UNSPECIFIED InstallerType = 0
+	InstallerType_INSTALLER_TYPE_MSI         InstallerType = 1
+	InstallerType_INSTALLER_TYPE_MSIX        InstallerType = 2
+	InstallerType_INSTALLER_TYPE_INNO        InstallerType = 3
+	InstallerType_INSTALLER_TYPE_NSIS        InstallerType = 4
+	InstallerType_INSTALLER_TYPE_BURN        InstallerType = 5
+	InstallerType_INSTALLER_TYPE_EXE         InstallerType = 6
+	InstallerType_INSTALLER_TYPE_PORTABLE    InstallerType = 7
+	InstallerType_INSTALLER_TYPE_ZIP         InstallerType = 8
+)
+
+// Enum value maps for InstallerType.
+var (
+	InstallerType_name = map[int32]string{
+		0: "INSTALLER_TYPE_UNSPECIFIED",
+		1: "INSTALLER_TYPE_MSI",
+		2: "INSTALLER_TYPE_MSIX",
+		3: "INSTALLER_TYPE_INNO",
+		4: "INSTALLER_TYPE_NSIS",
+		5: "INSTALLER_TYPE_BURN",
+		6: "INSTALLER_TYPE_EXE",
+		7: "INSTALLER_TYPE_PORTABLE",
+		8: "INSTALLER_TYPE_ZIP",
+	}
+	InstallerType_value = map[string]int32{
+		"INSTALLER_TYPE_UNSPECIFIED": 0,
+		"INSTALLER_TYPE_MSI":         1,
+		"INSTALLER_TYPE_MSIX":        2,
+		"INSTALLER_TYPE_INNO":        3,
+		"INSTALLER_TYPE_NSIS":        4,
+		"INSTALLER_TYPE_BURN":        5,
+		"INSTALLER_TYPE_EXE":         6,
+		"INSTALLER_TYPE_PORTABLE":    7,
+		"INSTALLER_TYPE_ZIP":         8,
+	}
+)
+
+func (x InstallerType) Enum() *InstallerType {
+	p := new(InstallerType)
+	*p = x
+	return p
+}
+
+func (x InstallerType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InstallerType) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[2].Descriptor()
+}
+
+func (InstallerType) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[2]
+}
+
+func (x InstallerType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InstallerType.Descriptor instead.
+func (InstallerType) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
+}
+
+type JobOutcome int32
+
+const (
+	JobOutcome_JOB_OUTCOME_UNSPECIFIED     JobOutcome = 0
+	JobOutcome_JOB_OUTCOME_SUCCESS         JobOutcome = 1
+	JobOutcome_JOB_OUTCOME_REBOOT_REQUIRED JobOutcome = 2
+	JobOutcome_JOB_OUTCOME_RETRYABLE       JobOutcome = 3
+	JobOutcome_JOB_OUTCOME_FAILED          JobOutcome = 4
+)
+
+// Enum value maps for JobOutcome.
+var (
+	JobOutcome_name = map[int32]string{
+		0: "JOB_OUTCOME_UNSPECIFIED",
+		1: "JOB_OUTCOME_SUCCESS",
+		2: "JOB_OUTCOME_REBOOT_REQUIRED",
+		3: "JOB_OUTCOME_RETRYABLE",
+		4: "JOB_OUTCOME_FAILED",
+	}
+	JobOutcome_value = map[string]int32{
+		"JOB_OUTCOME_UNSPECIFIED":     0,
+		"JOB_OUTCOME_SUCCESS":         1,
+		"JOB_OUTCOME_REBOOT_REQUIRED": 2,
+		"JOB_OUTCOME_RETRYABLE":       3,
+		"JOB_OUTCOME_FAILED":          4,
+	}
+)
+
+func (x JobOutcome) Enum() *JobOutcome {
+	p := new(JobOutcome)
+	*p = x
+	return p
+}
+
+func (x JobOutcome) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (JobOutcome) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[3].Descriptor()
+}
+
+func (JobOutcome) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[3]
+}
+
+func (x JobOutcome) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use JobOutcome.Descriptor instead.
+func (JobOutcome) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
+}
+
+type ContentSourceKind int32
+
+const (
+	ContentSourceKind_CONTENT_SOURCE_KIND_UNSPECIFIED ContentSourceKind = 0
+	ContentSourceKind_CONTENT_SOURCE_KIND_SERVER      ContentSourceKind = 1 // gateway FetchContent, authorized by this job
+	ContentSourceKind_CONTENT_SOURCE_KIND_VENDOR      ContentSourceKind = 2 // HTTPS URL from the catalog
+)
+
+// Enum value maps for ContentSourceKind.
+var (
+	ContentSourceKind_name = map[int32]string{
+		0: "CONTENT_SOURCE_KIND_UNSPECIFIED",
+		1: "CONTENT_SOURCE_KIND_SERVER",
+		2: "CONTENT_SOURCE_KIND_VENDOR",
+	}
+	ContentSourceKind_value = map[string]int32{
+		"CONTENT_SOURCE_KIND_UNSPECIFIED": 0,
+		"CONTENT_SOURCE_KIND_SERVER":      1,
+		"CONTENT_SOURCE_KIND_VENDOR":      2,
+	}
+)
+
+func (x ContentSourceKind) Enum() *ContentSourceKind {
+	p := new(ContentSourceKind)
+	*p = x
+	return p
+}
+
+func (x ContentSourceKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ContentSourceKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[4].Descriptor()
+}
+
+func (ContentSourceKind) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[4]
+}
+
+func (x ContentSourceKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ContentSourceKind.Descriptor instead.
+func (ContentSourceKind) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
+}
+
+type DetectionKind int32
+
+const (
+	DetectionKind_DETECTION_KIND_UNSPECIFIED DetectionKind = 0
+	DetectionKind_DETECTION_KIND_MSI_PRODUCT DetectionKind = 1 // key = {GUID}
+	DetectionKind_DETECTION_KIND_REGISTRY    DetectionKind = 2 // key = Uninstall subkey (hive chosen by scope); value_name optional
+	DetectionKind_DETECTION_KIND_FILE        DetectionKind = 3 // key = path (allow-listed environment variables only)
+	DetectionKind_DETECTION_KIND_APPX        DetectionKind = 4 // key = package family or name prefix
+)
+
+// Enum value maps for DetectionKind.
+var (
+	DetectionKind_name = map[int32]string{
+		0: "DETECTION_KIND_UNSPECIFIED",
+		1: "DETECTION_KIND_MSI_PRODUCT",
+		2: "DETECTION_KIND_REGISTRY",
+		3: "DETECTION_KIND_FILE",
+		4: "DETECTION_KIND_APPX",
+	}
+	DetectionKind_value = map[string]int32{
+		"DETECTION_KIND_UNSPECIFIED": 0,
+		"DETECTION_KIND_MSI_PRODUCT": 1,
+		"DETECTION_KIND_REGISTRY":    2,
+		"DETECTION_KIND_FILE":        3,
+		"DETECTION_KIND_APPX":        4,
+	}
+)
+
+func (x DetectionKind) Enum() *DetectionKind {
+	p := new(DetectionKind)
+	*p = x
+	return p
+}
+
+func (x DetectionKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DetectionKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[5].Descriptor()
+}
+
+func (DetectionKind) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[5]
+}
+
+func (x DetectionKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DetectionKind.Descriptor instead.
+func (DetectionKind) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
+}
+
+type VersionCmp int32
+
+const (
+	VersionCmp_VERSION_CMP_UNSPECIFIED VersionCmp = 0 // presence only
+	VersionCmp_VERSION_CMP_EQ          VersionCmp = 1
+	VersionCmp_VERSION_CMP_GE          VersionCmp = 2
+)
+
+// Enum value maps for VersionCmp.
+var (
+	VersionCmp_name = map[int32]string{
+		0: "VERSION_CMP_UNSPECIFIED",
+		1: "VERSION_CMP_EQ",
+		2: "VERSION_CMP_GE",
+	}
+	VersionCmp_value = map[string]int32{
+		"VERSION_CMP_UNSPECIFIED": 0,
+		"VERSION_CMP_EQ":          1,
+		"VERSION_CMP_GE":          2,
+	}
+)
+
+func (x VersionCmp) Enum() *VersionCmp {
+	p := new(VersionCmp)
+	*p = x
+	return p
+}
+
+func (x VersionCmp) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VersionCmp) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[6].Descriptor()
+}
+
+func (VersionCmp) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[6]
+}
+
+func (x VersionCmp) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VersionCmp.Descriptor instead.
+func (VersionCmp) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
+}
+
+type RebootAllow int32
+
+const (
+	RebootAllow_REBOOT_ALLOW_UNSPECIFIED RebootAllow = 0
+	RebootAllow_REBOOT_ALLOW_NEVER       RebootAllow = 1 // report "reboot required" only
+)
+
+// Enum value maps for RebootAllow.
+var (
+	RebootAllow_name = map[int32]string{
+		0: "REBOOT_ALLOW_UNSPECIFIED",
+		1: "REBOOT_ALLOW_NEVER",
+	}
+	RebootAllow_value = map[string]int32{
+		"REBOOT_ALLOW_UNSPECIFIED": 0,
+		"REBOOT_ALLOW_NEVER":       1,
+	}
+)
+
+func (x RebootAllow) Enum() *RebootAllow {
+	p := new(RebootAllow)
+	*p = x
+	return p
+}
+
+func (x RebootAllow) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RebootAllow) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[7].Descriptor()
+}
+
+func (RebootAllow) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[7]
+}
+
+func (x RebootAllow) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RebootAllow.Descriptor instead.
+func (RebootAllow) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
+}
+
+type UninstallMethod int32
+
+const (
+	UninstallMethod_UNINSTALL_METHOD_UNSPECIFIED  UninstallMethod = 0
+	UninstallMethod_UNINSTALL_METHOD_AUTO         UninstallMethod = 1 // product code, then quiet string, then uninstall string + known switches
+	UninstallMethod_UNINSTALL_METHOD_PRODUCT_CODE UninstallMethod = 2
+)
+
+// Enum value maps for UninstallMethod.
+var (
+	UninstallMethod_name = map[int32]string{
+		0: "UNINSTALL_METHOD_UNSPECIFIED",
+		1: "UNINSTALL_METHOD_AUTO",
+		2: "UNINSTALL_METHOD_PRODUCT_CODE",
+	}
+	UninstallMethod_value = map[string]int32{
+		"UNINSTALL_METHOD_UNSPECIFIED":  0,
+		"UNINSTALL_METHOD_AUTO":         1,
+		"UNINSTALL_METHOD_PRODUCT_CODE": 2,
+	}
+)
+
+func (x UninstallMethod) Enum() *UninstallMethod {
+	p := new(UninstallMethod)
+	*p = x
+	return p
+}
+
+func (x UninstallMethod) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (UninstallMethod) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[8].Descriptor()
+}
+
+func (UninstallMethod) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[8]
+}
+
+func (x UninstallMethod) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use UninstallMethod.Descriptor instead.
+func (UninstallMethod) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+}
+
 // SignedEnvelope carries a job. The signature covers exactly `payload`
 // (a serialized JobEnvelope) prefixed with the domain separator
 // "auzring/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
@@ -174,9 +593,14 @@ type JobEnvelope struct {
 	Attempt       uint32                 `protobuf:"varint,10,opt,name=attempt,proto3" json:"attempt,omitempty"`
 	DeploymentId  string                 `protobuf:"bytes,11,opt,name=deployment_id,json=deploymentId,proto3" json:"deployment_id,omitempty"`
 	Type          JobType                `protobuf:"varint,13,opt,name=type,proto3,enum=auzring.agent.v1.JobType" json:"type,omitempty"`
+	// Optional: the job must not start outside this window (evaluated on the device).
+	Window *MaintenanceWindow `protobuf:"bytes,12,opt,name=window,proto3" json:"window,omitempty"`
 	// Types that are valid to be assigned to Body:
 	//
+	//	*JobEnvelope_Install
+	//	*JobEnvelope_Uninstall
 	//	*JobEnvelope_Inventory
+	//	*JobEnvelope_Cancel
 	Body          isJobEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -296,9 +720,34 @@ func (x *JobEnvelope) GetType() JobType {
 	return JobType_JOB_TYPE_UNSPECIFIED
 }
 
+func (x *JobEnvelope) GetWindow() *MaintenanceWindow {
+	if x != nil {
+		return x.Window
+	}
+	return nil
+}
+
 func (x *JobEnvelope) GetBody() isJobEnvelope_Body {
 	if x != nil {
 		return x.Body
+	}
+	return nil
+}
+
+func (x *JobEnvelope) GetInstall() *InstallBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_Install); ok {
+			return x.Install
+		}
+	}
+	return nil
+}
+
+func (x *JobEnvelope) GetUninstall() *UninstallBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_Uninstall); ok {
+			return x.Uninstall
+		}
 	}
 	return nil
 }
@@ -312,15 +761,786 @@ func (x *JobEnvelope) GetInventory() *InventoryBody {
 	return nil
 }
 
+func (x *JobEnvelope) GetCancel() *CancelBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_Cancel); ok {
+			return x.Cancel
+		}
+	}
+	return nil
+}
+
 type isJobEnvelope_Body interface {
 	isJobEnvelope_Body()
+}
+
+type JobEnvelope_Install struct {
+	Install *InstallBody `protobuf:"bytes,20,opt,name=install,proto3,oneof"`
+}
+
+type JobEnvelope_Uninstall struct {
+	Uninstall *UninstallBody `protobuf:"bytes,21,opt,name=uninstall,proto3,oneof"`
 }
 
 type JobEnvelope_Inventory struct {
 	Inventory *InventoryBody `protobuf:"bytes,26,opt,name=inventory,proto3,oneof"`
 }
 
+type JobEnvelope_Cancel struct {
+	Cancel *CancelBody `protobuf:"bytes,28,opt,name=cancel,proto3,oneof"`
+}
+
+func (*JobEnvelope_Install) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_Uninstall) isJobEnvelope_Body() {}
+
 func (*JobEnvelope_Inventory) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_Cancel) isJobEnvelope_Body() {}
+
+// MaintenanceWindow is evaluated in device-local time unless tz is set.
+type MaintenanceWindow struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Days            []uint32               `protobuf:"varint,1,rep,packed,name=days,proto3" json:"days,omitempty"`                                       // 0 = Sunday .. 6 = Saturday; empty = every day
+	StartMinute     uint32                 `protobuf:"varint,2,opt,name=start_minute,json=startMinute,proto3" json:"start_minute,omitempty"`             // minutes after local midnight, 0..1439
+	DurationMinutes uint32                 `protobuf:"varint,3,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"` // 1..1440
+	Tz              string                 `protobuf:"bytes,4,opt,name=tz,proto3" json:"tz,omitempty"`                                                   // IANA name; empty = device-local
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MaintenanceWindow) Reset() {
+	*x = MaintenanceWindow{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MaintenanceWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MaintenanceWindow) ProtoMessage() {}
+
+func (x *MaintenanceWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MaintenanceWindow.ProtoReflect.Descriptor instead.
+func (*MaintenanceWindow) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MaintenanceWindow) GetDays() []uint32 {
+	if x != nil {
+		return x.Days
+	}
+	return nil
+}
+
+func (x *MaintenanceWindow) GetStartMinute() uint32 {
+	if x != nil {
+		return x.StartMinute
+	}
+	return 0
+}
+
+func (x *MaintenanceWindow) GetDurationMinutes() uint32 {
+	if x != nil {
+		return x.DurationMinutes
+	}
+	return 0
+}
+
+func (x *MaintenanceWindow) GetTz() string {
+	if x != nil {
+		return x.Tz
+	}
+	return ""
+}
+
+// ContentSource is untrusted: bytes must match Installer.sha256 whatever the origin.
+type ContentSource struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          ContentSourceKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=auzring.agent.v1.ContentSourceKind" json:"kind,omitempty"`
+	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"` // vendor sources only
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContentSource) Reset() {
+	*x = ContentSource{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContentSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContentSource) ProtoMessage() {}
+
+func (x *ContentSource) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContentSource.ProtoReflect.Descriptor instead.
+func (*ContentSource) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ContentSource) GetKind() ContentSourceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ContentSourceKind_CONTENT_SOURCE_KIND_UNSPECIFIED
+}
+
+func (x *ContentSource) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+type SignerPin struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Subject          string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`                                           // expected certificate subject (CN/O), exact match
+	ThumbprintSha256 []byte                 `protobuf:"bytes,2,opt,name=thumbprint_sha256,json=thumbprintSha256,proto3" json:"thumbprint_sha256,omitempty"` // optional pin of the leaf certificate
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SignerPin) Reset() {
+	*x = SignerPin{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignerPin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignerPin) ProtoMessage() {}
+
+func (x *SignerPin) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignerPin.ProtoReflect.Descriptor instead.
+func (*SignerPin) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SignerPin) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *SignerPin) GetThumbprintSha256() []byte {
+	if x != nil {
+		return x.ThumbprintSha256
+	}
+	return nil
+}
+
+type Installer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          InstallerType          `protobuf:"varint,1,opt,name=type,proto3,enum=auzring.agent.v1.InstallerType" json:"type,omitempty"`
+	NestedType    InstallerType          `protobuf:"varint,2,opt,name=nested_type,json=nestedType,proto3,enum=auzring.agent.v1.InstallerType" json:"nested_type,omitempty"` // for ZIP: type of the installer inside
+	NestedPath    string                 `protobuf:"bytes,3,opt,name=nested_path,json=nestedPath,proto3" json:"nested_path,omitempty"`                                      // for ZIP: relative path inside the archive
+	Sha256        []byte                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`                                                                // 32 bytes, mandatory
+	Size          uint64                 `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`                                                                   // mandatory upper bound for the download
+	FileName      string                 `protobuf:"bytes,6,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`                                            // base name only
+	SignerPin     *SignerPin             `protobuf:"bytes,7,opt,name=signer_pin,json=signerPin,proto3" json:"signer_pin,omitempty"`
+	Sources       []*ContentSource       `protobuf:"bytes,8,rep,name=sources,proto3" json:"sources,omitempty"`
+	Args          []string               `protobuf:"bytes,9,rep,name=args,proto3" json:"args,omitempty"` // pre-built argument tokens (validated by the agent again)
+	SuccessCodes  []int32                `protobuf:"varint,10,rep,packed,name=success_codes,json=successCodes,proto3" json:"success_codes,omitempty"`
+	CodeMap       map[int32]JobOutcome   `protobuf:"bytes,11,rep,name=code_map,json=codeMap,proto3" json:"code_map,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=auzring.agent.v1.JobOutcome"`
+	ProductCode   string                 `protobuf:"bytes,12,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"` // MSI {GUID}
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Installer) Reset() {
+	*x = Installer{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Installer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Installer) ProtoMessage() {}
+
+func (x *Installer) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Installer.ProtoReflect.Descriptor instead.
+func (*Installer) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Installer) GetType() InstallerType {
+	if x != nil {
+		return x.Type
+	}
+	return InstallerType_INSTALLER_TYPE_UNSPECIFIED
+}
+
+func (x *Installer) GetNestedType() InstallerType {
+	if x != nil {
+		return x.NestedType
+	}
+	return InstallerType_INSTALLER_TYPE_UNSPECIFIED
+}
+
+func (x *Installer) GetNestedPath() string {
+	if x != nil {
+		return x.NestedPath
+	}
+	return ""
+}
+
+func (x *Installer) GetSha256() []byte {
+	if x != nil {
+		return x.Sha256
+	}
+	return nil
+}
+
+func (x *Installer) GetSize() uint64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *Installer) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *Installer) GetSignerPin() *SignerPin {
+	if x != nil {
+		return x.SignerPin
+	}
+	return nil
+}
+
+func (x *Installer) GetSources() []*ContentSource {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *Installer) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *Installer) GetSuccessCodes() []int32 {
+	if x != nil {
+		return x.SuccessCodes
+	}
+	return nil
+}
+
+func (x *Installer) GetCodeMap() map[int32]JobOutcome {
+	if x != nil {
+		return x.CodeMap
+	}
+	return nil
+}
+
+func (x *Installer) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+type Detection struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          DetectionKind          `protobuf:"varint,1,opt,name=kind,proto3,enum=auzring.agent.v1.DetectionKind" json:"kind,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	ValueName     string                 `protobuf:"bytes,3,opt,name=value_name,json=valueName,proto3" json:"value_name,omitempty"`
+	Version       string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	Cmp           VersionCmp             `protobuf:"varint,5,opt,name=cmp,proto3,enum=auzring.agent.v1.VersionCmp" json:"cmp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Detection) Reset() {
+	*x = Detection{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Detection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Detection) ProtoMessage() {}
+
+func (x *Detection) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Detection.ProtoReflect.Descriptor instead.
+func (*Detection) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Detection) GetKind() DetectionKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DetectionKind_DETECTION_KIND_UNSPECIFIED
+}
+
+func (x *Detection) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Detection) GetValueName() string {
+	if x != nil {
+		return x.ValueName
+	}
+	return ""
+}
+
+func (x *Detection) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *Detection) GetCmp() VersionCmp {
+	if x != nil {
+		return x.Cmp
+	}
+	return VersionCmp_VERSION_CMP_UNSPECIFIED
+}
+
+type Preconditions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MinFreeMb     uint32                 `protobuf:"varint,1,opt,name=min_free_mb,json=minFreeMb,proto3" json:"min_free_mb,omitempty"`
+	OsBuildMin    uint32                 `protobuf:"varint,2,opt,name=os_build_min,json=osBuildMin,proto3" json:"os_build_min,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Preconditions) Reset() {
+	*x = Preconditions{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Preconditions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Preconditions) ProtoMessage() {}
+
+func (x *Preconditions) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Preconditions.ProtoReflect.Descriptor instead.
+func (*Preconditions) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Preconditions) GetMinFreeMb() uint32 {
+	if x != nil {
+		return x.MinFreeMb
+	}
+	return 0
+}
+
+func (x *Preconditions) GetOsBuildMin() uint32 {
+	if x != nil {
+		return x.OsBuildMin
+	}
+	return 0
+}
+
+type InstallBody struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PackageId      string                 `protobuf:"bytes,1,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"` // catalog identifier, informational
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Version        string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	Scope          InstallScope           `protobuf:"varint,4,opt,name=scope,proto3,enum=auzring.agent.v1.InstallScope" json:"scope,omitempty"`
+	Installer      *Installer             `protobuf:"bytes,5,opt,name=installer,proto3" json:"installer,omitempty"`
+	Detection      []*Detection           `protobuf:"bytes,6,rep,name=detection,proto3" json:"detection,omitempty"` // pre-check (skip if satisfied) and post-check
+	Preconditions  *Preconditions         `protobuf:"bytes,7,opt,name=preconditions,proto3" json:"preconditions,omitempty"`
+	TimeoutS       uint32                 `protobuf:"varint,8,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
+	MaxRetries     uint32                 `protobuf:"varint,9,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	RetryBackoffS  uint32                 `protobuf:"varint,10,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
+	Reboot         RebootAllow            `protobuf:"varint,11,opt,name=reboot,proto3,enum=auzring.agent.v1.RebootAllow" json:"reboot,omitempty"`
+	AllowDowngrade bool                   `protobuf:"varint,12,opt,name=allow_downgrade,json=allowDowngrade,proto3" json:"allow_downgrade,omitempty"`
+	Update         bool                   `protobuf:"varint,13,opt,name=update,proto3" json:"update,omitempty"` // an upgrade of an existing install (job type SOFTWARE_UPDATE)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *InstallBody) Reset() {
+	*x = InstallBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstallBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstallBody) ProtoMessage() {}
+
+func (x *InstallBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstallBody.ProtoReflect.Descriptor instead.
+func (*InstallBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *InstallBody) GetPackageId() string {
+	if x != nil {
+		return x.PackageId
+	}
+	return ""
+}
+
+func (x *InstallBody) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *InstallBody) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *InstallBody) GetScope() InstallScope {
+	if x != nil {
+		return x.Scope
+	}
+	return InstallScope_INSTALL_SCOPE_UNSPECIFIED
+}
+
+func (x *InstallBody) GetInstaller() *Installer {
+	if x != nil {
+		return x.Installer
+	}
+	return nil
+}
+
+func (x *InstallBody) GetDetection() []*Detection {
+	if x != nil {
+		return x.Detection
+	}
+	return nil
+}
+
+func (x *InstallBody) GetPreconditions() *Preconditions {
+	if x != nil {
+		return x.Preconditions
+	}
+	return nil
+}
+
+func (x *InstallBody) GetTimeoutS() uint32 {
+	if x != nil {
+		return x.TimeoutS
+	}
+	return 0
+}
+
+func (x *InstallBody) GetMaxRetries() uint32 {
+	if x != nil {
+		return x.MaxRetries
+	}
+	return 0
+}
+
+func (x *InstallBody) GetRetryBackoffS() uint32 {
+	if x != nil {
+		return x.RetryBackoffS
+	}
+	return 0
+}
+
+func (x *InstallBody) GetReboot() RebootAllow {
+	if x != nil {
+		return x.Reboot
+	}
+	return RebootAllow_REBOOT_ALLOW_UNSPECIFIED
+}
+
+func (x *InstallBody) GetAllowDowngrade() bool {
+	if x != nil {
+		return x.AllowDowngrade
+	}
+	return false
+}
+
+func (x *InstallBody) GetUpdate() bool {
+	if x != nil {
+		return x.Update
+	}
+	return false
+}
+
+// UninstallBody names an inventory row; the agent re-reads that row's
+// uninstall data from its own registry and never trusts command lines from the server.
+type UninstallBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PackageId     string                 `protobuf:"bytes,1,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Scope         InstallScope           `protobuf:"varint,3,opt,name=scope,proto3,enum=auzring.agent.v1.InstallScope" json:"scope,omitempty"`
+	ItemSource    string                 `protobuf:"bytes,4,opt,name=item_source,json=itemSource,proto3" json:"item_source,omitempty"`    // reg64 | reg32 | hku | hku32 | msi
+	ItemKey       string                 `protobuf:"bytes,5,opt,name=item_key,json=itemKey,proto3" json:"item_key,omitempty"`             // Uninstall subkey name or MSI product code
+	ProductCode   string                 `protobuf:"bytes,6,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"` // optional, validated
+	Method        UninstallMethod        `protobuf:"varint,7,opt,name=method,proto3,enum=auzring.agent.v1.UninstallMethod" json:"method,omitempty"`
+	ExtraArgs     []string               `protobuf:"bytes,8,rep,name=extra_args,json=extraArgs,proto3" json:"extra_args,omitempty"` // validated tokens appended for EXE uninstallers
+	TimeoutS      uint32                 `protobuf:"varint,9,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
+	MaxRetries    uint32                 `protobuf:"varint,10,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	RetryBackoffS uint32                 `protobuf:"varint,11,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UninstallBody) Reset() {
+	*x = UninstallBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UninstallBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UninstallBody) ProtoMessage() {}
+
+func (x *UninstallBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UninstallBody.ProtoReflect.Descriptor instead.
+func (*UninstallBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UninstallBody) GetPackageId() string {
+	if x != nil {
+		return x.PackageId
+	}
+	return ""
+}
+
+func (x *UninstallBody) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UninstallBody) GetScope() InstallScope {
+	if x != nil {
+		return x.Scope
+	}
+	return InstallScope_INSTALL_SCOPE_UNSPECIFIED
+}
+
+func (x *UninstallBody) GetItemSource() string {
+	if x != nil {
+		return x.ItemSource
+	}
+	return ""
+}
+
+func (x *UninstallBody) GetItemKey() string {
+	if x != nil {
+		return x.ItemKey
+	}
+	return ""
+}
+
+func (x *UninstallBody) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *UninstallBody) GetMethod() UninstallMethod {
+	if x != nil {
+		return x.Method
+	}
+	return UninstallMethod_UNINSTALL_METHOD_UNSPECIFIED
+}
+
+func (x *UninstallBody) GetExtraArgs() []string {
+	if x != nil {
+		return x.ExtraArgs
+	}
+	return nil
+}
+
+func (x *UninstallBody) GetTimeoutS() uint32 {
+	if x != nil {
+		return x.TimeoutS
+	}
+	return 0
+}
+
+func (x *UninstallBody) GetMaxRetries() uint32 {
+	if x != nil {
+		return x.MaxRetries
+	}
+	return 0
+}
+
+func (x *UninstallBody) GetRetryBackoffS() uint32 {
+	if x != nil {
+		return x.RetryBackoffS
+	}
+	return 0
+}
+
+type CancelBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelBody) Reset() {
+	*x = CancelBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelBody) ProtoMessage() {}
+
+func (x *CancelBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelBody.ProtoReflect.Descriptor instead.
+func (*CancelBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *CancelBody) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
 
 // InventoryBody requests a full inventory of the listed sections (all if empty).
 type InventoryBody struct {
@@ -332,7 +1552,7 @@ type InventoryBody struct {
 
 func (x *InventoryBody) Reset() {
 	*x = InventoryBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[2]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -344,7 +1564,7 @@ func (x *InventoryBody) String() string {
 func (*InventoryBody) ProtoMessage() {}
 
 func (x *InventoryBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[2]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +1577,7 @@ func (x *InventoryBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventoryBody.ProtoReflect.Descriptor instead.
 func (*InventoryBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *InventoryBody) GetSections() []uint32 {
@@ -375,7 +1595,7 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x0eSignedEnvelope\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xc2\x03\n" +
+	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xb3\x05\n" +
 	"\vJobEnvelope\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x15\n" +
@@ -391,9 +1611,92 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\aattempt\x18\n" +
 	" \x01(\rR\aattempt\x12#\n" +
 	"\rdeployment_id\x18\v \x01(\tR\fdeploymentId\x12-\n" +
-	"\x04type\x18\r \x01(\x0e2\x19.auzring.agent.v1.JobTypeR\x04type\x12?\n" +
-	"\tinventory\x18\x1a \x01(\v2\x1f.auzring.agent.v1.InventoryBodyH\x00R\tinventoryB\x06\n" +
-	"\x04body\"+\n" +
+	"\x04type\x18\r \x01(\x0e2\x19.auzring.agent.v1.JobTypeR\x04type\x12;\n" +
+	"\x06window\x18\f \x01(\v2#.auzring.agent.v1.MaintenanceWindowR\x06window\x129\n" +
+	"\ainstall\x18\x14 \x01(\v2\x1d.auzring.agent.v1.InstallBodyH\x00R\ainstall\x12?\n" +
+	"\tuninstall\x18\x15 \x01(\v2\x1f.auzring.agent.v1.UninstallBodyH\x00R\tuninstall\x12?\n" +
+	"\tinventory\x18\x1a \x01(\v2\x1f.auzring.agent.v1.InventoryBodyH\x00R\tinventory\x126\n" +
+	"\x06cancel\x18\x1c \x01(\v2\x1c.auzring.agent.v1.CancelBodyH\x00R\x06cancelB\x06\n" +
+	"\x04body\"\x85\x01\n" +
+	"\x11MaintenanceWindow\x12\x12\n" +
+	"\x04days\x18\x01 \x03(\rR\x04days\x12!\n" +
+	"\fstart_minute\x18\x02 \x01(\rR\vstartMinute\x12)\n" +
+	"\x10duration_minutes\x18\x03 \x01(\rR\x0fdurationMinutes\x12\x0e\n" +
+	"\x02tz\x18\x04 \x01(\tR\x02tz\"Z\n" +
+	"\rContentSource\x127\n" +
+	"\x04kind\x18\x01 \x01(\x0e2#.auzring.agent.v1.ContentSourceKindR\x04kind\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\"R\n" +
+	"\tSignerPin\x12\x18\n" +
+	"\asubject\x18\x01 \x01(\tR\asubject\x12+\n" +
+	"\x11thumbprint_sha256\x18\x02 \x01(\fR\x10thumbprintSha256\"\xde\x04\n" +
+	"\tInstaller\x123\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x1f.auzring.agent.v1.InstallerTypeR\x04type\x12@\n" +
+	"\vnested_type\x18\x02 \x01(\x0e2\x1f.auzring.agent.v1.InstallerTypeR\n" +
+	"nestedType\x12\x1f\n" +
+	"\vnested_path\x18\x03 \x01(\tR\n" +
+	"nestedPath\x12\x16\n" +
+	"\x06sha256\x18\x04 \x01(\fR\x06sha256\x12\x12\n" +
+	"\x04size\x18\x05 \x01(\x04R\x04size\x12\x1b\n" +
+	"\tfile_name\x18\x06 \x01(\tR\bfileName\x12:\n" +
+	"\n" +
+	"signer_pin\x18\a \x01(\v2\x1b.auzring.agent.v1.SignerPinR\tsignerPin\x129\n" +
+	"\asources\x18\b \x03(\v2\x1f.auzring.agent.v1.ContentSourceR\asources\x12\x12\n" +
+	"\x04args\x18\t \x03(\tR\x04args\x12#\n" +
+	"\rsuccess_codes\x18\n" +
+	" \x03(\x05R\fsuccessCodes\x12C\n" +
+	"\bcode_map\x18\v \x03(\v2(.auzring.agent.v1.Installer.CodeMapEntryR\acodeMap\x12!\n" +
+	"\fproduct_code\x18\f \x01(\tR\vproductCode\x1aX\n" +
+	"\fCodeMapEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\x05R\x03key\x122\n" +
+	"\x05value\x18\x02 \x01(\x0e2\x1c.auzring.agent.v1.JobOutcomeR\x05value:\x028\x01\"\xbb\x01\n" +
+	"\tDetection\x123\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x1f.auzring.agent.v1.DetectionKindR\x04kind\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1d\n" +
+	"\n" +
+	"value_name\x18\x03 \x01(\tR\tvalueName\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12.\n" +
+	"\x03cmp\x18\x05 \x01(\x0e2\x1c.auzring.agent.v1.VersionCmpR\x03cmp\"Q\n" +
+	"\rPreconditions\x12\x1e\n" +
+	"\vmin_free_mb\x18\x01 \x01(\rR\tminFreeMb\x12 \n" +
+	"\fos_build_min\x18\x02 \x01(\rR\n" +
+	"osBuildMin\"\xab\x04\n" +
+	"\vInstallBody\x12\x1d\n" +
+	"\n" +
+	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x124\n" +
+	"\x05scope\x18\x04 \x01(\x0e2\x1e.auzring.agent.v1.InstallScopeR\x05scope\x129\n" +
+	"\tinstaller\x18\x05 \x01(\v2\x1b.auzring.agent.v1.InstallerR\tinstaller\x129\n" +
+	"\tdetection\x18\x06 \x03(\v2\x1b.auzring.agent.v1.DetectionR\tdetection\x12E\n" +
+	"\rpreconditions\x18\a \x01(\v2\x1f.auzring.agent.v1.PreconditionsR\rpreconditions\x12\x1b\n" +
+	"\ttimeout_s\x18\b \x01(\rR\btimeoutS\x12\x1f\n" +
+	"\vmax_retries\x18\t \x01(\rR\n" +
+	"maxRetries\x12&\n" +
+	"\x0fretry_backoff_s\x18\n" +
+	" \x01(\rR\rretryBackoffS\x125\n" +
+	"\x06reboot\x18\v \x01(\x0e2\x1d.auzring.agent.v1.RebootAllowR\x06reboot\x12'\n" +
+	"\x0fallow_downgrade\x18\f \x01(\bR\x0eallowDowngrade\x12\x16\n" +
+	"\x06update\x18\r \x01(\bR\x06update\"\x97\x03\n" +
+	"\rUninstallBody\x12\x1d\n" +
+	"\n" +
+	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
+	"\x05scope\x18\x03 \x01(\x0e2\x1e.auzring.agent.v1.InstallScopeR\x05scope\x12\x1f\n" +
+	"\vitem_source\x18\x04 \x01(\tR\n" +
+	"itemSource\x12\x19\n" +
+	"\bitem_key\x18\x05 \x01(\tR\aitemKey\x12!\n" +
+	"\fproduct_code\x18\x06 \x01(\tR\vproductCode\x129\n" +
+	"\x06method\x18\a \x01(\x0e2!.auzring.agent.v1.UninstallMethodR\x06method\x12\x1d\n" +
+	"\n" +
+	"extra_args\x18\b \x03(\tR\textraArgs\x12\x1b\n" +
+	"\ttimeout_s\x18\t \x01(\rR\btimeoutS\x12\x1f\n" +
+	"\vmax_retries\x18\n" +
+	" \x01(\rR\n" +
+	"maxRetries\x12&\n" +
+	"\x0fretry_backoff_s\x18\v \x01(\rR\rretryBackoffS\"#\n" +
+	"\n" +
+	"CancelBody\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"+\n" +
 	"\rInventoryBody\x12\x1a\n" +
 	"\bsections\x18\x01 \x03(\rR\bsections*\xbd\x02\n" +
 	"\aJobType\x12\x18\n" +
@@ -409,7 +1712,50 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x15JOB_TYPE_AGENT_UPDATE\x10\t\x12\x13\n" +
 	"\x0fJOB_TYPE_CANCEL\x10\n" +
 	"\x12\x13\n" +
-	"\x0fJOB_TYPE_CONFIG\x10\vB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x0fJOB_TYPE_CONFIG\x10\v*`\n" +
+	"\fInstallScope\x12\x1d\n" +
+	"\x19INSTALL_SCOPE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15INSTALL_SCOPE_MACHINE\x10\x01\x12\x16\n" +
+	"\x12INSTALL_SCOPE_USER\x10\x02*\xf8\x01\n" +
+	"\rInstallerType\x12\x1e\n" +
+	"\x1aINSTALLER_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12INSTALLER_TYPE_MSI\x10\x01\x12\x17\n" +
+	"\x13INSTALLER_TYPE_MSIX\x10\x02\x12\x17\n" +
+	"\x13INSTALLER_TYPE_INNO\x10\x03\x12\x17\n" +
+	"\x13INSTALLER_TYPE_NSIS\x10\x04\x12\x17\n" +
+	"\x13INSTALLER_TYPE_BURN\x10\x05\x12\x16\n" +
+	"\x12INSTALLER_TYPE_EXE\x10\x06\x12\x1b\n" +
+	"\x17INSTALLER_TYPE_PORTABLE\x10\a\x12\x16\n" +
+	"\x12INSTALLER_TYPE_ZIP\x10\b*\x96\x01\n" +
+	"\n" +
+	"JobOutcome\x12\x1b\n" +
+	"\x17JOB_OUTCOME_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13JOB_OUTCOME_SUCCESS\x10\x01\x12\x1f\n" +
+	"\x1bJOB_OUTCOME_REBOOT_REQUIRED\x10\x02\x12\x19\n" +
+	"\x15JOB_OUTCOME_RETRYABLE\x10\x03\x12\x16\n" +
+	"\x12JOB_OUTCOME_FAILED\x10\x04*x\n" +
+	"\x11ContentSourceKind\x12#\n" +
+	"\x1fCONTENT_SOURCE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aCONTENT_SOURCE_KIND_SERVER\x10\x01\x12\x1e\n" +
+	"\x1aCONTENT_SOURCE_KIND_VENDOR\x10\x02*\x9e\x01\n" +
+	"\rDetectionKind\x12\x1e\n" +
+	"\x1aDETECTION_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aDETECTION_KIND_MSI_PRODUCT\x10\x01\x12\x1b\n" +
+	"\x17DETECTION_KIND_REGISTRY\x10\x02\x12\x17\n" +
+	"\x13DETECTION_KIND_FILE\x10\x03\x12\x17\n" +
+	"\x13DETECTION_KIND_APPX\x10\x04*Q\n" +
+	"\n" +
+	"VersionCmp\x12\x1b\n" +
+	"\x17VERSION_CMP_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eVERSION_CMP_EQ\x10\x01\x12\x12\n" +
+	"\x0eVERSION_CMP_GE\x10\x02*C\n" +
+	"\vRebootAllow\x12\x1c\n" +
+	"\x18REBOOT_ALLOW_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12REBOOT_ALLOW_NEVER\x10\x01*q\n" +
+	"\x0fUninstallMethod\x12 \n" +
+	"\x1cUNINSTALL_METHOD_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15UNINSTALL_METHOD_AUTO\x10\x01\x12!\n" +
+	"\x1dUNINSTALL_METHOD_PRODUCT_CODE\x10\x02B@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_envelope_proto_rawDescOnce sync.Once
@@ -423,22 +1769,60 @@ func file_auzring_agent_v1_envelope_proto_rawDescGZIP() []byte {
 	return file_auzring_agent_v1_envelope_proto_rawDescData
 }
 
-var file_auzring_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_auzring_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_auzring_agent_v1_envelope_proto_goTypes = []any{
-	(JobType)(0),           // 0: auzring.agent.v1.JobType
-	(*SignedEnvelope)(nil), // 1: auzring.agent.v1.SignedEnvelope
-	(*JobEnvelope)(nil),    // 2: auzring.agent.v1.JobEnvelope
-	(*InventoryBody)(nil),  // 3: auzring.agent.v1.InventoryBody
+	(JobType)(0),              // 0: auzring.agent.v1.JobType
+	(InstallScope)(0),         // 1: auzring.agent.v1.InstallScope
+	(InstallerType)(0),        // 2: auzring.agent.v1.InstallerType
+	(JobOutcome)(0),           // 3: auzring.agent.v1.JobOutcome
+	(ContentSourceKind)(0),    // 4: auzring.agent.v1.ContentSourceKind
+	(DetectionKind)(0),        // 5: auzring.agent.v1.DetectionKind
+	(VersionCmp)(0),           // 6: auzring.agent.v1.VersionCmp
+	(RebootAllow)(0),          // 7: auzring.agent.v1.RebootAllow
+	(UninstallMethod)(0),      // 8: auzring.agent.v1.UninstallMethod
+	(*SignedEnvelope)(nil),    // 9: auzring.agent.v1.SignedEnvelope
+	(*JobEnvelope)(nil),       // 10: auzring.agent.v1.JobEnvelope
+	(*MaintenanceWindow)(nil), // 11: auzring.agent.v1.MaintenanceWindow
+	(*ContentSource)(nil),     // 12: auzring.agent.v1.ContentSource
+	(*SignerPin)(nil),         // 13: auzring.agent.v1.SignerPin
+	(*Installer)(nil),         // 14: auzring.agent.v1.Installer
+	(*Detection)(nil),         // 15: auzring.agent.v1.Detection
+	(*Preconditions)(nil),     // 16: auzring.agent.v1.Preconditions
+	(*InstallBody)(nil),       // 17: auzring.agent.v1.InstallBody
+	(*UninstallBody)(nil),     // 18: auzring.agent.v1.UninstallBody
+	(*CancelBody)(nil),        // 19: auzring.agent.v1.CancelBody
+	(*InventoryBody)(nil),     // 20: auzring.agent.v1.InventoryBody
+	nil,                       // 21: auzring.agent.v1.Installer.CodeMapEntry
 }
 var file_auzring_agent_v1_envelope_proto_depIdxs = []int32{
-	0, // 0: auzring.agent.v1.JobEnvelope.type:type_name -> auzring.agent.v1.JobType
-	3, // 1: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0,  // 0: auzring.agent.v1.JobEnvelope.type:type_name -> auzring.agent.v1.JobType
+	11, // 1: auzring.agent.v1.JobEnvelope.window:type_name -> auzring.agent.v1.MaintenanceWindow
+	17, // 2: auzring.agent.v1.JobEnvelope.install:type_name -> auzring.agent.v1.InstallBody
+	18, // 3: auzring.agent.v1.JobEnvelope.uninstall:type_name -> auzring.agent.v1.UninstallBody
+	20, // 4: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
+	19, // 5: auzring.agent.v1.JobEnvelope.cancel:type_name -> auzring.agent.v1.CancelBody
+	4,  // 6: auzring.agent.v1.ContentSource.kind:type_name -> auzring.agent.v1.ContentSourceKind
+	2,  // 7: auzring.agent.v1.Installer.type:type_name -> auzring.agent.v1.InstallerType
+	2,  // 8: auzring.agent.v1.Installer.nested_type:type_name -> auzring.agent.v1.InstallerType
+	13, // 9: auzring.agent.v1.Installer.signer_pin:type_name -> auzring.agent.v1.SignerPin
+	12, // 10: auzring.agent.v1.Installer.sources:type_name -> auzring.agent.v1.ContentSource
+	21, // 11: auzring.agent.v1.Installer.code_map:type_name -> auzring.agent.v1.Installer.CodeMapEntry
+	5,  // 12: auzring.agent.v1.Detection.kind:type_name -> auzring.agent.v1.DetectionKind
+	6,  // 13: auzring.agent.v1.Detection.cmp:type_name -> auzring.agent.v1.VersionCmp
+	1,  // 14: auzring.agent.v1.InstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	14, // 15: auzring.agent.v1.InstallBody.installer:type_name -> auzring.agent.v1.Installer
+	15, // 16: auzring.agent.v1.InstallBody.detection:type_name -> auzring.agent.v1.Detection
+	16, // 17: auzring.agent.v1.InstallBody.preconditions:type_name -> auzring.agent.v1.Preconditions
+	7,  // 18: auzring.agent.v1.InstallBody.reboot:type_name -> auzring.agent.v1.RebootAllow
+	1,  // 19: auzring.agent.v1.UninstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	8,  // 20: auzring.agent.v1.UninstallBody.method:type_name -> auzring.agent.v1.UninstallMethod
+	3,  // 21: auzring.agent.v1.Installer.CodeMapEntry.value:type_name -> auzring.agent.v1.JobOutcome
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_envelope_proto_init() }
@@ -447,15 +1831,18 @@ func file_auzring_agent_v1_envelope_proto_init() {
 		return
 	}
 	file_auzring_agent_v1_envelope_proto_msgTypes[1].OneofWrappers = []any{
+		(*JobEnvelope_Install)(nil),
+		(*JobEnvelope_Uninstall)(nil),
 		(*JobEnvelope_Inventory)(nil),
+		(*JobEnvelope_Cancel)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_envelope_proto_rawDesc), len(file_auzring_agent_v1_envelope_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      9,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

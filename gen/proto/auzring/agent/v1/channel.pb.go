@@ -88,6 +88,77 @@ func (SecurityEventKind) EnumDescriptor() ([]byte, []int) {
 	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{0}
 }
 
+// JobState is the agent-side lifecycle (docs/ARCHITECTURE.md §5).
+type JobState int32
+
+const (
+	JobState_JOB_STATE_UNSPECIFIED      JobState = 0
+	JobState_JOB_STATE_ACCEPTED         JobState = 1 // verified and persisted
+	JobState_JOB_STATE_WAITING          JobState = 2 // not_before, window, preconditions or user logon
+	JobState_JOB_STATE_RUNNING          JobState = 3
+	JobState_JOB_STATE_SUCCEEDED        JobState = 4
+	JobState_JOB_STATE_SUCCEEDED_REBOOT JobState = 5
+	JobState_JOB_STATE_FAILED           JobState = 6
+	JobState_JOB_STATE_EXPIRED          JobState = 7
+	JobState_JOB_STATE_CANCELLED        JobState = 8
+	JobState_JOB_STATE_REJECTED         JobState = 9 // failed verification or policy ceiling
+)
+
+// Enum value maps for JobState.
+var (
+	JobState_name = map[int32]string{
+		0: "JOB_STATE_UNSPECIFIED",
+		1: "JOB_STATE_ACCEPTED",
+		2: "JOB_STATE_WAITING",
+		3: "JOB_STATE_RUNNING",
+		4: "JOB_STATE_SUCCEEDED",
+		5: "JOB_STATE_SUCCEEDED_REBOOT",
+		6: "JOB_STATE_FAILED",
+		7: "JOB_STATE_EXPIRED",
+		8: "JOB_STATE_CANCELLED",
+		9: "JOB_STATE_REJECTED",
+	}
+	JobState_value = map[string]int32{
+		"JOB_STATE_UNSPECIFIED":      0,
+		"JOB_STATE_ACCEPTED":         1,
+		"JOB_STATE_WAITING":          2,
+		"JOB_STATE_RUNNING":          3,
+		"JOB_STATE_SUCCEEDED":        4,
+		"JOB_STATE_SUCCEEDED_REBOOT": 5,
+		"JOB_STATE_FAILED":           6,
+		"JOB_STATE_EXPIRED":          7,
+		"JOB_STATE_CANCELLED":        8,
+		"JOB_STATE_REJECTED":         9,
+	}
+)
+
+func (x JobState) Enum() *JobState {
+	p := new(JobState)
+	*p = x
+	return p
+}
+
+func (x JobState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (JobState) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_channel_proto_enumTypes[1].Descriptor()
+}
+
+func (JobState) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_channel_proto_enumTypes[1]
+}
+
+func (x JobState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use JobState.Descriptor instead.
+func (JobState) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{1}
+}
+
 // ConnectRequest is one agent -> server message.
 type ConnectRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -97,6 +168,7 @@ type ConnectRequest struct {
 	//	*ConnectRequest_Heartbeat
 	//	*ConnectRequest_Inventory
 	//	*ConnectRequest_SecurityEvent
+	//	*ConnectRequest_JobUpdate
 	Msg           isConnectRequest_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -175,6 +247,15 @@ func (x *ConnectRequest) GetSecurityEvent() *SecurityEvent {
 	return nil
 }
 
+func (x *ConnectRequest) GetJobUpdate() *JobUpdate {
+	if x != nil {
+		if x, ok := x.Msg.(*ConnectRequest_JobUpdate); ok {
+			return x.JobUpdate
+		}
+	}
+	return nil
+}
+
 type isConnectRequest_Msg interface {
 	isConnectRequest_Msg()
 }
@@ -195,6 +276,10 @@ type ConnectRequest_SecurityEvent struct {
 	SecurityEvent *SecurityEvent `protobuf:"bytes,4,opt,name=security_event,json=securityEvent,proto3,oneof"`
 }
 
+type ConnectRequest_JobUpdate struct {
+	JobUpdate *JobUpdate `protobuf:"bytes,5,opt,name=job_update,json=jobUpdate,proto3,oneof"`
+}
+
 func (*ConnectRequest_Hello) isConnectRequest_Msg() {}
 
 func (*ConnectRequest_Heartbeat) isConnectRequest_Msg() {}
@@ -202,6 +287,8 @@ func (*ConnectRequest_Heartbeat) isConnectRequest_Msg() {}
 func (*ConnectRequest_Inventory) isConnectRequest_Msg() {}
 
 func (*ConnectRequest_SecurityEvent) isConnectRequest_Msg() {}
+
+func (*ConnectRequest_JobUpdate) isConnectRequest_Msg() {}
 
 // ConnectResponse is one server -> agent message.
 type ConnectResponse struct {
@@ -946,16 +1033,332 @@ func (x *RenewCertificateResponse) GetIssuingCaDer() []byte {
 	return nil
 }
 
+// JobUpdate reports progress or a result. Sent through the agent's outbox, so it
+// survives reconnects; the server acknowledges with Ack{seq}.
+type JobUpdate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Seq           uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Attempt       uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	State         JobState               `protobuf:"varint,4,opt,name=state,proto3,enum=auzring.agent.v1.JobState" json:"state,omitempty"`
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"` // short machine-friendly reason, e.g. "waiting_user_logon"
+	Result        *JobResult             `protobuf:"bytes,6,opt,name=result,proto3" json:"result,omitempty"` // present for terminal states
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobUpdate) Reset() {
+	*x = JobUpdate{}
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobUpdate) ProtoMessage() {}
+
+func (x *JobUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobUpdate.ProtoReflect.Descriptor instead.
+func (*JobUpdate) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *JobUpdate) GetSeq() uint64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *JobUpdate) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *JobUpdate) GetAttempt() uint32 {
+	if x != nil {
+		return x.Attempt
+	}
+	return 0
+}
+
+func (x *JobUpdate) GetState() JobState {
+	if x != nil {
+		return x.State
+	}
+	return JobState_JOB_STATE_UNSPECIFIED
+}
+
+func (x *JobUpdate) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *JobUpdate) GetResult() *JobResult {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+type JobResult struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Outcome          JobOutcome             `protobuf:"varint,1,opt,name=outcome,proto3,enum=auzring.agent.v1.JobOutcome" json:"outcome,omitempty"`
+	ExitCode         int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	DetectionPassed  bool                   `protobuf:"varint,3,opt,name=detection_passed,json=detectionPassed,proto3" json:"detection_passed,omitempty"`
+	RebootRequired   bool                   `protobuf:"varint,4,opt,name=reboot_required,json=rebootRequired,proto3" json:"reboot_required,omitempty"`
+	InstalledVersion string                 `protobuf:"bytes,5,opt,name=installed_version,json=installedVersion,proto3" json:"installed_version,omitempty"`
+	Message          string                 `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`                // human-readable, bounded
+	LogTail          string                 `protobuf:"bytes,7,opt,name=log_tail,json=logTail,proto3" json:"log_tail,omitempty"` // installer log tail, bounded to 16 KiB
+	StartedAt        int64                  `protobuf:"varint,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt       int64                  `protobuf:"varint,9,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	AlreadySatisfied bool                   `protobuf:"varint,10,opt,name=already_satisfied,json=alreadySatisfied,proto3" json:"already_satisfied,omitempty"` // pre-check found the target state; nothing was run
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *JobResult) Reset() {
+	*x = JobResult{}
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobResult) ProtoMessage() {}
+
+func (x *JobResult) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobResult.ProtoReflect.Descriptor instead.
+func (*JobResult) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *JobResult) GetOutcome() JobOutcome {
+	if x != nil {
+		return x.Outcome
+	}
+	return JobOutcome_JOB_OUTCOME_UNSPECIFIED
+}
+
+func (x *JobResult) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *JobResult) GetDetectionPassed() bool {
+	if x != nil {
+		return x.DetectionPassed
+	}
+	return false
+}
+
+func (x *JobResult) GetRebootRequired() bool {
+	if x != nil {
+		return x.RebootRequired
+	}
+	return false
+}
+
+func (x *JobResult) GetInstalledVersion() string {
+	if x != nil {
+		return x.InstalledVersion
+	}
+	return ""
+}
+
+func (x *JobResult) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *JobResult) GetLogTail() string {
+	if x != nil {
+		return x.LogTail
+	}
+	return ""
+}
+
+func (x *JobResult) GetStartedAt() int64 {
+	if x != nil {
+		return x.StartedAt
+	}
+	return 0
+}
+
+func (x *JobResult) GetFinishedAt() int64 {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return 0
+}
+
+func (x *JobResult) GetAlreadySatisfied() bool {
+	if x != nil {
+		return x.AlreadySatisfied
+	}
+	return false
+}
+
+type FetchContentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sha256        []byte                 `protobuf:"bytes,1,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Offset        uint64                 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"` // resume
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FetchContentRequest) Reset() {
+	*x = FetchContentRequest{}
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FetchContentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FetchContentRequest) ProtoMessage() {}
+
+func (x *FetchContentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FetchContentRequest.ProtoReflect.Descriptor instead.
+func (*FetchContentRequest) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *FetchContentRequest) GetSha256() []byte {
+	if x != nil {
+		return x.Sha256
+	}
+	return nil
+}
+
+func (x *FetchContentRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *FetchContentRequest) GetOffset() uint64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type FetchContentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	TotalSize     uint64                 `protobuf:"varint,2,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"` // on the first chunk
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FetchContentResponse) Reset() {
+	*x = FetchContentResponse{}
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FetchContentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FetchContentResponse) ProtoMessage() {}
+
+func (x *FetchContentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_channel_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FetchContentResponse.ProtoReflect.Descriptor instead.
+func (*FetchContentResponse) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_channel_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *FetchContentResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *FetchContentResponse) GetTotalSize() uint64 {
+	if x != nil {
+		return x.TotalSize
+	}
+	return 0
+}
+
 var File_auzring_agent_v1_channel_proto protoreflect.FileDescriptor
 
 const file_auzring_agent_v1_channel_proto_rawDesc = "" +
 	"\n" +
-	"\x1eauzring/agent/v1/channel.proto\x12\x10auzring.agent.v1\x1a\x1fauzring/agent/v1/envelope.proto\x1a auzring/agent/v1/inventory.proto\"\x92\x02\n" +
+	"\x1eauzring/agent/v1/channel.proto\x12\x10auzring.agent.v1\x1a\x1fauzring/agent/v1/envelope.proto\x1a auzring/agent/v1/inventory.proto\"\xd0\x02\n" +
 	"\x0eConnectRequest\x12/\n" +
 	"\x05hello\x18\x01 \x01(\v2\x17.auzring.agent.v1.HelloH\x00R\x05hello\x12;\n" +
 	"\theartbeat\x18\x02 \x01(\v2\x1b.auzring.agent.v1.HeartbeatH\x00R\theartbeat\x12A\n" +
 	"\tinventory\x18\x03 \x01(\v2!.auzring.agent.v1.InventoryReportH\x00R\tinventory\x12H\n" +
-	"\x0esecurity_event\x18\x04 \x01(\v2\x1f.auzring.agent.v1.SecurityEventH\x00R\rsecurityEventB\x05\n" +
+	"\x0esecurity_event\x18\x04 \x01(\v2\x1f.auzring.agent.v1.SecurityEventH\x00R\rsecurityEvent\x12<\n" +
+	"\n" +
+	"job_update\x18\x05 \x01(\v2\x1b.auzring.agent.v1.JobUpdateH\x00R\tjobUpdateB\x05\n" +
 	"\x03msg\"\xaf\x02\n" +
 	"\x0fConnectResponse\x129\n" +
 	"\thello_ack\x18\x01 \x01(\v2\x1a.auzring.agent.v1.HelloAckH\x00R\bhelloAck\x12)\n" +
@@ -1009,7 +1412,36 @@ const file_auzring_agent_v1_channel_proto_rawDesc = "" +
 	"\acsr_der\x18\x01 \x01(\fR\x06csrDer\"h\n" +
 	"\x18RenewCertificateResponse\x12&\n" +
 	"\x0fclient_cert_der\x18\x01 \x01(\fR\rclientCertDer\x12$\n" +
-	"\x0eissuing_ca_der\x18\x02 \x01(\fR\fissuingCaDer*\xe8\x02\n" +
+	"\x0eissuing_ca_der\x18\x02 \x01(\fR\fissuingCaDer\"\xcd\x01\n" +
+	"\tJobUpdate\x12\x10\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x18\n" +
+	"\aattempt\x18\x03 \x01(\rR\aattempt\x120\n" +
+	"\x05state\x18\x04 \x01(\x0e2\x1a.auzring.agent.v1.JobStateR\x05state\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x123\n" +
+	"\x06result\x18\x06 \x01(\v2\x1b.auzring.agent.v1.JobResultR\x06result\"\x83\x03\n" +
+	"\tJobResult\x126\n" +
+	"\aoutcome\x18\x01 \x01(\x0e2\x1c.auzring.agent.v1.JobOutcomeR\aoutcome\x12\x1b\n" +
+	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12)\n" +
+	"\x10detection_passed\x18\x03 \x01(\bR\x0fdetectionPassed\x12'\n" +
+	"\x0freboot_required\x18\x04 \x01(\bR\x0erebootRequired\x12+\n" +
+	"\x11installed_version\x18\x05 \x01(\tR\x10installedVersion\x12\x18\n" +
+	"\amessage\x18\x06 \x01(\tR\amessage\x12\x19\n" +
+	"\blog_tail\x18\a \x01(\tR\alogTail\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\b \x01(\x03R\tstartedAt\x12\x1f\n" +
+	"\vfinished_at\x18\t \x01(\x03R\n" +
+	"finishedAt\x12+\n" +
+	"\x11already_satisfied\x18\n" +
+	" \x01(\bR\x10alreadySatisfied\"\\\n" +
+	"\x13FetchContentRequest\x12\x16\n" +
+	"\x06sha256\x18\x01 \x01(\fR\x06sha256\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x04R\x06offset\"I\n" +
+	"\x14FetchContentResponse\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1d\n" +
+	"\n" +
+	"total_size\x18\x02 \x01(\x04R\ttotalSize*\xe8\x02\n" +
 	"\x11SecurityEventKind\x12#\n" +
 	"\x1fSECURITY_EVENT_KIND_UNSPECIFIED\x10\x00\x12%\n" +
 	"!SECURITY_EVENT_KIND_BAD_SIGNATURE\x10\x01\x12$\n" +
@@ -1019,9 +1451,21 @@ const file_auzring_agent_v1_channel_proto_rawDesc = "" +
 	"\"SECURITY_EVENT_KIND_POLICY_CEILING\x10\x05\x12%\n" +
 	"!SECURITY_EVENT_KIND_HASH_MISMATCH\x10\x06\x12'\n" +
 	"#SECURITY_EVENT_KIND_SIGNER_MISMATCH\x10\a\x12(\n" +
-	"$SECURITY_EVENT_KIND_BAD_SIGNING_CERT\x10\b2\xd4\x01\n" +
+	"$SECURITY_EVENT_KIND_BAD_SIGNING_CERT\x10\b*\x82\x02\n" +
+	"\bJobState\x12\x19\n" +
+	"\x15JOB_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12JOB_STATE_ACCEPTED\x10\x01\x12\x15\n" +
+	"\x11JOB_STATE_WAITING\x10\x02\x12\x15\n" +
+	"\x11JOB_STATE_RUNNING\x10\x03\x12\x17\n" +
+	"\x13JOB_STATE_SUCCEEDED\x10\x04\x12\x1e\n" +
+	"\x1aJOB_STATE_SUCCEEDED_REBOOT\x10\x05\x12\x14\n" +
+	"\x10JOB_STATE_FAILED\x10\x06\x12\x15\n" +
+	"\x11JOB_STATE_EXPIRED\x10\a\x12\x17\n" +
+	"\x13JOB_STATE_CANCELLED\x10\b\x12\x16\n" +
+	"\x12JOB_STATE_REJECTED\x10\t2\xb5\x02\n" +
 	"\x13AgentChannelService\x12R\n" +
-	"\aConnect\x12 .auzring.agent.v1.ConnectRequest\x1a!.auzring.agent.v1.ConnectResponse(\x010\x01\x12i\n" +
+	"\aConnect\x12 .auzring.agent.v1.ConnectRequest\x1a!.auzring.agent.v1.ConnectResponse(\x010\x01\x12_\n" +
+	"\fFetchContent\x12%.auzring.agent.v1.FetchContentRequest\x1a&.auzring.agent.v1.FetchContentResponse0\x01\x12i\n" +
 	"\x10RenewCertificate\x12).auzring.agent.v1.RenewCertificateRequest\x1a*.auzring.agent.v1.RenewCertificateResponseB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
@@ -1036,51 +1480,63 @@ func file_auzring_agent_v1_channel_proto_rawDescGZIP() []byte {
 	return file_auzring_agent_v1_channel_proto_rawDescData
 }
 
-var file_auzring_agent_v1_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_auzring_agent_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_auzring_agent_v1_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_auzring_agent_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_auzring_agent_v1_channel_proto_goTypes = []any{
 	(SecurityEventKind)(0),           // 0: auzring.agent.v1.SecurityEventKind
-	(*ConnectRequest)(nil),           // 1: auzring.agent.v1.ConnectRequest
-	(*ConnectResponse)(nil),          // 2: auzring.agent.v1.ConnectResponse
-	(*Hello)(nil),                    // 3: auzring.agent.v1.Hello
-	(*HelloAck)(nil),                 // 4: auzring.agent.v1.HelloAck
-	(*SigningKeyRevocation)(nil),     // 5: auzring.agent.v1.SigningKeyRevocation
-	(*Heartbeat)(nil),                // 6: auzring.agent.v1.Heartbeat
-	(*Ack)(nil),                      // 7: auzring.agent.v1.Ack
-	(*ResyncRequest)(nil),            // 8: auzring.agent.v1.ResyncRequest
-	(*GoAway)(nil),                   // 9: auzring.agent.v1.GoAway
-	(*SecurityEvent)(nil),            // 10: auzring.agent.v1.SecurityEvent
-	(*RenewCertificateRequest)(nil),  // 11: auzring.agent.v1.RenewCertificateRequest
-	(*RenewCertificateResponse)(nil), // 12: auzring.agent.v1.RenewCertificateResponse
-	nil,                              // 13: auzring.agent.v1.Hello.RevsEntry
-	(*InventoryReport)(nil),          // 14: auzring.agent.v1.InventoryReport
-	(*SignedEnvelope)(nil),           // 15: auzring.agent.v1.SignedEnvelope
-	(InventorySection)(0),            // 16: auzring.agent.v1.InventorySection
+	(JobState)(0),                    // 1: auzring.agent.v1.JobState
+	(*ConnectRequest)(nil),           // 2: auzring.agent.v1.ConnectRequest
+	(*ConnectResponse)(nil),          // 3: auzring.agent.v1.ConnectResponse
+	(*Hello)(nil),                    // 4: auzring.agent.v1.Hello
+	(*HelloAck)(nil),                 // 5: auzring.agent.v1.HelloAck
+	(*SigningKeyRevocation)(nil),     // 6: auzring.agent.v1.SigningKeyRevocation
+	(*Heartbeat)(nil),                // 7: auzring.agent.v1.Heartbeat
+	(*Ack)(nil),                      // 8: auzring.agent.v1.Ack
+	(*ResyncRequest)(nil),            // 9: auzring.agent.v1.ResyncRequest
+	(*GoAway)(nil),                   // 10: auzring.agent.v1.GoAway
+	(*SecurityEvent)(nil),            // 11: auzring.agent.v1.SecurityEvent
+	(*RenewCertificateRequest)(nil),  // 12: auzring.agent.v1.RenewCertificateRequest
+	(*RenewCertificateResponse)(nil), // 13: auzring.agent.v1.RenewCertificateResponse
+	(*JobUpdate)(nil),                // 14: auzring.agent.v1.JobUpdate
+	(*JobResult)(nil),                // 15: auzring.agent.v1.JobResult
+	(*FetchContentRequest)(nil),      // 16: auzring.agent.v1.FetchContentRequest
+	(*FetchContentResponse)(nil),     // 17: auzring.agent.v1.FetchContentResponse
+	nil,                              // 18: auzring.agent.v1.Hello.RevsEntry
+	(*InventoryReport)(nil),          // 19: auzring.agent.v1.InventoryReport
+	(*SignedEnvelope)(nil),           // 20: auzring.agent.v1.SignedEnvelope
+	(InventorySection)(0),            // 21: auzring.agent.v1.InventorySection
+	(JobOutcome)(0),                  // 22: auzring.agent.v1.JobOutcome
 }
 var file_auzring_agent_v1_channel_proto_depIdxs = []int32{
-	3,  // 0: auzring.agent.v1.ConnectRequest.hello:type_name -> auzring.agent.v1.Hello
-	6,  // 1: auzring.agent.v1.ConnectRequest.heartbeat:type_name -> auzring.agent.v1.Heartbeat
-	14, // 2: auzring.agent.v1.ConnectRequest.inventory:type_name -> auzring.agent.v1.InventoryReport
-	10, // 3: auzring.agent.v1.ConnectRequest.security_event:type_name -> auzring.agent.v1.SecurityEvent
-	4,  // 4: auzring.agent.v1.ConnectResponse.hello_ack:type_name -> auzring.agent.v1.HelloAck
-	7,  // 5: auzring.agent.v1.ConnectResponse.ack:type_name -> auzring.agent.v1.Ack
-	8,  // 6: auzring.agent.v1.ConnectResponse.resync:type_name -> auzring.agent.v1.ResyncRequest
-	9,  // 7: auzring.agent.v1.ConnectResponse.go_away:type_name -> auzring.agent.v1.GoAway
-	15, // 8: auzring.agent.v1.ConnectResponse.job_offer:type_name -> auzring.agent.v1.SignedEnvelope
-	13, // 9: auzring.agent.v1.Hello.revs:type_name -> auzring.agent.v1.Hello.RevsEntry
-	5,  // 10: auzring.agent.v1.HelloAck.signing_key_revocations:type_name -> auzring.agent.v1.SigningKeyRevocation
-	16, // 11: auzring.agent.v1.HelloAck.resync_sections:type_name -> auzring.agent.v1.InventorySection
-	16, // 12: auzring.agent.v1.ResyncRequest.section:type_name -> auzring.agent.v1.InventorySection
-	0,  // 13: auzring.agent.v1.SecurityEvent.kind:type_name -> auzring.agent.v1.SecurityEventKind
-	1,  // 14: auzring.agent.v1.AgentChannelService.Connect:input_type -> auzring.agent.v1.ConnectRequest
-	11, // 15: auzring.agent.v1.AgentChannelService.RenewCertificate:input_type -> auzring.agent.v1.RenewCertificateRequest
-	2,  // 16: auzring.agent.v1.AgentChannelService.Connect:output_type -> auzring.agent.v1.ConnectResponse
-	12, // 17: auzring.agent.v1.AgentChannelService.RenewCertificate:output_type -> auzring.agent.v1.RenewCertificateResponse
-	16, // [16:18] is the sub-list for method output_type
-	14, // [14:16] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	4,  // 0: auzring.agent.v1.ConnectRequest.hello:type_name -> auzring.agent.v1.Hello
+	7,  // 1: auzring.agent.v1.ConnectRequest.heartbeat:type_name -> auzring.agent.v1.Heartbeat
+	19, // 2: auzring.agent.v1.ConnectRequest.inventory:type_name -> auzring.agent.v1.InventoryReport
+	11, // 3: auzring.agent.v1.ConnectRequest.security_event:type_name -> auzring.agent.v1.SecurityEvent
+	14, // 4: auzring.agent.v1.ConnectRequest.job_update:type_name -> auzring.agent.v1.JobUpdate
+	5,  // 5: auzring.agent.v1.ConnectResponse.hello_ack:type_name -> auzring.agent.v1.HelloAck
+	8,  // 6: auzring.agent.v1.ConnectResponse.ack:type_name -> auzring.agent.v1.Ack
+	9,  // 7: auzring.agent.v1.ConnectResponse.resync:type_name -> auzring.agent.v1.ResyncRequest
+	10, // 8: auzring.agent.v1.ConnectResponse.go_away:type_name -> auzring.agent.v1.GoAway
+	20, // 9: auzring.agent.v1.ConnectResponse.job_offer:type_name -> auzring.agent.v1.SignedEnvelope
+	18, // 10: auzring.agent.v1.Hello.revs:type_name -> auzring.agent.v1.Hello.RevsEntry
+	6,  // 11: auzring.agent.v1.HelloAck.signing_key_revocations:type_name -> auzring.agent.v1.SigningKeyRevocation
+	21, // 12: auzring.agent.v1.HelloAck.resync_sections:type_name -> auzring.agent.v1.InventorySection
+	21, // 13: auzring.agent.v1.ResyncRequest.section:type_name -> auzring.agent.v1.InventorySection
+	0,  // 14: auzring.agent.v1.SecurityEvent.kind:type_name -> auzring.agent.v1.SecurityEventKind
+	1,  // 15: auzring.agent.v1.JobUpdate.state:type_name -> auzring.agent.v1.JobState
+	15, // 16: auzring.agent.v1.JobUpdate.result:type_name -> auzring.agent.v1.JobResult
+	22, // 17: auzring.agent.v1.JobResult.outcome:type_name -> auzring.agent.v1.JobOutcome
+	2,  // 18: auzring.agent.v1.AgentChannelService.Connect:input_type -> auzring.agent.v1.ConnectRequest
+	16, // 19: auzring.agent.v1.AgentChannelService.FetchContent:input_type -> auzring.agent.v1.FetchContentRequest
+	12, // 20: auzring.agent.v1.AgentChannelService.RenewCertificate:input_type -> auzring.agent.v1.RenewCertificateRequest
+	3,  // 21: auzring.agent.v1.AgentChannelService.Connect:output_type -> auzring.agent.v1.ConnectResponse
+	17, // 22: auzring.agent.v1.AgentChannelService.FetchContent:output_type -> auzring.agent.v1.FetchContentResponse
+	13, // 23: auzring.agent.v1.AgentChannelService.RenewCertificate:output_type -> auzring.agent.v1.RenewCertificateResponse
+	21, // [21:24] is the sub-list for method output_type
+	18, // [18:21] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_channel_proto_init() }
@@ -1095,6 +1551,7 @@ func file_auzring_agent_v1_channel_proto_init() {
 		(*ConnectRequest_Heartbeat)(nil),
 		(*ConnectRequest_Inventory)(nil),
 		(*ConnectRequest_SecurityEvent)(nil),
+		(*ConnectRequest_JobUpdate)(nil),
 	}
 	file_auzring_agent_v1_channel_proto_msgTypes[1].OneofWrappers = []any{
 		(*ConnectResponse_HelloAck)(nil),
@@ -1108,8 +1565,8 @@ func file_auzring_agent_v1_channel_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_channel_proto_rawDesc), len(file_auzring_agent_v1_channel_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   13,
+			NumEnums:      2,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

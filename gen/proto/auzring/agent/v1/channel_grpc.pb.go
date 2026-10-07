@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	AgentChannelService_Connect_FullMethodName          = "/auzring.agent.v1.AgentChannelService/Connect"
+	AgentChannelService_FetchContent_FullMethodName     = "/auzring.agent.v1.AgentChannelService/FetchContent"
 	AgentChannelService_RenewCertificate_FullMethodName = "/auzring.agent.v1.AgentChannelService/RenewCertificate"
 )
 
@@ -31,6 +32,9 @@ const (
 // See docs/PROTOCOL.md §4.2.
 type AgentChannelServiceClient interface {
 	Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ConnectRequest, ConnectResponse], error)
+	// Streams stored content (custom packages, optional cache) to a device that
+	// has a live job referencing the hash. See docs/PROTOCOL.md §8.
+	FetchContent(ctx context.Context, in *FetchContentRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FetchContentResponse], error)
 	// Also allowed with an expired certificate inside the renewal grace period.
 	RenewCertificate(ctx context.Context, in *RenewCertificateRequest, opts ...grpc.CallOption) (*RenewCertificateResponse, error)
 }
@@ -56,6 +60,25 @@ func (c *agentChannelServiceClient) Connect(ctx context.Context, opts ...grpc.Ca
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AgentChannelService_ConnectClient = grpc.BidiStreamingClient[ConnectRequest, ConnectResponse]
 
+func (c *agentChannelServiceClient) FetchContent(ctx context.Context, in *FetchContentRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FetchContentResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AgentChannelService_ServiceDesc.Streams[1], AgentChannelService_FetchContent_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FetchContentRequest, FetchContentResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentChannelService_FetchContentClient = grpc.ServerStreamingClient[FetchContentResponse]
+
 func (c *agentChannelServiceClient) RenewCertificate(ctx context.Context, in *RenewCertificateRequest, opts ...grpc.CallOption) (*RenewCertificateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RenewCertificateResponse)
@@ -74,6 +97,9 @@ func (c *agentChannelServiceClient) RenewCertificate(ctx context.Context, in *Re
 // See docs/PROTOCOL.md §4.2.
 type AgentChannelServiceServer interface {
 	Connect(grpc.BidiStreamingServer[ConnectRequest, ConnectResponse]) error
+	// Streams stored content (custom packages, optional cache) to a device that
+	// has a live job referencing the hash. See docs/PROTOCOL.md §8.
+	FetchContent(*FetchContentRequest, grpc.ServerStreamingServer[FetchContentResponse]) error
 	// Also allowed with an expired certificate inside the renewal grace period.
 	RenewCertificate(context.Context, *RenewCertificateRequest) (*RenewCertificateResponse, error)
 	mustEmbedUnimplementedAgentChannelServiceServer()
@@ -88,6 +114,9 @@ type UnimplementedAgentChannelServiceServer struct{}
 
 func (UnimplementedAgentChannelServiceServer) Connect(grpc.BidiStreamingServer[ConnectRequest, ConnectResponse]) error {
 	return status.Error(codes.Unimplemented, "method Connect not implemented")
+}
+func (UnimplementedAgentChannelServiceServer) FetchContent(*FetchContentRequest, grpc.ServerStreamingServer[FetchContentResponse]) error {
+	return status.Error(codes.Unimplemented, "method FetchContent not implemented")
 }
 func (UnimplementedAgentChannelServiceServer) RenewCertificate(context.Context, *RenewCertificateRequest) (*RenewCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RenewCertificate not implemented")
@@ -119,6 +148,17 @@ func _AgentChannelService_Connect_Handler(srv interface{}, stream grpc.ServerStr
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AgentChannelService_ConnectServer = grpc.BidiStreamingServer[ConnectRequest, ConnectResponse]
+
+func _AgentChannelService_FetchContent_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FetchContentRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AgentChannelServiceServer).FetchContent(m, &grpc.GenericServerStream[FetchContentRequest, FetchContentResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentChannelService_FetchContentServer = grpc.ServerStreamingServer[FetchContentResponse]
 
 func _AgentChannelService_RenewCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RenewCertificateRequest)
@@ -156,6 +196,11 @@ var AgentChannelService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _AgentChannelService_Connect_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "FetchContent",
+			Handler:       _AgentChannelService_FetchContent_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "auzring/agent/v1/channel.proto",
