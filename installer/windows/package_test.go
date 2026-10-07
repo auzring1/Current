@@ -672,3 +672,27 @@ func (p *parser) operand() (operand, error) {
 	}
 	return operand{}, fmt.Errorf("unexpected %q", t)
 }
+
+func TestWorkflowJobMSI(t *testing.T) {
+	b, err := os.ReadFile("../../.github/workflows/windows.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, "\n  msi:\n")
+	if i < 0 {
+		t.Fatal("job msi is missing from windows.yml")
+	}
+	job := s[i:]
+	for _, want := range []string{"runs-on: windows-2025", "continue-on-error: true", "installer/windows/build.ps1", "/x ", "1603"} {
+		if !strings.Contains(job, want) {
+			t.Errorf("job msi lacks %q", want)
+		}
+	}
+	pin := regexp.MustCompile(`uses: [\w./-]+@[0-9a-f]{40} # v`)
+	for _, line := range strings.Split(s, "\n") {
+		if strings.Contains(line, "uses:") && !pin.MatchString(line) {
+			t.Errorf("action not pinned by SHA: %s", strings.TrimSpace(line))
+		}
+	}
+}
