@@ -695,6 +695,16 @@ export interface paths {
                 query?: {
                     before_id?: number;
                     limit?: number;
+                    /** @description Action name prefix such as user. or deployment.create */
+                    action?: components["parameters"]["AuditAction"];
+                    outcome?: components["parameters"]["AuditOutcome"];
+                    actor_type?: components["parameters"]["AuditActorType"];
+                    /** @description Actor id or IP address */
+                    actor?: components["parameters"]["AuditActor"];
+                    /** @description A target id */
+                    target?: components["parameters"]["AuditTarget"];
+                    from?: components["parameters"]["AuditFrom"];
+                    to?: components["parameters"]["AuditTo"];
                 };
                 header?: never;
                 path?: never;
@@ -711,6 +721,104 @@ export interface paths {
                         "application/json": {
                             items: components["schemas"]["AuditEntry"][];
                         };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Walk the whole hash chain and report whether it is intact (requires audit:read; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            intact: boolean;
+                            /** Format: int64 */
+                            checked: number;
+                            /**
+                             * Format: int64
+                             * @description First bad entry id
+                             */
+                            broken_at: number;
+                            seconds: number;
+                        };
+                    };
+                };
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The filtered audit log as CSV, at most 100000 rows (requires audit:read; audited) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Action name prefix such as user. or deployment.create */
+                    action?: components["parameters"]["AuditAction"];
+                    outcome?: components["parameters"]["AuditOutcome"];
+                    actor_type?: components["parameters"]["AuditActorType"];
+                    /** @description Actor id or IP address */
+                    actor?: components["parameters"]["AuditActor"];
+                    /** @description A target id */
+                    target?: components["parameters"]["AuditTarget"];
+                    from?: components["parameters"]["AuditFrom"];
+                    to?: components["parameters"]["AuditTo"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
                     };
                 };
             };
@@ -3249,6 +3357,247 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Software policies (requires policies:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SoftwarePolicy"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a software policy (requires policies:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SoftwarePolicyInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                        };
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/policies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a software policy (requires policies:write; audited) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SoftwarePolicyInput"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Delete a software policy; deployments it already made keep running (requires policies:write; audited) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fleet health at a glance - device counts, patch compliance, jobs of the last 30 days (requires reports:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReportOverview"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Patch compliance per device (requires reports:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["ComplianceRow"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/compliance.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Patch compliance per device as CSV (requires inventory:export; audited) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update-conflicts": {
         parameters: {
             query?: never;
@@ -4501,6 +4850,89 @@ export interface components {
                 scope_id: string;
             }[];
         };
+        SoftwarePolicy: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "keep_updated" | "baseline";
+            /** Format: uuid */
+            package_id: string;
+            package_name: string;
+            package_identifier?: string;
+            group_ids: string[];
+            delay_days: number;
+            only_new_devices: boolean;
+            unverified_confirmed: boolean;
+            window?: components["schemas"]["MaintenanceWindow"];
+            enabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            devices_attempted: number;
+        };
+        SoftwarePolicyInput: {
+            name: string;
+            /** @enum {string} */
+            kind: "keep_updated" | "baseline";
+            /** Format: uuid */
+            package_id: string;
+            group_ids: string[];
+            delay_days?: number;
+            only_new_devices?: boolean;
+            unverified_confirmed?: boolean;
+            window?: components["schemas"]["MaintenanceWindow"];
+            enabled?: boolean;
+        };
+        ComplianceRow: {
+            /** Format: uuid */
+            device_id: string;
+            hostname: string;
+            /** Format: uuid */
+            site_id?: string;
+            os?: string;
+            os_build?: string;
+            agent_version?: string;
+            online: boolean;
+            /** Format: date-time */
+            last_seen_at?: string | null;
+            /** Format: date-time */
+            last_scan_at?: string | null;
+            approved_missing: number;
+            critical_missing: number;
+            failed_updates: number;
+            reboot_pending: boolean;
+            /** @enum {string} */
+            state: "compliant" | "non_compliant" | "unknown";
+        };
+        ReportOverview: {
+            devices: {
+                /** Format: int64 */
+                active?: number;
+                /** Format: int64 */
+                pending?: number;
+                /** Format: int64 */
+                revoked?: number;
+                /** Format: int64 */
+                online?: number;
+                /** Format: int64 */
+                not_seen_for_a_week?: number;
+                reboot_pending?: number;
+            };
+            compliance: {
+                compliant?: number;
+                non_compliant?: number;
+                unknown?: number;
+            };
+            jobs_30d: {
+                type: string;
+                status: string;
+                /** Format: int64 */
+                count: number;
+            }[];
+            /** Format: date-time */
+            generated: string;
+        };
         UpdateSettings: {
             /** @enum {string} */
             service: "default" | "windows_update" | "microsoft_update";
@@ -5113,6 +5545,8 @@ export interface components {
             ts: string;
             actor_type: string;
             actor_id: string;
+            /** @description Email of a user actor */
+            actor_name?: string;
             actor_ip?: string;
             action: string;
             target_type?: string;
@@ -5160,6 +5594,16 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Action name prefix such as user. or deployment.create */
+        AuditAction: string;
+        AuditOutcome: "success" | "denied" | "error";
+        AuditActorType: "user" | "system" | "device" | "anonymous";
+        /** @description Actor id or IP address */
+        AuditActor: string;
+        /** @description A target id */
+        AuditTarget: string;
+        AuditFrom: string;
+        AuditTo: string;
         ID: string;
     };
     requestBodies: {

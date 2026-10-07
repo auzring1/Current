@@ -68,17 +68,42 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) (int64
 const listAudit = `-- name: ListAudit :many
 SELECT id, ts, org_id, actor_type, actor_id, actor_ip, action, target_type, target_ids, outcome, details, prev_hash, hash FROM audit_log
 WHERE org_id = $1 AND ($3::bigint IS NULL OR id < $3::bigint)
+  AND ($4::text IS NULL OR action LIKE $4::text || '%')
+  AND ($5::text IS NULL OR outcome = $5::text)
+  AND ($6::text IS NULL OR actor_type = $6::text)
+  AND ($7::text IS NULL OR actor_id = $7::text OR actor_ip = $7::text)
+  AND ($8::text IS NULL OR $8::text = ANY(target_ids))
+  AND ($9::timestamptz IS NULL OR ts >= $9::timestamptz)
+  AND ($10::timestamptz IS NULL OR ts < $10::timestamptz)
 ORDER BY id DESC LIMIT $2
 `
 
 type ListAuditParams struct {
-	OrgID    *uuid.UUID
-	Limit    int32
-	BeforeID *int64
+	OrgID        *uuid.UUID
+	Limit        int32
+	BeforeID     *int64
+	ActionPrefix *string
+	Outcome      *string
+	ActorType    *string
+	Actor        *string
+	Target       *string
+	FromTs       *time.Time
+	ToTs         *time.Time
 }
 
 func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]AuditLog, error) {
-	rows, err := q.db.Query(ctx, listAudit, arg.OrgID, arg.Limit, arg.BeforeID)
+	rows, err := q.db.Query(ctx, listAudit,
+		arg.OrgID,
+		arg.Limit,
+		arg.BeforeID,
+		arg.ActionPrefix,
+		arg.Outcome,
+		arg.ActorType,
+		arg.Actor,
+		arg.Target,
+		arg.FromTs,
+		arg.ToTs,
+	)
 	if err != nil {
 		return nil, err
 	}

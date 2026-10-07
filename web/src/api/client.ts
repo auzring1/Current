@@ -45,6 +45,9 @@ export type MySecurity = components["schemas"]["MySecurity"];
 export type AgentRelease = components["schemas"]["AgentRelease"];
 export type AgentRollout = components["schemas"]["AgentRollout"];
 export type AgentRolloutStatus = components["schemas"]["AgentRolloutStatus"];
+export type SoftwarePolicy = components["schemas"]["SoftwarePolicy"];
+export type ComplianceRow = components["schemas"]["ComplianceRow"];
+export type ReportOverview = components["schemas"]["ReportOverview"];
 export type JobDetail = components["schemas"]["JobDetail"];
 
 let csrfToken = "";

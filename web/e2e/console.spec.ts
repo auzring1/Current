@@ -113,7 +113,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
 
       // Fleet-wide software search.
-      await page.getByRole("link", { name: "Software" }).click();
+      await page.getByRole("link", { name: "Software", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Software" })).toBeVisible();
       await expect(page.getByTestId("title-row").first()).toBeVisible({ timeout: 15_000 });
       await page.getByLabel("Search software").fill("lib");
@@ -369,10 +369,35 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Use a security key" }).click();
   await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
 
+  // --- Automation: a software policy, the reports page, and the audit chain check ---
+  await page.getByRole("link", { name: "Software policies" }).click();
+  await page.getByRole("button", { name: "Add policy" }).click();
+  const pd = page.getByRole("dialog");
+  await pd.getByLabel(/^Name/).fill("Keep Acme Tool current");
+  await pd.getByLabel(/^Package/).click();
+  await page.getByRole("option", { name: "Acme Tool" }).click();
+  await pd.getByLabel(/^Groups/).click();
+  await page.getByRole("option").first().click();
+  await pd.getByText("Add policy").click(); // close the dropdown
+  await pd.getByRole("button", { name: "Save policy" }).click();
+  await expect(page.getByRole("table", { name: "Software policies" }).getByText("Keep Acme Tool current")).toBeVisible();
+  await shot(page, "22-policies");
+
+  await page.getByRole("link", { name: "Reports" }).click();
+  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await expect(page.getByText("Patch compliant")).toBeVisible();
+  await shot(page, "23-reports");
+
   // --- Audit log ---
   await page.getByRole("link", { name: "Audit log" }).click();
   await expect(page.getByRole("cell", { name: "setup.complete" })).toBeVisible();
   if (agentBin) await expect(page.getByRole("cell", { name: "device.revoke" })).toBeVisible();
+  await page.getByRole("button", { name: "Verify the chain" }).click();
+  await expect(page.getByText(/The chain is intact/)).toBeVisible({ timeout: 20_000 });
+  await page.getByLabel("Action starts with").fill("user.");
+  await page.getByRole("button", { name: "Filter" }).click();
+  await expect(page.getByRole("cell", { name: "user.create" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "setup.complete" })).toHaveCount(0);
   await shot(page, "06-audit");
 
   // --- Sign out ---

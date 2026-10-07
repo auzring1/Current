@@ -30,6 +30,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/gateway"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
+	"github.com/auzring1/auzring/internal/server/policies"
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/server/updates"
 	"github.com/auzring1/auzring/internal/server/webui"
@@ -46,6 +47,7 @@ type App struct {
 	Deploy   *deploy.Service
 	Updates  *updates.Service
 	Releases *agentrel.Service
+	Policies *policies.Service
 	Catalog  *catalog.Service
 
 	authority atomic.Pointer[pki.Authority]
@@ -88,6 +90,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
 	a.Catalog = newCatalog(cfg, pool)
 	a.Releases = &agentrel.Service{Pool: pool, Deploy: a.Deploy, Content: a.Catalog.Content, Events: a.Events, Log: log.With("component", "agentrel")}
+	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
 		a.Updates.AfterJob(ctx, j, status, u)
 		a.Releases.AfterJob(ctx, j, status, u)
@@ -193,7 +196,7 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies,
 	}, webui.Handler())
 }
 
@@ -304,6 +307,9 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Deploy.Sweep(ctx)
 			a.Updates.Tick(ctx)
 			a.Releases.Tick(ctx)
+			if n%5 == 0 {
+				a.Policies.Tick(ctx)
+			}
 			n++
 			if n%1440 == 0 {
 				a.Updates.Prune(ctx)
