@@ -117,10 +117,10 @@ The examples assume the server name `auzring.lab` as in Phase 1.
 
 15. **Server restored from an older backup (simulated).** On the server:
     ```bash
-    docker compose -f deploy/docker-compose.yml exec postgres psql -U auzring -d auzring -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
+    docker compose -f deploy/docker-compose.yml exec postgres psql -U auzring_owner -d auzring -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
     docker compose -f deploy/docker-compose.yml restart server
     ```
-    (Use the DB user and name from your `deploy/.env`/secrets if they differ.) ✅ The software list is empty for a moment, then **repopulates by itself**: the agent's Hello revision no longer matches, so the server asks for a full snapshot. The agent log shows `full software inventory sent`.
+    ✅ The software list is empty for a moment, then **repopulates by itself**: the agent's Hello revision no longer matches, so the server asks for a full snapshot. The agent log shows `full software inventory sent`.
 
 ## Clean up
 ```powershell
