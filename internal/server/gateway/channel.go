@@ -94,6 +94,14 @@ func (g *Gateway) Connect(stream agentv1.AgentChannelService_ConnectServer) erro
 	if dev.HardwareRev < 0 || hello.Revs["hardware"] != uint64(dev.HardwareRev) { // #nosec G115 -- negative values handled first
 		ack.ResyncSections = append(ack.ResyncSections, agentv1.InventorySection_INVENTORY_SECTION_HARDWARE)
 	}
+	// A revision the server does not hold (restored backup, wiped agent state,
+	// lost acknowledgement) means that section must be sent in full.
+	if dev.SoftwareRev < 0 || hello.Revs["software"] != uint64(dev.SoftwareRev) { // #nosec G115 -- negative values handled first
+		ack.ResyncSections = append(ack.ResyncSections, agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE)
+	}
+	if dev.UsersRev < 0 || hello.Revs["users"] != uint64(dev.UsersRev) { // #nosec G115 -- negative values handled first
+		ack.ResyncSections = append(ack.ResyncSections, agentv1.InventorySection_INVENTORY_SECTION_USERS)
+	}
 	if err := c.send(&agentv1.ConnectResponse{Msg: &agentv1.ConnectResponse_HelloAck{HelloAck: ack}}); err != nil {
 		return err
 	}
@@ -166,8 +174,11 @@ func (g *Gateway) handle(ctx context.Context, c *conn, dev dbq.Device, m *agentv
 		g.events.Publish(dev.OrgID, events.Event{Type: events.DeviceUpdated, DeviceID: dev.ID})
 	case *agentv1.ConnectRequest_Inventory:
 		inv := msg.Inventory
-		if inv.Section != agentv1.InventorySection_INVENTORY_SECTION_HARDWARE || inv.GetHardware() == nil {
-			return status.Error(codes.InvalidArgument, "unsupported inventory section")
+		if inv.Section != agentv1.InventorySection_INVENTORY_SECTION_HARDWARE {
+			return g.handleInventory(ctx, c, dev, inv)
+		}
+		if inv.GetHardware() == nil {
+			return status.Error(codes.InvalidArgument, "hardware report without body")
 		}
 		hw := inv.GetHardware()
 		if err := validateHardware(hw); err != nil {
