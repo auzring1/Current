@@ -1,0 +1,489 @@
+openapi: 3.0.3
+info:
+  title: Auzring Management API
+  version: 0.1.0
+  description: |
+    REST API used by the Auzring web console. Authentication is a server-side
+    session cookie (`__Host-auz_session`) obtained via password + mandatory MFA.
+    Every state-changing request must carry a same-origin `Origin` header and,
+    once a session exists, the `X-CSRF-Token` header returned by the auth endpoints.
+    Agent traffic does NOT use this API (see docs/PROTOCOL.md).
+servers:
+  - url: /api/v1
+tags:
+  - name: setup
+  - name: auth
+  - name: devices
+  - name: enrollment
+  - name: audit
+paths:
+  /setup/status:
+    get:
+      tags: [setup]
+      summary: Whether first-run setup is still pending
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [setup_required]
+                properties:
+                  setup_required: { type: boolean }
+  /setup/begin:
+    post:
+      tags: [setup]
+      summary: Validate the setup token and get a TOTP secret for the first admin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [setup_token, email]
+              properties:
+                setup_token: { type: string, maxLength: 128 }
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        "200":
+          description: TOTP enrollment data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TOTPEnrollment" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /setup/complete:
+    post:
+      tags: [setup]
+      summary: Create the organization, first admin (with MFA) and the internal CA
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [setup_token, org_name, display_name, email, password, root_passphrase, totp_code]
+              properties:
+                setup_token: { type: string, maxLength: 128 }
+                org_name: { type: string, minLength: 1, maxLength: 200 }
+                display_name: { type: string, minLength: 1, maxLength: 200 }
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 12, maxLength: 256 }
+                root_passphrase: { type: string, minLength: 16, maxLength: 1024 }
+                totp_code: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        "200":
+          description: Setup complete; recovery codes are shown once
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recovery_codes]
+                properties:
+                  recovery_codes: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Verify email and password; starts an MFA-pending session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, maxLength: 254 }
+                password: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: Password accepted; MFA required
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mfa, csrf_token]
+                properties:
+                  mfa: { type: string, enum: [verify, enroll] }
+                  csrf_token: { type: string }
+                  totp_secret: { type: string, description: Present when mfa=enroll }
+                  otpauth_uri: { type: string, description: Present when mfa=enroll }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/mfa:
+    post:
+      tags: [auth]
+      summary: Complete sign-in with a TOTP or recovery code
+      requestBody: { $ref: "#/components/requestBodies/Code" }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /auth/mfa/enroll:
+    post:
+      tags: [auth]
+      summary: Enroll a new authenticator (after an MFA reset) and complete sign-in
+      requestBody: { $ref: "#/components/requestBodies/Code" }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End the session
+      responses:
+        "204": { description: Signed out }
+  /auth/session:
+    get:
+      tags: [auth]
+      summary: Current user, organization, permissions and CSRF token
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+  /devices:
+    get:
+      tags: [devices]
+      summary: List devices (requires devices:read)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, active, revoked, retired] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Device" } }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /devices/{id}:
+    get:
+      tags: [devices]
+      summary: Device detail including hardware inventory (requires devices:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/approve:
+    post:
+      tags: [devices]
+      summary: Approve a pending device (requires devices:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "204": { description: Approved }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /devices/{id}/revoke:
+    post:
+      tags: [devices]
+      summary: Revoke a device; its live connection is cut immediately (requires devices:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /enrollment-tokens:
+    get:
+      tags: [enrollment]
+      summary: List enrollment tokens (requires enrollment:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/EnrollmentToken" } }
+    post:
+      tags: [enrollment]
+      summary: Create an enrollment token; the secret is returned once (requires enrollment:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, max_uses, expires_in_hours, require_approval]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                max_uses: { type: integer, minimum: 1, maximum: 100000 }
+                expires_in_hours: { type: integer, minimum: 1, maximum: 8760 }
+                require_approval: { type: boolean }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, enrollment_string, install_command, root_ca_pin]
+                properties:
+                  token: { $ref: "#/components/schemas/EnrollmentToken" }
+                  enrollment_string: { type: string }
+                  install_command: { type: string }
+                  root_ca_pin: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /enrollment-tokens/{id}/revoke:
+    post:
+      tags: [enrollment]
+      summary: Revoke an enrollment token (requires enrollment:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+  /audit:
+    get:
+      tags: [audit]
+      summary: Audit log, newest first (requires audit:read)
+      parameters:
+        - { name: before_id, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+  /events:
+    get:
+      tags: [devices]
+      summary: Server-Sent Events stream of device changes (requires devices:read)
+      description: Events carry only `{type, device_id}`; clients re-fetch through the API.
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-auz_session
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  requestBodies:
+    Code:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [code]
+            properties:
+              code: { type: string, maxLength: 32, description: 6-digit TOTP or recovery code }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SessionStarted:
+      description: Signed in
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [csrf_token]
+            properties:
+              csrf_token: { type: string }
+              recovery_codes: { type: array, items: { type: string } }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+    TOTPEnrollment:
+      type: object
+      required: [totp_secret, otpauth_uri]
+      properties:
+        totp_secret: { type: string }
+        otpauth_uri: { type: string }
+    SessionInfo:
+      type: object
+      required: [user, org, permissions, csrf_token]
+      properties:
+        user:
+          type: object
+          required: [id, email, display_name]
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string }
+            display_name: { type: string }
+        org:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        permissions: { type: array, items: { type: string } }
+        csrf_token: { type: string }
+    Device:
+      type: object
+      required: [id, site_id, status, hostname, online, enrolled_at]
+      properties:
+        id: { type: string, format: uuid }
+        site_id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, active, revoked, retired] }
+        status_reason: { type: string }
+        hostname: { type: string }
+        os_caption: { type: string }
+        os_build: { type: string }
+        arch: { type: string }
+        agent_version: { type: string }
+        manufacturer: { type: string }
+        model: { type: string }
+        serial: { type: string }
+        online: { type: boolean }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+        last_ip: { type: string }
+        enrolled_at: { type: string, format: date-time }
+        approved_at: { type: string, format: date-time, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        uptime_s: { type: integer }
+        pending_reboot: { type: boolean }
+        logged_on_user: { type: string }
+        replaces_device_id: { type: string, format: uuid, nullable: true }
+        hardware: { $ref: "#/components/schemas/Hardware" }
+        certificates:
+          type: array
+          items:
+            type: object
+            required: [serial, not_before, not_after]
+            properties:
+              serial: { type: string }
+              not_before: { type: string, format: date-time }
+              not_after: { type: string, format: date-time }
+              revoked_at: { type: string, format: date-time, nullable: true }
+    Hardware:
+      type: object
+      description: Snapshot reported by the agent (protobuf field names).
+      properties:
+        hostname: { type: string }
+        fqdn: { type: string }
+        domain: { type: string }
+        os_caption: { type: string }
+        os_display_version: { type: string }
+        os_edition: { type: string }
+        os_build: { type: integer }
+        os_ubr: { type: integer }
+        os_version: { type: string }
+        arch: { type: string }
+        manufacturer: { type: string }
+        model: { type: string }
+        serial: { type: string }
+        smbios_uuid: { type: string }
+        chassis: { type: string }
+        bios_version: { type: string }
+        cpu_model: { type: string }
+        cpu_logical_cores: { type: integer }
+        ram_bytes: { type: string, description: uint64 encoded as a string (protobuf JSON) }
+        disks:
+          type: array
+          items:
+            type: object
+            properties:
+              mount: { type: string }
+              filesystem: { type: string }
+              size_bytes: { type: string }
+              free_bytes: { type: string }
+        interfaces:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              mac: { type: string }
+              addresses: { type: array, items: { type: string } }
+        last_logged_on_user: { type: string }
+        pending_reboot: { type: boolean }
+        pending_reboot_reasons: { type: array, items: { type: string } }
+        timezone: { type: string }
+        boot_time: { type: string }
+    EnrollmentToken:
+      type: object
+      required: [id, name, max_uses, used_count, expires_at, require_approval, created_at, state]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        max_uses: { type: integer }
+        used_count: { type: integer }
+        expires_at: { type: string, format: date-time }
+        require_approval: { type: boolean }
+        created_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        state: { type: string, enum: [active, revoked, expired, exhausted] }
+    AuditEntry:
+      type: object
+      required: [id, ts, actor_type, actor_id, action, outcome, target_ids, details]
+      properties:
+        id: { type: integer }
+        ts: { type: string, format: date-time }
+        actor_type: { type: string }
+        actor_id: { type: string }
+        actor_ip: { type: string }
+        action: { type: string }
+        target_type: { type: string }
+        target_ids: { type: array, items: { type: string } }
+        outcome: { type: string, enum: [success, denied, error] }
+        details: { type: object, additionalProperties: true }
+security:
+  - session: []
