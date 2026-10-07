@@ -25,6 +25,7 @@ type conn struct {
 	sendMu   sync.Mutex
 	kill     chan string
 	once     sync.Once
+	stage    *chunkStage // only touched by the connection's handler goroutine
 }
 
 func newConn(id uuid.UUID, serial, remote string, st agentv1.AgentChannelService_ConnectServer) *conn {

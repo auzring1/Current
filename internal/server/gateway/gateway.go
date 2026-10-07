@@ -28,6 +28,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/config"
 	"github.com/auzring1/auzring/internal/server/events"
+	"github.com/auzring1/auzring/internal/server/inventory"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
 )
@@ -55,6 +56,8 @@ type Gateway struct {
 	enrollToken *auth.Limiter
 	statusIP    *auth.Limiter
 	renewDevice *auth.Limiter
+	invDevice   *auth.Limiter
+	inv         *inventory.Service
 }
 
 // Options configure a Gateway.
@@ -81,6 +84,9 @@ func New(o Options) *Gateway {
 		enrollToken: auth.NewLimiter(60, time.Minute, 60),
 		statusIP:    auth.NewLimiter(30, time.Minute, 30),
 		renewDevice: auth.NewLimiter(5, time.Hour, 5),
+		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
+		invDevice: auth.NewLimiter(120, time.Minute, 450),
+		inv:       &inventory.Service{Pool: o.Pool, Now: now},
 	}
 }
 
