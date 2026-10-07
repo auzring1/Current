@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
 
@@ -417,3 +418,62 @@ func tailFile(path string) string {
 	}
 	return string(b)
 }
+
+// ---- Windows Update and restarts ----
+
+// WindowsUpdate returns the WUA client.
+func (p *winPlatform) WindowsUpdate() wu.Client { return wu.NewClient(p.dataDir) }
+
+var procAbortShutdown = windows.NewLazySystemDLL("advapi32.dll").NewProc("AbortSystemShutdownW")
+
+// enableShutdownPrivilege turns on SeShutdownPrivilege in the service's token (held but disabled by default).
+func enableShutdownPrivilege() error {
+	var tok windows.Token
+	if err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_ADJUST_PRIVILEGES|windows.TOKEN_QUERY, &tok); err != nil {
+		return err
+	}
+	defer tok.Close()
+	var luid windows.LUID
+	name, _ := windows.UTF16PtrFromString("SeShutdownPrivilege")
+	if err := windows.LookupPrivilegeValue(nil, name, &luid); err != nil {
+		return err
+	}
+	tp := windows.Tokenprivileges{PrivilegeCount: 1}
+	tp.Privileges[0] = windows.LUIDAndAttributes{Luid: luid, Attributes: windows.SE_PRIVILEGE_ENABLED}
+	return windows.AdjustTokenPrivileges(tok, false, &tp, 0, nil, nil)
+}
+
+// Reboot starts a restart with a countdown that Windows shows to every signed-in user (with the
+// message) and that an administrator can abort with "shutdown /a". Applications are not forced
+// closed: users get the usual "save your work" prompts, and the restart still happens at the end.
+func (p *winPlatform) Reboot(delay time.Duration, message string) error {
+	if err := enableShutdownPrivilege(); err != nil {
+		return fmt.Errorf("cannot enable the shutdown privilege: %w", err)
+	}
+	msg, err := windows.UTF16PtrFromString(message)
+	if err != nil {
+		return err
+	}
+	secs := uint32(delay / time.Second) // #nosec G115 -- bounded by the caller to 24 h
+	// SHTDN_REASON_MAJOR_OPERATINGSYSTEM | SHTDN_REASON_MINOR_UPGRADE | SHTDN_REASON_FLAG_PLANNED
+	const reason = 0x00020000 | 0x00000003 | 0x80000000
+	return windows.InitiateSystemShutdownEx(nil, msg, secs, false, true, reason)
+}
+
+// AbortReboot cancels a pending countdown. "No shutdown in progress" is not an error.
+func (p *winPlatform) AbortReboot() error {
+	if err := enableShutdownPrivilege(); err != nil {
+		return err
+	}
+	r, _, e := procAbortShutdown.Call(0)
+	if r == 0 {
+		if errno, ok := e.(windows.Errno); ok && errno == windows.Errno(1116) { // ERROR_NO_SHUTDOWN_IN_PROGRESS
+			return nil
+		}
+		return e
+	}
+	return nil
+}
+
+// RebootRequired reports the usual pending-restart markers.
+func (p *winPlatform) RebootRequired() bool { return wu.PendingReboot() }

@@ -5,14 +5,17 @@ package jobs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
 
@@ -107,6 +110,29 @@ func (p *devPlatform) Run(ctx context.Context, s RunSpec) (RunResult, error) {
 		return res, err
 	}
 	return res, nil
+}
+
+// WindowsUpdate is the scripted development client (see wu.DevFile).
+func (p *devPlatform) WindowsUpdate() wu.Client { return wu.NewClient(p.dir) }
+
+// Reboot records the request instead of restarting the developer's machine.
+func (p *devPlatform) Reboot(delay time.Duration, message string) error {
+	b, _ := json.Marshal(map[string]any{"at": time.Now().Unix(), "delay_s": int(delay.Seconds()), "message": message})
+	_ = os.Remove(wu.DevRebootMarker(p.dir))
+	return os.WriteFile(filepath.Join(p.dir, "reboot-requested.json"), b, 0o600)
+}
+
+func (p *devPlatform) AbortReboot() error {
+	err := os.Remove(filepath.Join(p.dir, "reboot-requested.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func (p *devPlatform) RebootRequired() bool {
+	_, err := os.Stat(wu.DevRebootMarker(p.dir))
+	return err == nil
 }
 
 func (p *devPlatform) RunAsUser(ctx context.Context, _ string, s RunSpec) (RunResult, error) {

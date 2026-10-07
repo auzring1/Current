@@ -17,6 +17,7 @@ import (
 
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
 
@@ -87,12 +88,123 @@ type fakePlatform struct {
 	runs   []RunSpec
 	runFn  func(spec RunSpec, asUser string) (RunResult, error)
 	events chan struct{}
+
+	wuc       *fakeWU
+	rebootReq bool
+	reboots   []rebootCall
+	aborts    int
+}
+
+type rebootCall struct {
+	delay   time.Duration
+	message string
+}
+
+// fakeWU is a scripted Windows Update Agent.
+type fakeWU struct {
+	mu       sync.Mutex
+	updates  []*agentv1.WuUpdate
+	installs [][]*agentv1.WuUpdateRef
+	results  map[string]agentv1.WuResult // by update id; default INSTALLED
+	reboot   bool                        // the next install asks for a restart
+	err      error                       // returned by every call
+	hidden   map[string]bool
+	policy   *agentv1.WuPolicyInfo
+	opts     []wu.Options
+}
+
+func (f *fakeWU) Scan(_ context.Context, o wu.Options) ([]*agentv1.WuUpdate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.opts = append(f.opts, o)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return append([]*agentv1.WuUpdate(nil), f.updates...), nil
+}
+
+func (f *fakeWU) Install(_ context.Context, o wu.Options, refs []*agentv1.WuUpdateRef) (*wu.InstallResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.opts = append(f.opts, o)
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.installs = append(f.installs, refs)
+	res := &wu.InstallResult{}
+	for _, r := range refs {
+		st, ok := f.results[r.UpdateId]
+		if !ok {
+			st = agentv1.WuResult_WU_RESULT_INSTALLED
+			if f.reboot {
+				st = agentv1.WuResult_WU_RESULT_INSTALLED_REBOOT
+			}
+		}
+		if st == agentv1.WuResult_WU_RESULT_INSTALLED || st == agentv1.WuResult_WU_RESULT_INSTALLED_REBOOT {
+			for i, u := range f.updates {
+				if u.UpdateId == r.UpdateId {
+					f.updates = append(f.updates[:i], f.updates[i+1:]...)
+					break
+				}
+			}
+		}
+		if st == agentv1.WuResult_WU_RESULT_INSTALLED_REBOOT {
+			res.RebootRequired = true
+		}
+		res.Results = append(res.Results, &agentv1.WuUpdateResult{UpdateId: r.UpdateId, Revision: r.Revision, Result: st})
+	}
+	return res, nil
+}
+
+func (f *fakeWU) Hide(_ context.Context, _ wu.Options, refs []*agentv1.WuUpdateRef, hide bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
+	if f.hidden == nil {
+		f.hidden = map[string]bool{}
+	}
+	for _, r := range refs {
+		f.hidden[r.UpdateId] = hide
+		for _, u := range f.updates {
+			if u.UpdateId == r.UpdateId {
+				u.State = agentv1.WuUpdateState_WU_UPDATE_STATE_MISSING
+				if hide {
+					u.State = agentv1.WuUpdateState_WU_UPDATE_STATE_HIDDEN
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (f *fakeWU) Policy() *agentv1.WuPolicyInfo {
+	if f.policy != nil {
+		return f.policy
+	}
+	return &agentv1.WuPolicyInfo{EffectiveSource: "windows_update"}
+}
+
+func (f *fakePlatform) WindowsUpdate() wu.Client { return f.wuc }
+func (f *fakePlatform) Reboot(d time.Duration, m string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reboots = append(f.reboots, rebootCall{d, m})
+	return nil
+}
+func (f *fakePlatform) AbortReboot() error { f.mu.Lock(); f.aborts++; f.mu.Unlock(); return nil }
+func (f *fakePlatform) RebootRequired() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.rebootReq
 }
 
 func newFake(t *testing.T) *fakePlatform {
 	return &fakePlatform{root: t.TempDir(), machine: newNode(), users: map[string]*node{}, sessions: map[string]bool{},
 		build: 26100, files: map[string]string{}, events: make(chan struct{}, 4), freeMB: 1 << 20,
-		runFn: func(RunSpec, string) (RunResult, error) { return RunResult{}, nil }, trusted: func(string) error { return nil }}
+		runFn: func(RunSpec, string) (RunResult, error) { return RunResult{}, nil }, trusted: func(string) error { return nil },
+		wuc: &fakeWU{results: map[string]agentv1.WuResult{}}}
 }
 
 func (f *fakePlatform) userRoot(sid string) *node {
@@ -233,8 +345,24 @@ func (r *recorder) last(id string) *agentv1.JobUpdate {
 // ---- in-memory job store ----
 
 type memStore struct {
-	mu sync.Mutex
-	m  map[string][]byte
+	mu   sync.Mutex
+	m    map[string][]byte
+	meta map[string][]byte
+}
+
+func (s *memStore) GetMeta(k string) []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.meta[k]
+}
+func (s *memStore) SetMeta(k string, v []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.meta == nil {
+		s.meta = map[string][]byte{}
+	}
+	s.meta[k] = append([]byte(nil), v...)
+	return nil
 }
 
 func (s *memStore) JobPut(id string, b []byte) error {

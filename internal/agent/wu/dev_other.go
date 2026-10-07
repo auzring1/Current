@@ -46,6 +46,9 @@ type DevUpdate struct {
 	Installed      bool     `json:"installed,omitempty"`
 }
 
+// DevRebootMarker is the file whose presence means the dev machine "needs a restart".
+func DevRebootMarker(dataDir string) string { return filepath.Join(dataDir, "reboot-pending") }
+
 // NewClient returns the development client rooted at dataDir.
 func NewClient(dataDir string) Client { return &devClient{path: filepath.Join(dataDir, "wu-dev.json")} }
 
@@ -110,6 +113,14 @@ func (c *devClient) Scan(_ context.Context, o Options) ([]*agentv1.WuUpdate, err
 }
 
 func (c *devClient) Install(_ context.Context, o Options, refs []*agentv1.WuUpdateRef) (*InstallResult, error) {
+	res, err := c.install(o, refs)
+	if err == nil && res.RebootRequired {
+		_ = os.WriteFile(DevRebootMarker(filepath.Dir(c.path)), []byte("1"), 0o600)
+	}
+	return res, err
+}
+
+func (c *devClient) install(o Options, refs []*agentv1.WuUpdateRef) (*InstallResult, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	f, err := c.load()
