@@ -10,6 +10,7 @@ import (
 
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/auzring/internal/shared/vercmp"
 )
 
 // Limits applied to every job body before anything is persisted or run.
@@ -211,6 +212,9 @@ func ValidateUninstall(b *agentv1.UninstallBody, targetSID string) error {
 	}
 	if b.ItemSource == "msi" && !guidRe.MatchString(b.ItemKey) {
 		return bad("MSI items are identified by product code")
+	}
+	if v := b.RemoveOlderThan; v != "" && (len(v) > 128 || vercmp.Key(v) == nil) {
+		return bad("remove_older_than is not a comparable version")
 	}
 	if err := installer.ValidateArgs(b.ExtraArgs); err != nil {
 		return bad("%v", err)

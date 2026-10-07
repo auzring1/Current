@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/agent/inventory"
 	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/auzring/internal/shared/vercmp"
 )
 
 var (
@@ -42,6 +44,18 @@ func (e *Engine) uninstall(ctx context.Context, r *Record, env *agentv1.JobEnvel
 	}
 	entry, closeAll := findEntry(roots, b.ItemKey)
 	defer closeAll()
+	if b.RemoveOlderThan != "" {
+		// Cleanup of an outdated copy: never remove something that is not older than the target
+		// (the inventory the server planned from may be stale, or the new installer replaced it).
+		switch {
+		case entry == nil:
+			return &outcome{res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, DetectionPassed: true,
+				AlreadySatisfied: true, Message: "the old copy is already gone; nothing to do"}}
+		case !versionOlder(entry.version, b.RemoveOlderThan):
+			return &outcome{res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, DetectionPassed: true,
+				AlreadySatisfied: true, Message: fmt.Sprintf("left alone: installed version %q is not older than %s", entry.version, b.RemoveOlderThan)}}
+		}
+	}
 	if entry == nil && b.ItemSource != "msi" {
 		return &outcome{res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, DetectionPassed: true,
 			AlreadySatisfied: true, Message: "already uninstalled; nothing to do"}}
@@ -120,8 +134,8 @@ func (e *Engine) uninstall(ctx context.Context, r *Record, env *agentv1.JobEnvel
 
 // entryInfo is what the planner needs from an Uninstall key.
 type entryInfo struct {
-	quiet, uninstall string
-	windowsInstaller bool
+	quiet, uninstall, version string
+	windowsInstaller          bool
 }
 
 // findEntry looks for the Uninstall subkey named key in any root. The returned
@@ -140,6 +154,7 @@ func findEntry(roots []inventory.RegNode, key string) (*entryInfo, func()) {
 		info := &entryInfo{}
 		info.quiet, _ = k.String("QuietUninstallString")
 		info.uninstall, _ = k.String("UninstallString")
+		info.version, _ = k.String("DisplayVersion")
 		if v, ok := k.DWord("WindowsInstaller"); ok && v == 1 {
 			info.windowsInstaller = true
 		}
@@ -247,4 +262,14 @@ func winBase(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// versionOlder reports whether installed is strictly older than target. An empty or unparseable
+// installed version is never "older": when in doubt a copy is left alone.
+func versionOlder(installed, target string) bool {
+	a, b := vercmp.Key(installed), vercmp.Key(target)
+	if a == nil || b == nil {
+		return false
+	}
+	return bytes.Compare(a, b) < 0
 }

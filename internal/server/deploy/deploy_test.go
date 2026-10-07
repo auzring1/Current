@@ -217,12 +217,17 @@ func TestUpdateOnlyTouchesOlderInstalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.Jobs != 1 || len(plan.Skipped) != 2 {
+	// the old copy's removal plus the update itself, both for the one device that has an older copy
+	if plan.Jobs != 2 || len(plan.Skipped) != 2 {
 		t.Fatalf("%+v", plan)
 	}
-	js := f.jobs(plan.DeploymentID)
-	if js[0].DeviceID != old || js[0].Type != "software_update" || !envOf(t, js[0]).GetInstall().Update {
-		t.Fatalf("%+v", js[0])
+	for _, j := range f.jobs(plan.DeploymentID) {
+		if j.DeviceID != old {
+			t.Fatalf("job for the wrong device: %+v", j)
+		}
+		if j.Type == "software_update" && !envOf(t, j).GetInstall().Update {
+			t.Fatalf("%+v", j)
+		}
 	}
 }
 
@@ -581,7 +586,79 @@ func TestSelfUpdatingAppsAreLeftToTheVendorUnlessEnforced(t *testing.T) {
 	}
 	// An administrator can enforce versions anyway.
 	f.exec("INSERT INTO package_overrides (org_id, package_id, self_update_policy) VALUES ($1,$2,'enforce')", f.org, f.pkg.ID)
-	if plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}}); err != nil || plan.Jobs != 2 { // machine copy + per-user copy
+	if plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}}); err != nil || plan.Jobs != 3 { // removal of the old copy + machine update + per-user copy
 		t.Fatalf("enforced update: %+v %v", plan, err)
+	}
+}
+
+func TestUpdateRemovesOlderCopiesBeforeInstalling(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(false)
+	d := f.device("pc", "amd64")
+	// 1.0 installed under a different Uninstall key than the new installer registers (the 7-Zip EXE -> MSI case),
+	// plus 1.5 under yet another key, plus one already at the target.
+	f.install(d, "machine", "", "reg64", "AcmeOld", "1.0")
+	f.install(d, "machine", "", "reg64", "AcmeMid", "1.5")
+	f.install(d, "machine", "", "reg64", "AcmeNew", "2.0")
+	f.rec.setOnline(d)
+	plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}})
+	if err != nil || plan.Jobs != 3 {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	var rm1, rm2, up dbq.Job
+	for _, j := range f.jobs(plan.DeploymentID) {
+		switch {
+		case j.Type == "software_update":
+			up = j
+		case envOf(t, j).GetUninstall().ItemKey == "AcmeOld":
+			rm1 = j
+		default:
+			rm2 = j
+		}
+	}
+	if envOf(t, rm1).GetUninstall().RemoveOlderThan != "2.0" || envOf(t, rm2).GetUninstall().ItemKey != "AcmeMid" {
+		t.Fatalf("cleanup bodies: %+v %+v", envOf(t, rm1).GetUninstall(), envOf(t, rm2).GetUninstall())
+	}
+	// chain: remove 1.0 -> remove 1.5 -> update; every link runs even if the one before it failed
+	if rm1.DependsOn != nil || rm2.DependsOn == nil || *rm2.DependsOn != rm1.ID || up.DependsOn == nil || *up.DependsOn != rm2.ID {
+		t.Fatalf("chain: %v %v %v", rm1.DependsOn, rm2.DependsOn, up.DependsOn)
+	}
+	if rm2.DependsWhen != "finished" || up.DependsWhen != "finished" {
+		t.Fatalf("modes: %s %s", rm2.DependsWhen, up.DependsWhen)
+	}
+	if n := f.rec.count(d); n != 1 {
+		t.Fatalf("only the first removal may be offered at once, got %d", n)
+	}
+	dev, _ := dbq.New(f.pool).GetDevice(context.Background(), d)
+	apply := func(id uuid.UUID, st agentv1.JobState) {
+		t.Helper()
+		if err := f.svc.ApplyUpdate(context.Background(), dev, &agentv1.JobUpdate{JobId: id.String(), State: st,
+			Result: &agentv1.JobResult{ExitCode: 1}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply(rm1.ID, agentv1.JobState_JOB_STATE_FAILED) // a failed removal must not block the update
+	if n := f.rec.count(d); n != 2 {
+		t.Fatalf("second removal not offered after a failure of the first: %d", n)
+	}
+	apply(rm2.ID, agentv1.JobState_JOB_STATE_SUCCEEDED)
+	if n := f.rec.count(d); n != 3 {
+		t.Fatalf("update not offered after the removals: %d", n)
+	}
+}
+
+func TestUpdateKeepsCopiesTheNewInstallerReplacesInPlace(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(false)
+	// the new installer registers under "AcmeOld": it upgrades that copy itself
+	f.exec(`UPDATE catalog_installers SET detection = '[{"kind":"registry","key":"AcmeOld","version":"2.0","cmp":"ge"}]'`)
+	d := f.device("pc", "amd64")
+	f.install(d, "machine", "", "reg64", "AcmeOld", "1.0")
+	plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}})
+	if err != nil || plan.Jobs != 1 {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if j := f.jobs(plan.DeploymentID)[0]; j.Type != "software_update" || j.DependsOn != nil {
+		t.Fatalf("%+v", j)
 	}
 }

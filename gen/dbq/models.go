@@ -228,6 +228,7 @@ type Job struct {
 	RebootRequired  bool
 	CancelPending   bool
 	Result          []byte
+	DependsWhen     string
 }
 
 type JobEvent struct {
