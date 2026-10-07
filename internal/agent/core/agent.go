@@ -1,0 +1,677 @@
+// Package core is the platform-independent agent: enrollment, the persistent
+// mTLS stream, heartbeats, inventory reporting and certificate renewal.
+package core
+
+import (
+	"bytes"
+	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strconv"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/auzring/internal/agent/config"
+	"github.com/auzring1/auzring/internal/agent/hardware"
+	"github.com/auzring1/auzring/internal/agent/keystore"
+	"github.com/auzring1/auzring/internal/agent/store"
+	"github.com/auzring1/auzring/internal/shared/envelope"
+	"github.com/auzring1/auzring/internal/shared/pkix"
+)
+
+const (
+	keyPrefix          = "Auzring-Agent-Device-"
+	maxMsg             = 4 << 20
+	fullHeartbeatEvery = 30 * time.Minute
+	hardwareEvery      = 6 * time.Hour
+	healthyResetAfter  = 10 * time.Minute
+)
+
+// Agent is one running agent instance.
+type Agent struct {
+	Cfg     *config.Config
+	CfgPath string
+	DataDir string
+	Store   *store.Store
+	Keys    keystore.Provider
+	HW      hardware.Collector
+	Log     *slog.Logger
+	Version string
+	// Tunables (overridable in tests).
+	BackoffBase, BackoffMax time.Duration
+	PendingPoll             time.Duration
+	Now                     func() time.Time
+
+	bootID      string
+	clockOffset time.Duration
+	lastHB      *agentv1.Heartbeat
+	lastHBSent  time.Time
+}
+
+func (a *Agent) now() time.Time {
+	if a.Now != nil {
+		return a.Now()
+	}
+	return time.Now()
+}
+
+func (a *Agent) status(state, msg, deviceID string) {
+	WriteStatus(a.DataDir, Status{State: state, Message: msg, DeviceID: deviceID, Server: a.Cfg.Server, Version: a.Version})
+}
+
+// Run blocks until ctx is cancelled, enrolling first if necessary.
+func (a *Agent) Run(ctx context.Context) error {
+	if a.BackoffBase == 0 {
+		a.BackoffBase = time.Second
+	}
+	if a.BackoffMax == 0 {
+		a.BackoffMax = 5 * time.Minute
+	}
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	a.bootID = hex.EncodeToString(b)
+	a.status("starting", "", "")
+	bo := &Backoff{Base: a.BackoffBase, Max: a.BackoffMax}
+	for ctx.Err() == nil {
+		id, err := a.Store.Identity()
+		if err != nil {
+			return fmt.Errorf("read identity: %w", err)
+		}
+		var wait time.Duration
+		switch {
+		case id == nil:
+			wait, err = a.enroll(ctx)
+		case id.Status == "pending":
+			wait, err = a.pollApproval(ctx, id)
+		case id.Status == "rejected":
+			a.status("rejected", "Enrollment was rejected or the device was revoked. Reinstall with a new token.", id.DeviceID)
+			wait = 6 * time.Hour
+		default:
+			var healthy time.Duration
+			healthy, wait, err = a.session(ctx, id)
+			if healthy >= healthyResetAfter {
+				bo.Reset()
+			}
+		}
+		if ctx.Err() != nil {
+			return nil
+		}
+		if err != nil {
+			if wait == 0 {
+				wait = bo.Next()
+			}
+			a.Log.Warn("agent cycle failed; retrying", "err", err, "retry_in", wait.Round(time.Second))
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(wait):
+		}
+	}
+	return nil
+}
+
+// enroll performs first contact. Returns how long to wait before the next step.
+func (a *Agent) enroll(ctx context.Context) (time.Duration, error) {
+	if a.Cfg.EnrollmentToken == "" {
+		a.status("error", "Not enrolled and no enrollment token is configured. Reinstall with --token.", "")
+		return time.Hour, errors.New("no enrollment token")
+	}
+	a.status("enrolling", "", "")
+	// Create the device key first; reuse a key created by an interrupted attempt.
+	keyName := keyPrefix + "1"
+	key, err := a.Keys.Open(keyName)
+	provider := "existing"
+	if errors.Is(err, keystore.ErrNotFound) {
+		key, provider, err = a.Keys.Create(keyName)
+	}
+	if err != nil {
+		a.status("error", "Could not create the device key: "+err.Error(), "")
+		return 0, fmt.Errorf("device key: %w", err)
+	}
+	a.Log.Info("device key ready", "provider", provider)
+	csr, err := keystore.CSR(key)
+	if err != nil {
+		return 0, err
+	}
+	hw, _ := a.HW.Collect(ctx)
+	if hw == nil {
+		hw = &agentv1.HardwareInventory{}
+	}
+	tc, err := pinnedTLS(a.Cfg.Server, a.Cfg.RootPin)
+	if err != nil {
+		return 0, err
+	}
+	conn, err := a.dial(tc)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = conn.Close() }()
+	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	resp, err := agentv1.NewEnrollmentServiceClient(conn).Enroll(cctx, &agentv1.EnrollRequest{
+		Token: a.Cfg.EnrollmentToken, CsrDer: csr, Hostname: hw.Hostname, SmbiosUuid: hw.SmbiosUuid,
+		Serial: hw.Serial, OsBuild: strconv.FormatUint(uint64(hw.OsBuild), 10), Arch: hw.Arch, AgentVersion: a.Version,
+	})
+	if err != nil {
+		if status.Code(err) == codes.PermissionDenied {
+			a.status("error", "The server rejected the enrollment token (expired, revoked or used up). Create a new token and reinstall.", "")
+			return time.Hour, err
+		}
+		a.status("error", "Enrollment failed: "+err.Error(), "")
+		return 0, err
+	}
+	return a.applyEnrollResult(resp.GetResult(), keyName)
+}
+
+func (a *Agent) applyEnrollResult(r *agentv1.EnrollResult, keyName string) (time.Duration, error) {
+	if r == nil {
+		return 0, errors.New("empty enrollment result")
+	}
+	// The root delivered by the server must match our pin.
+	var rootDER []byte
+	if len(r.RootCaDer) > 0 {
+		root, err := x509.ParseCertificate(r.RootCaDer)
+		if err != nil || pkix.SPKIPin(root) != a.Cfg.RootPin {
+			return time.Hour, errors.New("server sent a root CA that does not match the pin")
+		}
+		rootDER = r.RootCaDer
+	}
+	id, _ := a.Store.Identity()
+	if id == nil {
+		id = &store.Identity{KeyName: keyName, KeyGen: 1}
+	}
+	id.DeviceID, id.OrgID = r.DeviceId, r.OrgId
+	if rootDER != nil {
+		id.RootDER = rootDER
+	}
+	if len(r.IssuingCaDer) > 0 {
+		id.IssuingDER = r.IssuingCaDer
+	}
+	if len(r.JobSigningCertsDer) > 0 {
+		id.SigningDER = r.JobSigningCertsDer
+	}
+	switch r.Status {
+	case agentv1.EnrollStatus_ENROLL_STATUS_APPROVED:
+		if _, err := x509.ParseCertificate(r.ClientCertDer); err != nil {
+			return 0, fmt.Errorf("invalid client certificate: %w", err)
+		}
+		id.Status, id.Ticket, id.CertDER = "active", "", r.ClientCertDer
+	case agentv1.EnrollStatus_ENROLL_STATUS_PENDING:
+		id.Status, id.Ticket = "pending", r.Ticket
+	case agentv1.EnrollStatus_ENROLL_STATUS_REJECTED:
+		id.Status, id.Ticket = "rejected", ""
+	default:
+		return 0, errors.New("unknown enrollment status")
+	}
+	if err := a.Store.SaveIdentity(id); err != nil {
+		return 0, err
+	}
+	// The token is single-purpose: erase it once the server has our identity.
+	if a.Cfg.EnrollmentToken != "" {
+		a.Cfg.EnrollmentToken = ""
+		if a.CfgPath != "" {
+			if err := config.Save(a.CfgPath, a.Cfg); err != nil {
+				a.Log.Error("could not erase enrollment token from config", "err", err)
+			}
+		}
+	}
+	switch id.Status {
+	case "active":
+		a.Log.Info("enrolled", "device_id", id.DeviceID)
+		a.status("connecting", "", id.DeviceID)
+		return 0, nil
+	case "pending":
+		a.Log.Info("enrollment pending administrator approval", "device_id", id.DeviceID)
+		a.status("pending_approval", "Waiting for an administrator to approve this device in the console.", id.DeviceID)
+		return a.pendingWait(r.RetryAfterS), nil
+	default:
+		a.status("rejected", "Enrollment was rejected.", id.DeviceID)
+		return 6 * time.Hour, nil
+	}
+}
+
+func (a *Agent) pendingWait(serverHint uint32) time.Duration {
+	d := a.PendingPoll
+	if d == 0 {
+		d = time.Duration(serverHint) * time.Second
+		if d < 15*time.Second || d > time.Hour {
+			d = 60 * time.Second
+		}
+	}
+	return jitter(d, d/3)
+}
+
+func (a *Agent) pollApproval(ctx context.Context, id *store.Identity) (time.Duration, error) {
+	a.status("pending_approval", "Waiting for an administrator to approve this device in the console.", id.DeviceID)
+	tc, err := pinnedTLS(a.Cfg.Server, a.Cfg.RootPin)
+	if err != nil {
+		return 0, err
+	}
+	conn, err := a.dial(tc)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = conn.Close() }()
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	resp, err := agentv1.NewEnrollmentServiceClient(conn).EnrollStatus(cctx, &agentv1.EnrollStatusRequest{Ticket: id.Ticket})
+	if err != nil {
+		if status.Code(err) == codes.PermissionDenied {
+			id.Status, id.Ticket = "rejected", ""
+			_ = a.Store.SaveIdentity(id)
+			return 0, nil
+		}
+		return a.pendingWait(0), err
+	}
+	return a.applyEnrollResult(resp.GetResult(), id.KeyName)
+}
+
+func (a *Agent) dial(tc *tls.Config) (*grpc.ClientConn, error) {
+	return grpc.NewClient("passthrough:///"+a.Cfg.Server,
+		grpc.WithTransportCredentials(credentials.NewTLS(tc)),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 90 * time.Second, Timeout: 20 * time.Second, PermitWithoutStream: true}),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsg), grpc.MaxCallSendMsgSize(maxMsg)),
+	)
+}
+
+// goAway carries the server's retry hint out of a session.
+type goAway struct {
+	retry  time.Duration
+	reason string
+}
+
+func (g *goAway) Error() string { return "server closed the stream: " + g.reason }
+
+// session runs one connected stream. It returns how long it was healthy and,
+// if the server asked, how long to wait before reconnecting.
+func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration, time.Duration, error) {
+	a.status("connecting", "", id.DeviceID)
+	root, err := x509.ParseCertificate(id.RootDER)
+	if err != nil || pkix.SPKIPin(root) != a.Cfg.RootPin {
+		return 0, time.Hour, errors.New("stored root CA does not match the configured pin")
+	}
+	cert, err := x509.ParseCertificate(id.CertDER)
+	if err != nil {
+		return 0, time.Hour, fmt.Errorf("stored certificate: %w", err)
+	}
+	key, err := a.Keys.Open(id.KeyName)
+	if err != nil {
+		return 0, time.Hour, fmt.Errorf("open device key %s: %w", id.KeyName, err)
+	}
+	tc, err := mutualTLS(a.Cfg.Server, root, id.CertDER, id.IssuingDER, key)
+	if err != nil {
+		return 0, 0, err
+	}
+	conn, err := a.dial(tc)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := agentv1.NewAgentChannelServiceClient(conn)
+
+	// Expired certificate inside the grace period: renew first.
+	if a.now().After(cert.NotAfter) {
+		if err := a.renew(ctx, client, id); err != nil {
+			return 0, 0, fmt.Errorf("renew expired certificate: %w", err)
+		}
+		return 0, time.Second, nil
+	}
+
+	sctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream, err := client.Connect(sctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	hwRev := a.Store.GetUint("hw_rev")
+	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Hello{Hello: &agentv1.Hello{
+		DeviceId: id.DeviceID, AgentVersion: a.Version, BootId: a.bootID, Capabilities: []string{"hardware"},
+		Revs: map[string]uint64{"hardware": hwRev}, OutboxPending: uint32(a.Store.OutboxLen()), // #nosec G115
+		CertNotAfter: cert.NotAfter.Unix(),
+	}}}); err != nil {
+		return 0, 0, err
+	}
+	first, err := stream.Recv()
+	if err != nil {
+		return 0, a.retryHint(err), err
+	}
+	ack := first.GetHelloAck()
+	if ack == nil {
+		if ga := first.GetGoAway(); ga != nil {
+			return 0, jitter(time.Duration(ga.RetryAfterS)*time.Second, 30*time.Second), &goAway{reason: ga.Reason}
+		}
+		return 0, 0, errors.New("expected HelloAck")
+	}
+	start := a.now()
+	a.clockOffset = time.Unix(ack.ServerTime, 0).Sub(start)
+	if d := a.clockOffset; d > 5*time.Minute || d < -5*time.Minute {
+		a.Log.Warn("local clock differs from server", "offset", d.Round(time.Second))
+	}
+	a.acceptSigningCerts(ctx, stream, id, root, ack.JobSigningCertsDer)
+	a.Log.Info("connected", "server", a.Cfg.Server, "device_id", id.DeviceID)
+	a.status("connected", "", id.DeviceID)
+
+	if ack.RenewCertificate || a.renewDue(cert) {
+		if err := a.renew(ctx, client, id); err != nil {
+			a.Log.Error("certificate renewal failed; will retry", "err", err)
+		} else {
+			// Reconnect promptly with the new certificate.
+			return a.now().Sub(start), time.Second, nil
+		}
+	}
+
+	// Resend anything still queued (security events) from previous sessions.
+	if err := a.flushOutbox(stream); err != nil {
+		return 0, 0, err
+	}
+	forceHW := false
+	for _, s := range ack.ResyncSections {
+		if s == agentv1.InventorySection_INVENTORY_SECTION_HARDWARE {
+			forceHW = true
+		}
+	}
+	pendingHW, err := a.sendHardware(ctx, stream, forceHW)
+	if err != nil {
+		return a.now().Sub(start), 0, err
+	}
+
+	hbEvery := time.Duration(ack.HeartbeatIntervalS) * time.Second
+	if hbEvery < 10*time.Second || hbEvery > time.Hour {
+		hbEvery = 5 * time.Minute
+	}
+	hbTick := time.NewTicker(hbEvery)
+	defer hbTick.Stop()
+	hwTick := time.NewTicker(hardwareEvery)
+	defer hwTick.Stop()
+	if err := a.sendHeartbeat(ctx, stream, true); err != nil {
+		return a.now().Sub(start), 0, err
+	}
+
+	msgs := make(chan *agentv1.ConnectResponse)
+	recvErr := make(chan error, 1)
+	go func() {
+		for {
+			m, err := stream.Recv()
+			if err != nil {
+				recvErr <- err
+				return
+			}
+			select {
+			case msgs <- m:
+			case <-sctx.Done():
+				return
+			}
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			_ = stream.CloseSend()
+			return a.now().Sub(start), 0, nil
+		case err := <-recvErr:
+			return a.now().Sub(start), a.retryHint(err), err
+		case <-hbTick.C:
+			if err := a.sendHeartbeat(ctx, stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+			if a.renewDue(cert) {
+				if err := a.renew(ctx, client, id); err == nil {
+					return a.now().Sub(start), time.Second, nil
+				}
+			}
+		case <-hwTick.C:
+			if pendingHW, err = a.sendHardware(ctx, stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+		case m := <-msgs:
+			switch msg := m.Msg.(type) {
+			case *agentv1.ConnectResponse_Ack:
+				a.handleAck(msg.Ack.Seq, pendingHW)
+			case *agentv1.ConnectResponse_GoAway:
+				a.Log.Info("server asked us to disconnect", "reason", msg.GoAway.Reason, "retry_after_s", msg.GoAway.RetryAfterS)
+				if msg.GoAway.Reason == "revoked" {
+					id.Status = "rejected"
+					_ = a.Store.SaveIdentity(id)
+					a.status("rejected", "This device was revoked by an administrator.", id.DeviceID)
+				}
+				return a.now().Sub(start), jitter(time.Duration(msg.GoAway.RetryAfterS)*time.Second, 30*time.Second), &goAway{reason: msg.GoAway.Reason}
+			case *agentv1.ConnectResponse_Resync:
+				if msg.Resync.Section == agentv1.InventorySection_INVENTORY_SECTION_HARDWARE {
+					if pendingHW, err = a.sendHardware(ctx, stream, true); err != nil {
+						return a.now().Sub(start), 0, err
+					}
+				}
+			case *agentv1.ConnectResponse_JobOffer:
+				a.handleJobOffer(stream, id, root, msg.JobOffer)
+			}
+		}
+	}
+}
+
+// retryHint maps stream errors to reconnect delays; auth failures back off long.
+func (a *Agent) retryHint(err error) time.Duration {
+	switch status.Code(err) {
+	case codes.Unauthenticated, codes.PermissionDenied:
+		return jitter(10*time.Minute, 5*time.Minute)
+	}
+	return 0
+}
+
+// serverNow is local time corrected by the offset measured at HelloAck, so a
+// wrong local clock cannot cause renewal loops or missed renewals.
+func (a *Agent) serverNow() time.Time { return a.now().Add(a.clockOffset) }
+
+func (a *Agent) renewDue(cert *x509.Certificate) bool {
+	life := cert.NotAfter.Sub(cert.NotBefore)
+	return cert.NotAfter.Sub(a.serverNow()) < life/3
+}
+
+// renew creates a NEW key, gets it certified, then switches over.
+func (a *Agent) renew(ctx context.Context, client agentv1.AgentChannelServiceClient, id *store.Identity) error {
+	gen := id.KeyGen + 1
+	name := keyPrefix + strconv.Itoa(gen)
+	key, provider, err := a.Keys.Create(name)
+	if err != nil {
+		return err
+	}
+	csr, err := keystore.CSR(key)
+	if err != nil {
+		return err
+	}
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	resp, err := client.RenewCertificate(cctx, &agentv1.RenewCertificateRequest{CsrDer: csr})
+	if err != nil {
+		_ = a.Keys.Delete(name)
+		return err
+	}
+	cert, err := x509.ParseCertificate(resp.ClientCertDer)
+	pub, ok := cert.PublicKey.(interface{ Equal(crypto.PublicKey) bool })
+	if err != nil || !ok || !pub.Equal(key.Public()) {
+		_ = a.Keys.Delete(name)
+		return errors.New("renewed certificate does not match the new key")
+	}
+	oldName := id.KeyName
+	id.KeyName, id.KeyGen, id.CertDER = name, gen, resp.ClientCertDer
+	if len(resp.IssuingCaDer) > 0 {
+		id.IssuingDER = resp.IssuingCaDer
+	}
+	if err := a.Store.SaveIdentity(id); err != nil {
+		return err
+	}
+	if err := a.Keys.Delete(oldName); err != nil {
+		a.Log.Warn("could not delete old device key", "key", oldName, "err", err)
+	}
+	a.Log.Info("certificate renewed", "not_after", cert.NotAfter, "key_provider", provider)
+	return nil
+}
+
+// acceptSigningCerts stores job-signing certs that chain directly to our root.
+func (a *Agent) acceptSigningCerts(ctx context.Context, stream agentv1.AgentChannelService_ConnectClient, id *store.Identity, root *x509.Certificate, ders [][]byte) {
+	var good [][]byte
+	for _, d := range ders {
+		c, err := x509.ParseCertificate(d)
+		if err == nil {
+			err = pkix.VerifyJobSigningCert(root, c, a.serverNow())
+		}
+		if err != nil {
+			a.securityEvent(stream, agentv1.SecurityEventKind_SECURITY_EVENT_KIND_BAD_SIGNING_CERT, err.Error())
+			continue
+		}
+		good = append(good, d)
+	}
+	if len(good) > 0 && !equalDERs(good, id.SigningDER) {
+		id.SigningDER = good
+		if err := a.Store.SaveIdentity(id); err != nil {
+			a.Log.Error("store signing certs", "err", err)
+		}
+	}
+	_ = ctx
+}
+
+func equalDERs(a, b [][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !bytes.Equal(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// handleJobOffer verifies an envelope. Phase 1 executes no jobs: valid
+// envelopes are acknowledged in the log only; invalid ones are reported.
+func (a *Agent) handleJobOffer(stream agentv1.AgentChannelService_ConnectClient, id *store.Identity, root *x509.Certificate, se *agentv1.SignedEnvelope) {
+	var certs []*x509.Certificate
+	for _, d := range id.SigningDER {
+		if c, err := x509.ParseCertificate(d); err == nil {
+			certs = append(certs, c)
+		}
+	}
+	v := &envelope.Verifier{Root: root, DeviceID: id.DeviceID, OrgID: id.OrgID, SigningCerts: certs,
+		Ledger: store.Ledger{S: a.Store}, Now: a.serverNow}
+	env, err := v.Open(se)
+	if err != nil {
+		kind := agentv1.SecurityEventKind_SECURITY_EVENT_KIND_BAD_SIGNATURE
+		switch {
+		case errors.Is(err, envelope.ErrWrongDevice):
+			kind = agentv1.SecurityEventKind_SECURITY_EVENT_KIND_WRONG_DEVICE
+		case errors.Is(err, envelope.ErrReplay):
+			kind = agentv1.SecurityEventKind_SECURITY_EVENT_KIND_REPLAY
+		case errors.Is(err, envelope.ErrExpired):
+			kind = agentv1.SecurityEventKind_SECURITY_EVENT_KIND_EXPIRED
+		}
+		a.Log.Warn("rejected job envelope", "err", err)
+		a.securityEvent(stream, kind, err.Error())
+		return
+	}
+	_ = a.Store.LedgerRecord(env.JobId, time.Unix(env.ExpiresAt, 0))
+	a.Log.Info("verified job envelope; job execution arrives in a later version", "job_id", env.JobId, "type", env.Type.String())
+}
+
+// securityEvent queues an event in the outbox and sends it.
+func (a *Agent) securityEvent(stream agentv1.AgentChannelService_ConnectClient, kind agentv1.SecurityEventKind, detail string) {
+	seq, err := a.Store.NextSeq()
+	if err != nil {
+		return
+	}
+	if len(detail) > 1000 {
+		detail = detail[:1000]
+	}
+	msg := &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_SecurityEvent{SecurityEvent: &agentv1.SecurityEvent{Seq: seq, Kind: kind, Detail: detail}}}
+	if b, err := proto.Marshal(msg); err == nil {
+		_ = a.Store.OutboxPut(seq, b)
+	}
+	_ = stream.Send(msg)
+}
+
+func (a *Agent) flushOutbox(stream agentv1.AgentChannelService_ConnectClient) error {
+	m, order, err := a.Store.OutboxAll()
+	if err != nil {
+		return err
+	}
+	for _, seq := range order {
+		var msg agentv1.ConnectRequest
+		if proto.Unmarshal(m[seq], &msg) != nil {
+			_ = a.Store.OutboxAck(seq)
+			continue
+		}
+		if err := stream.Send(&msg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type pendingReport struct {
+	seq uint64
+	rev uint64
+	fp  []byte
+}
+
+// sendHardware collects inventory and sends it if it changed (or forced).
+func (a *Agent) sendHardware(ctx context.Context, stream agentv1.AgentChannelService_ConnectClient, force bool) (*pendingReport, error) {
+	hw, err := a.HW.Collect(ctx)
+	if err != nil || hw == nil {
+		a.Log.Warn("hardware inventory failed", "err", err)
+		return nil, nil
+	}
+	fp := hardware.Fingerprint(hw)
+	if !force && bytes.Equal(fp, a.Store.GetMeta("hw_fp")) {
+		return nil, nil
+	}
+	seq, err := a.Store.NextSeq()
+	if err != nil {
+		return nil, err
+	}
+	rev := a.Store.GetUint("hw_rev") + 1
+	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Inventory{Inventory: &agentv1.InventoryReport{
+		Seq: seq, Section: agentv1.InventorySection_INVENTORY_SECTION_HARDWARE, Rev: rev,
+		Body: &agentv1.InventoryReport_Hardware{Hardware: hw}}}}); err != nil {
+		return nil, err
+	}
+	a.Log.Info("hardware inventory sent", "rev", rev)
+	return &pendingReport{seq: seq, rev: rev, fp: fp}, nil
+}
+
+func (a *Agent) handleAck(seq uint64, hw *pendingReport) {
+	if hw != nil && hw.seq == seq {
+		_ = a.Store.SetUint("hw_rev", hw.rev)
+		_ = a.Store.SetMeta("hw_fp", hw.fp)
+		return
+	}
+	_ = a.Store.OutboxAck(seq)
+}
+
+// sendHeartbeat sends only when something changed or 30 minutes elapsed.
+func (a *Agent) sendHeartbeat(ctx context.Context, stream agentv1.AgentChannelService_ConnectClient, force bool) error {
+	hb, err := a.HW.Heartbeat(ctx)
+	if err != nil || hb == nil {
+		return nil
+	}
+	changed := a.lastHB == nil || a.lastHB.PendingReboot != hb.PendingReboot || a.lastHB.LoggedOnUser != hb.LoggedOnUser
+	if !force && !changed && a.now().Sub(a.lastHBSent) < fullHeartbeatEvery {
+		return nil
+	}
+	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Heartbeat{Heartbeat: hb}}); err != nil {
+		return err
+	}
+	a.lastHB, a.lastHBSent = hb, a.now()
+	return nil
+}
