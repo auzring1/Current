@@ -1,6 +1,21 @@
 # Agent ↔ Server Protocol (v1)
 
-Status: Phase 0 design. The normative source will be `proto/auzring/agent/v1/*.proto`, checked in CI with `buf lint` and a breaking-change check. This document explains intent, ordering and validation rules that protobuf can't express.
+Status: **v1 implemented in Phase 1.** The normative source is `proto/auzring/agent/v1/*.proto` (`buf lint` runs in CI). This document explains intent, ordering and validation rules that protobuf can't express.
+
+**Phase 1 scope:**
+- Implemented: enrollment, approval polling, the `Connect` stream (Hello/HelloAck, Heartbeat, hardware inventory with Ack, SecurityEvent, GoAway), `RenewCertificate`, signing-certificate distribution, and agent-side envelope verification.
+- Not yet: the server sends no `JobOffer` messages until Phase 3; software inventory deltas and `InventoryChunk` arrive in Phase 2; content download arrives in Phase 3.
+
+**Message names in the `.proto` files:**
+
+| This document | `.proto` |
+|---|---|
+| `Enrollment` | `EnrollmentService` |
+| `AgentChannel` | `AgentChannelService` |
+| `AgentMessage` | `ConnectRequest` |
+| `ServerMessage` | `ConnectResponse` |
+
+Both `EnrollResponse` and `EnrollStatusResponse` wrap a shared `EnrollResult`.
 
 ## 1. Transport
 - **gRPC over HTTP/2 over TLS 1.3 only** (`MinVersion = MaxVersion = TLS13`). TLS 1.3 cipher suites aren't configurable in Go; all three are AEAD.
@@ -15,12 +30,13 @@ Root CA (ECDSA P-384, 20y)  — key encrypted with an owner passphrase; unlocked
  ├── Issuing CA (P-384, 5y, pathlen 0, EKU serverAuth+clientAuth)   — key encrypted with server KEK
  │    ├── Gateway server cert (P-256, 90d, auto-renewed, SAN = configured gateway hostnames/IPs)
  │    └── Device client certs (P-256, 90d; CN = device UUID; URI SAN urn:auzring:device:<uuid>; EKU clientAuth)
- └── Job-signing cert (Ed25519, 2y, EKU = 1.3.6.1.4.1.<PEN>.1.1 "auzring job signing", issued *directly* by root)
+ └── Job-signing cert (Ed25519, 2y, EKU = 1.3.6.1.4.1.32473.7231.1.1 "auzring job signing" (placeholder PEN, see DECISIONS D25), issued *directly* by root)
 ```
 
 - **The agent pins the root** by SPKI SHA-256 from its enrollment bundle. It accepts a job-signing certificate only if the root issued it directly and it has the job-signing EKU. The issuing CA can't produce one, because of its EKU constraint and path rule. So stealing the TLS issuing key does **not** let an attacker sign jobs.
 - **The device key is generated on the device.** It uses CNG: `Microsoft Platform Crypto Provider` (TPM 2.0) when available, otherwise `Microsoft Software Key Storage Provider` with `NCRYPT_MACHINE_KEY_FLAG` and export disabled. It's exposed to Go's TLS stack as a `crypto.Signer`. The private key never exists in agent memory or on disk in plaintext.
-- *Placeholder:* `<PEN>` is an IANA Private Enterprise Number. We'll register one; this is an owner decision.
+- **Placeholder:** 32473 is IANA's documentation PEN (RFC 5612). It will be replaced by a registered PEN before release; agents will accept both during the transition.
+- **Backdating:** every certificate's `NotBefore` is backdated by `pkix.CertBackdate` (5 min) to tolerate clock skew. The intended lifetime is `NotAfter − NotBefore − 5 min`, and agents use that for renewal decisions.
 
 ## 3. Enrollment bundle
 
@@ -31,7 +47,9 @@ AURZ1.<base64url(JSON)>
 {"v":1,"gw":"agents.example.com:8443","root":"sha256/<b64 SPKI hash>","tok":"<32-byte random b64url>","org":"<uuid>"}
 ```
 
-The token is shown to the admin once. The server stores only `SHA-256(token)`, because the token has high entropy and a slow hash isn't needed. After enrollment succeeds, the agent erases the token from `config.json`.
+The token is shown to the admin once. The server stores only `SHA-256("auzring/enroll-token/v1\0" || token)`, because the token is 256-bit random and a slow hash isn't needed. After the server accepts the enrollment (approved *or* pending), the agent erases the token from `config.json`.
+
+**Install command:** `auzring-agent.exe install --server host:port --token AURZ1....`. `--server` overrides the gateway address inside the bundle; the root pin always comes from the bundle.
 
 ## 4. RPCs
 
@@ -65,7 +83,7 @@ Failures return one generic error. The detailed reason goes to the audit log onl
 
 **Duplicate devices.** If `smbios_uuid`+`serial` matches an active device, the request becomes a **re-enrollment** that needs approval, regardless of the token setting. This stops one token from silently taking over an existing device's identity.
 
-**Pending approval.** `EnrollStatus(ticket)` is called every 5 min ±60 s. This is the only polling in the protocol, and it only happens while pending.
+**Pending approval.** `EnrollStatus(ticket)` is called at the server-suggested interval (`retry_after_s`; 60 s by default, configurable with `AUZ_ENROLL_POLL_INTERVAL`) plus up to 1/3 jitter. This is the only polling in the protocol, and it only happens while pending. The ticket is stored hashed; when the device is approved, the next poll returns the client certificate and the ticket is invalidated.
 
 ### 4.2 Connect: stream messages
 ```
@@ -176,14 +194,19 @@ InstallBody {
 
 ## 7. Liveness and reconnect
 - Transport: gRPC keepalive every 90 s with a 20 s timeout. The server's enforcement policy allows a minimum of 60 s.
-- Online means a live stream. `last_seen_at` is written in batches, at most once per device every 5 min.
+- Online means a live stream (tracked in the server hub). `last_seen_at` is written on connect, on disconnect and on each heartbeat; heartbeats are sent only when something changed, or every 30 min, so idle agents cost almost nothing.
 - Reconnect uses exponential backoff with **full jitter**: `sleep = rand(0, min(300 s, 1 s × 2^n))`. The counter resets after 10 min of a healthy stream. After a server-initiated close (`GoAway` or shutdown), the agent waits `retry_after` plus a random 0 to 30 s to avoid a reconnect stampede.
 - **Revocation is immediate:**
   1. The admin revokes the device.
   2. The device row is set to `revoked` and its certificate serials are marked revoked.
   3. The hub sends `GoAway` and closes the stream at once.
-  4. The handshake check in `VerifyConnection` looks up the device's status. It uses a cache that is invalidated synchronously on revoke, so any reconnect attempt fails at the TLS layer.
-- **Certificate renewal.** When 1/3 of the certificate lifetime remains, the agent sends `RenewCertificate` with a new CSR from a **new** key, then rotates. An expired certificate can still call `RenewCertificate` for up to 180 days if the device is active, so laptops that have been away for a while recover. After that, the device must re-enroll.
+  4. Revocation is enforced at three points: **every TLS handshake** (`VerifyConnection` looks up the certificate and device state in the database, with no cache), **every new gRPC stream or call** (so an already-open HTTP/2 connection cannot be reused), and the live stream itself, which the hub ends with `GoAway{reason:"revoked"}`. An agent that receives `revoked` marks itself rejected and stops reconnecting.
+- **Certificate renewal.**
+  - The agent renews when less than 1/3 of the lifetime (excluding the backdate) remains, measured on **server-corrected time**. It checks on a timer of lifetime/10, clamped to 1 s–1 h. `HelloAck.renew_certificate` also triggers renewal.
+  - The agent sends `RenewCertificate` with a CSR from a **new** key (CNG name `Auzring-Agent-Device-<generation>`), stores the new certificate, deletes the old key, and reconnects.
+  - When the device first connects with the new certificate, the server revokes the older ones (`revoke_reason='superseded'`).
+  - An expired certificate can still call `RenewCertificate`, and only that RPC, for up to 180 days (`AUZ_DEVICE_RENEW_GRACE`) if the device is active. After that the device must re-enroll.
+  - Renewals are rate-limited to 5 per device per hour.
 
 ## 8. Content download
 - `GET /v1/content/{sha256}` on the gateway listener requires mTLS and supports `Range`.

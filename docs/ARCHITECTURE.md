@@ -1,6 +1,31 @@
 # Architecture
 
-Status: Phase 0 design. Sections marked *(Phase N)* are built in that phase.
+Status: Phase 1 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
+
+## 0. Phase 1 implementation status
+
+| Area | State | Where |
+|---|---|---|
+| Server skeleton, config (secrets only via `*_FILE` outside dev mode) | ✅ | `cmd/auzring-server`, `internal/server/{app,config}` |
+| PostgreSQL schema, embedded goose migrations, owner/app role split | ✅ | `db/migrations`, `internal/server/store` |
+| Internal CA: passphrase-sealed root, KEK-sealed issuing + job-signing + gateway keys | ✅ | `internal/server/pki`, `internal/server/kek` |
+| First-run setup (one-time token, admin, mandatory TOTP, recovery codes, CA creation) | ✅ | `internal/server/api/setup.go` |
+| Login + MFA, sessions, CSRF, CSP, rate limits, lockout, RBAC skeleton | ✅ | `internal/server/{auth,api}` |
+| Hash-chained append-only audit log + CLI verifier | ✅ | `internal/server/audit` |
+| Enrollment (tokens, approval, re-enrollment guard), mTLS gateway, revocation, renewal | ✅ | `internal/server/gateway` |
+| Signed job envelopes (library + agent verification + replay ledger) | ✅ (no jobs are issued until Phase 3) | `internal/shared/envelope` |
+| Agent: service, install/uninstall, CNG/TPM key, enrollment, heartbeat, hardware inventory | ✅ | `cmd/auzring-agent`, `internal/agent/*` |
+| Web console: setup, login/MFA, devices (live), enrollment tokens, audit | ✅ | `web/` |
+| docker-compose (Caddy, server, Postgres), hardened | ✅ | `deploy/` |
+| Software inventory, jobs, WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 2–5 | — |
+
+Implementation notes that refine the design below:
+- **REST layer (D6, revised):** handlers are hand-written with strict JSON decoding. `api/openapi.yaml` is the contract, and `TestRoutesMatchSpec` fails the build if routes and spec drift. TypeScript types are generated from the spec.
+- **Web console CSP:** `index.html` carries a placeholder nonce that the server replaces per request. Mantine and `react-remove-scroll` (through `get-nonce`) put that nonce on every injected `<style>`. The Playwright test fails on any CSP violation.
+- **Agent state:** `status.json` in the data directory reports `enrolling`, `pending_approval`, `connected`, `rejected` or `error`, for `install`, `status` and support staff.
+- **Renewal:** the agent checks renewal on a timer scaled to certificate lifetime (lifetime/10, clamped to 1 s–1 h). It uses server-corrected time, and lifetime excludes the CA's 5-minute backdate (`pkix.CertBackdate`).
+- **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
+
 
 ## 1. System overview
 
@@ -338,7 +363,7 @@ SYSTEM service                                              user session (SID S,
 │   ├── agent/...              see §3
 │   └── shared/                protocol helpers, envelope sign/verify, version compare, detection-rule types
 ├── proto/auzring/agent/v1/    .proto files (buf lint + breaking-change check in CI)
-├── gen/                       generated code (protobuf, sqlc, oapi) — committed, CI verifies it is up to date
+├── gen/                       generated code (protobuf, sqlc) — committed, CI verifies it is up to date
 ├── api/openapi.yaml           REST contract
 ├── db/migrations/             goose SQL migrations
 ├── db/queries/                sqlc queries
@@ -351,8 +376,10 @@ SYSTEM service                                              user session (SID S,
 ├── installer/wix/             agent MSI (Phase 5)
 ├── catalog-overlay/           verified-package overlay (signed at release)
 ├── test/
-│   ├── integration/           compose-based end-to-end tests (Go test + loadsim/real agent core)
-│   └── vm-matrix/             Windows VM matrix harness + results
+│   ├── e2e/                   in-process server + agent core against real Postgres (also runs on Windows with real CNG keys)
+│   ├── integration/           docker-compose stack + real agent process (`-tags compose`)
+│   ├── tools/bootstrap/       drives first-run setup and token creation (CI, demos)
+│   └── vm-matrix/             Windows VM matrix harness + results (Phase 3)
 ├── scripts/                   dev and release helpers
 ├── docs/
 └── .github/workflows/         ci.yml, windows.yml, release.yml, codeql/semgrep

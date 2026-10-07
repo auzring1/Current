@@ -1,6 +1,6 @@
 # Security and Threat Model
 
-Status: Phase 0 threat model. It's updated every phase, and the Phase 6 security review is run against it. Every control lists the phase that delivers it.
+Status: threat model updated after Phase 1. It's updated every phase, and the Phase 6 security review is run against it. Every control lists the phase that delivers it. §9 lists what Phase 1 actually implements, with the test that proves each item.
 
 ## 1. Security goals
 1. **Only the legitimate server, acting on an authenticated and authorized admin's intent, can make an endpoint execute anything**, and only from the fixed set of typed jobs.
@@ -158,7 +158,38 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 - Crypto comes only from the Go standard library, `x/crypto` and Windows CNG. No hand-rolled primitives.
 - Any change touching `internal/shared/envelope`, `pki`, `auth`, `userctx`, or `engine` needs a security-labelled review.
 
-## 9. Vulnerability disclosure
+## 9. Phase 1: implemented controls and evidence
+
+| Control | Evidence (automated unless noted) |
+|---|---|
+| TLS 1.3-only mTLS gateway terminated by the server; client cert checked against the DB on every handshake **and** every stream | `test/e2e` (revoked device cannot open a stream), `test/integration` (real stack) |
+| Pinned-root enrollment; foreign roots, foreign leaves and wrong hostnames rejected | `internal/agent/core/tls_test.go` |
+| Job-signing certificates accepted only if issued directly by the root, with the EKU; the issuing CA cannot mint one | `internal/server/pki/pki_test.go` |
+| Envelope verification: signature over raw bytes with a domain prefix, device/org binding, expiry cap, replay ledger, revoked keys | `internal/shared/envelope/envelope_test.go` |
+| Limited-use, expiring, hashed enrollment tokens; generic errors; per-IP/per-token limits; forced approval on hardware re-enrollment | `test/e2e` (exhausted token, re-enrollment pending) |
+| Device key non-exportable in CNG (TPM when present); private key never in agent memory | `cng_windows_test.go` (Windows CI) |
+| Agent: protected DACLs, quoted service path, restricted service DACL, enrollment token erased, no listening ports | Windows CI install job (`.github/workflows/windows.yml`) |
+| argon2id with bounded concurrency; breach-list policy; mandatory TOTP with replay protection; recovery codes; lockout | `internal/server/auth`, `test/e2e` (replayed TOTP rejected) |
+| `__Host-` SameSite=Strict session cookie; Origin check + synchronizer CSRF token; pre-MFA sessions cannot use the API | `test/e2e` (CSRF/cross-origin rejected, pre-MFA 401) |
+| Strict CSP with per-request nonces; zero violations across the whole console flow | `web/e2e/console.spec.ts` |
+| Parameterized SQL only (sqlc); no shells; no `InsecureSkipVerify` outside the pinned verifier; no `dangerouslySetInnerHTML` | `.semgrep.yml` in CI |
+| Audit log append-only for the runtime role, hash-chained, tamper detected | `internal/server/audit/audit_test.go`, `admin verify-audit` in `test/integration` |
+| Containers non-root (server), read-only rootfs, `cap_drop: ALL`, no-new-privileges; Postgres not published | `test/integration` asserts all of these via `docker inspect` |
+| X-Forwarded-For trusted only from Caddy's fixed IP; spoofed header ignored | `test/integration` |
+| Least-privilege DB role, KEK and DB credentials as Docker secrets, no default credentials (one-time setup token) | compose + `test/integration` |
+| Supply chain: digest-pinned images, SHA-pinned actions, govulncheck, npm audit, gosec, staticcheck, license allow-list, gitleaks, SPDX SBOMs | `.github/workflows/ci.yml` |
+
+**Known gaps and residual risks after Phase 1** (planned phase in brackets):
+- Agent and server binaries are not yet code-signed or release-signed [5, needs O5/O7]. Until then, verify binaries by building from source.
+- No WebAuthn yet (TOTP only) [5]. No API tokens yet [5]. RBAC has three org-wide roles; per-site scoping arrives in [5].
+- The one-time setup token appears in the server log until setup completes. Anyone with access to container logs before setup could claim the instance; complete setup immediately after first start.
+- Database traffic inside the Docker internal network is not TLS-encrypted (D28) [6 for split deployments].
+- `AUZ_DEV_MODE=true` allows plain-HTTP origins, secrets in environment variables and short certificate lifetimes. It is meant for development and tests only and must never be used in production (the server logs `dev_mode:true` at start).
+- govulncheck cannot run in our development sandbox (egress policy). It runs in CI.
+- Agent RSS is measured informationally on Windows CI. A hard 30 MB budget check and load testing arrive in [6].
+- The placeholder job-signing EKU OID uses the documentation PEN 32473 (D25).
+
+## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.
 - We acknowledge within 3 business days, triage within 10, and aim to fix critical issues within 30 days and high within 60. Disclosure is coordinated with the reporter. Reporters who want credit get it.
