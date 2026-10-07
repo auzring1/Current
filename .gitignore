@@ -70,3 +70,4 @@ Thumbs.db
 web/test-results/
 web/playwright-report/
 web/blob-report/
+*.tsbuildinfo
