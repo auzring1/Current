@@ -5,6 +5,14 @@ export type Hardware = components["schemas"]["Hardware"];
 export type EnrollmentToken = components["schemas"]["EnrollmentToken"];
 export type AuditEntry = components["schemas"]["AuditEntry"];
 export type SessionInfo = components["schemas"]["SessionInfo"];
+export type DeviceSoftware = components["schemas"]["DeviceSoftware"];
+export type SoftwareChange = components["schemas"]["SoftwareChange"];
+export type DeviceUser = components["schemas"]["DeviceUser"];
+export type SoftwareTitle = components["schemas"]["SoftwareTitle"];
+export type TitleInstall = components["schemas"]["TitleInstall"];
+export type Filter = components["schemas"]["Filter"];
+export type Group = components["schemas"]["Group"];
+export type GroupMembers = components["schemas"]["GroupMembers"];
 
 let csrfToken = "";
 
@@ -24,7 +32,7 @@ export class ApiError extends Error {
 }
 
 /** Calls the REST API. The session cookie is HttpOnly and sent automatically. */
-export async function api<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+export async function api<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET" && csrfToken) headers["X-CSRF-Token"] = csrfToken;
