@@ -253,7 +253,9 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 			targets = append(targets, j.DeviceID)
 		}
 	}
+	s.bg.Add(1)
 	go func() {
+		defer s.bg.Done()
 		bg := context.Background()
 		for _, d := range targets {
 			s.Dispatch(bg, d)

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +38,8 @@ type Service struct {
 	Events     *events.Broker
 	Log        *slog.Logger
 	Now        func() time.Time
+
+	bg sync.WaitGroup // background dispatches started by Create
 }
 
 func (s *Service) now() time.Time {
@@ -169,3 +172,6 @@ func reidentify(body []byte, id uuid.UUID, attempt uint32, notBefore, expires ti
 	env.JobId, env.Attempt, env.NotBefore, env.ExpiresAt = id.String(), attempt, notBefore.Unix(), expires.Unix()
 	return proto.MarshalOptions{Deterministic: true}.Marshal(&env)
 }
+
+// Wait blocks until background dispatches started by Create have finished (used by tests).
+func (s *Service) Wait() { s.bg.Wait() }
