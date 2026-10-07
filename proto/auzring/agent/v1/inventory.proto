@@ -17,10 +17,87 @@ enum InventorySection {
 message InventoryReport {
   uint64 seq = 1;
   InventorySection section = 2;
+  // New revision of the section after the server applies this report.
   uint64 rev = 3;
   oneof body {
     HardwareInventory hardware = 10;
+    UsersInventory users = 11;
+    SoftwareDelta software_delta = 12;
+    SoftwareChunk software_chunk = 13;
   }
+  // True when the agent hit its item cap and the inventory is incomplete.
+  bool truncated = 20;
+}
+
+enum SoftwareScope {
+  SOFTWARE_SCOPE_UNSPECIFIED = 0;
+  SOFTWARE_SCOPE_MACHINE = 1;
+  SOFTWARE_SCOPE_USER = 2;
+}
+
+enum SoftwareSource {
+  SOFTWARE_SOURCE_UNSPECIFIED = 0;
+  SOFTWARE_SOURCE_REG64 = 1;     // HKLM Uninstall, 64-bit view
+  SOFTWARE_SOURCE_REG32 = 2;     // HKLM WOW6432Node Uninstall
+  SOFTWARE_SOURCE_HKU = 3;       // a user's HKCU Uninstall (loaded or offline hive)
+  SOFTWARE_SOURCE_HKU32 = 4;     // a user's HKCU WOW6432Node Uninstall
+  SOFTWARE_SOURCE_MSI = 5;       // Windows Installer product not present in Uninstall keys
+  SOFTWARE_SOURCE_APPX = 6;      // AppX / MSIX package
+  SOFTWARE_SOURCE_PORTABLE = 7;  // winget portable package directory
+}
+
+// SoftwareItemKey identifies one installed item on one device:
+// (source, scope, user_sid, item_key). user_sid is empty for machine scope.
+message SoftwareItemKey {
+  SoftwareSource source = 1;
+  SoftwareScope scope = 2;
+  string user_sid = 3;
+  string item_key = 4;
+}
+
+message SoftwareItem {
+  SoftwareItemKey key = 1;
+  string name = 2;
+  string version = 3;
+  string publisher = 4;
+  string install_date = 5;  // YYYY-MM-DD or empty
+  string install_location = 6;
+  string uninstall_string = 7;
+  string quiet_uninstall_string = 8;
+  string product_code = 9;  // {GUID} for MSI-based items
+  bool system_component = 10;
+}
+
+// SoftwareDelta applies only if the server's software revision equals base_rev;
+// otherwise the server answers with a ResyncRequest. The resulting revision is
+// InventoryReport.rev, which must equal base_rev + 1.
+message SoftwareDelta {
+  uint64 base_rev = 1;
+  repeated SoftwareItem upserts = 2;
+  repeated SoftwareItemKey removes = 3;
+}
+
+// SoftwareChunk is part of a full snapshot. Chunks arrive in order on one
+// stream (index 0..total-1); the server replaces the device's software
+// atomically when the last chunk arrives.
+message SoftwareChunk {
+  uint32 index = 1;
+  uint32 total = 2;
+  repeated SoftwareItem items = 3;
+}
+
+message DeviceUser {
+  string sid = 1;
+  string username = 2;
+  string domain = 3;
+  string profile_path = 4;
+  int64 last_logon = 5;  // unix seconds, 0 = unknown
+  bool loaded = 6;       // profile hive currently loaded (user logged on)
+  bool is_admin = 7;     // member of local Administrators (best effort)
+}
+
+message UsersInventory {
+  repeated DeviceUser users = 1;
 }
 
 message HardwareInventory {
@@ -57,6 +134,8 @@ message Disk {
   string filesystem = 2;
   uint64 size_bytes = 3;
   uint64 free_bytes = 4;
+  // BitLocker: protected | unprotected | encrypting | decrypting | unknown | unsupported
+  string bitlocker = 5;
 }
 
 message NetInterface {

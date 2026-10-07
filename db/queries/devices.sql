@@ -39,9 +39,7 @@ ORDER BY enrolled_at DESC LIMIT 1;
 -- name: ListDevices :many
 SELECT id, org_id, site_id, status, status_reason, hostname, os_caption, os_build, arch, agent_version,
        enrolled_at, approved_at, revoked_at, last_seen_at, online, last_ip, uptime_s, pending_reboot,
-       logged_on_user, serial, replaces_device_id,
-       COALESCE(hardware->>'manufacturer', '')::text AS manufacturer,
-       COALESCE(hardware->>'model', '')::text AS model
+       logged_on_user, serial, replaces_device_id, manufacturer, model, chassis, software_count, software_updated_at
 FROM devices
 WHERE org_id = $1
   AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)

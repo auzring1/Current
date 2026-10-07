@@ -27,36 +27,46 @@ type AuditLog struct {
 }
 
 type Device struct {
-	ID                uuid.UUID
-	OrgID             uuid.UUID
-	SiteID            uuid.UUID
-	Status            string
-	StatusReason      string
-	Hostname          string
-	SmbiosUuid        string
-	Serial            string
-	OsCaption         string
-	OsBuild           string
-	Arch              string
-	AgentVersion      string
-	EnrolledVia       *uuid.UUID
-	ReplacesDeviceID  *uuid.UUID
-	EnrollTicketHash  []byte
-	PendingCsr        []byte
-	EnrolledAt        time.Time
-	ApprovedBy        *uuid.UUID
-	ApprovedAt        *time.Time
-	RevokedBy         *uuid.UUID
-	RevokedAt         *time.Time
-	LastSeenAt        *time.Time
-	Online            bool
-	LastIp            string
-	Hardware          []byte
-	HardwareRev       int64
-	HardwareUpdatedAt *time.Time
-	UptimeS           int64
-	PendingReboot     bool
-	LoggedOnUser      string
+	ID                 uuid.UUID
+	OrgID              uuid.UUID
+	SiteID             uuid.UUID
+	Status             string
+	StatusReason       string
+	Hostname           string
+	SmbiosUuid         string
+	Serial             string
+	OsCaption          string
+	OsBuild            string
+	Arch               string
+	AgentVersion       string
+	EnrolledVia        *uuid.UUID
+	ReplacesDeviceID   *uuid.UUID
+	EnrollTicketHash   []byte
+	PendingCsr         []byte
+	EnrolledAt         time.Time
+	ApprovedBy         *uuid.UUID
+	ApprovedAt         *time.Time
+	RevokedBy          *uuid.UUID
+	RevokedAt          *time.Time
+	LastSeenAt         *time.Time
+	Online             bool
+	LastIp             string
+	Hardware           []byte
+	HardwareRev        int64
+	HardwareUpdatedAt  *time.Time
+	UptimeS            int64
+	PendingReboot      bool
+	LoggedOnUser       string
+	SoftwareRev        int64
+	UsersRev           int64
+	SoftwareUpdatedAt  *time.Time
+	SoftwareCount      int32
+	InventoryTruncated bool
+	Chassis            string
+	Manufacturer       string
+	Model              string
+	RamBytes           int64
+	OsBuildNum         int32
 }
 
 type DeviceCert struct {
@@ -68,6 +78,17 @@ type DeviceCert struct {
 	IssuedAt        time.Time
 	RevokedAt       *time.Time
 	RevokeReason    string
+}
+
+type DeviceUser struct {
+	DeviceID    uuid.UUID
+	Sid         string
+	Username    string
+	Domain      string
+	ProfilePath string
+	LastLogonAt *time.Time
+	Loaded      bool
+	IsAdmin     bool
 }
 
 type EnrollmentToken struct {
@@ -83,6 +104,17 @@ type EnrollmentToken struct {
 	CreatedBy       uuid.UUID
 	CreatedAt       time.Time
 	RevokedAt       *time.Time
+}
+
+type Group struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	Name        string
+	Description string
+	Filter      []byte
+	CreatedBy   uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type MfaRecoveryCode struct {
@@ -151,6 +183,50 @@ type Site struct {
 	Name      string
 	Timezone  string
 	CreatedAt time.Time
+}
+
+type SoftwareHistory struct {
+	ID         int64
+	DeviceID   uuid.UUID
+	TitleID    uuid.UUID
+	Name       string
+	Scope      string
+	UserSid    string
+	Change     string
+	OldVersion string
+	NewVersion string
+	ObservedAt time.Time
+}
+
+type SoftwareInstall struct {
+	DeviceID             uuid.UUID
+	Source               string
+	Scope                string
+	UserSid              string
+	ItemKey              string
+	TitleID              uuid.UUID
+	Name                 string
+	Version              string
+	VersionKey           []byte
+	Publisher            string
+	InstallDate          string
+	InstallLocation      string
+	UninstallString      string
+	QuietUninstallString string
+	ProductCode          string
+	SystemComponent      bool
+	FirstSeenAt          time.Time
+	LastSeenAt           time.Time
+}
+
+type SoftwareTitle struct {
+	ID                  uuid.UUID
+	OrgID               uuid.UUID
+	NormalizedName      string
+	NormalizedPublisher string
+	DisplayName         string
+	DisplayPublisher    string
+	CreatedAt           time.Time
 }
 
 type User struct {
