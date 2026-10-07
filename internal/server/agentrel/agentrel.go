@@ -147,7 +147,8 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	if err != nil {
 		return Release{}, invalid("%v", err)
 	}
-	sha, size, err := s.Content.Put(a.Org, io.LimitReader(binary, int64(m.Size)+1), int64(m.Size)+1)
+	limit := int64(m.Size) + 1 // #nosec G115 -- Verify bounds Size to release.MaxBinaryBytes
+	sha, size, err := s.Content.Put(a.Org, io.LimitReader(binary, limit), limit)
 	if err != nil {
 		return Release{}, invalid("the upload failed: %v", err)
 	}

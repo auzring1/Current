@@ -57,6 +57,8 @@ func schemaVersion(ctx context.Context, q querier) (has bool, version int64, err
 	if err = q.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, qident("public", gooseTable)).Scan(&has); err != nil || !has {
 		return false, 0, err
 	}
+	// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+	// nosemgrep: no-sql-string-building
 	err = q.QueryRow(ctx, `SELECT COALESCE(max(version_id), 0) FROM `+qident("public", gooseTable)+` WHERE is_applied`).Scan(&version)
 	return has, version, err
 }
@@ -187,6 +189,8 @@ func readSequences(ctx context.Context, q querier, names []string) ([]SeqDef, er
 	out := make([]SeqDef, 0, len(names))
 	for _, n := range names {
 		s := SeqDef{Name: n}
+		// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+		// nosemgrep: no-sql-string-building
 		if err := q.QueryRow(ctx, `SELECT last_value, is_called FROM `+qident("public", n)).Scan(&s.LastValue, &s.IsCalled); err != nil {
 			return nil, fmt.Errorf("read sequence %q: %w", n, err)
 		}
@@ -222,6 +226,8 @@ func tablesWithRows(ctx context.Context, q querier, tables []tableInfo) ([]strin
 	var out []string
 	for _, t := range tables {
 		var has bool
+		// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+		// nosemgrep: no-sql-string-building
 		if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+qident("public", t.name)+`)`).Scan(&has); err != nil {
 			return nil, err
 		}
