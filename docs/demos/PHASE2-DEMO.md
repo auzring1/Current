@@ -81,7 +81,7 @@ The examples assume the server name `auzring.lab` as in Phase 1.
      ```
    - Make the agent rescan: `Restart-Service AuzringAgent` (the daily reconcile does this on its own).
    ✅ **Demo2 Tool 2.0** appears with **Installed for = the demo2 user**, `source hku`. No sign-in as demo2 was needed.
-   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent opens it read-only via `RegLoadAppKey`).
+   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent loads a temporary copy from `C:\ProgramData\Auzring\tmp`, which is deleted again).
 
 9. **Real installers** (optional): install any MSI or Store app (for example 7-Zip, VLC or a Store app such as Windows Terminal) and uninstall it. ✅ Both changes appear within about a minute, with the right source (`reg64`/`msi`/`appx`).
 

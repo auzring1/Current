@@ -93,7 +93,7 @@ I stop for review after each phase.
 ### Phase 2: Inventory
 - Software inventory from:
   - HKLM 64-bit and 32-bit, plus each loaded HKU;
-  - offline profiles via `RegLoadAppKey`, read-only;
+  - offline profiles via `RegLoadAppKey` on a private copy of the hive (never the original);
   - MSI product codes;
   - AppX/MSIX for all users;
   - winget portable packages.

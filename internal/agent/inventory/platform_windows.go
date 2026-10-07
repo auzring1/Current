@@ -5,7 +5,9 @@ package inventory
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -207,9 +209,10 @@ func inLocalGroup(domain, user, group string) bool {
 	return false
 }
 
-// UserHive returns HKU\SID for logged-on users, or loads NTUSER.DAT privately
-// (RegLoadAppKey: not mounted under HKU, needs no special privilege, and a
-// read-only access mask means the hive file is not modified).
+// UserHive returns HKU\SID for logged-on users. For offline profiles it loads
+// a private copy of NTUSER.DAT: the Windows CI spike (docs/research U8) showed
+// that RegLoadAppKey, even with a read-only mask, can rewrite the hive file
+// (log replay / header updates), and a user's real hive must never be touched.
 func (winPlatform) UserHive(p Profile) (RegNode, error) {
 	if p.Loaded {
 		k, err := registry.OpenKey(registry.USERS, p.SID, registry.READ)
@@ -219,10 +222,75 @@ func (winPlatform) UserHive(p Profile) (RegNode, error) {
 		return winNode{k: k}, nil
 	}
 	file := strings.TrimRight(p.Path, `\/`) + `\NTUSER.DAT`
+	return loadOfflineCopy(file, hiveTempRoot())
+}
+
+// hiveTempRoot is a directory under the agent's protected data directory
+// (SYSTEM and Administrators only, inherited), so copies of user hives are
+// never readable by other users.
+func hiveTempRoot() string {
+	pd := os.Getenv("ProgramData")
+	if pd == "" {
+		pd = `C:\ProgramData`
+	}
+	return filepath.Join(pd, "Auzring", "tmp")
+}
+
+// tempHive is a loaded private copy; Close unloads it and deletes the copy.
+type tempHive struct {
+	winNode
+	dir string
+}
+
+func (t tempHive) Close() {
+	t.winNode.Close()
+	_ = os.RemoveAll(t.dir)
+}
+
+// loadOfflineCopy copies the hive file (and its transaction logs, so a dirty
+// hive is consistent) into a fresh directory under root and loads the copy.
+func loadOfflineCopy(file, root string) (RegNode, error) {
 	if _, err := os.Stat(file); err != nil {
 		return nil, fmt.Errorf("profile hive: %w", err)
 	}
-	return loadAppHive(file)
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return nil, err
+	}
+	dir, err := os.MkdirTemp(root, "hive-")
+	if err != nil {
+		return nil, err
+	}
+	dst := filepath.Join(dir, "NTUSER.DAT")
+	if err := copyFile(file, dst); err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("copy profile hive: %w", err)
+	}
+	for _, ext := range []string{".LOG1", ".LOG2"} {
+		_ = copyFile(file+ext, dst+ext) // logs are optional
+	}
+	n, err := loadAppHive(dst)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
+	return tempHive{winNode: n.(winNode), dir: dir}, nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src) // #nosec G304 -- profile path from the registry ProfileList
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- fresh private temp dir
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // loadAppHive loads a hive file as a private, read-only application hive.
