@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/deploy"
 )
 
@@ -227,6 +228,10 @@ func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
 		internalError(w)
 		return
 	}
+	if p := principalFrom(r); !p.Access.OrgHas(auth.PermDeploymentsRead) && !s.deviceInScope(r.Context(), p, auth.PermDeploymentsRead, j.DeviceID) {
+		writeError(w, http.StatusNotFound, "not_found", "Job not found.")
+		return
+	}
 	events, _ := q.ListJobEvents(r.Context(), j.ID)
 	type ev struct {
 		ID      int64     `json:"id"`
@@ -263,6 +268,13 @@ func (s *server) retryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := principalFrom(r)
+	if !p.Access.OrgHas(auth.PermDeploymentsWrite) {
+		j, jerr := s.q().GetJob(r.Context(), dbq.GetJobParams{ID: id, OrgID: p.OrgID})
+		if jerr != nil || !s.deviceInScope(r.Context(), p, auth.PermDeploymentsWrite, j.DeviceID) {
+			writeError(w, http.StatusNotFound, "not_found", "Job not found.")
+			return
+		}
+	}
 	nid, err := s.Deploy.Retry(r.Context(), p.OrgID, p.UserID, id, clientIP(r))
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

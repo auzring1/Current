@@ -67,6 +67,8 @@ type createTokenReq struct {
 	MaxUses         int32  `json:"max_uses"`
 	ExpiresInHours  int32  `json:"expires_in_hours"`
 	RequireApproval bool   `json:"require_approval"`
+	// SiteID is the site new devices join (default: the organization's first site).
+	SiteID *uuid.UUID `json:"site_id"`
 }
 
 func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
@@ -108,8 +110,14 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 	now := s.now()
 	var created dbq.EnrollmentToken
 	err = store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
-		site, err := q.GetDefaultSite(r.Context(), p.OrgID)
-		if err != nil {
+		var site dbq.Site
+		var err error
+		if req.SiteID != nil {
+			site, err = q.GetSiteInOrg(r.Context(), dbq.GetSiteInOrgParams{ID: *req.SiteID, OrgID: p.OrgID})
+			if err != nil {
+				return errUnknownSite
+			}
+		} else if site, err = q.GetDefaultSite(r.Context(), p.OrgID); err != nil {
 			return err
 		}
 		id := uuid.New()
@@ -127,6 +135,10 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 				"expires_in_hours": req.ExpiresInHours, "require_approval": req.RequireApproval}}, now)
 		return err
 	})
+	if errors.Is(err, errUnknownSite) {
+		badRequest(w, "Unknown site.")
+		return
+	}
 	if err != nil {
 		s.Log.Error("create token", "err", err)
 		internalError(w)
@@ -172,3 +184,5 @@ func (s *server) revokeToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func spkiPin(c *x509.Certificate) string { return pkix.SPKIPin(c) }
+
+var errUnknownSite = errors.New("unknown site")

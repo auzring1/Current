@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"log/slog"
 	"net"
@@ -11,7 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/auzring/internal/server/audit"
 
 	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/config"
@@ -31,7 +36,10 @@ type Principal struct {
 	OrgID       uuid.UUID
 	Email       string
 	DisplayName string
+	// Permissions are the organization-wide permissions; Access also holds the site-limited ones.
 	Permissions []string
+	Access      auth.Access
+	TokenID     string // set when the request was authenticated with an API token
 }
 
 func clientIP(r *http.Request) string {
@@ -176,7 +184,9 @@ func unsafeMethod(m string) bool {
 // originCheck rejects cross-origin state-changing requests (CSRF layer 1).
 func (s *server) originCheck(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if unsafeMethod(r.Method) {
+		// A bearer-token request carries no ambient credentials (no cookie), so it cannot be forged by
+		// another site; browsers never add an Authorization header on their own.
+		if unsafeMethod(r.Method) && !(strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") && s.Sessions.TokenFromRequest(r) == "") {
 			origin := r.Header.Get("Origin")
 			ok := false
 			switch {
@@ -226,7 +236,8 @@ func (s *server) csrfCheck(next http.Handler) http.Handler {
 	})
 }
 
-// require enforces an MFA-verified session and a permission.
+// require enforces an authenticated caller holding an ORGANIZATION-WIDE permission. Site-limited
+// roles never satisfy it: organization configuration and fleet-wide views need an org-wide role.
 func (s *server) require(perm string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -234,44 +245,160 @@ func (s *server) require(perm string) func(http.Handler) http.Handler {
 			if !ok {
 				return
 			}
-			for _, have := range p.Permissions {
-				if have == perm {
-					next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxPrincipal, p)))
-					return
-				}
+			if !p.Access.OrgHas(perm) {
+				writeError(w, http.StatusForbidden, "forbidden", "You do not have permission to do that.")
+				return
 			}
-			writeError(w, http.StatusForbidden, "forbidden", "You do not have permission to do that.")
+			next.ServeHTTP(w, s.withPrincipal(r, p))
 		})
 	}
 }
 
-// principal resolves the caller from a fully verified session.
-func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {
-	sess := sessionFrom(r)
-	if sess == nil || !sess.MFAVerified {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
-		return nil, false
+// requireSelf lets any authenticated caller in (the handler acts on the caller's own account).
+func (s *server) requireSelf(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := s.principal(w, r)
+		if !ok {
+			return
+		}
+		next.ServeHTTP(w, s.withPrincipal(r, p))
+	})
+}
+
+// requireAny lets a caller in who holds the permission anywhere (organization-wide or for some
+// sites); the handler narrows what it returns with sitesFor.
+func (s *server) requireAny(perm string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := s.principal(w, r)
+			if !ok {
+				return
+			}
+			if !p.Access.HasAnywhere(perm) {
+				writeError(w, http.StatusForbidden, "forbidden", "You do not have permission to do that.")
+				return
+			}
+			next.ServeHTTP(w, s.withPrincipal(r, p))
+		})
 	}
-	q := s.q()
-	u, err := q.GetUserByID(r.Context(), sess.UserID)
+}
+
+// requireDevice guards a route of the form .../devices/{id}/...: the caller needs the permission for
+// the site the device belongs to (or organization-wide). A device of another organization, a device
+// in a site the caller cannot reach and a missing device all answer 404, so ids cannot be probed.
+func (s *server) requireDevice(perm string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := s.principal(w, r)
+			if !ok {
+				return
+			}
+			if !p.Access.HasAnywhere(perm) {
+				writeError(w, http.StatusForbidden, "forbidden", "You do not have permission to do that.")
+				return
+			}
+			if !p.Access.OrgHas(perm) {
+				id, err := uuid.Parse(chi.URLParam(r, "id"))
+				if err != nil || !s.deviceInScope(r.Context(), p, perm, id) {
+					writeError(w, http.StatusNotFound, "not_found", "Not found.")
+					return
+				}
+			}
+			next.ServeHTTP(w, s.withPrincipal(r, p))
+		})
+	}
+}
+
+// deviceInScope reports whether the caller holds perm for the device's site.
+func (s *server) deviceInScope(ctx context.Context, p *Principal, perm string, device uuid.UUID) bool {
+	d, err := s.q().GetDeviceInOrg(ctx, dbq.GetDeviceInOrgParams{ID: device, OrgID: p.OrgID})
+	return err == nil && p.Access.SiteHas(d.SiteID, perm)
+}
+
+func (s *server) withPrincipal(r *http.Request, p *Principal) *http.Request {
+	ctx := context.WithValue(r.Context(), ctxPrincipal, p)
+	if p.TokenID != "" {
+		ctx = audit.WithAPIToken(ctx, p.TokenID)
+	}
+	return r.WithContext(ctx)
+}
+
+const apiTokenPrefix = "azt_"
+
+// principal resolves the caller: a fully MFA-verified session, or an API token.
+func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {
+	if p := principalFrom(r); p != nil {
+		return p, true
+	}
+	if sess := sessionFrom(r); sess != nil && sess.MFAVerified {
+		return s.sessionPrincipal(w, r, sess)
+	}
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer "+apiTokenPrefix) && s.Sessions.TokenFromRequest(r) == "" {
+		return s.tokenPrincipal(w, r, strings.TrimPrefix(h, "Bearer "))
+	}
+	writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
+	return nil, false
+}
+
+func (s *server) sessionPrincipal(w http.ResponseWriter, r *http.Request, sess *auth.Session) (*Principal, bool) {
+	u, err := s.q().GetUserByID(r.Context(), sess.UserID)
 	if err != nil || u.Status != "active" {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
 		return nil, false
 	}
-	binds, err := q.ListRoleBindingsForUser(r.Context(), u.ID)
+	acc, ok := s.accessOf(w, r, u)
+	if !ok {
+		return nil, false
+	}
+	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc}, true
+}
+
+func (s *server) accessOf(w http.ResponseWriter, r *http.Request, u dbq.User) (auth.Access, bool) {
+	binds, err := s.q().ListRoleBindingsForUser(r.Context(), u.ID)
 	if err != nil {
 		s.Log.Error("role bindings", "err", err)
 		internalError(w)
+		return auth.Access{}, false
+	}
+	grants := make([]auth.Grant, len(binds))
+	for i, b := range binds {
+		grants[i] = auth.Grant{Role: b.Role, ScopeType: b.ScopeType, ScopeID: b.ScopeID}
+	}
+	return auth.NewAccess(u.OrgID, grants), true
+}
+
+// tokenPrincipal authenticates an API token. The token's power is its scopes intersected with the
+// owner's CURRENT permissions, so demoting or disabling a user immediately weakens their tokens.
+func (s *server) tokenPrincipal(w http.ResponseWriter, r *http.Request, secret string) (*Principal, bool) {
+	fail := func() (*Principal, bool) {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "That API token is not valid.")
 		return nil, false
 	}
-	var roles []string
-	for _, b := range binds {
-		if b.ScopeType == "org" && b.ScopeID == u.OrgID {
-			roles = append(roles, b.Role)
-		}
+	if len(secret) > 100 {
+		return fail()
 	}
-	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName,
-		Permissions: auth.PermissionsFor(roles)}, true
+	sum := sha256.Sum256([]byte(secret))
+	t, err := s.q().GetAPITokenByHash(r.Context(), sum[:])
+	if err != nil {
+		return fail()
+	}
+	now := s.now()
+	if t.RevokedAt != nil || !now.Before(t.ExpiresAt) {
+		return fail()
+	}
+	u, err := s.q().GetUserByID(r.Context(), t.UserID)
+	if err != nil || u.Status != "active" {
+		return fail()
+	}
+	acc, ok := s.accessOf(w, r, u)
+	if !ok {
+		return nil, false
+	}
+	acc = acc.Restrict(t.Scopes)
+	if t.LastUsedAt == nil || now.Sub(*t.LastUsedAt) > time.Minute {
+		_ = s.q().TouchAPIToken(r.Context(), dbq.TouchAPITokenParams{ID: t.ID, LastUsedAt: &now, LastUsedIp: clientIP(r)})
+	}
+	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc, TokenID: t.ID.String()}, true
 }
 
 var _ = slog.LevelInfo

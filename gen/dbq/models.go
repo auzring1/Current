@@ -55,6 +55,21 @@ type AgentRollout struct {
 	UpdatedAt        time.Time
 }
 
+type ApiToken struct {
+	ID         uuid.UUID
+	OrgID      uuid.UUID
+	UserID     uuid.UUID
+	Name       string
+	Prefix     string
+	TokenHash  []byte
+	Scopes     []string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	LastUsedAt *time.Time
+	LastUsedIp string
+	RevokedAt  *time.Time
+}
+
 type AuditLog struct {
 	ID         int64
 	Ts         time.Time
@@ -437,17 +452,19 @@ type SoftwareTitle struct {
 }
 
 type User struct {
-	ID                uuid.UUID
-	OrgID             uuid.UUID
-	Email             string
-	DisplayName       string
-	PasswordHash      string
-	Status            string
-	FailedLogins      int32
-	LockedUntil       *time.Time
-	PasswordChangedAt time.Time
-	LastLoginAt       *time.Time
-	CreatedAt         time.Time
+	ID                 uuid.UUID
+	OrgID              uuid.UUID
+	Email              string
+	DisplayName        string
+	PasswordHash       string
+	Status             string
+	FailedLogins       int32
+	LockedUntil        *time.Time
+	PasswordChangedAt  time.Time
+	LastLoginAt        *time.Time
+	CreatedAt          time.Time
+	MustChangePassword bool
+	CreatedBy          *uuid.UUID
 }
 
 type UserIdentity struct {
@@ -455,6 +472,25 @@ type UserIdentity struct {
 	UserID   uuid.UUID
 	Provider string
 	Subject  string
+}
+
+type WebauthnCeremony struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Kind      string
+	Data      []byte
+	ExpiresAt time.Time
+}
+
+type WebauthnCredential struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	CredentialID []byte
+	Record       []byte
+	SignCount    int64
+	Name         string
+	CreatedAt    time.Time
+	LastUsedAt   *time.Time
 }
 
 type WuApproval struct {

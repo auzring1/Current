@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/auzring1/auzring/internal/server/auth"
 )
 
 type sseLimiter struct {
@@ -54,6 +56,23 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 
 	ch, cancel := s.Events.Subscribe(p.OrgID)
 	defer cancel()
+	// Site-limited callers only get events about devices of their sites (decided once per device).
+	limited := !p.Access.OrgHas(auth.PermDevicesRead)
+	seen := map[uuid.UUID]bool{}
+	visible := func(device uuid.UUID) bool {
+		if !limited {
+			return true
+		}
+		if device == uuid.Nil {
+			return false
+		}
+		v, ok := seen[device]
+		if !ok {
+			v = s.deviceInScope(r.Context(), p, auth.PermDevicesRead, device)
+			seen[device] = v
+		}
+		return v
+	}
 	ping := time.NewTicker(25 * time.Second)
 	defer ping.Stop()
 	// Re-validate the session periodically so logout/expiry ends the stream.
@@ -67,6 +86,9 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
+			if !visible(e.DeviceID) {
+				continue
+			}
 			b, _ := json.Marshal(e)
 			if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", e.Type, b); err != nil {
 				return
@@ -78,8 +100,10 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 			}
 			_ = rc.Flush()
 		case <-recheck.C:
-			if _, err := s.Sessions.Lookup(r.Context(), s.Sessions.TokenFromRequest(r)); err != nil {
-				return
+			if p.TokenID == "" {
+				if _, err := s.Sessions.Lookup(r.Context(), s.Sessions.TokenFromRequest(r)); err != nil {
+					return
+				}
 			}
 		}
 	}
