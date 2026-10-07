@@ -60,6 +60,9 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 	if p := b.Preconditions; p != nil || in.Size > 0 {
 		free, ferr := e.P.FreeSpaceMB(dir)
 		need := uint64(2*in.Size/(1<<20)) + 64
+		if in.Size == 0 {
+			need = 1024 // size unknown: ask for 1 GiB of headroom
+		}
 		if p != nil && uint64(p.MinFreeMb) > need {
 			need = uint64(p.MinFreeMb)
 		}

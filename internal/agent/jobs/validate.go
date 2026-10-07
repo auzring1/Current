@@ -125,8 +125,8 @@ func ValidateInstall(b *agentv1.InstallBody, targetSID string) error {
 	if len(in.Sha256) != 32 {
 		return bad("installer SHA-256 is mandatory")
 	}
-	if in.Size == 0 || in.Size > MaxInstallerBytes {
-		return bad("installer size must be 1..%d bytes", int64(MaxInstallerBytes))
+	if in.Size > MaxInstallerBytes {
+		return bad("installer size over %d bytes", int64(MaxInstallerBytes))
 	}
 	if !fileNameRe.MatchString(in.FileName) || strings.Contains(in.FileName, "..") {
 		return bad("installer file name must be a plain name")
@@ -147,6 +147,9 @@ func ValidateInstall(b *agentv1.InstallBody, targetSID string) error {
 	for _, s := range in.Sources {
 		switch s.Kind {
 		case agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_SERVER:
+			if in.Size == 0 {
+				return bad("server content needs a known size")
+			}
 		case agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_VENDOR:
 			u, err := url.Parse(s.Url)
 			if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || len(s.Url) > 2048 {

@@ -112,15 +112,21 @@ func (e *Engine) fetchOne(ctx context.Context, jobID string, in *agentv1.Install
 		return err
 	}
 	h := sha256.New()
-	// One byte past the signed size is enough to notice an over-long body.
-	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(rc, int64(in.Size)+1)) // #nosec G110 -- bounded
+	// One byte past the limit is enough to notice an over-long body. Vendor
+	// manifests do not list sizes; the SHA-256 is the integrity guarantee and the
+	// cap only bounds disk use.
+	limit := in.Size
+	if limit == 0 {
+		limit = MaxInstallerBytes
+	}
+	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(rc, int64(limit)+1)) // #nosec G110 G115 -- bounded
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
 		return err
 	}
-	if uint64(n) != in.Size || subtle.ConstantTimeCompare(h.Sum(nil), in.Sha256) != 1 {
+	if (in.Size != 0 && uint64(n) != in.Size) || uint64(n) > limit || subtle.ConstantTimeCompare(h.Sum(nil), in.Sha256) != 1 { // #nosec G115 -- n is non-negative
 		_ = os.Remove(dst)
 		return ErrHashMismatch
 	}
