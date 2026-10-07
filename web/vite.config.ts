@@ -18,5 +18,6 @@ export default defineConfig({
     // Dev: run the server with AUZ_PUBLIC_URL=http://localhost:5173 so Origin checks pass.
     proxy: { "/api": { target: "http://localhost:8080", changeOrigin: false } },
   },
-  test: { environment: "node" },
+  // Unit tests only; the Playwright browser test in e2e/ runs via scripts/gui-e2e.sh.
+  test: { environment: "node", include: ["src/**/*.test.ts"] },
 });
