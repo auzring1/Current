@@ -182,6 +182,12 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 	if ov != nil && ov.Excluded {
 		return nil, ErrExcluded
 	}
+	// A self-updating app (Chrome, Edge, Zoom, ...) is left to its vendor's updater unless an
+	// administrator chose to enforce versions (docs/ARCHITECTURE.md §7.7).
+	selfManaged := pkg.SelfUpdating && (ov == nil || ov.SelfUpdatePolicy != "enforce")
+	if r.Action == "update" && selfManaged {
+		return nil, ErrSelfUpdating
+	}
 	// Imported (winget) packages must have passed the VM matrix or be confirmed; an
 	// administrator's own uploads are not subject to the matrix.
 	if pkg.Source == "winget" && !pkg.Verified && !r.UnverifiedConfirmed {
@@ -195,7 +201,7 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 		return nil, ErrNoTargets
 	}
 
-	pl := &planner{s: s, q: q, org: org, req: r, pkg: pkg, ov: ov, starts: starts, expires: expires, window: win, plan: &Plan{Devices: len(devs)}}
+	pl := &planner{s: s, q: q, org: org, req: r, pkg: pkg, ov: ov, selfManaged: selfManaged, starts: starts, expires: expires, window: win, plan: &Plan{Devices: len(devs)}}
 	if err := pl.prepare(ctx); err != nil {
 		return nil, err
 	}
@@ -257,7 +263,7 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 		}
 	}
 	s.bg.Add(1)
-	go func() {
+	go func() { // #nosec G118 -- delivery to devices must outlive the HTTP request; Service.Wait tracks it
 		defer s.bg.Done()
 		bg := context.Background()
 		for _, d := range targets {
@@ -299,8 +305,10 @@ type planner struct {
 	installers []dbq.CatalogInstaller
 	targetKey  []byte
 	policy     string
-	normName   string
-	jobs       []dbq.InsertJobParams
+	// selfManaged: the vendor updates this app; per-user in-place updates are not ours to do.
+	selfManaged bool
+	normName    string
+	jobs        []dbq.InsertJobParams
 }
 
 func (p *planner) prepare(ctx context.Context) error {
@@ -533,6 +541,10 @@ func (p *planner) planUserExtras(d dbq.ListActiveDevicesByIDsRow, userRows []dbq
 	p.plan.PerUserFound += len(userRows)
 	switch p.policy {
 	case "update_in_place":
+		if p.selfManaged {
+			p.skip(d.Hostname, "per-user copy left to the app's own updater (self-updating); set the package's self-update policy to enforce to update it")
+			break
+		}
 		inst := catalog.SelectInstaller(p.installers, d.Arch, "user")
 		for _, r := range userRows {
 			if r.UserSid == "" || !olderThanTarget(r, p.targetKey) {

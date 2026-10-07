@@ -2,7 +2,7 @@
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 
-**Status: Phase 2 (inventory) complete, awaiting review.** On top of Phase 1 (server, internal CA, enrollment, mTLS agent channel, MFA console) the agent now reports a full software inventory (machine and per-user, MSI, AppX, portable) with delta updates, BitLocker status and user profiles; the console has fleet-wide software search, device detail pages, dynamic groups and CSV export. Deployments, Windows Update and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
+**Status: Phase 3 (software deployment) complete, awaiting review.** On top of Phases 1 and 2 (server, internal CA, enrollment, mTLS channel, MFA console, full software inventory) you can now import packages from winget or upload your own installers, deploy installs, updates and uninstalls to groups or devices (machine-wide or per user, with maintenance windows and expiry), and watch per-device results live. Every job is signed, typed and verified on the device; installers are hash- and signature-checked before they run. **The Windows-only execution paths (especially per-user installs) are not yet verified on real VMs**; see [docs/SECURITY.md §9b](docs/SECURITY.md) and the [Phase 3 demo](docs/demos/PHASE3-DEMO.md). Windows Update, rings, self-update and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
 
 ## Quick start (production-style, one host)
 ```bash
@@ -16,7 +16,7 @@ Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Window
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
-- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md)
+- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md)
 
 ## Development
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
@@ -25,7 +25,8 @@ make tools                 # pinned generators and linters
 make dev-db                # throwaway Postgres; prints AUZ_TEST_PG_URL to export
 make web build             # console bundle, server, agent (windows + linux test build)
 make test                  # unit, database and in-process end-to-end tests (race detector)
-make test-gui              # Playwright: setup → MFA login → enroll a real agent → revoke, CSP-strict
+make test-gui              # Playwright: setup → MFA login → enroll a real agent → deploy a package → revoke, CSP-strict
+make fuzz                  # 20 s per fuzz target over the untrusted-input parsers
 make test-compose          # full docker-compose stack + real agent process
 make lint vuln licenses    # vet, staticcheck, gosec, semgrep; govulncheck, npm audit; license allow-list
 ```
@@ -42,7 +43,7 @@ Run the web console against a local server: start the server with `AUZ_DEV_MODE=
 | `gen/` | Generated code (protobuf, sqlc). CI checks it is up to date |
 | `web/` | React + TypeScript + Mantine console (embedded into the server binary) |
 | `deploy/` | Dockerfile, compose stack, Caddyfile, Postgres init |
-| `test/` | End-to-end, compose integration, tools |
+| `test/` | End-to-end, compose integration, VM matrix harness (`test/vm-matrix`), CI tools |
 | `docs/` | Plan, architecture, protocol, data model, security, decisions, runbook, demos |
 
 ## Documentation

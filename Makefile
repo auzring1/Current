@@ -82,6 +82,14 @@ lint: ## go vet, staticcheck, gosec (linux + windows), semgrep, typecheck
 	docker run --rm -v "$$PWD:/src" -w /src semgrep/semgrep:latest semgrep scan --config .semgrep.yml --error --metrics=off --quiet
 	cd web && npx tsc --noEmit -p .
 
+.PHONY: fuzz
+fuzz: ## Short fuzzing run (20s per target) over every parser that sees untrusted input
+	@set -e; for t in \
+	  ./internal/shared/installer:FuzzCommandLine ./internal/shared/installer:FuzzValidateArg ./internal/shared/installer:FuzzExtractZip \
+	  ./internal/server/catalog:FuzzParseManifest ./internal/shared/vercmp:FuzzKey ./internal/server/inventory:FuzzNormalize \
+	  ./internal/server/groups:FuzzCompile ./internal/agent/hardware:FuzzParseSMBIOS; do \
+	  go test $${t%%:*} -run XXX -fuzz $${t##*:} -fuzztime 20s; done
+
 .PHONY: vuln
 vuln: ## govulncheck + npm audit
 	govulncheck ./...

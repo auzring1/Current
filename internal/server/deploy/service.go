@@ -62,6 +62,7 @@ var (
 	ErrNoTargets    = errors.New("deploy: no active devices match the targets")
 	ErrUnverified   = errors.New("deploy: package is not verified; confirm to deploy it")
 	ErrExcluded     = errors.New("deploy: package is excluded by an administrator")
+	ErrSelfUpdating = errors.New("deploy: package updates itself")
 	ErrNotRetryable = errors.New("deploy: only failed, expired, rejected or cancelled jobs can be retried")
 )
 

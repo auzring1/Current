@@ -115,14 +115,14 @@ func extractOne(f *zip.File, target string) error {
 		return err
 	}
 	// Bound by the declared size: a lying header cannot expand past the total limit.
-	n, err := io.Copy(out, io.LimitReader(in, int64(f.UncompressedSize64)+1)) // #nosec G110 -- bounded
+	n, err := io.Copy(out, io.LimitReader(in, int64(f.UncompressedSize64)+1)) // #nosec G110 G115 -- bounded; the declared size was checked against the total limit
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
 		return err
 	}
-	if uint64(n) != f.UncompressedSize64 {
+	if uint64(n) != f.UncompressedSize64 { // #nosec G115 -- n is non-negative
 		return fmt.Errorf("%w: %q size does not match its header", ErrZip, f.Name)
 	}
 	return nil

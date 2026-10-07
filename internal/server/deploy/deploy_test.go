@@ -556,3 +556,32 @@ func TestCancelDeploymentAndSweepAndRetry(t *testing.T) {
 		t.Fatalf("not expired: %s", nj.Status)
 	}
 }
+
+func TestSelfUpdatingAppsAreLeftToTheVendorUnlessEnforced(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(true)
+	f.exec("UPDATE catalog_packages SET self_updating = true WHERE id = $1", f.pkg.ID)
+	d := f.device("pc", "amd64")
+	f.install(d, "machine", "", "reg64", "AcmeTool", "1.0")
+
+	// An explicit update is refused...
+	if _, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}}); !errors.Is(err, ErrSelfUpdating) {
+		t.Fatalf("update of a self-updating app: %v", err)
+	}
+	// ...a fresh install is not an update and still works...
+	if plan, err := f.create(Request{Action: "install", Scope: "machine", DeviceIDs: []uuid.UUID{d}}); err != nil || plan.Jobs != 1 {
+		t.Fatalf("install: %+v %v", plan, err)
+	}
+	// ...and the per-user "update in place" policy leaves the app's own updater in charge.
+	f.policy("update_in_place")
+	f.install(d, "user", sidA, "hku", "AcmeUser", "1.0")
+	plan, err := f.create(Request{Action: "install", Scope: "machine", DeviceIDs: []uuid.UUID{d}})
+	if err != nil || plan.Jobs != 1 || len(plan.Skipped) != 1 {
+		t.Fatalf("in-place update of a self-updating app: %+v %v", plan, err)
+	}
+	// An administrator can enforce versions anyway.
+	f.exec("INSERT INTO package_overrides (org_id, package_id, self_update_policy) VALUES ($1,$2,'enforce')", f.org, f.pkg.ID)
+	if plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{d}}); err != nil || plan.Jobs != 2 { // machine copy + per-user copy
+		t.Fatalf("enforced update: %+v %v", plan, err)
+	}
+}

@@ -1,8 +1,8 @@
 # Architecture
 
-Status: Phase 1 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
+Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
 
-## 0. Implementation status (Phases 1–2)
+## 0. Implementation status (Phases 1–3)
 
 | Area | State | Where |
 |---|---|---|
@@ -21,13 +21,30 @@ Status: Phase 1 implemented (see §0). Sections marked *(Phase N)* are built in 
 | **Phase 2:** BitLocker status, device users/profiles | ✅ | `internal/agent/hardware/bitlocker_windows.go`, `internal/agent/inventory/profiles.go` |
 | **Phase 2:** server ingest, title normalization, version keys, history | ✅ | `internal/server/{inventory,gateway}`, `internal/shared/vercmp` |
 | **Phase 2:** fleet software search, device detail page, dynamic groups, CSV export | ✅ | `internal/server/{api,groups}`, `web/` |
-| Jobs, WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 3–5 | — |
+| **Phase 3:** catalog (winget-pkgs import, custom upload, overrides, verified overlay, self-updating marks) | ✅ | `internal/server/catalog`, `api/openapi.yaml` |
+| **Phase 3:** deployments (targets, schedule, window, expiry), signed typed jobs, dispatch/re-offer, result tracking, retry/cancel, SSE | ✅ | `internal/server/{deploy,gateway}` |
+| **Phase 3:** agent job engine (verify, persist, window/not-before/logon scheduling, download + hash + Authenticode, install/uninstall, detection, retries) | ✅ on Linux fakes; Windows-only parts compile and are exercised by the Windows CI `deploy` job, not yet on real VMs | `internal/agent/jobs` |
+| **Phase 3:** user-context helper and logon queue | ⚠️ implemented, **unverified on a real multi-user Windows machine** | `internal/agent/jobs/helper*.go`, `winsvc` |
+| **Phase 3:** web console (catalog, package overrides, deployment wizard, live job results, static groups, settings) | ✅ | `web/` |
+| **Phase 3:** VM test matrix | ⚠️ harness only; no package is verified yet | `test/vm-matrix` |
+| WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 4–5 | — |
 
 Implementation notes that refine the design below:
 - **REST layer (D6, revised):** handlers are hand-written with strict JSON decoding. `api/openapi.yaml` is the contract, and `TestRoutesMatchSpec` fails the build if routes and spec drift. TypeScript types are generated from the spec.
 - **Web console CSP:** `index.html` carries a placeholder nonce that the server replaces per request. Mantine and `react-remove-scroll` (through `get-nonce`) put that nonce on every injected `<style>`. The Playwright test fails on any CSP violation.
 - **Agent state:** `status.json` in the data directory reports `enrolling`, `pending_approval`, `connected`, `rejected` or `error`, for `install`, `status` and support staff.
 - **Renewal:** the agent checks renewal on a timer scaled to certificate lifetime (lifetime/10, clamped to 1 s–1 h). It uses server-corrected time, and lifetime excludes the CA's 5-minute backdate (`pkix.CertBackdate`).
+- **Phase 3 as built (differences from §5–§8, with the decision numbers in DECISIONS.md):**
+  - *Catalog source* is the winget-pkgs repository (manifests on import), not the CDN index (D41). Search = imported packages + shipped suggestions + an exact-identifier probe.
+  - *Content* for uploaded installers is served over the gRPC channel (`FetchContent`), authorized per live job and hash (D42). Vendor installers are downloaded by the device directly (D16).
+  - *Job types in use:* `SOFTWARE_INSTALL`, `SOFTWARE_UPDATE`, `SOFTWARE_UNINSTALL` and `INVENTORY_FULL`; the agent's local policy ceiling (`--allowed-jobs`) is enforced for them. States are `queued, sent, accepted, waiting, running, succeeded, succeeded_reboot, failed, expired, cancelled, rejected`.
+  - *Delivery:* the server signs a job when it dispatches it (on creation to online devices, on connect for the rest), re-offers it with a fresh nonce until the agent's `JobUpdate` acknowledges it, and the agent persists jobs and results in its bbolt state with a durable outbox (D49). A cancelled job the agent may still hold is flagged `cancel_pending` and a `CancelBody` job is sent when the device is next reachable.
+  - *Pipeline order on the agent:* preconditions (free space, OS build) → pre-detection (already installed = success, nothing run) → stage → download and SHA-256 → locked re-open and re-hash → Authenticode via `WinVerifyTrust` and signer pin → run in a Job Object → exit-code map → post-detection. Retryable codes (MSI 1618, another install in progress) back off inside the job's expiry.
+  - *Scheduling:* `not_before`, a maintenance window in device-local time (or a fixed IANA zone), expiry, user-logon waiting (session-change events plus a 15-minute poll only while user jobs wait), cancellation. Idle sleep is bounded (default 5 min) so a wake source is never missed.
+  - *Uninstall* is always derived on the device from that inventory row's own registry data (MSI product code → quiet string → uninstall string plus known Inno switches). HKLM executables must pass `TrustedExecutable` (under Program Files, Windows or the Package Cache); HKCU strings run only through the helper.
+  - *Helper:* the service runs the pipeline; the helper only starts the verified command in the user's session (D45). The service passes it a JSON task over an anonymous pipe (inherited handle list; no named pipe). The helper re-verifies the signed envelope, device/org, that its own SID equals the target, that the staged file lies under its own staging directory, and the file's hash; the result is size-capped (64 KiB) and untrusted.
+  - *Per-user policy* resolves package override → organization default (D47). Machine deployments that find per-user copies apply it: report only, update in place (skipped for self-managed apps, D50), convert to machine (uninstall is a dependent job, D48) or remove.
+  - *Not built in Phase 3:* rings and success thresholds, reboot policy beyond "report", manifest dependency resolution, the peer-cache source, MSIX, the self-update loop guard, `requires_elevation` helpers, group-level policy.
 - **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
 
 

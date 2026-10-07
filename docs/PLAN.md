@@ -110,7 +110,7 @@ I stop for review after each phase.
 
 **Exit demo:** install and uninstall apps machine-wide and per user on a VM with two users, and watch the deltas arrive within about a minute.
 
-### Phase 3: Software deployment
+### Phase 3: Software deployment *(implemented; see docs/ARCHITECTURE.md §0 for what is verified, and docs/demos/PHASE3-DEMO.md)*
 - Catalog: winget index sync with signature verification, package search and import, version and installer metadata, `verified` flag, admin overrides (silent args, detection rules, version pinning, exclusions), and custom package upload (content-addressed).
 - Signed job envelopes, local verification, replay ledger.
 - Install engine:

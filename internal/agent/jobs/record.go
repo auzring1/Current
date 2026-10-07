@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"encoding/json"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -106,5 +105,3 @@ func loadAll(s Store) ([]*Record, error) {
 	}
 	return out, nil
 }
-
-func unix(t time.Time) int64 { return t.Unix() }

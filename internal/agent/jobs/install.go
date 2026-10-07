@@ -228,7 +228,7 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 func (e *Engine) installPortable(b *agentv1.InstallBody, file string) (string, error) {
 	root := e.P.Env(installer.Machine, "", "PROGRAMFILES")
 	if root == "" {
-		return "", errors.New("Program Files location unknown")
+		return "", errors.New("the Program Files location is unknown")
 	}
 	id := safeID(b.PackageId)
 	if id == "" {
