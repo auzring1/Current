@@ -58,7 +58,7 @@ func (Windows) Collect(ctx context.Context) (*agentv1.HardwareInventory, error) 
 		maj, _, _ := k.GetIntegerValue("CurrentMajorVersionNumber")
 		minr, _, _ := k.GetIntegerValue("CurrentMinorVersionNumber")
 		hw.OsVersion = strconv.FormatUint(maj, 10) + "." + strconv.FormatUint(minr, 10) + "." + strconv.FormatUint(uint64(hw.OsBuild), 10)
-		k.Close()
+		_ = k.Close()
 	}
 	// Windows 11 still reports "Windows 10 ..." in ProductName.
 	if hw.OsBuild >= 22000 && strings.HasPrefix(hw.OsCaption, "Windows 10") {
@@ -67,7 +67,7 @@ func (Windows) Collect(ctx context.Context) (*agentv1.HardwareInventory, error) 
 
 	if k, err := registry.OpenKey(registry.LOCAL_MACHINE, `HARDWARE\DESCRIPTION\System\CentralProcessor\0`, registry.QUERY_VALUE); err == nil {
 		hw.CpuModel = strings.TrimSpace(regString(k, "ProcessorNameString"))
-		k.Close()
+		_ = k.Close()
 	}
 	hw.CpuLogicalCores = uint32(runtime.NumCPU()) // #nosec G115
 	hw.RamBytes = totalRAM()
@@ -80,7 +80,7 @@ func (Windows) Collect(ctx context.Context) (*agentv1.HardwareInventory, error) 
 	hw.Interfaces = Interfaces()
 	if k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI`, registry.QUERY_VALUE|registry.WOW64_64KEY); err == nil {
 		hw.LastLoggedOnUser = regString(k, "LastLoggedOnUser")
-		k.Close()
+		_ = k.Close()
 	}
 	hw.PendingRebootReasons = pendingReboot()
 	hw.PendingReboot = len(hw.PendingRebootReasons) > 0
@@ -143,7 +143,7 @@ func totalRAM() uint64 {
 
 func uptime() time.Duration {
 	r, _, _ := procGetTickCount64.Call()
-	return time.Duration(r) * time.Millisecond
+	return time.Duration(r) * time.Millisecond // #nosec G115 -- milliseconds since boot fit easily in int64
 }
 
 // smbios reads the raw table: RawSMBIOSData { BYTE Used20CallingMethod, SMBIOSMajorVersion,
@@ -198,7 +198,7 @@ func fixedDisks() []*agentv1.Disk {
 		}
 		total, free := diskSpace(root)
 		fs := make([]uint16, 64)
-		_ = windows.GetVolumeInformation(rp, nil, 0, nil, nil, nil, &fs[0], uint32(len(fs)))
+		_ = windows.GetVolumeInformation(rp, nil, 0, nil, nil, nil, &fs[0], uint32(len(fs))) // #nosec G115 -- fixed 64-element buffer
 		out = append(out, &agentv1.Disk{Mount: root[:2], Filesystem: windows.UTF16ToString(fs), SizeBytes: total, FreeBytes: free})
 	}
 	return out
@@ -211,7 +211,7 @@ func pendingReboot() []string {
 		if err != nil {
 			return false
 		}
-		k.Close()
+		_ = k.Close()
 		return true
 	}
 	if keyExists(`SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending`) {
@@ -224,7 +224,7 @@ func pendingReboot() []string {
 		if v, _, err := k.GetStringsValue("PendingFileRenameOperations"); err == nil && len(v) > 0 {
 			reasons = append(reasons, "pending_file_rename")
 		}
-		k.Close()
+		_ = k.Close()
 	}
 	active := regValue(`SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName`, "ComputerName")
 	pending := regValue(`SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName`, "ComputerName")
@@ -239,7 +239,7 @@ func regValue(path, name string) string {
 	if err != nil {
 		return ""
 	}
-	defer k.Close()
+	defer func() { _ = k.Close() }()
 	return regString(k, name)
 }
 

@@ -1,0 +1,104 @@
+name: windows
+on:
+  push:
+    branches: [main, "phase-*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.27.1"
+  GOTOOLCHAIN: local
+
+jobs:
+  agent:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "${{ env.GO_VERSION }}" }
+
+      - name: Start the runner's PostgreSQL
+        shell: pwsh
+        run: |
+          $svc = Get-Service -Name "postgresql*" | Select-Object -First 1
+          Set-Service -Name $svc.Name -StartupType Manual
+          Start-Service -Name $svc.Name
+          "AUZ_TEST_PG_URL=postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/postgres?sslmode=disable" >> $env:GITHUB_ENV
+
+      - name: Agent unit tests (CNG/TPM key store, Windows hardware collector)
+        run: go test -count=1 -v ./internal/agent/...
+
+      - name: In-process end-to-end test with real CNG keys
+        env: { AUZ_REQUIRE_DB: "1" }
+        run: go test -count=1 ./test/e2e/
+
+      - name: Build agent (size budget 15 MiB) and server
+        shell: pwsh
+        run: |
+          go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent
+          go build -o auzring-server.exe ./cmd/auzring-server
+          $size = (Get-Item auzring-agent.exe).Length
+          Write-Host "agent size: $size bytes"
+          if ($size -gt 15728640) { throw "agent binary over the 15 MiB budget" }
+
+      - name: Real service install, enrollment, ACL checks and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE auzring_ci"
+          $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+          $env:AUZ_DEV_MODE = "true"
+          $env:AUZ_PUBLIC_URL = "http://localhost:18080"
+          $env:AUZ_HTTP_ADDR = "127.0.0.1:18080"
+          $env:AUZ_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:AUZ_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_ci?sslmode=disable"
+          $env:AUZ_MASTER_KEY = $key
+          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+            -RedirectStandardError server.err -RedirectStandardOutput server.out
+          $token = $null
+          for ($i = 0; $i -lt 60 -and -not $token; $i++) {
+            Start-Sleep -Seconds 1
+            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            if ($m) { $token = $m.Matches[0].Groups[1].Value }
+          }
+          if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
+          $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token
+          if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
+
+          .\auzring-agent.exe install --token $enroll.Trim()
+          if ($LASTEXITCODE -ne 0) { Get-Content "$env:ProgramData\Auzring\logs\agent.log" -ErrorAction SilentlyContinue; throw "install failed" }
+          & "$env:ProgramFiles\Auzring\Agent\slot-a\auzring-agent.exe" status
+          $status = Get-Content "$env:ProgramData\Auzring\status.json" | ConvertFrom-Json
+          if ($status.state -ne "connected") { Get-Content "$env:ProgramData\Auzring\logs\agent.log"; throw "agent not connected: $($status.state)" }
+
+          # Service runs as LocalSystem with a quoted path.
+          $svc = Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'"
+          if ($svc.StartName -ne "LocalSystem") { throw "service account is $($svc.StartName)" }
+          if (-not $svc.PathName.StartsWith('"')) { throw "service path is not quoted: $($svc.PathName)" }
+          # Data directory: protected DACL, only SYSTEM and Administrators.
+          $acl = Get-Acl "$env:ProgramData\Auzring"
+          if (-not $acl.AreAccessRulesProtected) { throw "data dir inherits ACEs" }
+          $who = $acl.Access | ForEach-Object { $_.IdentityReference.Value } | Sort-Object -Unique
+          Write-Host "data dir ACL: $($who -join ', ')"
+          foreach ($w in $who) { if ($w -notin @('NT AUTHORITY\SYSTEM','BUILTIN\Administrators')) { throw "unexpected ACE for $w" } }
+          # The enrollment secret was erased from disk.
+          if (Select-String -Path "$env:ProgramData\Auzring\config.json" -Pattern enrollment_token -Quiet) { throw "token left on disk" }
+          # No listening sockets owned by the agent.
+          $agentPid = (Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'").ProcessId
+          $listen = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object OwningProcess -eq $agentPid
+          if ($listen) { throw "agent is listening on a port" }
+          # Memory budget (informational until Phase 6 load testing).
+          $ws = (Get-Process -Id $agentPid).WorkingSet64
+          Write-Host "agent working set: $([math]::Round($ws/1MB,1)) MiB"
+
+          .\auzring-agent.exe uninstall
+          if (Get-Service AuzringAgent -ErrorAction SilentlyContinue) { throw "service still present" }
+          if (Test-Path "$env:ProgramData\Auzring") { throw "data dir still present" }
+          Stop-Process -Id $server.Id

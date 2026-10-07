@@ -1,0 +1,57 @@
+package core
+
+import (
+	"crypto/x509"
+	"testing"
+	"time"
+
+	"github.com/auzring1/auzring/internal/server/pki"
+	"github.com/auzring1/auzring/internal/shared/pkix"
+)
+
+func TestVerifyPinnedChain(t *testing.T) {
+	h, err := pki.NewHierarchy("t", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := pki.NewAuthority(h.Root.Cert, h.Issuing, h.JobSigning)
+	gw, err := a.IssueGatewayCert([]string{"agents.example.com"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain := []*x509.Certificate{gw.Cert, h.Issuing.Cert, h.Root.Cert}
+	pin := pkix.SPKIPin(h.Root.Cert)
+	if root, err := verifyPinnedChain(chain, "agents.example.com", pin); err != nil || !root.Equal(h.Root.Cert) {
+		t.Fatalf("valid chain rejected: %v", err)
+	}
+	if _, err := verifyPinnedChain(chain, "evil.example.com", pin); err == nil {
+		t.Fatal("hostname mismatch accepted")
+	}
+	// An attacker with a different (even valid-looking) CA must fail the pin.
+	other, _ := pki.NewHierarchy("evil", time.Now())
+	oa := pki.NewAuthority(other.Root.Cert, other.Issuing, other.JobSigning)
+	ogw, _ := oa.IssueGatewayCert([]string{"agents.example.com"}, time.Now())
+	if _, err := verifyPinnedChain([]*x509.Certificate{ogw.Cert, other.Issuing.Cert, other.Root.Cert}, "agents.example.com", pin); err == nil {
+		t.Fatal("chain to a foreign root accepted")
+	}
+	// Pinned root present but leaf signed by someone else.
+	if _, err := verifyPinnedChain([]*x509.Certificate{ogw.Cert, h.Issuing.Cert, h.Root.Cert}, "agents.example.com", pin); err == nil {
+		t.Fatal("foreign leaf accepted")
+	}
+	if _, err := verifyPinnedChain([]*x509.Certificate{gw.Cert}, "agents.example.com", pin); err == nil {
+		t.Fatal("incomplete chain accepted")
+	}
+}
+
+func TestBackoff(t *testing.T) {
+	b := &Backoff{Base: time.Second, Max: 10 * time.Second}
+	for i := 0; i < 50; i++ {
+		if d := b.Next(); d < 0 || d > 10*time.Second {
+			t.Fatalf("backoff out of range: %v", d)
+		}
+	}
+	b.Reset()
+	if d := b.Next(); d > time.Second {
+		t.Fatalf("after reset: %v", d)
+	}
+}

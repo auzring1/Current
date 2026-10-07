@@ -65,9 +65,9 @@ func Install(o Options) error {
 	if err != nil {
 		return fmt.Errorf("connect to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 	if s, err := m.OpenService(ServiceName); err == nil {
-		s.Close()
+		_ = s.Close()
 		return errors.New("the agent is already installed; run `auzring-agent uninstall` first")
 	}
 
@@ -112,7 +112,7 @@ func Install(o Options) error {
 	if err != nil {
 		return fmt.Errorf("create service: %w", err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 	if err := s.SetRecoveryActions([]mgr.RecoveryAction{
 		{Type: mgr.ServiceRestart, Delay: 10 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 30 * time.Second},
@@ -163,7 +163,7 @@ func Uninstall(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 	if s, err := m.OpenService(ServiceName); err == nil {
 		if st, err := s.Control(svc.Stop); err == nil {
 			for i := 0; i < 30 && st.State != svc.Stopped; i++ {
@@ -172,10 +172,10 @@ func Uninstall(out io.Writer) error {
 			}
 		}
 		if err := s.Delete(); err != nil {
-			s.Close()
+			_ = s.Close()
 			return fmt.Errorf("delete service: %w", err)
 		}
-		s.Close()
+		_ = s.Close()
 		fmt.Fprintln(out, "Service removed.")
 	} else {
 		fmt.Fprintln(out, "Service not installed; cleaning up files.")
@@ -186,7 +186,7 @@ func Uninstall(out io.Writer) error {
 		if id, _ := st.Identity(); id != nil {
 			ks := keystore.Default(dataDir)
 			for g := 1; g <= id.KeyGen; g++ {
-				_ = ks.Delete(fmt.Sprintf("Auzring-Agent-Device-%d", g))
+				_ = ks.Delete(fmt.Sprintf("%s%d", core.KeyPrefix, g))
 			}
 			fmt.Fprintf(out, "Device key(s) deleted. Remember to revoke device %s in the console if it is still listed.\n", id.DeviceID)
 		}
@@ -252,14 +252,14 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	tmp := dst + ".new"
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755) // #nosec G302 G304 -- agent binary copied into the ACL-protected Program Files directory
 	if err != nil {
 		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
+		_ = out.Close()
 		return err
 	}
 	if err := out.Close(); err != nil {

@@ -137,7 +137,8 @@ func (m *Sessions) Lookup(ctx context.Context, tok string) (*Session, error) {
 
 // SetCookie writes the session cookie.
 func (m *Sessions) SetCookie(w http.ResponseWriter, s *Session) {
-	http.SetCookie(w, &http.Cookie{
+	// Secure is false only in AUZ_DEV_MODE over plain http (config rejects http otherwise).
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- see above
 		Name: m.CookieName(), Value: s.Token, Path: "/", HttpOnly: true, Secure: m.Secure,
 		SameSite: http.SameSiteStrictMode, Expires: s.AbsExpiresAt,
 	})
@@ -145,7 +146,7 @@ func (m *Sessions) SetCookie(w http.ResponseWriter, s *Session) {
 
 // ClearCookie removes the session cookie.
 func (m *Sessions) ClearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: m.CookieName(), Value: "", Path: "/", HttpOnly: true, Secure: m.Secure,
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- deletion cookie; same attributes as SetCookieName: m.CookieName(), Value: "", Path: "/", HttpOnly: true, Secure: m.Secure,
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 }
 

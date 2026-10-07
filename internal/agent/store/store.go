@@ -9,6 +9,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 )
 
 var (
@@ -41,7 +42,7 @@ type Store struct{ db *bolt.DB }
 func Open(path string) (*Store, error) {
 	db, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
-		if errors.Is(err, bolt.ErrTimeout) {
+		if errors.Is(err, berrors.ErrTimeout) {
 			return nil, errors.New("agent state is locked: another agent instance is running")
 		}
 		return nil, err
