@@ -34,6 +34,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/server/updates"
 	"github.com/auzring1/auzring/internal/server/webui"
+	"github.com/auzring1/auzring/internal/shared/release"
 )
 
 // App is a running server.
@@ -90,6 +91,9 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
 	a.Catalog = newCatalog(cfg, pool)
 	a.Releases = &agentrel.Service{Pool: pool, Deploy: a.Deploy, Content: a.Catalog.Content, Events: a.Events, Log: log.With("component", "agentrel")}
+	if extra, err := release.ParseKeys(cfg.ReleasePublicKeys); err == nil && len(extra) > 0 {
+		a.Releases.Keys = append(release.TrustedKeys(), extra...)
+	}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
 		a.Updates.AfterJob(ctx, j, status, u)

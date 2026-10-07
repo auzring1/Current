@@ -168,6 +168,7 @@ Configuration (all optional, set in the server's environment):
 |---|---|
 | `AUZ_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/auzring/content`). Empty disables custom packages. |
 | `AUZ_WINGET_SOURCE` | `github` (default) or `off`. |
+| `AUZ_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
 | `AUZ_GITHUB_TOKEN` / `AUZ_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
 
 ### 5b. Windows updates (Phase 4)
@@ -183,6 +184,40 @@ Configuration (all optional, set in the server's environment):
 | Source (WU / Microsoft Update / drivers) | **Update policy → Update source** (administrators). Devices get it as a scan job and rescan. |
 | Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Auzring does not change these policies. |
 | Limit what an endpoint will do | Add `wu_scan,wu_install,wu_hide,reboot` to (or leave them out of) `--allowed-jobs` at install time. |
+
+### 5c. Agent updates (Phase 5)
+
+| Task | How |
+|---|---|
+| One-time: get the agents to trust a release key | Agents only accept releases signed by the vendor release key compiled into them. Official builds carry it. For your own test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `AUZ_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
+| Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.azr` bundle (made with `auzring-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
+| Roll it out | **Agent updates → Rollout**: pick the target release, optional **pilot groups** (they update first), a **soak** time and the success percentage the pilot must reach, and how many devices per minute. Everyone else follows when the pilot has proven itself. |
+| Watch it | The page shows versions in use, how many updated/failed, why devices outside the pilot are waiting, and a banner if the rollout was put on hold. A failing pilot pauses the rollout by itself; look at the failed jobs (device → Jobs), fix or withdraw the release, then un-pause. |
+| Stop or withdraw | Untick/clear the target, tick **Pause the rollout**, or **Withdraw** a release (never offered again; pauses the rollout if it was the target). |
+| What happens on the machine | The agent verifies the release, copies it to the other slot, switches the service and restarts. If the new version has not connected after 10 minutes, a scheduled task (`\Auzring\rollback-check`) puts the old version back and the job shows *failed: did not become healthy*. Logs: `C:\ProgramData\Auzring\logs\agent.log` and `rollback-check.log`. |
+| Agents from before Phase 5 | They cannot update themselves; reinstall them once (uninstall, install with a new token, or the MSI). |
+| Limit what an endpoint will do | Leave `agent_update` out of `--allowed-jobs` to forbid self-update on that machine. |
+
+### 5d. People, sites and API access (Phase 5)
+
+| Task | How |
+|---|---|
+| Add a person | **Users → Add user**: email, name, a role and where it applies (whole organization, or one site). A temporary password is shown once; give it to the person privately. At the first sign-in they choose their own password and set up a second factor. |
+| Give someone only one site | Create the site under **Sites**, make enrollment tokens for it (**Enrollment → New token → Site**), and give the person a role **on that site**. They see and manage that site's devices from the device pages; fleet-wide pages and organization settings stay hidden. |
+| Change or remove access | **Users → ⋮ → Roles…**, **Disable**, **Delete**, **Set a temporary password**, **Reset second factor** (the person sets up a new one at the next sign-in). The last active administrator cannot be disabled, deleted or demoted. |
+| Security keys | **Account security (click your name) → Add security key**. Works at `https://` addresses and `localhost`; changing the public hostname invalidates keys. |
+| API tokens | **Account security → API tokens**: choose scopes (only what you can do yourself) and a lifetime (1–365 days); copy the token once. Use `Authorization: Bearer azt_…` on `/api/v1/…` (spec: `api/openapi.yaml`). Administrators see and revoke every token under **Users → API tokens**. A token stops working when it expires, is revoked or its owner is disabled. |
+
+### 5e. Policies, reports and the audit log (Phase 5)
+
+| Task | How |
+|---|---|
+| Keep software current | **Software policies → Add policy → Keep the package at its newest version**: pick the catalog package and groups, and how many days to wait after a new version appears. Every 5 minutes the server creates a normal deployment for devices where an older machine-wide copy is installed. Follow it under **Deployments**. Self-updating apps are left alone unless the package is set to *enforce*. |
+| Install on new devices | **… → Install the package on devices that newly join the groups**: devices that already have the software are never touched; by default only devices enrolled after the policy was made. |
+| A policy keeps failing | A device that fails three times is left alone (one try a day). Fix the package (Catalog → overrides); a new package version starts a fresh set of tries. |
+| Reports | **Reports**: devices, online, patch compliance (no approved or Critical update missing, no failed install, scanned within a week), devices needing a restart, devices not seen for a week and job results of the last 30 days; **Export patch compliance (CSV)**. |
+| Search the audit log | **Audit log**: filter by action prefix (`user.`, `deployment`), outcome, actor (id or IP) and time; **Export CSV** (up to 100,000 rows; spreadsheet formulas are neutralized). |
+| Prove the log is intact | **Audit log → Verify the chain** walks every entry; a broken chain names the first bad entry. Do it before relying on the log in an investigation. |
 
 ## 6. Backup and restore
 

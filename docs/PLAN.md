@@ -128,7 +128,7 @@ I stop for review after each phase.
 - Update catalog on the server, approval rules (classification, severity, delay days), manual approve or decline.
 - Rings (pilot, then broad, with success thresholds), maintenance windows evaluated on the device, reboot policy (never, outside active hours, deadline with a user notice through the session notifier), and detection of conflicting WSUS/WUfB policy.
 
-### Phase 5: Automation and polish
+### Phase 5: Automation and polish *(implemented; see docs/ARCHITECTURE.md §0, SECURITY §9d and docs/demos/PHASE5-DEMO.md. Self-update, the MSI and WebAuthn on real hardware are unverified on real Windows)*
 - Auto-update policies, new-device baselines, reports, audit-log UI, finer RBAC with per-site scoping, API tokens with scopes, WebAuthn.
 - Agent self-update: vendor release-key signature plus Authenticode, A/B slots, health-confirmed promotion with automatic rollback.
 - `auzring-server backup` / `restore`: encrypted with age, version-checked.

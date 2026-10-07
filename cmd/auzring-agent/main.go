@@ -205,7 +205,7 @@ func runAgent(ctx context.Context, dataDir string, first *config.Config) error {
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dataDir, Store: st, Keys: keystore.Default(dataDir),
 		HW: hardware.New(), Log: log, Version: version.Version}
 	a.Inv = &inventory.Manager{Collector: inventory.NewCollector(), Store: st, Log: log}
-	a.Jobs = &jobs.Engine{P: jobs.NewPlatform(dataDir), Store: st, Log: log}
+	a.Jobs = &jobs.Engine{P: jobs.NewPlatform(dataDir), Store: st, Log: log, RollbackWindow: cfg.RollbackWindow()}
 	if w, err := inventory.NewWatcher(log); err != nil {
 		log.Warn("registry change watcher unavailable; relying on the daily rescan", "err", err)
 	} else {

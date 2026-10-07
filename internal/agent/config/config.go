@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/auzring1/auzring/internal/shared/bundle"
 )
@@ -28,6 +29,18 @@ type Config struct {
 	// cannot raise it. Empty means the default set for this agent version.
 	AllowedJobs []string `json:"allowed_jobs,omitempty"`
 	LogLevel    string   `json:"log_level,omitempty"`
+	// UpdateRollbackMinutes is how long a freshly updated agent has to reach the server before the
+	// safety net restores the previous version (default 10, allowed 1 to 60). Meant for tests and
+	// diagnosis; it can only be changed by someone who can already write the data directory.
+	UpdateRollbackMinutes int `json:"update_rollback_minutes,omitempty"`
+}
+
+// RollbackWindow returns the configured rollback window (0 = the engine default).
+func (c *Config) RollbackWindow() time.Duration {
+	if c.UpdateRollbackMinutes < 1 || c.UpdateRollbackMinutes > 60 {
+		return 0
+	}
+	return time.Duration(c.UpdateRollbackMinutes) * time.Minute
 }
 
 // AllJobTypes lists every job type name a ceiling may contain.

@@ -2,7 +2,7 @@
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 
-**Status: Phase 4 (Windows and driver updates) complete, awaiting review.** On top of Phases 1–3 (server, internal CA, enrollment, mTLS channel, MFA console, software inventory and deployment) you can now see what Windows Update offers every device, approve or decline updates by hand or by rule, roll them out through rings (pilot first, with soak time and success thresholds that stop a bad update), set maintenance windows and restart policies (never, outside active hours, or by a deadline, always with a countdown users can see), install or hide updates on one device, and see devices whose updates are controlled by WSUS or Windows Update for Business. **The Windows Update COM code and the restart countdown have not run on a real machine yet**; see [docs/SECURITY.md §9c](docs/SECURITY.md) and the [Phase 4 demo](docs/demos/PHASE4-DEMO.md). Agent self-update, the MSI and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
+**Status: Phase 5 (automation and polish) complete, awaiting review.** On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
 
 ## Quick start (production-style, one host)
 ```bash
@@ -16,7 +16,7 @@ Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Window
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
-- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md)
+- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md), [Phase 5 (self-update, access, policies, backup, MSI)](docs/demos/PHASE5-DEMO.md)
 
 ## Development
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
@@ -35,13 +35,14 @@ Run the web console against a local server: start the server with `AUZ_DEV_MODE=
 ## Repository layout
 | Path | |
 |---|---|
-| `cmd/auzring-server`, `cmd/auzring-agent` | Binaries |
+| `cmd/auzring-server`, `cmd/auzring-agent`, `cmd/auzring-release` | Binaries (`auzring-release` is the vendor-side release signing tool, not shipped to customers) |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |
 | `proto/`, `api/openapi.yaml`, `db/` | Agent protocol, REST contract, migrations and queries |
 | `gen/` | Generated code (protobuf, sqlc). CI checks it is up to date |
 | `web/` | React + TypeScript + Mantine console (embedded into the server binary) |
+| `installer/windows` | WiX sources and build scripts for the agent MSI |
 | `deploy/` | Dockerfile, compose stack, Caddyfile, Postgres init |
 | `test/` | End-to-end, compose integration, VM matrix harness (`test/vm-matrix`), CI tools |
 | `docs/` | Plan, architecture, protocol, data model, security, decisions, runbook, demos |
