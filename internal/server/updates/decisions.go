@@ -2,9 +2,7 @@ package updates
 
 import (
 	"context"
-	"errors"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -191,9 +189,3 @@ func (s *Service) SetSettings(ctx context.Context, a Actor, in Settings) error {
 		return err
 	})
 }
-
-var errNoRows = pgx.ErrNoRows
-
-func isNoRows(err error) bool { return errors.Is(err, errNoRows) }
-
-var _ = time.Second

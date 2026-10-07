@@ -18,6 +18,8 @@ import { SoftwarePage } from "./pages/SoftwarePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TokensPage } from "./pages/TokensPage";
+import { UpdatePolicyPage } from "./pages/UpdatePolicyPage";
+import { UpdatesPage } from "./pages/UpdatesPage";
 
 export function App() {
   const loc = useLocation();
@@ -50,6 +52,8 @@ export function App() {
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/catalog/:id" element={<PackagePage />} />
+        <Route path="/updates" element={<UpdatesPage />} />
+        <Route path="/update-policy" element={<UpdatePolicyPage />} />
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/new" element={<NewDeploymentPage />} />
         <Route path="/deployments/:id" element={<DeploymentPage />} />

@@ -89,17 +89,17 @@ func TestRecoveryCodes(t *testing.T) {
 func TestRBAC(t *testing.T) {
 	for _, x := range PermissionsFor([]string{RoleReadOnly}) {
 		switch x {
-		case PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead:
+		case PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead:
 		default:
 			t.Fatalf("read-only role has %s", x)
 		}
 	}
 	for _, x := range PermissionsFor([]string{RoleOperator}) {
-		if x == PermCatalogOverride || x == PermSettingsWrite {
-			t.Fatalf("operator has %s: overrides (silent arguments) and org settings are admin-only", x)
+		if x == PermCatalogOverride || x == PermSettingsWrite || x == PermUpdatesPolicy {
+			t.Fatalf("operator has %s: overrides (silent arguments), org settings and update rings, rules and sources are admin-only", x)
 		}
 	}
-	if len(PermissionsFor([]string{RoleAdmin})) != 14 {
+	if len(PermissionsFor([]string{RoleAdmin})) != 17 {
 		t.Fatal("admin permissions missing")
 	}
 	p := PermissionsFor([]string{RoleOperator, RoleReadOnly})
@@ -107,6 +107,13 @@ func TestRBAC(t *testing.T) {
 		if x == PermEnrollmentWrite || x == PermAuditRead {
 			t.Fatal("operator must not create tokens or read audit")
 		}
+	}
+	hasUpdatesWrite := false
+	for _, x := range PermissionsFor([]string{RoleOperator}) {
+		hasUpdatesWrite = hasUpdatesWrite || x == PermUpdatesWrite
+	}
+	if !hasUpdatesWrite {
+		t.Fatal("operators approve updates and restart devices")
 	}
 	if len(PermissionsFor([]string{"nonsense"})) != 0 {
 		t.Fatal("unknown role granted permissions")

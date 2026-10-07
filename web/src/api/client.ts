@@ -29,6 +29,13 @@ export type DeploymentDetail = components["schemas"]["DeploymentDetail"];
 export type DeploymentJob = components["schemas"]["DeploymentJob"];
 export type DeviceJob = components["schemas"]["DeviceJob"];
 export type AvailableUpdate = components["schemas"]["AvailableUpdate"];
+export type WindowsUpdate = components["schemas"]["WindowsUpdate"];
+export type UpdateRule = components["schemas"]["UpdateRule"];
+export type UpdateRing = components["schemas"]["UpdateRing"];
+export type UpdateSettings = components["schemas"]["UpdateSettings"];
+export type RestartPolicy = components["schemas"]["RestartPolicy"];
+export type WuPolicy = components["schemas"]["WuPolicy"];
+export type DeviceWindowsUpdates = components["schemas"]["DeviceWindowsUpdates"];
 export type JobDetail = components["schemas"]["JobDetail"];
 
 let csrfToken = "";

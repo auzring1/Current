@@ -145,16 +145,26 @@ policies(id, org_id, kind[auto_update|baseline|user_scope_app|self_update], spec
 Jobs are indexed by `(device_id, status)` for dispatch and `(deployment_id, status)` for progress.
 
 ## Windows Update (Phase 4)
+Migration `00005_windows_update.sql` (plus `00004`, which adds `jobs.depends_when`). Job types `wu_scan`, `wu_install`, `wu_hide` and `reboot` join the `jobs.type` check.
 ```
-wu_updates(update_id uuid, revision int, title, kb text[], classification, severity, products text[],
-           is_driver bool, driver_class, driver_hwid, driver_version, release_date, support_url,
-           primary key(update_id, revision))
-device_updates(device_id, update_id, revision, state[missing|downloaded|installed|hidden|failed|pending_reboot],
-               last_result, scanned_at, primary key(device_id, update_id))
-wu_approvals(org_id, update_id, revision, decision[approved|declined|hidden], ring_policy, decided_by, decided_at)
-wu_approval_rules(id, org_id, name, classifications text[], severities text[], include_drivers,
-                  delay_days, target_group_ids uuid[], enabled)
+devices += wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy jsonb (WSUS/WUfB/AU detection),
+           wu_service, wu_truncated, wu_settings_rev          -- wu_rev = generation of the last full snapshot applied
+org_settings += wu_service[default|windows_update|microsoft_update], wu_include_drivers, wu_rev
+wu_updates(org_id, update_id, revision, title, kb[], classification, severity, products[], is_driver, driver_*,
+           release_date, support_url, size_bytes, reboot_required, first_seen_at, last_seen_at,
+           primary key(org_id, update_id))                      -- every update any device reported (latest revision)
+device_updates(device_id, update_id, revision, state[missing|downloaded|hidden|pending_reboot|failed],
+               last_error, scanned_at, primary key(device_id, update_id))   -- full replacement per scan
+wu_approvals(org_id, update_id, decision[approved|declined|hidden], source[manual|rule], rule_id, note,
+             decided_by, decided_at, primary key(org_id, update_id))      -- no row = pending review
+wu_rules(id, org_id, name, classifications[], severities[], include_drivers, delay_days, enabled)
+wu_rings(id, org_id, name, ordinal 1..20, group_ids[], delay_days, soak_hours, success_threshold 1..100,
+         maint_window jsonb, reboot jsonb, enabled)
+wu_attempts(org_id, update_id, device_id, ring_id, job_id, state[queued|installed|failed], failures, hresult,
+            created_at, finished_at, primary key(update_id, device_id))   -- latest attempt; ring gating reads these
+wu_holds(id, org_id, update_id, ring_id, reason, created_at, released_at, released_by)
 ```
+Invariants: approvals are keyed by update identity (not revision), a manual decision is never overwritten by a rule, at most one open hold per (update, ring), and `device_updates` rows exist only for updates the device is *not* fully up to date on (installed updates are not stored).
 
 ## Audit
 ```

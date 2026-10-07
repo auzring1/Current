@@ -178,3 +178,16 @@ jobs:
           .\auzring-agent.exe uninstall
           Stop-Process -Id $server.Id
           if ($failed.Count -gt 0) { Get-Content server.err -Tail 60; throw "scenarios failed: $($failed -join ', ')" }
+
+  # Windows Update Agent on a real machine: read-only (policy, pending reboot, scan). Informational
+  # until observed passing; installs and restarts are only exercised by the manual demo
+  # (docs/demos/PHASE4-DEMO.md).
+  wu:
+    runs-on: windows-2025
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "${{ env.GO_VERSION }}" }
+      - name: WUA scan, policy detection and reboot detection (read-only)
+        run: go test -count=1 -v -run 'TestWin' ./internal/agent/wu/

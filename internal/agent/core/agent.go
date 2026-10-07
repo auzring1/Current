@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -80,7 +81,7 @@ type Agent struct {
 	client  agentv1.AgentChannelServiceClient // current connection, for content downloads
 
 	bootID      string
-	clockOffset time.Duration
+	clockOffset atomic.Int64 // nanoseconds; written on connect, read by the job engine's clock
 	lastHB      *agentv1.Heartbeat
 	lastHBSent  time.Time
 	hwPending   *pendingReport
@@ -410,8 +411,9 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 		return 0, 0, errors.New("expected HelloAck")
 	}
 	start := a.now()
-	a.clockOffset = time.Unix(ack.ServerTime, 0).Sub(start)
-	if d := a.clockOffset; d > 5*time.Minute || d < -5*time.Minute {
+	off := time.Unix(ack.ServerTime, 0).Sub(start)
+	a.clockOffset.Store(int64(off))
+	if d := off; d > 5*time.Minute || d < -5*time.Minute {
 		a.Log.Warn("local clock differs from server", "offset", d.Round(time.Second))
 	}
 	a.acceptSigningCerts(ctx, stream, id, root, ack.JobSigningCertsDer)
@@ -618,7 +620,7 @@ func (a *Agent) retryHint(err error) time.Duration {
 
 // serverNow is local time corrected by the offset measured at HelloAck, so a
 // wrong local clock cannot cause renewal loops or missed renewals.
-func (a *Agent) serverNow() time.Time { return a.now().Add(a.clockOffset) }
+func (a *Agent) serverNow() time.Time { return a.now().Add(time.Duration(a.clockOffset.Load())) }
 
 func (a *Agent) renewDue(cert *x509.Certificate) bool {
 	return cert.NotAfter.Sub(a.serverNow()) < pkix.Lifetime(cert)/3
