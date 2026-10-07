@@ -184,14 +184,144 @@ Configuration (all optional, set in the server's environment):
 | Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Auzring does not change these policies. |
 | Limit what an endpoint will do | Add `wu_scan,wu_install,wu_hide,reboot` to (or leave them out of) `--allowed-jobs` at install time. |
 
-## 6. Backup and restore (manual until Phase 5 adds `auzring-server backup`)
+## 6. Backup and restore
+
+`auzring-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `auzring-server restore` loads it into an empty database. Both use the schema-owner connection the server already has for migrations (`AUZ_MIGRATE_DATABASE_URL_FILE`); the runtime role is not needed.
+
+### 6.1 What is and is not in a backup
+
+| In the backup | Not in the backup |
+|---|---|
+| Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the rest of `deploy/secrets/`.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
+| The content directory (`AUZ_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
+| A manifest: format version, `auzring-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
+| | Database roles and passwords (the roles come from `deploy/postgres/init` and the secrets) |
+
+**You must back up `deploy/secrets/` separately** (for example `tar czf - -C deploy secrets | age -r <key> > secrets.tgz.age`, stored somewhere other than the database backups). Keep copies of the two in different places: someone who has both can read everything.
+
+The file is encrypted with [age](https://age-encryption.org). Anyone who knows the *public* key can create a file that decrypts, so keep the backup store write-protected (see "Authenticity" in SECURITY.md §9d.a).
+
+### 6.2 One-time setup: the backup key
+
+Do this on an **offline or at least separate** machine, not on the Auzring host:
+
 ```bash
-# Back up: database + secrets. Store the two separately, both encrypted at rest.
-docker compose -f deploy/docker-compose.yml exec -T postgres pg_dump -U auzring_owner -Fc auzring > auzring-$(date +%F).dump
-tar czf auzring-secrets-$(date +%F).tgz -C deploy secrets
-# Restore onto a fresh install created with the SAME secrets directory:
-docker compose -f deploy/docker-compose.yml exec -T postgres pg_restore -U auzring_owner -d auzring --clean --if-exists < auzring-YYYY-MM-DD.dump
+age-keygen -o auzring-backup.key         # prints the public key (age1...); keep the .key file offline
 ```
+
+- The file `auzring-backup.key` is the **age secret key**. Print it or put it in your password manager and on offline media. Whoever has it can read every backup; without it nobody can, including you.
+- Put only the **public key** (`age1...`) on the Auzring host. You can give several `--recipient` options (for example two administrators, or a spare key kept in a safe); any one of the matching secret keys can restore.
+- Alternative: a **passphrase** (`--passphrase-file`, scrypt, at least 12 characters, `openssl rand -base64 24`). Passphrase files must be readable by the backup job, so prefer public keys for unattended backups. The two modes cannot be mixed in one backup.
+
+### 6.3 Taking a backup
+
+```bash
+cd /srv/auzring        # the checkout with deploy/
+umask 077
+set -o pipefail
+docker compose -f deploy/docker-compose.yml exec -T server \
+  /auzring-server backup --out - --recipient age1xxxxxxxx... \
+  > /var/backups/auzring/auzring-$(date +%F-%H%M).age
+```
+
+- `--out -` writes the encrypted archive to standard output **and nothing else** (logs go to standard error); the container's root filesystem is read-only, so this is the way to get the file out. `--out /path` writes a temp file, fsyncs, and renames it into place with mode 0600 (use it where the path is writable, for example `docker compose run -v`).
+- **Check the exit status.** A failed backup leaves a truncated file that does not verify. The `set -o pipefail` and a non-zero exit above matter in scripts.
+- The backup is a consistent snapshot (one `REPEATABLE READ` read-only transaction); the server keeps running and is not blocked. Content files are read right after; they are written once and named by hash, so a file uploaded in between is simply extra.
+- Each backup adds an `admin.backup` audit entry (after the snapshot, so not inside that backup).
+- Size: roughly the size of the data plus all uploaded installers. The archive is not compressed (compressing before encrypting would save space on the database tables but cost memory and open a decompression-bomb surface; installers do not compress anyway).
+
+**Verify every backup** without touching a database (decrypts, checks every part against the manifest, prints a summary):
+
+```bash
+auzring-server backup --verify /var/backups/auzring/auzring-2026-10-07-0300.age --identity-file auzring-backup.key
+# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro server backup --verify - --identity-file /k < file.age
+```
+
+A routine verification needs the secret key; if you do not want it on the backup host, verify during the restore drill (6.6) instead, and on the host only check that the file is non-trivially sized and recent.
+
+### 6.4 Scheduling
+
+cron (`/etc/cron.d/auzring-backup`), nightly at 02:30 as the user that owns `/srv/auzring` and may run Docker:
+
+```cron
+30 2 * * * auzring /usr/local/bin/auzring-backup.sh
+```
+
+`/usr/local/bin/auzring-backup.sh`:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+umask 077
+dest=/var/backups/auzring
+f="$dest/auzring-$(date +%F-%H%M).age"
+cd /srv/auzring
+docker compose -f deploy/docker-compose.yml exec -T server \
+  /auzring-server backup --out - --recipient-file /etc/auzring/backup-recipients.txt > "$f.partial"
+test "$(stat -c %s "$f.partial")" -gt 10000       # an empty or tiny file is a failure
+mv "$f.partial" "$f"
+find "$dest" -name 'auzring-*.age' -mtime +30 -delete     # retention, see 6.7
+# copy off the host (a different machine or bucket); example:
+# rclone copy "$f" remote:auzring-backups/
+```
+
+Or as a systemd timer: `auzring-backup.service` (`Type=oneshot`, `ExecStart=/usr/local/bin/auzring-backup.sh`, `User=auzring`) plus `auzring-backup.timer` (`OnCalendar=*-*-* 02:30:00`, `Persistent=true`, `RandomizedDelaySec=10m`), enabled with `systemctl enable --now auzring-backup.timer`. Make a failing run visible: `OnFailure=` an alert unit, or send the script's exit status to your monitoring. A backup nobody notices failing is not a backup.
+
+`--recipient-file` takes the same format as age: one public key per line, `#` comments allowed.
+
+### 6.5 Restoring (disaster recovery)
+
+You need: the backup file, the **age secret key** (or passphrase), the **`deploy/secrets/` directory from the same installation** (above all `master_key`), and a Docker host with this repository checked out at the same or a **newer** release.
+
+1. **Restore the secrets** into `deploy/secrets/` (mode 0700) and recreate `deploy/.env`. Do not run `init-secrets.sh`: it would create new passwords and a new master key. (If you have lost the database *volume* but kept the secrets, the Postgres passwords in the secrets are applied when the empty database is first initialized.)
+2. **Start only the database**, empty: `docker compose -f deploy/docker-compose.yml up -d postgres` and wait until it is healthy. Do **not** start the `server` yet: with `AUZ_MIGRATE_ON_START` it would migrate to the newest schema first and take the first-run setup token.
+3. **Restore.** The secret key and the backup are handed in as read-only mounts/stdin:
+
+   ```bash
+   docker compose -f deploy/docker-compose.yml run --rm -T --no-deps \
+     -v "$PWD/auzring-backup.key:/restore.key:ro" \
+     server restore --in - --identity-file /restore.key < /var/backups/auzring/auzring-2026-10-07-0230.age
+   ```
+
+   (`--passphrase-file` works the same way with a mounted file or `AUZ_BACKUP_PASSPHRASE_FILE`.) With `--in <file>` instead of `-` the archive is verified completely **before** the database is touched; with standard input it cannot be read twice, so the load is done in one transaction and rolled back if any part fails to verify.
+4. What the restore does, in order: decrypts and reads the header; **refuses** a backup made by a newer `auzring-server` than this binary or with an unknown format version; refuses a database that already holds data; runs the embedded migrations *up to the backup's schema version*; in **one transaction** loads every table (foreign-key order, user triggers off, so the audit log arrives byte for byte), resets sequences, checks `AUZ_MASTER_KEY` against the sealed CA keys, writes the content files, checks every part's SHA-256 against the manifest, and only then commits; runs the remaining migrations forward; and **verifies the audit hash chain**, finishing with an `admin.restore` entry. A bad archive therefore leaves no rows behind.
+5. **Start everything:** `docker compose -f deploy/docker-compose.yml up -d`. Confirm: you can sign in (your TOTP still works because the KEK is the same), `docker compose ... exec server /auzring-server admin verify-audit` reports an intact chain, **Devices** shows the fleet (devices appear offline until they reconnect), and the **Packages** you uploaded can be opened.
+6. **After the restore:** agents reconnect on their own and resend their full inventory (their revisions no longer match). Anything that happened after the backup is gone: devices enrolled since then are unknown to the server and will be refused (re-enroll them), jobs and approvals created since are lost, and the audit log ends at the backup time. Revoke any enrollment token or device you revoked after the backup was taken, again.
+
+Refusals you may meet, and what they mean:
+
+| Message | Meaning and fix |
+|---|---|
+| `restore target is not empty` | The database already has data. Restoring into it would mix two installations. Use a new empty database, or `--force --wipe` to **drop everything in the `public` schema first** (only when you are sure; there is no undo). |
+| `the (empty) database is already at schema version N, newer than the backup's` | The server was started once and migrated. Recreate the database, or add `--wipe` to rebuild the schema (it is empty, so nothing is lost). |
+| `backup is newer than this server` | The backup was made by a newer release. Restore with that release or later; migrations only go forward. |
+| `unsupported backup format` | The file is from a format version this binary does not know. Use the release that made it. |
+| `the master key ... cannot open the ... key stored in this backup` | `AUZ_MASTER_KEY_FILE` is not the key in use when the backup was made. Restore the original `deploy/secrets/master_key`. `--skip-kek-check` overrides, but the server would not be able to use the CA. |
+| `... does not match this backup` / `integrity check failed` | Wrong key or passphrase / the file is damaged or was altered. Try another copy. |
+| `audit chain is broken` | The restore committed, but the backup's audit log does not verify (it was already damaged or tampered with when the backup was taken). Do not trust this data; restore an earlier backup. |
+| `lock tables (is the server still running?)` | Something is using the database. Stop the server. |
+
+`--skip-content` restores the database only (no content directory needed). `--force --wipe` does not delete the content directory.
+
+### 6.6 Test your restore
+
+An untested backup is a hope. **Do a restore drill at least once a quarter, and after every upgrade that changes the database schema** (any release with a new migration), on a scratch machine:
+
+1. Copy the latest backup, `auzring-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
+2. Follow 6.5 with a different `AUZ_HOSTNAME` (agents must not be able to reach this copy: leave 8443 closed or use an isolated network).
+3. Sign in, run `admin verify-audit`, open a device and a custom package, and compare the device and audit counts with production (`backup --verify` prints the row counts too).
+4. Record the date and the time it took. If the drill failed, fix that first; the production backup job is not trustworthy until then.
+
+### 6.7 Retention and storage
+
+- Keep **daily backups for 30 days, weekly for 3 months, monthly for a year**, adjusted to how much change you can afford to lose (the recovery point is the age of the newest good backup) and to your retention rules for audit data.
+- Keep at least one copy **off the host and off the same account/provider**, and one that cannot be deleted by the Auzring host (object lock, or pull from the backup server).
+- Keep the age secret key and the secrets backup in a place that survives the loss of the site. Losing the master key or the age key makes every backup useless.
+- Delete old backups with the same care as the audit log: they contain it.
+
+### 6.8 Moving to another host
+
+Take a backup, copy `deploy/secrets/` and the backup to the new host, then follow 6.5. Update `AUZ_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
 
 ## 7. Incident response
 - **Suspected server compromise:**
