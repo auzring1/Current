@@ -88,7 +88,7 @@ func FuzzNormalize(f *testing.F) {
 		if n == "" || len(n) > MaxNormalizedLen {
 			t.Fatalf("bad output %q for %q", n, name)
 		}
-		if NormalizeName(n, "") != NormalizeName(n, "") { // determinism
+		if again := NormalizeName(name, version); again != n { // determinism
 			t.Fatal("non-deterministic")
 		}
 		if p := NormalizePublisher(name); len(p) > MaxNormalizedLen {

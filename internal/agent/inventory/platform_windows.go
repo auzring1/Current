@@ -256,7 +256,7 @@ func (winPlatform) MSIProducts() ([]MSIProduct, error) {
 		var code [39]uint16
 		var ctx uint32
 		sidBuf := make([]uint16, 256)
-		sidLen := uint32(len(sidBuf))
+		sidLen := uint32(len(sidBuf)) // #nosec G115 -- fixed 256
 		r, _, _ := procMsiEnumProducts.Call(0, uintptr(unsafe.Pointer(all)), contextAll, uintptr(i),
 			uintptr(unsafe.Pointer(&code[0])), uintptr(unsafe.Pointer(&ctx)), uintptr(unsafe.Pointer(&sidBuf[0])), uintptr(unsafe.Pointer(&sidLen)))
 		if r == errNoMoreItems {
@@ -264,7 +264,7 @@ func (winPlatform) MSIProducts() ([]MSIProduct, error) {
 		}
 		if r == errMoreData {
 			sidBuf = make([]uint16, sidLen+1)
-			sidLen = uint32(len(sidBuf))
+			sidLen = uint32(len(sidBuf)) // #nosec G115 -- sized by the API's own report
 			r, _, _ = procMsiEnumProducts.Call(0, uintptr(unsafe.Pointer(all)), contextAll, uintptr(i),
 				uintptr(unsafe.Pointer(&code[0])), uintptr(unsafe.Pointer(&ctx)), uintptr(unsafe.Pointer(&sidBuf[0])), uintptr(unsafe.Pointer(&sidLen)))
 		}
@@ -300,12 +300,12 @@ func msiProp(code, sid string, ctx uint32, prop string) string {
 	}
 	const errMoreData = 234
 	buf := make([]uint16, 512)
-	n := uint32(len(buf))
+	n := uint32(len(buf)) // #nosec G115 -- fixed 512
 	r, _, _ := procMsiGetProduct.Call(uintptr(unsafe.Pointer(c)), uintptr(unsafe.Pointer(sidPtr)), uintptr(ctx),
 		uintptr(unsafe.Pointer(pr)), uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&n)))
 	if r == errMoreData && n < 65536 {
 		buf = make([]uint16, n+1)
-		n = uint32(len(buf))
+		n = uint32(len(buf)) // #nosec G115 -- small buffer
 		r, _, _ = procMsiGetProduct.Call(uintptr(unsafe.Pointer(c)), uintptr(unsafe.Pointer(sidPtr)), uintptr(ctx),
 			uintptr(unsafe.Pointer(pr)), uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&n)))
 	}

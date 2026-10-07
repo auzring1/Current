@@ -95,7 +95,6 @@ type fieldSpec struct {
 	col  string // SQL expression over alias d (allow-listed constant)
 	kind valKind
 	cmps []string
-	enum []string
 }
 
 var (
