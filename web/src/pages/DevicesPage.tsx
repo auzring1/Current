@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Group, Loader, SegmentedControl, Table, Text, Title } from "@mantine/core";
 import { api, errorMessage, type Device } from "../api/client";
 import { ago } from "../api/format";
 import { OnlineDot, StatusBadge } from "../components/common";
-import { DeviceDrawer } from "./DeviceDrawer";
 
 export function DevicesPage() {
   const [status, setStatus] = useState("all");
-  const [selected, setSelected] = useState<string | null>(null);
+  const nav = useNavigate();
   const q = useQuery({
     queryKey: ["devices", status],
     queryFn: () => api<{ items: Device[]; total: number }>("GET", `/devices?limit=500${status === "all" ? "" : `&status=${status}`}`),
@@ -52,13 +52,14 @@ export function DevicesPage() {
                 <Table.Th>Operating system</Table.Th>
                 <Table.Th>Model</Table.Th>
                 <Table.Th>User</Table.Th>
+                <Table.Th>Software</Table.Th>
                 <Table.Th>Last seen</Table.Th>
                 <Table.Th>Agent</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {q.data.items.map((d) => (
-                <Table.Tr key={d.id} onClick={() => setSelected(d.id)} style={{ cursor: "pointer" }} data-testid="device-row">
+                <Table.Tr key={d.id} onClick={() => nav(`/devices/${d.id}`)} style={{ cursor: "pointer" }} data-testid="device-row">
                   <Table.Td>
                     <Text fw={500}>{d.hostname}</Text>
                     {d.pending_reboot && (
@@ -81,6 +82,7 @@ export function DevicesPage() {
                     <Text size="sm">{[d.manufacturer, d.model].filter(Boolean).join(" ") || "—"}</Text>
                   </Table.Td>
                   <Table.Td>{d.logged_on_user || "—"}</Table.Td>
+                  <Table.Td>{d.software_count || "—"}</Table.Td>
                   <Table.Td>{d.online ? "now" : ago(d.last_seen_at)}</Table.Td>
                   <Table.Td>{d.agent_version || "—"}</Table.Td>
                 </Table.Tr>
@@ -89,7 +91,6 @@ export function DevicesPage() {
           </Table>
         </Table.ScrollContainer>
       )}
-      <DeviceDrawer id={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

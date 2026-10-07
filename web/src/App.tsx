@@ -5,7 +5,10 @@ import { api } from "./api/client";
 import { useSession } from "./api/session";
 import { Layout } from "./components/Layout";
 import { AuditPage } from "./pages/AuditPage";
+import { DevicePage } from "./pages/DevicePage";
 import { DevicesPage } from "./pages/DevicesPage";
+import { GroupsPage } from "./pages/GroupsPage";
+import { SoftwarePage } from "./pages/SoftwarePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TokensPage } from "./pages/TokensPage";
@@ -36,6 +39,9 @@ export function App() {
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={session ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<DevicesPage />} />
+        <Route path="/devices/:id" element={<DevicePage />} />
+        <Route path="/software" element={<SoftwarePage />} />
+        <Route path="/groups" element={<GroupsPage />} />
         <Route path="/enrollment" element={<TokensPage />} />
         <Route path="/audit" element={<AuditPage />} />
       </Route>

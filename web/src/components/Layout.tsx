@@ -22,6 +22,8 @@ export function Layout() {
 
   const links = [
     { to: "/", label: "Devices", perm: "devices:read" },
+    { to: "/software", label: "Software", perm: "devices:read" },
+    { to: "/groups", label: "Groups", perm: "groups:read" },
     { to: "/enrollment", label: "Enrollment", perm: "enrollment:read" },
     { to: "/audit", label: "Audit log", perm: "audit:read" },
   ];

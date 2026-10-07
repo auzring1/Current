@@ -12,6 +12,7 @@ export function useLiveEvents(enabled: boolean) {
         const e = JSON.parse(ev.data) as { type: string; device_id: string };
         void qc.invalidateQueries({ queryKey: ["devices"] });
         void qc.invalidateQueries({ queryKey: ["device", e.device_id] });
+        void qc.invalidateQueries({ queryKey: ["software"] });
       } catch {
         /* ignore malformed events */
       }

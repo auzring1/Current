@@ -93,15 +93,59 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(row.getByText("online")).toBeVisible({ timeout: 30_000 });
       await shot(page, "04-devices");
       await row.click();
-      await expect(page.getByText("Hardware")).toBeVisible();
-      await expect(page.getByText("Client certificates")).toBeVisible();
-      await page.waitForTimeout(500); // let the drawer finish animating
+      await expect(page).toHaveURL(/\/devices\/[0-9a-f-]{36}$/);
+      await expect(page.getByRole("tab", { name: "Hardware" })).toBeVisible();
+      await page.getByRole("tab", { name: "Hardware" }).click();
+      await expect(page.getByText("Memory")).toBeVisible();
+      await shot(page, "05-device-hardware");
+
+      // Software inventory: the dev agent on Linux reports dpkg packages.
+      await page.getByRole("tab", { name: /^Software/ }).click();
+      await expect(page.getByTestId("software-row").first()).toBeVisible({ timeout: 30_000 });
+      await shot(page, "05-device-software");
+      await page.getByLabel("Filter software").fill("zzz-no-such-package");
+      await expect(page.getByText("No software reported yet.")).toBeVisible();
+      await page.getByLabel("Filter software").fill("");
+      await page.getByRole("tab", { name: "Users" }).click();
+      await page.getByRole("tab", { name: "Client certificates" }).click();
+      await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
+
+      // Fleet-wide software search.
+      await page.getByRole("link", { name: "Software" }).click();
+      await expect(page.getByRole("heading", { name: "Software" })).toBeVisible();
+      await expect(page.getByTestId("title-row").first()).toBeVisible({ timeout: 15_000 });
+      await page.getByLabel("Search software").fill("lib");
+      await expect(page.getByTestId("title-row").first()).toBeVisible();
+      await page.getByTestId("title-row").first().click();
+      await expect(page.getByRole("table", { name: "Devices with this software" })).toBeVisible();
+      await shot(page, "07-software");
+      await page.keyboard.press("Escape");
+      const download = page.waitForEvent("download");
+      await page.getByRole("link", { name: "Export CSV" }).first().click();
+      expect((await download).suggestedFilename()).toMatch(/^auzring-software-.*\.csv$/);
+
+      // Dynamic group: preview, save, list.
+      await page.getByRole("link", { name: "Groups" }).click();
+      await page.getByRole("button", { name: "New group" }).click();
+      await page.getByRole("textbox", { name: "Name", exact: true }).fill("Has lib packages");
+      await page.getByLabel("Product name").fill("lib");
+      await page.getByRole("button", { name: "Preview matches" }).click();
+      await expect(page.getByTestId("preview-total")).toHaveText("1 matching device");
+      await shot(page, "08-group-editor");
+      await page.getByRole("button", { name: "Save group" }).click();
+      await expect(page.getByTestId("group-row")).toHaveCount(1);
+      await page.getByRole("button", { name: "Has lib packages" }).click();
+      await expect(page.getByText("1 device")).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      // Back to the device for the revoke flow.
+      await page.getByRole("link", { name: "Devices" }).click();
+      await page.getByTestId("device-row").first().click();
       await shot(page, "05-device-detail");
       await page.getByRole("button", { name: "Revoke" }).click();
       await page.getByLabel("Reason (recorded in the audit log)").fill("GUI test");
       await page.getByRole("button", { name: "Revoke device" }).click();
       await expect(page.getByText("Revoked: GUI test")).toBeVisible({ timeout: 15_000 });
-      await page.keyboard.press("Escape");
     }
   } finally {
     agent?.kill();
