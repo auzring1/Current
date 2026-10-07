@@ -19,6 +19,8 @@ tags:
   - name: inventory
   - name: groups
   - name: reports
+  - name: catalog
+  - name: deployments
 paths:
   /setup/status:
     get:
@@ -560,6 +562,325 @@ paths:
               schema: { type: string }
         "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /devices/{id}/jobs:
+    get:
+      tags: [deployments]
+      summary: Recent jobs of a device (requires deployments:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DeviceJob" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /catalog/packages:
+    get:
+      tags: [catalog]
+      summary: Imported packages (requires catalog:read)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Package" } }
+  /catalog/search:
+    get:
+      tags: [catalog]
+      summary: Search imported packages, known suggestions and (for an exact winget identifier) the upstream versions (requires catalog:read)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 200 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [imported, suggestions]
+                properties:
+                  imported: { type: array, items: { $ref: "#/components/schemas/Package" } }
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      required: [identifier, self_updating]
+                      properties:
+                        identifier: { type: string }
+                        self_updating: { type: boolean }
+                        note: { type: string }
+                  probe:
+                    type: object
+                    required: [identifier]
+                    properties:
+                      identifier: { type: string }
+                      versions: { type: array, items: { type: string } }
+                      error: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /catalog/packages/{id}:
+    get:
+      tags: [catalog]
+      summary: One package with versions, installers and overrides (requires catalog:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackageDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [catalog]
+      summary: Remove a package that no deployment uses (requires catalog:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /catalog/packages/{id}/overrides:
+    put:
+      tags: [catalog]
+      summary: Replace this organization's overrides of a package (requires catalog:override, admin only)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackageOverride" }
+      responses:
+        "204": { description: Saved }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /catalog/import:
+    post:
+      tags: [catalog]
+      summary: Import a winget package version from the winget-pkgs repository (requires catalog:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [identifier]
+              properties:
+                identifier: { type: string, description: "winget PackageIdentifier, e.g. 7zip.7zip" }
+                version: { type: string, description: "Empty = newest" }
+      responses:
+        "201":
+          description: Imported
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /catalog/content:
+    post:
+      tags: [catalog]
+      summary: Upload an installer (raw body, at most 2 GiB); stored by SHA-256 (requires catalog:write)
+      parameters:
+        - { name: X-File-Name, in: header, required: true, schema: { type: string, maxLength: 128 } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sha256, size, file_name]
+                properties:
+                  sha256: { type: string }
+                  size: { type: integer }
+                  file_name: { type: string }
+        "413": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /catalog/custom:
+    post:
+      tags: [catalog]
+      summary: Register an uploaded installer as a custom package version (requires catalog:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomPackage" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings:
+    get:
+      tags: [catalog]
+      summary: Organization settings (requires catalog:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrgSettings" }
+    put:
+      tags: [catalog]
+      summary: Change organization settings (requires settings:write, admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrgSettings" }
+      responses:
+        "204": { description: Saved }
+        "400": { $ref: "#/components/responses/Error" }
+  /deployments:
+    get:
+      tags: [deployments]
+      summary: Deployments, newest first (requires deployments:read)
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DeploymentSummary" } }
+    post:
+      tags: [deployments]
+      summary: Plan a deployment and queue its jobs (requires deployments:write)
+      description: |
+        Unverified packages need `unverified_confirmed: true` (audited). Jobs are signed when dispatched and
+        carry `starts_at` as not_before, so devices can run them without contacting the server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeploymentRequest" }
+      responses:
+        "201":
+          description: Planned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeploymentPlan" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /deployments/{id}:
+    get:
+      tags: [deployments]
+      summary: One deployment with job counts per status (requires deployments:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeploymentDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /deployments/{id}/jobs:
+    get:
+      tags: [deployments]
+      summary: Per-device jobs of a deployment (requires deployments:read)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DeploymentJob" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /deployments/{id}/cancel:
+    post:
+      tags: [deployments]
+      summary: Cancel everything not yet finished (requires deployments:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "204": { description: Cancelled }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /jobs/{id}:
+    get:
+      tags: [deployments]
+      summary: One job with its event log and result (requires deployments:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /jobs/{id}/retry:
+    post:
+      tags: [deployments]
+      summary: Queue a new attempt of a failed, expired, rejected or cancelled job (requires deployments:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "201":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id]
+                properties:
+                  job_id: { type: string, format: uuid }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /groups/{id}/members:
+    post:
+      tags: [groups]
+      summary: Add or remove devices of a static group (requires groups:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                add: { type: array, items: { type: string, format: uuid }, maxItems: 5000 }
+                remove: { type: array, items: { type: string, format: uuid }, maxItems: 5000 }
+      responses:
+        "204": { description: Updated }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /events:
     get:
       tags: [devices]
@@ -732,19 +1053,298 @@ components:
           properties:
             cmp: { type: string, enum: [lt, le, gt, ge, eq, ne] }
             value: { type: string }
+    Detection:
+      type: object
+      required: [kind, key]
+      properties:
+        kind: { type: string, enum: [msi, registry, file, appx] }
+        key: { type: string, maxLength: 512 }
+        value_name: { type: string }
+        version: { type: string }
+        cmp: { type: string, enum: ["", eq, ge] }
+    Package:
+      type: object
+      required: [id, source, identifier, name, verified, self_updating]
+      properties:
+        id: { type: string, format: uuid }
+        source: { type: string, enum: [winget, custom] }
+        identifier: { type: string }
+        name: { type: string }
+        publisher: { type: string }
+        homepage: { type: string }
+        license: { type: string }
+        description: { type: string }
+        verified: { type: boolean, description: Passed the VM test matrix }
+        self_updating: { type: boolean }
+        imported_at: { type: string, format: date-time }
+        version_count: { type: integer }
+    Installer:
+      type: object
+      required: [id, architecture, scope, type, sha256, unsupported]
+      properties:
+        id: { type: string, format: uuid }
+        architecture: { type: string, enum: [x64, x86, arm64, neutral] }
+        scope: { type: string, enum: [machine, user, any] }
+        type: { type: string, enum: [msi, msix, inno, nsis, burn, exe, portable, zip] }
+        nested_type: { type: string }
+        url: { type: string }
+        sha256: { type: string }
+        size: { type: integer }
+        file_name: { type: string }
+        product_code: { type: string }
+        signer_subject: { type: string }
+        silent_args: { type: array, items: { type: string } }
+        custom_args: { type: array, items: { type: string } }
+        detection: { type: array, items: { $ref: "#/components/schemas/Detection" } }
+        unsupported: { type: string, description: Why this installer cannot be deployed (empty = deployable) }
+        server_content: { type: boolean }
+    PackageOverride:
+      type: object
+      additionalProperties: false
+      properties:
+        silent_args: { type: array, items: { type: string }, description: Replaces the manifest's switches; validated tokens only }
+        extra_detection: { type: array, items: { $ref: "#/components/schemas/Detection" } }
+        pin: { type: string, description: "'' | latest | '= <version>' | '< <version>'" }
+        excluded: { type: boolean }
+        user_scope_policy: { type: string, enum: ["", report_only, update_in_place, convert_to_machine, remove] }
+        self_update_policy: { type: string, enum: ["", defer_to_vendor, enforce] }
+    PackageDetail:
+      type: object
+      required: [package, versions, override, effective_user_scope_policy]
+      properties:
+        package: { $ref: "#/components/schemas/Package" }
+        versions:
+          type: array
+          items:
+            type: object
+            required: [id, version, installers]
+            properties:
+              id: { type: string, format: uuid }
+              version: { type: string }
+              imported_at: { type: string, format: date-time }
+              installers: { type: array, items: { $ref: "#/components/schemas/Installer" } }
+        override: { $ref: "#/components/schemas/PackageOverride" }
+        effective_user_scope_policy: { type: string }
+        effective_user_scope_policy_source: { type: string }
+    ImportResult:
+      type: object
+      required: [package_id, version_id, identifier, version, installers, deployable]
+      properties:
+        package_id: { type: string, format: uuid }
+        version_id: { type: string, format: uuid }
+        identifier: { type: string }
+        version: { type: string }
+        installers: { type: integer }
+        deployable: { type: integer }
+        warnings: { type: array, items: { type: string } }
+    CustomPackage:
+      type: object
+      additionalProperties: false
+      required: [identifier, name, version, sha256, file_name, type, arch, scope]
+      properties:
+        identifier: { type: string }
+        name: { type: string }
+        publisher: { type: string }
+        version: { type: string }
+        description: { type: string }
+        sha256: { type: string, description: Hash returned by the content upload }
+        file_name: { type: string }
+        type: { type: string, enum: [msi, inno, nsis, burn, exe, portable, zip] }
+        nested_type: { type: string }
+        nested_path: { type: string }
+        arch: { type: string, enum: [x64, x86, arm64, neutral] }
+        scope: { type: string, enum: [machine, user, any] }
+        args: { type: array, items: { type: string } }
+        product_code: { type: string }
+        signer_subject: { type: string }
+        success_codes: { type: array, items: { type: integer } }
+        detection: { type: array, items: { $ref: "#/components/schemas/Detection" } }
+    OrgSettings:
+      type: object
+      additionalProperties: false
+      required: [user_scope_policy]
+      properties:
+        user_scope_policy: { type: string, enum: [report_only, update_in_place, convert_to_machine, remove] }
+    MaintenanceWindow:
+      type: object
+      additionalProperties: false
+      required: [start_minute, duration_minutes]
+      properties:
+        days: { type: array, items: { type: integer, minimum: 0, maximum: 6 }, description: 0 = Sunday }
+        start_minute: { type: integer, minimum: 0, maximum: 1439 }
+        duration_minutes: { type: integer, minimum: 1, maximum: 1440 }
+        tz: { type: string, description: IANA name; empty = device-local time }
+    DeploymentRequest:
+      type: object
+      additionalProperties: false
+      required: [name, action, package_id, scope]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        action: { type: string, enum: [install, update, uninstall] }
+        package_id: { type: string, format: uuid }
+        version: { type: string, description: Empty = newest allowed by the package's pin }
+        scope: { type: string, enum: [machine, user] }
+        group_ids: { type: array, items: { type: string, format: uuid } }
+        device_ids: { type: array, items: { type: string, format: uuid } }
+        starts_at: { type: string, format: date-time }
+        expires_in_hours: { type: integer, minimum: 1, maximum: 720, default: 72 }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        unverified_confirmed: { type: boolean }
+    DeploymentPlan:
+      type: object
+      required: [deployment_id, devices, jobs, user_jobs, skipped]
+      properties:
+        deployment_id: { type: string, format: uuid }
+        devices: { type: integer }
+        jobs: { type: integer }
+        user_jobs: { type: integer }
+        skipped:
+          type: array
+          items:
+            type: object
+            required: [device, reason]
+            properties:
+              device: { type: string }
+              reason: { type: string }
+        per_user_found: { type: integer }
+        per_user_policy: { type: string }
+    DeploymentSummary:
+      type: object
+      required: [id, name, action, scope, status, package_name, jobs_total, jobs_succeeded, jobs_failed]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        action: { type: string }
+        scope: { type: string }
+        status: { type: string, enum: [active, paused, completed, cancelled] }
+        package_name: { type: string }
+        package_identifier: { type: string }
+        version: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        starts_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        jobs_total: { type: integer }
+        jobs_succeeded: { type: integer }
+        jobs_failed: { type: integer }
+    DeploymentDetail:
+      type: object
+      required: [id, name, action, scope, status, job_counts]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        action: { type: string }
+        scope: { type: string }
+        status: { type: string }
+        package_id: { type: string, format: uuid }
+        package_name: { type: string }
+        package_identifier: { type: string }
+        version: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        starts_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        unverified_confirmed: { type: boolean }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        job_counts: { type: object, additionalProperties: { type: integer } }
+    JobStatus:
+      type: string
+      enum: [queued, sent, accepted, waiting, running, succeeded, succeeded_reboot, failed, expired, cancelled, rejected]
+    DeploymentJob:
+      type: object
+      required: [id, device_id, hostname, type, title, status]
+      properties:
+        id: { type: string, format: uuid }
+        device_id: { type: string, format: uuid }
+        hostname: { type: string }
+        user_sid: { type: string }
+        type: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        status_reason: { type: string }
+        attempt: { type: integer }
+        created_at: { type: string, format: date-time }
+        sent_at: { type: string, format: date-time, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+        exit_code: { type: integer, nullable: true }
+        detection_passed: { type: boolean, nullable: true }
+        reboot_required: { type: boolean }
+        depends_on: { type: string, format: uuid, nullable: true }
+    DeviceJob:
+      type: object
+      required: [id, type, title, status]
+      properties:
+        id: { type: string, format: uuid }
+        deployment_id: { type: string, format: uuid, nullable: true }
+        user_sid: { type: string }
+        type: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        status_reason: { type: string }
+        attempt: { type: integer }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time, nullable: true }
+        exit_code: { type: integer, nullable: true }
+        reboot_required: { type: boolean }
+    JobDetail:
+      type: object
+      required: [id, device_id, type, title, status, events]
+      properties:
+        id: { type: string, format: uuid }
+        deployment_id: { type: string, format: uuid, nullable: true }
+        device_id: { type: string, format: uuid }
+        hostname: { type: string }
+        user_sid: { type: string }
+        type: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        status_reason: { type: string }
+        attempt: { type: integer }
+        created_at: { type: string, format: date-time }
+        not_before: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        sent_at: { type: string, format: date-time, nullable: true }
+        acked_at: { type: string, format: date-time, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+        exit_code: { type: integer, nullable: true }
+        detection_passed: { type: boolean, nullable: true }
+        reboot_required: { type: boolean }
+        depends_on: { type: string, format: uuid, nullable: true }
+        result:
+          type: object
+          nullable: true
+          properties:
+            outcome: { type: string }
+            message: { type: string }
+            log_tail: { type: string, description: Tail of the installer log, at most 16 KiB }
+            installed_version: { type: string }
+            already_satisfied: { type: boolean }
+            exit_code: { type: integer }
+        events:
+          type: array
+          items:
+            type: object
+            required: [id, time, kind]
+            properties:
+              id: { type: integer }
+              time: { type: string, format: date-time }
+              kind: { type: string }
+              message: { type: string }
     GroupInput:
       type: object
       additionalProperties: false
-      required: [name, filter]
+      required: [name]
       properties:
+        kind: { type: string, enum: [dynamic, static], default: dynamic, description: Fixed at creation }
         name: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, maxLength: 1000 }
-        filter: { $ref: "#/components/schemas/Filter" }
+        filter: { $ref: "#/components/schemas/Filter", description: Required for dynamic groups; a static group has none }
     Group:
       type: object
-      required: [id, name, description, filter, created_at, updated_at]
+      required: [id, kind, name, description, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
+        kind: { type: string, enum: [dynamic, static] }
         name: { type: string }
         description: { type: string }
         filter: { $ref: "#/components/schemas/Filter" }

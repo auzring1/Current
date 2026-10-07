@@ -87,3 +87,14 @@ func (h *Hub) Count() int {
 	defer h.mu.Unlock()
 	return len(h.conns)
 }
+
+// Offer sends a signed job envelope to the device's live stream.
+func (h *Hub) Offer(deviceID uuid.UUID, se *agentv1.SignedEnvelope) bool {
+	h.mu.Lock()
+	c := h.conns[deviceID]
+	h.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	return c.send(&agentv1.ConnectResponse{Msg: &agentv1.ConnectResponse_JobOffer{JobOffer: se}}) == nil
+}

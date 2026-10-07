@@ -106,6 +106,11 @@ func (g *Gateway) Connect(stream agentv1.AgentChannelService_ConnectServer) erro
 		return err
 	}
 
+	// Hand over jobs queued for this device while it was offline.
+	if g.deploy != nil {
+		go g.deploy.Dispatch(context.WithoutCancel(ctx), dev.ID)
+	}
+
 	// Receive loop in a goroutine so a kill (revocation) ends the stream promptly.
 	msgs := make(chan *agentv1.ConnectRequest)
 	go func() {
@@ -205,6 +210,8 @@ func (g *Gateway) handle(ctx context.Context, c *conn, dev dbq.Device, m *agentv
 			return err
 		}
 		g.events.Publish(dev.OrgID, events.Event{Type: events.DeviceUpdated, DeviceID: dev.ID})
+	case *agentv1.ConnectRequest_JobUpdate:
+		return g.handleJobUpdate(ctx, c, dev, msg.JobUpdate)
 	case *agentv1.ConnectRequest_SecurityEvent:
 		ev := msg.SecurityEvent
 		_ = audit.Log(ctx, g.pool, audit.Entry{OrgID: &dev.OrgID, ActorType: audit.ActorDevice, ActorID: dev.ID.String(),

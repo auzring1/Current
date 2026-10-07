@@ -1261,6 +1261,766 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/devices/{id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent jobs of a device (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["DeviceJob"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Imported packages (requires catalog:read) */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Package"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search imported packages, known suggestions and (for an exact winget identifier) the upstream versions (requires catalog:read) */
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            imported: components["schemas"]["Package"][];
+                            suggestions: {
+                                identifier: string;
+                                self_updating: boolean;
+                                note?: string;
+                            }[];
+                            probe?: {
+                                identifier: string;
+                                versions?: string[];
+                                error?: string;
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/packages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One package with versions, installers and overrides (requires catalog:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PackageDetail"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Remove a package that no deployment uses (requires catalog:write) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/packages/{id}/overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace this organization's overrides of a package (requires catalog:override, admin only) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PackageOverride"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import a winget package version from the winget-pkgs repository (requires catalog:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description winget PackageIdentifier, e.g. 7zip.7zip */
+                        identifier: string;
+                        /** @description Empty = newest */
+                        version?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Imported */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+                502: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload an installer (raw body, at most 2 GiB); stored by SHA-256 (requires catalog:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    "X-File-Name": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            responses: {
+                /** @description Stored */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            sha256: string;
+                            size: number;
+                            file_name: string;
+                        };
+                    };
+                };
+                413: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register an uploaded installer as a custom package version (requires catalog:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CustomPackage"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization settings (requires catalog:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrgSettings"];
+                    };
+                };
+            };
+        };
+        /** Change organization settings (requires settings:write, admin only) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OrgSettings"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deployments, newest first (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["DeploymentSummary"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Plan a deployment and queue its jobs (requires deployments:write)
+         * @description Unverified packages need `unverified_confirmed: true` (audited). Jobs are signed when dispatched and
+         *     carry `starts_at` as not_before, so devices can run them without contacting the server.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DeploymentRequest"];
+                };
+            };
+            responses: {
+                /** @description Planned */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeploymentPlan"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One deployment with job counts per status (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeploymentDetail"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-device jobs of a deployment (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["DeploymentJob"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel everything not yet finished (requires deployments:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Cancelled */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One job with its event log and result (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobDetail"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a new attempt of a failed, expired, rejected or cancelled job (requires deployments:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Queued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            job_id: string;
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add or remove devices of a static group (requires groups:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        add?: string[];
+                        remove?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -1418,17 +2178,321 @@ export interface components {
                 value: string;
             };
         };
+        Detection: {
+            /** @enum {string} */
+            kind: "msi" | "registry" | "file" | "appx";
+            key: string;
+            value_name?: string;
+            version?: string;
+            /** @enum {string} */
+            cmp?: "" | "eq" | "ge";
+        };
+        Package: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            source: "winget" | "custom";
+            identifier: string;
+            name: string;
+            publisher?: string;
+            homepage?: string;
+            license?: string;
+            description?: string;
+            /** @description Passed the VM test matrix */
+            verified: boolean;
+            self_updating: boolean;
+            /** Format: date-time */
+            imported_at?: string;
+            version_count?: number;
+        };
+        Installer: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            architecture: "x64" | "x86" | "arm64" | "neutral";
+            /** @enum {string} */
+            scope: "machine" | "user" | "any";
+            /** @enum {string} */
+            type: "msi" | "msix" | "inno" | "nsis" | "burn" | "exe" | "portable" | "zip";
+            nested_type?: string;
+            url?: string;
+            sha256: string;
+            size?: number;
+            file_name?: string;
+            product_code?: string;
+            signer_subject?: string;
+            silent_args?: string[];
+            custom_args?: string[];
+            detection?: components["schemas"]["Detection"][];
+            /** @description Why this installer cannot be deployed (empty = deployable) */
+            unsupported: string;
+            server_content?: boolean;
+        };
+        PackageOverride: {
+            /** @description Replaces the manifest's switches; validated tokens only */
+            silent_args?: string[];
+            extra_detection?: components["schemas"]["Detection"][];
+            /** @description '' | latest | '= <version>' | '< <version>' */
+            pin?: string;
+            excluded?: boolean;
+            /** @enum {string} */
+            user_scope_policy?: "" | "report_only" | "update_in_place" | "convert_to_machine" | "remove";
+            /** @enum {string} */
+            self_update_policy?: "" | "defer_to_vendor" | "enforce";
+        };
+        PackageDetail: {
+            package: components["schemas"]["Package"];
+            versions: {
+                /** Format: uuid */
+                id: string;
+                version: string;
+                /** Format: date-time */
+                imported_at?: string;
+                installers: components["schemas"]["Installer"][];
+            }[];
+            override: components["schemas"]["PackageOverride"];
+            effective_user_scope_policy: string;
+            effective_user_scope_policy_source?: string;
+        };
+        ImportResult: {
+            /** Format: uuid */
+            package_id: string;
+            /** Format: uuid */
+            version_id: string;
+            identifier: string;
+            version: string;
+            installers: number;
+            deployable: number;
+            warnings?: string[];
+        };
+        CustomPackage: {
+            identifier: string;
+            name: string;
+            publisher?: string;
+            version: string;
+            description?: string;
+            /** @description Hash returned by the content upload */
+            sha256: string;
+            file_name: string;
+            /** @enum {string} */
+            type: "msi" | "inno" | "nsis" | "burn" | "exe" | "portable" | "zip";
+            nested_type?: string;
+            nested_path?: string;
+            /** @enum {string} */
+            arch: "x64" | "x86" | "arm64" | "neutral";
+            /** @enum {string} */
+            scope: "machine" | "user" | "any";
+            args?: string[];
+            product_code?: string;
+            signer_subject?: string;
+            success_codes?: number[];
+            detection?: components["schemas"]["Detection"][];
+        };
+        OrgSettings: {
+            /** @enum {string} */
+            user_scope_policy: "report_only" | "update_in_place" | "convert_to_machine" | "remove";
+        };
+        MaintenanceWindow: {
+            /** @description 0 = Sunday */
+            days?: number[];
+            start_minute: number;
+            duration_minutes: number;
+            /** @description IANA name; empty = device-local time */
+            tz?: string;
+        };
+        DeploymentRequest: {
+            name: string;
+            /** @enum {string} */
+            action: "install" | "update" | "uninstall";
+            /** Format: uuid */
+            package_id: string;
+            /** @description Empty = newest allowed by the package's pin */
+            version?: string;
+            /** @enum {string} */
+            scope: "machine" | "user";
+            group_ids?: string[];
+            device_ids?: string[];
+            /** Format: date-time */
+            starts_at?: string;
+            /** @default 72 */
+            expires_in_hours: number;
+            window?: components["schemas"]["MaintenanceWindow"];
+            unverified_confirmed?: boolean;
+        };
+        DeploymentPlan: {
+            /** Format: uuid */
+            deployment_id: string;
+            devices: number;
+            jobs: number;
+            user_jobs: number;
+            skipped: {
+                device: string;
+                reason: string;
+            }[];
+            per_user_found?: number;
+            per_user_policy?: string;
+        };
+        DeploymentSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            action: string;
+            scope: string;
+            /** @enum {string} */
+            status: "active" | "paused" | "completed" | "cancelled";
+            package_name: string;
+            package_identifier?: string;
+            version?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            jobs_total: number;
+            jobs_succeeded: number;
+            jobs_failed: number;
+        };
+        DeploymentDetail: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            action: string;
+            scope: string;
+            status: string;
+            /** Format: uuid */
+            package_id?: string;
+            package_name?: string;
+            package_identifier?: string;
+            version?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            unverified_confirmed?: boolean;
+            window?: components["schemas"]["MaintenanceWindow"];
+            job_counts: {
+                [key: string]: number;
+            };
+        };
+        /** @enum {string} */
+        JobStatus: "queued" | "sent" | "accepted" | "waiting" | "running" | "succeeded" | "succeeded_reboot" | "failed" | "expired" | "cancelled" | "rejected";
+        DeploymentJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            device_id: string;
+            hostname: string;
+            user_sid?: string;
+            type: string;
+            title: string;
+            status: components["schemas"]["JobStatus"];
+            status_reason?: string;
+            attempt?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            sent_at?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            exit_code?: number | null;
+            detection_passed?: boolean | null;
+            reboot_required?: boolean;
+            /** Format: uuid */
+            depends_on?: string | null;
+        };
+        DeviceJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            deployment_id?: string | null;
+            user_sid?: string;
+            type: string;
+            title: string;
+            status: components["schemas"]["JobStatus"];
+            status_reason?: string;
+            attempt?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            exit_code?: number | null;
+            reboot_required?: boolean;
+        };
+        JobDetail: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            deployment_id?: string | null;
+            /** Format: uuid */
+            device_id: string;
+            hostname?: string;
+            user_sid?: string;
+            type: string;
+            title: string;
+            status: components["schemas"]["JobStatus"];
+            status_reason?: string;
+            attempt?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            not_before?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            /** Format: date-time */
+            sent_at?: string | null;
+            /** Format: date-time */
+            acked_at?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            exit_code?: number | null;
+            detection_passed?: boolean | null;
+            reboot_required?: boolean;
+            /** Format: uuid */
+            depends_on?: string | null;
+            result?: {
+                outcome?: string;
+                message?: string;
+                /** @description Tail of the installer log */
+                log_tail?: string;
+                installed_version?: string;
+                already_satisfied?: boolean;
+                exit_code?: number;
+            } | null;
+            events: {
+                id: number;
+                /** Format: date-time */
+                time: string;
+                kind: string;
+                message?: string;
+            }[];
+        };
         GroupInput: {
+            /**
+             * @description Fixed at creation
+             * @default dynamic
+             * @enum {string}
+             */
+            kind: "dynamic" | "static";
             name: string;
             description?: string;
-            filter: components["schemas"]["Filter"];
+            /** @description Required for dynamic groups; a static group has none */
+            filter?: components["schemas"]["Filter"];
         };
         Group: {
             /** Format: uuid */
             id: string;
+            /** @enum {string} */
+            kind: "dynamic" | "static";
             name: string;
             description: string;
-            filter: components["schemas"]["Filter"];
+            filter?: components["schemas"]["Filter"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

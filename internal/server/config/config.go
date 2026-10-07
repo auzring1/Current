@@ -54,6 +54,13 @@ type Config struct {
 	SessionIdleTimeout time.Duration
 	SessionAbsTimeout  time.Duration
 	LogLevel           string
+
+	// ContentDir holds uploaded installers (a volume in compose). Empty disables custom packages.
+	ContentDir string
+	// GitHubToken optionally raises the GitHub API rate limit for winget imports.
+	GitHubToken string
+	// WingetSource is "github" (default) or "off".
+	WingetSource string
 }
 
 // Load reads configuration from the process environment.
@@ -95,6 +102,12 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	c.HTTPAddr = get("AUZ_HTTP_ADDR", ":8080")
 	c.GatewayAddr = get("AUZ_GATEWAY_ADDR", ":8443")
 	c.LogLevel = get("AUZ_LOG_LEVEL", "info")
+	c.ContentDir = get("AUZ_CONTENT_DIR", "")
+	c.GitHubToken = get("AUZ_GITHUB_TOKEN", "")
+	c.WingetSource = get("AUZ_WINGET_SOURCE", "github")
+	if c.WingetSource != "github" && c.WingetSource != "off" {
+		errs = append(errs, errors.New("AUZ_WINGET_SOURCE must be github or off"))
+	}
 
 	pub := get("AUZ_PUBLIC_URL", "")
 	if pub == "" {

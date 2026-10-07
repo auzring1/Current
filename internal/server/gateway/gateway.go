@@ -26,7 +26,9 @@ import (
 	"github.com/auzring1/auzring/gen/dbq"
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/auzring/internal/server/catalog"
 	"github.com/auzring1/auzring/internal/server/config"
+	"github.com/auzring1/auzring/internal/server/deploy"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/inventory"
 	"github.com/auzring1/auzring/internal/server/kek"
@@ -58,6 +60,9 @@ type Gateway struct {
 	renewDevice *auth.Limiter
 	invDevice   *auth.Limiter
 	inv         *inventory.Service
+	deploy      *deploy.Service
+	content     *catalog.Store
+	fetching    *fetchLimiter
 }
 
 // Options configure a Gateway.
@@ -70,6 +75,9 @@ type Options struct {
 	Hub       *Hub
 	Log       *slog.Logger
 	Now       func() time.Time
+	// Deploy handles job updates and dispatch; Content serves uploaded installers.
+	Deploy  *deploy.Service
+	Content *catalog.Store
 }
 
 // New creates a gateway; call RefreshCertificate before Serve.
@@ -87,6 +95,7 @@ func New(o Options) *Gateway {
 		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
 		invDevice: auth.NewLimiter(120, time.Minute, 450),
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
+		deploy:    o.Deploy, content: o.Content, fetching: newFetchLimiter(2),
 	}
 }
 
@@ -162,7 +171,8 @@ type identKey struct{}
 
 // authInterceptor enforces per-method identity requirements.
 func (g *Gateway) streamAuth(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, h grpc.StreamHandler) error {
-	if info.FullMethod != agentv1.AgentChannelService_Connect_FullMethodName {
+	if info.FullMethod != agentv1.AgentChannelService_Connect_FullMethodName &&
+		info.FullMethod != agentv1.AgentChannelService_FetchContent_FullMethodName {
 		return status.Error(codes.PermissionDenied, "method not allowed")
 	}
 	ident, err := g.identityFromCtx(ss.Context())
