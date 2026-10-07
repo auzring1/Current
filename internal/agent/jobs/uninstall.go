@@ -65,6 +65,7 @@ func (e *Engine) uninstall(ctx context.Context, r *Record, env *agentv1.JobEnvel
 	spec := RunSpec{Exe: exe, Args: args, Dir: dir, Timeout: timeout, LogPath: log}
 	var rr RunResult
 	if scope == installer.User {
+		spec.Helper = e.helperTask(r, dir, "")
 		rr, err = e.P.RunAsUser(ctx, sid, spec)
 		if errors.Is(err, ErrNoSession) {
 			return &outcome{waitUser: true, res: &agentv1.JobResult{}}
