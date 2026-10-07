@@ -370,6 +370,8 @@ func loadData(ctx context.Context, o *RestoreOptions, w *walker, hdr *Header, lo
 		return nil, errors.New("the database has no tables after migrating; cannot restore")
 	}
 	// Writers (a running server) block here instead of racing the load.
+	// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+	// nosemgrep: no-sql-string-building
 	if _, err := tx.Exec(ctx, "LOCK TABLE "+strings.Join(lock, ", ")+" IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return nil, fmt.Errorf("lock tables (is the server still running? stop it first): %w", err)
 	}
@@ -388,6 +390,8 @@ func loadData(ctx context.Context, o *RestoreOptions, w *walker, hdr *Header, lo
 	// Triggers must not fire on restored rows (they would rewrite or reject
 	// data that is already final); foreign keys are system triggers and stay on.
 	for _, t := range hdr.Tables {
+		// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+		// nosemgrep: no-sql-string-building
 		if _, err := tx.Exec(ctx, "ALTER TABLE "+qident("public", t.Name)+" DISABLE TRIGGER USER"); err != nil {
 			return nil, err
 		}
@@ -436,6 +440,8 @@ func loadData(ctx context.Context, o *RestoreOptions, w *walker, hdr *Header, lo
 		}
 	}
 	for _, t := range hdr.Tables {
+		// Table and sequence names come from the catalog and are quoted with pgx.Identifier; identifiers cannot be bind parameters.
+		// nosemgrep: no-sql-string-building
 		if _, err := tx.Exec(ctx, "ALTER TABLE "+qident("public", t.Name)+" ENABLE TRIGGER USER"); err != nil {
 			return nil, err
 		}

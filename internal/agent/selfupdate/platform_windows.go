@@ -234,7 +234,7 @@ func utf16le(s string) []byte {
 	out := make([]byte, 0, 2+2*len(u))
 	out = append(out, 0xFF, 0xFE)
 	for _, c := range u {
-		out = append(out, byte(c), byte(c>>8))
+		out = append(out, byte(c), byte(c>>8)) // #nosec G115 -- deliberate split of a UTF-16 unit into two bytes
 	}
 	return out
 }
