@@ -1,6 +1,12 @@
 # Data model (PostgreSQL)
 
-Status: Phase 0 design. The real DDL lives in `db/migrations/`, and this document describes its intent. Column lists are abridged.
+Status: Phase 1 tables are implemented in `db/migrations/00001_foundations.sql`: tenancy, identity, sessions, PKI, enrollment, devices, device certs and audit. Later sections are design. Column lists are abridged.
+
+Phase 1 differences from the design below:
+- `pki_material` stores the **root key sealed with the owner passphrase** (`key_protection='passphrase'`; argon2id + AES-GCM), so the server can unlock it only when the owner types the passphrase. The issuing, job-signing and gateway keys are sealed with the KEK.
+- `sessions.pending_totp_enc` holds the new TOTP secret during a forced MFA re-enrollment. `setup_state` holds the first-run TOTP secret until setup commits.
+- Device hardware is stored as a `jsonb` snapshot (`devices.hardware`, protobuf field names) plus denormalized columns for listing. The normalized software tables arrive in Phase 2.
+- `device_certs.serial` is lowercase hex text.
 
 ## Conventions
 - Primary keys are `uuid` (v7, so they sort by time). The audit log and event tables use `bigint` identity.
