@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -81,8 +81,10 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
 
   // --- Start a real agent; the device must appear live (SSE) ---
   let agent: ChildProcess | undefined;
+  const agentDirs: string[] = [];
   if (agentBin) {
     const dir = mkdtempSync(join(tmpdir(), "auz-agent-"));
+    agentDirs.push(dir);
     agent = spawn(agentBin, ["run", "--data-dir", dir, "--server", gateway, "--token", enrollment], { stdio: "ignore" });
   }
   try {
@@ -137,6 +139,60 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.getByRole("button", { name: "Has lib packages" }).click();
       await expect(page.getByText("1 device")).toBeVisible();
       await page.keyboard.press("Escape");
+
+      // Custom package -> deployment -> live job result (the Linux dev agent runs the uploaded script).
+      const agentDir = agentDirs[0]!;
+      await page.getByRole("link", { name: "Catalog" }).click();
+      await page.getByRole("button", { name: "Upload custom installer" }).click();
+      const script = '#!/bin/sh\nmkdir -p "$(dirname "$0")/../../pf/Acme"\necho ok > "$(dirname "$0")/../../pf/Acme/tool.txt"\nexit 0\n';
+      await page.getByLabel("Installer file").setInputFiles({ name: "install.sh", mimeType: "application/octet-stream", buffer: Buffer.from(script) });
+      await page.getByLabel(/^Identifier/).fill("Acme.Tool");
+      await page.getByRole("textbox", { name: /^Name/ }).fill("Acme Tool");
+      await page.getByLabel(/^Version/).first().fill("1.0.0");
+      await page.getByRole("combobox", { name: "Installer type" }).click();
+      await page.getByRole("option", { name: "exe", exact: true }).click();
+      await page.getByRole("combobox", { name: "Architecture" }).click();
+      await page.getByRole("option", { name: "neutral" }).click();
+      await page.getByLabel("Silent arguments").fill("/silent");
+      await page.getByLabel("Detection file path").fill("%ProgramFiles%/Acme/tool.txt");
+      await shot(page, "09-custom-upload");
+      await page.getByRole("button", { name: "Upload and add" }).click();
+      await expect(page.getByRole("heading", { name: "Acme Tool" })).toBeVisible();
+      await shot(page, "10-package");
+      await page.getByRole("link", { name: "Deploy", exact: true }).click();
+      await page.getByRole("combobox", { name: "Devices" }).click();
+      await page.getByRole("option").first().click();
+      await page.keyboard.press("Escape");
+      await shot(page, "11-deployment-new");
+      await page.getByRole("button", { name: "Start deployment" }).click();
+      await expect(page.getByText("Deployment queued")).toBeVisible();
+      await page.getByRole("button", { name: "Watch progress" }).click();
+      await expect(page.getByTestId("deployment-status")).toHaveText("completed", { timeout: 60_000 });
+      await expect(page.getByTestId("job-row").getByText("succeeded")).toBeVisible();
+      await shot(page, "12-deployment");
+      await page.getByRole("button", { name: "Details" }).click();
+      await expect(page.getByText("Timeline")).toBeVisible();
+      await shot(page, "13-job-detail");
+      await page.keyboard.press("Escape");
+      expect(existsSync(join(agentDir, "pf", "Acme", "tool.txt"))).toBe(true);
+
+      // Static group.
+      await page.getByRole("link", { name: "Groups" }).click();
+      await page.getByRole("button", { name: "New group" }).click();
+      await page.getByText("Static (hand-picked)").click();
+      await page.getByRole("textbox", { name: "Name", exact: true }).fill("Pilot ring");
+      await page.getByRole("button", { name: "Save group" }).click();
+      await page.getByRole("button", { name: "Pilot ring" }).click();
+      await page.getByRole("combobox", { name: "Add devices" }).click();
+      await page.getByRole("option").first().click();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText("1 device")).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      // Settings (admin).
+      await page.getByRole("link", { name: "Settings" }).click();
+      await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
       // Back to the device for the revoke flow.
       await page.getByRole("link", { name: "Devices" }).click();

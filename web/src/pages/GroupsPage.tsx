@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Group, Loader, Modal, Stack, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Group, Loader, Modal, MultiSelect, SegmentedControl, Stack, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { api, errorMessage, type Filter, type Group as Grp, type GroupMembers } from "../api/client";
+import { api, errorMessage, type Device, type Filter, type Group as Grp, type GroupMembers } from "../api/client";
 import { FilterEditor, newGroup } from "../components/FilterEditor";
 import { useSession } from "../api/session";
 
-function Members({ data }: { data: GroupMembers }) {
+function Members({ data, onRemove }: { data: GroupMembers; onRemove?: (id: string) => void }) {
   return (
     <Table aria-label="Matching devices" verticalSpacing={4} fz="sm">
       <Table.Thead>
@@ -16,6 +16,7 @@ function Members({ data }: { data: GroupMembers }) {
           <Table.Th>Model</Table.Th>
           <Table.Th>OS</Table.Th>
           <Table.Th>Connection</Table.Th>
+          {onRemove && <Table.Th />}
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -29,6 +30,13 @@ function Members({ data }: { data: GroupMembers }) {
             <Table.Td>{[m.manufacturer, m.model].filter(Boolean).join(" ") || "—"}</Table.Td>
             <Table.Td>{m.os_caption || "—"}</Table.Td>
             <Table.Td>{m.online ? "online" : "offline"}</Table.Td>
+            {onRemove && (
+              <Table.Td ta="right">
+                <Button size="compact-xs" variant="light" color="red" onClick={() => onRemove(m.id)}>
+                  Remove
+                </Button>
+              </Table.Td>
+            )}
           </Table.Tr>
         ))}
       </Table.Tbody>
@@ -47,6 +55,11 @@ export function GroupsPage() {
     onSuccess: () => (notifications.show({ color: "green", message: "Group deleted." }), qc.invalidateQueries({ queryKey: ["groups"] })),
     onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
   });
+  const changeMembers = useMutation({
+    mutationFn: (b: { add?: string[]; remove?: string[] }) => api("POST", `/groups/${viewing!.id}/members`, b),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["groups", "members"] }),
+    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+  });
   const members = useQuery({
     queryKey: ["groups", "members", viewing?.id],
     queryFn: () => api<GroupMembers>("GET", `/groups/${viewing!.id}/devices?limit=500`),
@@ -57,10 +70,14 @@ export function GroupsPage() {
     <>
       <Group justify="space-between" mb="xs">
         <Title order={2}>Groups</Title>
-        {can("groups:write") && <Button onClick={() => setEditing("new")}>New group</Button>}
+        {can("groups:write") && (
+          <Group>
+            <Button onClick={() => setEditing("new")}>New group</Button>
+          </Group>
+        )}
       </Group>
       <Text size="sm" c="dimmed" mb="md">
-        Dynamic groups are saved filters. Membership is recomputed every time you look, so a device joins or leaves as its software changes.
+        Dynamic groups are saved filters: membership is recomputed every time you look, so a device joins or leaves as its software changes. Static groups are lists you maintain by hand.
       </Text>
       {list.isLoading && <Loader />}
       {list.error && <Alert color="red">{errorMessage(list.error)}</Alert>}
@@ -73,7 +90,10 @@ export function GroupsPage() {
                 <Table.Td>
                   <Anchor component="button" type="button" fw={500} onClick={() => setViewing(g)}>
                     {g.name}
-                  </Anchor>
+                  </Anchor>{" "}
+                  <Badge size="xs" variant="light" color={g.kind === "static" ? "grape" : "blue"}>
+                    {g.kind}
+                  </Badge>
                   <Text size="xs" c="dimmed">
                     {g.description}
                   </Text>
@@ -114,7 +134,10 @@ export function GroupsPage() {
                   </Button>
                 )}
               </Group>
-              {members.data.items.length > 0 && <Members data={members.data} />}
+              {viewing?.kind === "static" && can("groups:write") && <AddMembers existing={members.data.items.map((m) => m.id)} onAdd={(ids) => changeMembers.mutate({ add: ids })} />}
+              {members.data.items.length > 0 && (
+                <Members data={members.data} onRemove={viewing?.kind === "static" && can("groups:write") ? (id) => changeMembers.mutate({ remove: [id] }) : undefined} />
+              )}
             </>
           )}
         </Stack>
@@ -129,6 +152,7 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
   const qc = useQueryClient();
   const [name, setName] = useState(group?.name ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
+  const [kind, setKind] = useState<"dynamic" | "static">(group?.kind ?? "dynamic");
   const [filter, setFilter] = useState<Filter>(group?.filter ?? newGroup());
   const [error, setError] = useState("");
   const preview = useMutation({
@@ -137,24 +161,44 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
     onError: (e) => setError(errorMessage(e)),
   });
   const save = useMutation({
-    mutationFn: () => (group ? api("PUT", `/groups/${group.id}`, { name, description, filter }) : api("POST", "/groups", { name, description, filter })),
+    mutationFn: () => (group ? api("PUT", `/groups/${group.id}`, group.kind === "static" ? { name, description } : { name, description, filter }) : api("POST", "/groups", kind === "static" ? { kind, name, description } : { kind, name, description, filter })),
     onSuccess: () => (notifications.show({ color: "green", message: "Group saved." }), qc.invalidateQueries({ queryKey: ["groups"] }), onClose()),
     onError: (e) => setError(errorMessage(e)),
   });
   return (
     <Modal opened onClose={onClose} title={group ? "Edit group" : "New group"} size="xl">
       <Stack>
+        {!group && (
+          <SegmentedControl
+            value={kind}
+            onChange={(v) => setKind(v as typeof kind)}
+            data={[
+              { value: "dynamic", label: "Dynamic (filter)" },
+              { value: "static", label: "Static (hand-picked)" },
+            ]}
+          />
+        )}
         <TextInput label="Name" required value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
         <Textarea label="Description" value={description} onChange={(e) => setDescription(e.currentTarget.value)} maxLength={1000} autosize minRows={1} maxRows={3} />
-        <Text size="sm" fw={500}>
-          Devices that match
-        </Text>
-        <FilterEditor node={filter} onChange={setFilter} />
+        {kind === "dynamic" ? (
+          <>
+            <Text size="sm" fw={500}>
+              Devices that match
+            </Text>
+            <FilterEditor node={filter} onChange={setFilter} />
+          </>
+        ) : (
+          <Text size="sm" c="dimmed">
+            Save the group, then open it to add devices.
+          </Text>
+        )}
         {error && <Alert color="red">{error}</Alert>}
         <Group>
-          <Button variant="default" onClick={() => preview.mutate()} loading={preview.isPending}>
-            Preview matches
-          </Button>
+          {kind === "dynamic" && (
+            <Button variant="default" onClick={() => preview.mutate()} loading={preview.isPending}>
+              Preview matches
+            </Button>
+          )}
           <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!name.trim()}>
             Save group
           </Button>
@@ -169,5 +213,19 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
         )}
       </Stack>
     </Modal>
+  );
+}
+
+function AddMembers({ existing, onAdd }: { existing: string[]; onAdd: (ids: string[]) => void }) {
+  const [sel, setSel] = useState<string[]>([]);
+  const devices = useQuery({ queryKey: ["devices", "active"], queryFn: () => api<{ items: Device[] }>("GET", "/devices?status=active&limit=500") });
+  const data = (devices.data?.items ?? []).filter((d) => !existing.includes(d.id)).map((d) => ({ value: d.id, label: d.hostname }));
+  return (
+    <Group align="flex-end">
+      <MultiSelect label="Add devices" searchable data={data} value={sel} onChange={setSel} style={{ flex: 1 }} placeholder="Choose devices" />
+      <Button onClick={() => (onAdd(sel), setSel([]))} disabled={!sel.length}>
+        Add
+      </Button>
+    </Group>
   );
 }

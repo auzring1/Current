@@ -9,7 +9,15 @@ export function useLiveEvents(enabled: boolean) {
     const es = new EventSource("/api/v1/events");
     const onEvent = (ev: MessageEvent<string>) => {
       try {
-        const e = JSON.parse(ev.data) as { type: string; device_id: string };
+        const e = JSON.parse(ev.data) as { type: string; device_id?: string; job_id?: string; deployment_id?: string };
+        if (e.type === "job.updated" || e.type === "deployment.updated") {
+          void qc.invalidateQueries({ queryKey: ["deployments"] });
+          if (e.deployment_id) void qc.invalidateQueries({ queryKey: ["deployment", e.deployment_id] });
+          if (e.job_id) void qc.invalidateQueries({ queryKey: ["job", e.job_id] });
+          if (e.device_id) void qc.invalidateQueries({ queryKey: ["device-jobs", e.device_id] });
+          void qc.invalidateQueries({ queryKey: ["software"] });
+          return;
+        }
         void qc.invalidateQueries({ queryKey: ["devices"] });
         void qc.invalidateQueries({ queryKey: ["device", e.device_id] });
         void qc.invalidateQueries({ queryKey: ["software"] });
@@ -17,7 +25,7 @@ export function useLiveEvents(enabled: boolean) {
         /* ignore malformed events */
       }
     };
-    for (const t of ["device.online", "device.offline", "device.enrolled", "device.updated"]) {
+    for (const t of ["device.online", "device.offline", "device.enrolled", "device.updated", "job.updated", "deployment.updated"]) {
       es.addEventListener(t, onEvent as EventListener);
     }
     return () => es.close();
