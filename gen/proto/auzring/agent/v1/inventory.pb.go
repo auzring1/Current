@@ -76,17 +76,136 @@ func (InventorySection) EnumDescriptor() ([]byte, []int) {
 	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{0}
 }
 
+type SoftwareScope int32
+
+const (
+	SoftwareScope_SOFTWARE_SCOPE_UNSPECIFIED SoftwareScope = 0
+	SoftwareScope_SOFTWARE_SCOPE_MACHINE     SoftwareScope = 1
+	SoftwareScope_SOFTWARE_SCOPE_USER        SoftwareScope = 2
+)
+
+// Enum value maps for SoftwareScope.
+var (
+	SoftwareScope_name = map[int32]string{
+		0: "SOFTWARE_SCOPE_UNSPECIFIED",
+		1: "SOFTWARE_SCOPE_MACHINE",
+		2: "SOFTWARE_SCOPE_USER",
+	}
+	SoftwareScope_value = map[string]int32{
+		"SOFTWARE_SCOPE_UNSPECIFIED": 0,
+		"SOFTWARE_SCOPE_MACHINE":     1,
+		"SOFTWARE_SCOPE_USER":        2,
+	}
+)
+
+func (x SoftwareScope) Enum() *SoftwareScope {
+	p := new(SoftwareScope)
+	*p = x
+	return p
+}
+
+func (x SoftwareScope) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SoftwareScope) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_inventory_proto_enumTypes[1].Descriptor()
+}
+
+func (SoftwareScope) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_inventory_proto_enumTypes[1]
+}
+
+func (x SoftwareScope) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SoftwareScope.Descriptor instead.
+func (SoftwareScope) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
+}
+
+type SoftwareSource int32
+
+const (
+	SoftwareSource_SOFTWARE_SOURCE_UNSPECIFIED SoftwareSource = 0
+	SoftwareSource_SOFTWARE_SOURCE_REG64       SoftwareSource = 1 // HKLM Uninstall, 64-bit view
+	SoftwareSource_SOFTWARE_SOURCE_REG32       SoftwareSource = 2 // HKLM WOW6432Node Uninstall
+	SoftwareSource_SOFTWARE_SOURCE_HKU         SoftwareSource = 3 // a user's HKCU Uninstall (loaded or offline hive)
+	SoftwareSource_SOFTWARE_SOURCE_HKU32       SoftwareSource = 4 // a user's HKCU WOW6432Node Uninstall
+	SoftwareSource_SOFTWARE_SOURCE_MSI         SoftwareSource = 5 // Windows Installer product not present in Uninstall keys
+	SoftwareSource_SOFTWARE_SOURCE_APPX        SoftwareSource = 6 // AppX / MSIX package
+	SoftwareSource_SOFTWARE_SOURCE_PORTABLE    SoftwareSource = 7 // winget portable package directory
+)
+
+// Enum value maps for SoftwareSource.
+var (
+	SoftwareSource_name = map[int32]string{
+		0: "SOFTWARE_SOURCE_UNSPECIFIED",
+		1: "SOFTWARE_SOURCE_REG64",
+		2: "SOFTWARE_SOURCE_REG32",
+		3: "SOFTWARE_SOURCE_HKU",
+		4: "SOFTWARE_SOURCE_HKU32",
+		5: "SOFTWARE_SOURCE_MSI",
+		6: "SOFTWARE_SOURCE_APPX",
+		7: "SOFTWARE_SOURCE_PORTABLE",
+	}
+	SoftwareSource_value = map[string]int32{
+		"SOFTWARE_SOURCE_UNSPECIFIED": 0,
+		"SOFTWARE_SOURCE_REG64":       1,
+		"SOFTWARE_SOURCE_REG32":       2,
+		"SOFTWARE_SOURCE_HKU":         3,
+		"SOFTWARE_SOURCE_HKU32":       4,
+		"SOFTWARE_SOURCE_MSI":         5,
+		"SOFTWARE_SOURCE_APPX":        6,
+		"SOFTWARE_SOURCE_PORTABLE":    7,
+	}
+)
+
+func (x SoftwareSource) Enum() *SoftwareSource {
+	p := new(SoftwareSource)
+	*p = x
+	return p
+}
+
+func (x SoftwareSource) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SoftwareSource) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_inventory_proto_enumTypes[2].Descriptor()
+}
+
+func (SoftwareSource) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_inventory_proto_enumTypes[2]
+}
+
+func (x SoftwareSource) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SoftwareSource.Descriptor instead.
+func (SoftwareSource) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
+}
+
 // InventoryReport carries one section. Phase 1 sends HARDWARE as a full
 // snapshot whenever it changes (it is small). SOFTWARE deltas arrive in Phase 2.
 type InventoryReport struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Seq     uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
 	Section InventorySection       `protobuf:"varint,2,opt,name=section,proto3,enum=auzring.agent.v1.InventorySection" json:"section,omitempty"`
-	Rev     uint64                 `protobuf:"varint,3,opt,name=rev,proto3" json:"rev,omitempty"`
+	// New revision of the section after the server applies this report.
+	Rev uint64 `protobuf:"varint,3,opt,name=rev,proto3" json:"rev,omitempty"`
 	// Types that are valid to be assigned to Body:
 	//
 	//	*InventoryReport_Hardware
-	Body          isInventoryReport_Body `protobuf_oneof:"body"`
+	//	*InventoryReport_Users
+	//	*InventoryReport_SoftwareDelta
+	//	*InventoryReport_SoftwareChunk
+	Body isInventoryReport_Body `protobuf_oneof:"body"`
+	// True when the agent hit its item cap and the inventory is incomplete.
+	Truncated     bool `protobuf:"varint,20,opt,name=truncated,proto3" json:"truncated,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -158,6 +277,40 @@ func (x *InventoryReport) GetHardware() *HardwareInventory {
 	return nil
 }
 
+func (x *InventoryReport) GetUsers() *UsersInventory {
+	if x != nil {
+		if x, ok := x.Body.(*InventoryReport_Users); ok {
+			return x.Users
+		}
+	}
+	return nil
+}
+
+func (x *InventoryReport) GetSoftwareDelta() *SoftwareDelta {
+	if x != nil {
+		if x, ok := x.Body.(*InventoryReport_SoftwareDelta); ok {
+			return x.SoftwareDelta
+		}
+	}
+	return nil
+}
+
+func (x *InventoryReport) GetSoftwareChunk() *SoftwareChunk {
+	if x != nil {
+		if x, ok := x.Body.(*InventoryReport_SoftwareChunk); ok {
+			return x.SoftwareChunk
+		}
+	}
+	return nil
+}
+
+func (x *InventoryReport) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
 type isInventoryReport_Body interface {
 	isInventoryReport_Body()
 }
@@ -166,7 +319,473 @@ type InventoryReport_Hardware struct {
 	Hardware *HardwareInventory `protobuf:"bytes,10,opt,name=hardware,proto3,oneof"`
 }
 
+type InventoryReport_Users struct {
+	Users *UsersInventory `protobuf:"bytes,11,opt,name=users,proto3,oneof"`
+}
+
+type InventoryReport_SoftwareDelta struct {
+	SoftwareDelta *SoftwareDelta `protobuf:"bytes,12,opt,name=software_delta,json=softwareDelta,proto3,oneof"`
+}
+
+type InventoryReport_SoftwareChunk struct {
+	SoftwareChunk *SoftwareChunk `protobuf:"bytes,13,opt,name=software_chunk,json=softwareChunk,proto3,oneof"`
+}
+
 func (*InventoryReport_Hardware) isInventoryReport_Body() {}
+
+func (*InventoryReport_Users) isInventoryReport_Body() {}
+
+func (*InventoryReport_SoftwareDelta) isInventoryReport_Body() {}
+
+func (*InventoryReport_SoftwareChunk) isInventoryReport_Body() {}
+
+// SoftwareItemKey identifies one installed item on one device:
+// (source, scope, user_sid, item_key). user_sid is empty for machine scope.
+type SoftwareItemKey struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        SoftwareSource         `protobuf:"varint,1,opt,name=source,proto3,enum=auzring.agent.v1.SoftwareSource" json:"source,omitempty"`
+	Scope         SoftwareScope          `protobuf:"varint,2,opt,name=scope,proto3,enum=auzring.agent.v1.SoftwareScope" json:"scope,omitempty"`
+	UserSid       string                 `protobuf:"bytes,3,opt,name=user_sid,json=userSid,proto3" json:"user_sid,omitempty"`
+	ItemKey       string                 `protobuf:"bytes,4,opt,name=item_key,json=itemKey,proto3" json:"item_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SoftwareItemKey) Reset() {
+	*x = SoftwareItemKey{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SoftwareItemKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SoftwareItemKey) ProtoMessage() {}
+
+func (x *SoftwareItemKey) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SoftwareItemKey.ProtoReflect.Descriptor instead.
+func (*SoftwareItemKey) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SoftwareItemKey) GetSource() SoftwareSource {
+	if x != nil {
+		return x.Source
+	}
+	return SoftwareSource_SOFTWARE_SOURCE_UNSPECIFIED
+}
+
+func (x *SoftwareItemKey) GetScope() SoftwareScope {
+	if x != nil {
+		return x.Scope
+	}
+	return SoftwareScope_SOFTWARE_SCOPE_UNSPECIFIED
+}
+
+func (x *SoftwareItemKey) GetUserSid() string {
+	if x != nil {
+		return x.UserSid
+	}
+	return ""
+}
+
+func (x *SoftwareItemKey) GetItemKey() string {
+	if x != nil {
+		return x.ItemKey
+	}
+	return ""
+}
+
+type SoftwareItem struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Key                  *SoftwareItemKey       `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Name                 string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Version              string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	Publisher            string                 `protobuf:"bytes,4,opt,name=publisher,proto3" json:"publisher,omitempty"`
+	InstallDate          string                 `protobuf:"bytes,5,opt,name=install_date,json=installDate,proto3" json:"install_date,omitempty"` // YYYY-MM-DD or empty
+	InstallLocation      string                 `protobuf:"bytes,6,opt,name=install_location,json=installLocation,proto3" json:"install_location,omitempty"`
+	UninstallString      string                 `protobuf:"bytes,7,opt,name=uninstall_string,json=uninstallString,proto3" json:"uninstall_string,omitempty"`
+	QuietUninstallString string                 `protobuf:"bytes,8,opt,name=quiet_uninstall_string,json=quietUninstallString,proto3" json:"quiet_uninstall_string,omitempty"`
+	ProductCode          string                 `protobuf:"bytes,9,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"` // {GUID} for MSI-based items
+	SystemComponent      bool                   `protobuf:"varint,10,opt,name=system_component,json=systemComponent,proto3" json:"system_component,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SoftwareItem) Reset() {
+	*x = SoftwareItem{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SoftwareItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SoftwareItem) ProtoMessage() {}
+
+func (x *SoftwareItem) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SoftwareItem.ProtoReflect.Descriptor instead.
+func (*SoftwareItem) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SoftwareItem) GetKey() *SoftwareItemKey {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *SoftwareItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetPublisher() string {
+	if x != nil {
+		return x.Publisher
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetInstallDate() string {
+	if x != nil {
+		return x.InstallDate
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetInstallLocation() string {
+	if x != nil {
+		return x.InstallLocation
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetUninstallString() string {
+	if x != nil {
+		return x.UninstallString
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetQuietUninstallString() string {
+	if x != nil {
+		return x.QuietUninstallString
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *SoftwareItem) GetSystemComponent() bool {
+	if x != nil {
+		return x.SystemComponent
+	}
+	return false
+}
+
+// SoftwareDelta applies only if the server's software revision equals base_rev;
+// otherwise the server answers with a ResyncRequest. The resulting revision is
+// InventoryReport.rev, which must equal base_rev + 1.
+type SoftwareDelta struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BaseRev       uint64                 `protobuf:"varint,1,opt,name=base_rev,json=baseRev,proto3" json:"base_rev,omitempty"`
+	Upserts       []*SoftwareItem        `protobuf:"bytes,2,rep,name=upserts,proto3" json:"upserts,omitempty"`
+	Removes       []*SoftwareItemKey     `protobuf:"bytes,3,rep,name=removes,proto3" json:"removes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SoftwareDelta) Reset() {
+	*x = SoftwareDelta{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SoftwareDelta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SoftwareDelta) ProtoMessage() {}
+
+func (x *SoftwareDelta) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SoftwareDelta.ProtoReflect.Descriptor instead.
+func (*SoftwareDelta) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SoftwareDelta) GetBaseRev() uint64 {
+	if x != nil {
+		return x.BaseRev
+	}
+	return 0
+}
+
+func (x *SoftwareDelta) GetUpserts() []*SoftwareItem {
+	if x != nil {
+		return x.Upserts
+	}
+	return nil
+}
+
+func (x *SoftwareDelta) GetRemoves() []*SoftwareItemKey {
+	if x != nil {
+		return x.Removes
+	}
+	return nil
+}
+
+// SoftwareChunk is part of a full snapshot. Chunks arrive in order on one
+// stream (index 0..total-1); the server replaces the device's software
+// atomically when the last chunk arrives.
+type SoftwareChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Index         uint32                 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Total         uint32                 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Items         []*SoftwareItem        `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SoftwareChunk) Reset() {
+	*x = SoftwareChunk{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SoftwareChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SoftwareChunk) ProtoMessage() {}
+
+func (x *SoftwareChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SoftwareChunk.ProtoReflect.Descriptor instead.
+func (*SoftwareChunk) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SoftwareChunk) GetIndex() uint32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *SoftwareChunk) GetTotal() uint32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *SoftwareChunk) GetItems() []*SoftwareItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type DeviceUser struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sid           string                 `protobuf:"bytes,1,opt,name=sid,proto3" json:"sid,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Domain        string                 `protobuf:"bytes,3,opt,name=domain,proto3" json:"domain,omitempty"`
+	ProfilePath   string                 `protobuf:"bytes,4,opt,name=profile_path,json=profilePath,proto3" json:"profile_path,omitempty"`
+	LastLogon     int64                  `protobuf:"varint,5,opt,name=last_logon,json=lastLogon,proto3" json:"last_logon,omitempty"` // unix seconds, 0 = unknown
+	Loaded        bool                   `protobuf:"varint,6,opt,name=loaded,proto3" json:"loaded,omitempty"`                        // profile hive currently loaded (user logged on)
+	IsAdmin       bool                   `protobuf:"varint,7,opt,name=is_admin,json=isAdmin,proto3" json:"is_admin,omitempty"`       // member of local Administrators (best effort)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeviceUser) Reset() {
+	*x = DeviceUser{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceUser) ProtoMessage() {}
+
+func (x *DeviceUser) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeviceUser.ProtoReflect.Descriptor instead.
+func (*DeviceUser) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *DeviceUser) GetSid() string {
+	if x != nil {
+		return x.Sid
+	}
+	return ""
+}
+
+func (x *DeviceUser) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *DeviceUser) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *DeviceUser) GetProfilePath() string {
+	if x != nil {
+		return x.ProfilePath
+	}
+	return ""
+}
+
+func (x *DeviceUser) GetLastLogon() int64 {
+	if x != nil {
+		return x.LastLogon
+	}
+	return 0
+}
+
+func (x *DeviceUser) GetLoaded() bool {
+	if x != nil {
+		return x.Loaded
+	}
+	return false
+}
+
+func (x *DeviceUser) GetIsAdmin() bool {
+	if x != nil {
+		return x.IsAdmin
+	}
+	return false
+}
+
+type UsersInventory struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*DeviceUser          `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UsersInventory) Reset() {
+	*x = UsersInventory{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UsersInventory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UsersInventory) ProtoMessage() {}
+
+func (x *UsersInventory) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UsersInventory.ProtoReflect.Descriptor instead.
+func (*UsersInventory) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UsersInventory) GetUsers() []*DeviceUser {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
 
 type HardwareInventory struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
@@ -202,7 +821,7 @@ type HardwareInventory struct {
 
 func (x *HardwareInventory) Reset() {
 	*x = HardwareInventory{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +833,7 @@ func (x *HardwareInventory) String() string {
 func (*HardwareInventory) ProtoMessage() {}
 
 func (x *HardwareInventory) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +846,7 @@ func (x *HardwareInventory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HardwareInventory.ProtoReflect.Descriptor instead.
 func (*HardwareInventory) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HardwareInventory) GetHostname() string {
@@ -413,18 +1032,20 @@ func (x *HardwareInventory) GetBootTime() int64 {
 }
 
 type Disk struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mount         string                 `protobuf:"bytes,1,opt,name=mount,proto3" json:"mount,omitempty"`
-	Filesystem    string                 `protobuf:"bytes,2,opt,name=filesystem,proto3" json:"filesystem,omitempty"`
-	SizeBytes     uint64                 `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	FreeBytes     uint64                 `protobuf:"varint,4,opt,name=free_bytes,json=freeBytes,proto3" json:"free_bytes,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Mount      string                 `protobuf:"bytes,1,opt,name=mount,proto3" json:"mount,omitempty"`
+	Filesystem string                 `protobuf:"bytes,2,opt,name=filesystem,proto3" json:"filesystem,omitempty"`
+	SizeBytes  uint64                 `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	FreeBytes  uint64                 `protobuf:"varint,4,opt,name=free_bytes,json=freeBytes,proto3" json:"free_bytes,omitempty"`
+	// BitLocker: protected | unprotected | encrypting | decrypting | unknown | unsupported
+	Bitlocker     string `protobuf:"bytes,5,opt,name=bitlocker,proto3" json:"bitlocker,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Disk) Reset() {
 	*x = Disk{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +1057,7 @@ func (x *Disk) String() string {
 func (*Disk) ProtoMessage() {}
 
 func (x *Disk) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +1070,7 @@ func (x *Disk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Disk.ProtoReflect.Descriptor instead.
 func (*Disk) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Disk) GetMount() string {
@@ -480,6 +1101,13 @@ func (x *Disk) GetFreeBytes() uint64 {
 	return 0
 }
 
+func (x *Disk) GetBitlocker() string {
+	if x != nil {
+		return x.Bitlocker
+	}
+	return ""
+}
+
 type NetInterface struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -491,7 +1119,7 @@ type NetInterface struct {
 
 func (x *NetInterface) Reset() {
 	*x = NetInterface{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +1131,7 @@ func (x *NetInterface) String() string {
 func (*NetInterface) ProtoMessage() {}
 
 func (x *NetInterface) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +1144,7 @@ func (x *NetInterface) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetInterface.ProtoReflect.Descriptor instead.
 func (*NetInterface) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *NetInterface) GetName() string {
@@ -544,14 +1172,55 @@ var File_auzring_agent_v1_inventory_proto protoreflect.FileDescriptor
 
 const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	" auzring/agent/v1/inventory.proto\x12\x10auzring.agent.v1\"\xbe\x01\n" +
+	" auzring/agent/v1/inventory.proto\x12\x10auzring.agent.v1\"\xaa\x03\n" +
 	"\x0fInventoryReport\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12<\n" +
 	"\asection\x18\x02 \x01(\x0e2\".auzring.agent.v1.InventorySectionR\asection\x12\x10\n" +
 	"\x03rev\x18\x03 \x01(\x04R\x03rev\x12A\n" +
 	"\bhardware\x18\n" +
-	" \x01(\v2#.auzring.agent.v1.HardwareInventoryH\x00R\bhardwareB\x06\n" +
-	"\x04body\"\xf5\x06\n" +
+	" \x01(\v2#.auzring.agent.v1.HardwareInventoryH\x00R\bhardware\x128\n" +
+	"\x05users\x18\v \x01(\v2 .auzring.agent.v1.UsersInventoryH\x00R\x05users\x12H\n" +
+	"\x0esoftware_delta\x18\f \x01(\v2\x1f.auzring.agent.v1.SoftwareDeltaH\x00R\rsoftwareDelta\x12H\n" +
+	"\x0esoftware_chunk\x18\r \x01(\v2\x1f.auzring.agent.v1.SoftwareChunkH\x00R\rsoftwareChunk\x12\x1c\n" +
+	"\ttruncated\x18\x14 \x01(\bR\ttruncatedB\x06\n" +
+	"\x04body\"\xb8\x01\n" +
+	"\x0fSoftwareItemKey\x128\n" +
+	"\x06source\x18\x01 \x01(\x0e2 .auzring.agent.v1.SoftwareSourceR\x06source\x125\n" +
+	"\x05scope\x18\x02 \x01(\x0e2\x1f.auzring.agent.v1.SoftwareScopeR\x05scope\x12\x19\n" +
+	"\buser_sid\x18\x03 \x01(\tR\auserSid\x12\x19\n" +
+	"\bitem_key\x18\x04 \x01(\tR\aitemKey\"\x8c\x03\n" +
+	"\fSoftwareItem\x123\n" +
+	"\x03key\x18\x01 \x01(\v2!.auzring.agent.v1.SoftwareItemKeyR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x12\x1c\n" +
+	"\tpublisher\x18\x04 \x01(\tR\tpublisher\x12!\n" +
+	"\finstall_date\x18\x05 \x01(\tR\vinstallDate\x12)\n" +
+	"\x10install_location\x18\x06 \x01(\tR\x0finstallLocation\x12)\n" +
+	"\x10uninstall_string\x18\a \x01(\tR\x0funinstallString\x124\n" +
+	"\x16quiet_uninstall_string\x18\b \x01(\tR\x14quietUninstallString\x12!\n" +
+	"\fproduct_code\x18\t \x01(\tR\vproductCode\x12)\n" +
+	"\x10system_component\x18\n" +
+	" \x01(\bR\x0fsystemComponent\"\xa1\x01\n" +
+	"\rSoftwareDelta\x12\x19\n" +
+	"\bbase_rev\x18\x01 \x01(\x04R\abaseRev\x128\n" +
+	"\aupserts\x18\x02 \x03(\v2\x1e.auzring.agent.v1.SoftwareItemR\aupserts\x12;\n" +
+	"\aremoves\x18\x03 \x03(\v2!.auzring.agent.v1.SoftwareItemKeyR\aremoves\"q\n" +
+	"\rSoftwareChunk\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\rR\x05index\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\rR\x05total\x124\n" +
+	"\x05items\x18\x03 \x03(\v2\x1e.auzring.agent.v1.SoftwareItemR\x05items\"\xc7\x01\n" +
+	"\n" +
+	"DeviceUser\x12\x10\n" +
+	"\x03sid\x18\x01 \x01(\tR\x03sid\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x16\n" +
+	"\x06domain\x18\x03 \x01(\tR\x06domain\x12!\n" +
+	"\fprofile_path\x18\x04 \x01(\tR\vprofilePath\x12\x1d\n" +
+	"\n" +
+	"last_logon\x18\x05 \x01(\x03R\tlastLogon\x12\x16\n" +
+	"\x06loaded\x18\x06 \x01(\bR\x06loaded\x12\x19\n" +
+	"\bis_admin\x18\a \x01(\bR\aisAdmin\"D\n" +
+	"\x0eUsersInventory\x122\n" +
+	"\x05users\x18\x01 \x03(\v2\x1c.auzring.agent.v1.DeviceUserR\x05users\"\xf5\x06\n" +
 	"\x11HardwareInventory\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x12\n" +
 	"\x04fqdn\x18\x02 \x01(\tR\x04fqdn\x12\x16\n" +
@@ -585,7 +1254,7 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x0epending_reboot\x18\x17 \x01(\bR\rpendingReboot\x124\n" +
 	"\x16pending_reboot_reasons\x18\x18 \x03(\tR\x14pendingRebootReasons\x12\x1a\n" +
 	"\btimezone\x18\x19 \x01(\tR\btimezone\x12\x1b\n" +
-	"\tboot_time\x18\x1a \x01(\x03R\bbootTime\"z\n" +
+	"\tboot_time\x18\x1a \x01(\x03R\bbootTime\"\x98\x01\n" +
 	"\x04Disk\x12\x14\n" +
 	"\x05mount\x18\x01 \x01(\tR\x05mount\x12\x1e\n" +
 	"\n" +
@@ -594,7 +1263,8 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\n" +
 	"size_bytes\x18\x03 \x01(\x04R\tsizeBytes\x12\x1d\n" +
 	"\n" +
-	"free_bytes\x18\x04 \x01(\x04R\tfreeBytes\"R\n" +
+	"free_bytes\x18\x04 \x01(\x04R\tfreeBytes\x12\x1c\n" +
+	"\tbitlocker\x18\x05 \x01(\tR\tbitlocker\"R\n" +
 	"\fNetInterface\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x1c\n" +
@@ -604,7 +1274,20 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x1aINVENTORY_SECTION_HARDWARE\x10\x01\x12\x1b\n" +
 	"\x17INVENTORY_SECTION_USERS\x10\x02\x12\x1e\n" +
 	"\x1aINVENTORY_SECTION_SOFTWARE\x10\x03\x12\x18\n" +
-	"\x14INVENTORY_SECTION_WU\x10\x04B@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x14INVENTORY_SECTION_WU\x10\x04*d\n" +
+	"\rSoftwareScope\x12\x1e\n" +
+	"\x1aSOFTWARE_SCOPE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16SOFTWARE_SCOPE_MACHINE\x10\x01\x12\x17\n" +
+	"\x13SOFTWARE_SCOPE_USER\x10\x02*\xec\x01\n" +
+	"\x0eSoftwareSource\x12\x1f\n" +
+	"\x1bSOFTWARE_SOURCE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15SOFTWARE_SOURCE_REG64\x10\x01\x12\x19\n" +
+	"\x15SOFTWARE_SOURCE_REG32\x10\x02\x12\x17\n" +
+	"\x13SOFTWARE_SOURCE_HKU\x10\x03\x12\x19\n" +
+	"\x15SOFTWARE_SOURCE_HKU32\x10\x04\x12\x17\n" +
+	"\x13SOFTWARE_SOURCE_MSI\x10\x05\x12\x18\n" +
+	"\x14SOFTWARE_SOURCE_APPX\x10\x06\x12\x1c\n" +
+	"\x18SOFTWARE_SOURCE_PORTABLE\x10\aB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_inventory_proto_rawDescOnce sync.Once
@@ -618,25 +1301,43 @@ func file_auzring_agent_v1_inventory_proto_rawDescGZIP() []byte {
 	return file_auzring_agent_v1_inventory_proto_rawDescData
 }
 
-var file_auzring_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_auzring_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_auzring_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_auzring_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_auzring_agent_v1_inventory_proto_goTypes = []any{
 	(InventorySection)(0),     // 0: auzring.agent.v1.InventorySection
-	(*InventoryReport)(nil),   // 1: auzring.agent.v1.InventoryReport
-	(*HardwareInventory)(nil), // 2: auzring.agent.v1.HardwareInventory
-	(*Disk)(nil),              // 3: auzring.agent.v1.Disk
-	(*NetInterface)(nil),      // 4: auzring.agent.v1.NetInterface
+	(SoftwareScope)(0),        // 1: auzring.agent.v1.SoftwareScope
+	(SoftwareSource)(0),       // 2: auzring.agent.v1.SoftwareSource
+	(*InventoryReport)(nil),   // 3: auzring.agent.v1.InventoryReport
+	(*SoftwareItemKey)(nil),   // 4: auzring.agent.v1.SoftwareItemKey
+	(*SoftwareItem)(nil),      // 5: auzring.agent.v1.SoftwareItem
+	(*SoftwareDelta)(nil),     // 6: auzring.agent.v1.SoftwareDelta
+	(*SoftwareChunk)(nil),     // 7: auzring.agent.v1.SoftwareChunk
+	(*DeviceUser)(nil),        // 8: auzring.agent.v1.DeviceUser
+	(*UsersInventory)(nil),    // 9: auzring.agent.v1.UsersInventory
+	(*HardwareInventory)(nil), // 10: auzring.agent.v1.HardwareInventory
+	(*Disk)(nil),              // 11: auzring.agent.v1.Disk
+	(*NetInterface)(nil),      // 12: auzring.agent.v1.NetInterface
 }
 var file_auzring_agent_v1_inventory_proto_depIdxs = []int32{
-	0, // 0: auzring.agent.v1.InventoryReport.section:type_name -> auzring.agent.v1.InventorySection
-	2, // 1: auzring.agent.v1.InventoryReport.hardware:type_name -> auzring.agent.v1.HardwareInventory
-	3, // 2: auzring.agent.v1.HardwareInventory.disks:type_name -> auzring.agent.v1.Disk
-	4, // 3: auzring.agent.v1.HardwareInventory.interfaces:type_name -> auzring.agent.v1.NetInterface
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: auzring.agent.v1.InventoryReport.section:type_name -> auzring.agent.v1.InventorySection
+	10, // 1: auzring.agent.v1.InventoryReport.hardware:type_name -> auzring.agent.v1.HardwareInventory
+	9,  // 2: auzring.agent.v1.InventoryReport.users:type_name -> auzring.agent.v1.UsersInventory
+	6,  // 3: auzring.agent.v1.InventoryReport.software_delta:type_name -> auzring.agent.v1.SoftwareDelta
+	7,  // 4: auzring.agent.v1.InventoryReport.software_chunk:type_name -> auzring.agent.v1.SoftwareChunk
+	2,  // 5: auzring.agent.v1.SoftwareItemKey.source:type_name -> auzring.agent.v1.SoftwareSource
+	1,  // 6: auzring.agent.v1.SoftwareItemKey.scope:type_name -> auzring.agent.v1.SoftwareScope
+	4,  // 7: auzring.agent.v1.SoftwareItem.key:type_name -> auzring.agent.v1.SoftwareItemKey
+	5,  // 8: auzring.agent.v1.SoftwareDelta.upserts:type_name -> auzring.agent.v1.SoftwareItem
+	4,  // 9: auzring.agent.v1.SoftwareDelta.removes:type_name -> auzring.agent.v1.SoftwareItemKey
+	5,  // 10: auzring.agent.v1.SoftwareChunk.items:type_name -> auzring.agent.v1.SoftwareItem
+	8,  // 11: auzring.agent.v1.UsersInventory.users:type_name -> auzring.agent.v1.DeviceUser
+	11, // 12: auzring.agent.v1.HardwareInventory.disks:type_name -> auzring.agent.v1.Disk
+	12, // 13: auzring.agent.v1.HardwareInventory.interfaces:type_name -> auzring.agent.v1.NetInterface
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_inventory_proto_init() }
@@ -646,14 +1347,17 @@ func file_auzring_agent_v1_inventory_proto_init() {
 	}
 	file_auzring_agent_v1_inventory_proto_msgTypes[0].OneofWrappers = []any{
 		(*InventoryReport_Hardware)(nil),
+		(*InventoryReport_Users)(nil),
+		(*InventoryReport_SoftwareDelta)(nil),
+		(*InventoryReport_SoftwareChunk)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_inventory_proto_rawDesc), len(file_auzring_agent_v1_inventory_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   4,
+			NumEnums:      3,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

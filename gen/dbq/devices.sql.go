@@ -143,7 +143,7 @@ func (q *Queries) CreateEnrollmentToken(ctx context.Context, arg CreateEnrollmen
 }
 
 const findActiveDeviceByHardware = `-- name: FindActiveDeviceByHardware :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user FROM devices
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices
 WHERE org_id = $1 AND status = 'active' AND smbios_uuid = $2 AND serial = $3
   AND smbios_uuid <> '' AND serial <> ''
 ORDER BY enrolled_at DESC LIMIT 1
@@ -189,12 +189,22 @@ func (q *Queries) FindActiveDeviceByHardware(ctx context.Context, arg FindActive
 		&i.UptimeS,
 		&i.PendingReboot,
 		&i.LoggedOnUser,
+		&i.SoftwareRev,
+		&i.UsersRev,
+		&i.SoftwareUpdatedAt,
+		&i.SoftwareCount,
+		&i.InventoryTruncated,
+		&i.Chassis,
+		&i.Manufacturer,
+		&i.Model,
+		&i.RamBytes,
+		&i.OsBuildNum,
 	)
 	return i, err
 }
 
 const getDevice = `-- name: GetDevice :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user FROM devices WHERE id = $1
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE id = $1
 `
 
 func (q *Queries) GetDevice(ctx context.Context, id uuid.UUID) (Device, error) {
@@ -231,12 +241,22 @@ func (q *Queries) GetDevice(ctx context.Context, id uuid.UUID) (Device, error) {
 		&i.UptimeS,
 		&i.PendingReboot,
 		&i.LoggedOnUser,
+		&i.SoftwareRev,
+		&i.UsersRev,
+		&i.SoftwareUpdatedAt,
+		&i.SoftwareCount,
+		&i.InventoryTruncated,
+		&i.Chassis,
+		&i.Manufacturer,
+		&i.Model,
+		&i.RamBytes,
+		&i.OsBuildNum,
 	)
 	return i, err
 }
 
 const getDeviceByTicketHash = `-- name: GetDeviceByTicketHash :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user FROM devices WHERE enroll_ticket_hash = $1
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE enroll_ticket_hash = $1
 `
 
 func (q *Queries) GetDeviceByTicketHash(ctx context.Context, enrollTicketHash []byte) (Device, error) {
@@ -273,12 +293,22 @@ func (q *Queries) GetDeviceByTicketHash(ctx context.Context, enrollTicketHash []
 		&i.UptimeS,
 		&i.PendingReboot,
 		&i.LoggedOnUser,
+		&i.SoftwareRev,
+		&i.UsersRev,
+		&i.SoftwareUpdatedAt,
+		&i.SoftwareCount,
+		&i.InventoryTruncated,
+		&i.Chassis,
+		&i.Manufacturer,
+		&i.Model,
+		&i.RamBytes,
+		&i.OsBuildNum,
 	)
 	return i, err
 }
 
 const getDeviceInOrg = `-- name: GetDeviceInOrg :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user FROM devices WHERE id = $1 AND org_id = $2
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE id = $1 AND org_id = $2
 `
 
 type GetDeviceInOrgParams struct {
@@ -320,6 +350,16 @@ func (q *Queries) GetDeviceInOrg(ctx context.Context, arg GetDeviceInOrgParams) 
 		&i.UptimeS,
 		&i.PendingReboot,
 		&i.LoggedOnUser,
+		&i.SoftwareRev,
+		&i.UsersRev,
+		&i.SoftwareUpdatedAt,
+		&i.SoftwareCount,
+		&i.InventoryTruncated,
+		&i.Chassis,
+		&i.Manufacturer,
+		&i.Model,
+		&i.RamBytes,
+		&i.OsBuildNum,
 	)
 	return i, err
 }
@@ -360,9 +400,7 @@ func (q *Queries) IncrementEnrollmentTokenUse(ctx context.Context, id uuid.UUID)
 const listDevices = `-- name: ListDevices :many
 SELECT id, org_id, site_id, status, status_reason, hostname, os_caption, os_build, arch, agent_version,
        enrolled_at, approved_at, revoked_at, last_seen_at, online, last_ip, uptime_s, pending_reboot,
-       logged_on_user, serial, replaces_device_id,
-       COALESCE(hardware->>'manufacturer', '')::text AS manufacturer,
-       COALESCE(hardware->>'model', '')::text AS model
+       logged_on_user, serial, replaces_device_id, manufacturer, model, chassis, software_count, software_updated_at
 FROM devices
 WHERE org_id = $1
   AND ($4::text IS NULL OR status = $4::text)
@@ -378,29 +416,32 @@ type ListDevicesParams struct {
 }
 
 type ListDevicesRow struct {
-	ID               uuid.UUID
-	OrgID            uuid.UUID
-	SiteID           uuid.UUID
-	Status           string
-	StatusReason     string
-	Hostname         string
-	OsCaption        string
-	OsBuild          string
-	Arch             string
-	AgentVersion     string
-	EnrolledAt       time.Time
-	ApprovedAt       *time.Time
-	RevokedAt        *time.Time
-	LastSeenAt       *time.Time
-	Online           bool
-	LastIp           string
-	UptimeS          int64
-	PendingReboot    bool
-	LoggedOnUser     string
-	Serial           string
-	ReplacesDeviceID *uuid.UUID
-	Manufacturer     string
-	Model            string
+	ID                uuid.UUID
+	OrgID             uuid.UUID
+	SiteID            uuid.UUID
+	Status            string
+	StatusReason      string
+	Hostname          string
+	OsCaption         string
+	OsBuild           string
+	Arch              string
+	AgentVersion      string
+	EnrolledAt        time.Time
+	ApprovedAt        *time.Time
+	RevokedAt         *time.Time
+	LastSeenAt        *time.Time
+	Online            bool
+	LastIp            string
+	UptimeS           int64
+	PendingReboot     bool
+	LoggedOnUser      string
+	Serial            string
+	ReplacesDeviceID  *uuid.UUID
+	Manufacturer      string
+	Model             string
+	Chassis           string
+	SoftwareCount     int32
+	SoftwareUpdatedAt *time.Time
 }
 
 func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]ListDevicesRow, error) {
@@ -441,6 +482,9 @@ func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]Lis
 			&i.ReplacesDeviceID,
 			&i.Manufacturer,
 			&i.Model,
+			&i.Chassis,
+			&i.SoftwareCount,
+			&i.SoftwareUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
