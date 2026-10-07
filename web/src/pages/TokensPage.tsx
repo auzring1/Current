@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Group, Loader, Modal, NumberInput, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Group, Loader, Modal, NumberInput, Select, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { api, errorMessage, type EnrollmentToken } from "../api/client";
+import { api, errorMessage, type EnrollmentToken, type Site } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { CopyText, StatusBadge } from "../components/common";
@@ -18,7 +18,8 @@ export function TokensPage() {
   const { can } = useSession();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", max_uses: 10, expires_in_hours: 24, require_approval: false });
+  const [form, setForm] = useState<{ name: string; max_uses: number; expires_in_hours: number; require_approval: boolean; site_id: string | null }>({ name: "", max_uses: 10, expires_in_hours: 24, require_approval: false, site_id: null });
+  const sites = useQuery({ queryKey: ["sites"], queryFn: () => api<{ items: Site[] }>("GET", "/sites") });
   const [created, setCreated] = useState<Created | null>(null);
   const q = useQuery({ queryKey: ["tokens"], queryFn: () => api<{ items: EnrollmentToken[] }>("GET", "/enrollment-tokens") });
   const create = useMutation({
@@ -92,6 +93,9 @@ export function TokensPage() {
             <TextInput label="Name" placeholder="e.g. Head office laptops" value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} required maxLength={200} />
             <NumberInput label="Maximum uses" min={1} max={100000} value={form.max_uses} onChange={(v) => setForm({ ...form, max_uses: Number(v) || 1 })} />
             <NumberInput label="Valid for (hours)" min={1} max={8760} value={form.expires_in_hours} onChange={(v) => setForm({ ...form, expires_in_hours: Number(v) || 1 })} />
+            {(sites.data?.items.length ?? 0) > 1 && (
+              <Select label="Site" description="New devices join this site" data={sites.data!.items.map((s) => ({ value: s.id, label: s.name }))} value={form.site_id} onChange={(v) => setForm({ ...form, site_id: v })} placeholder="Default site" clearable />
+            )}
             <Switch label="Require administrator approval for each device" checked={form.require_approval} onChange={(e) => setForm({ ...form, require_approval: e.currentTarget.checked })} />
             <Button type="submit" loading={create.isPending}>
               Create

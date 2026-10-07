@@ -94,4 +94,17 @@ export async function uploadContent(file: File): Promise<{ sha256: string; size:
   return data as { sha256: string; size: number; file_name: string };
 }
 
+/** Uploads an agent binary with its vendor-signed bundle (.azr) in a header. */
+export async function uploadAgentRelease(binary: File, bundle: File): Promise<AgentRelease> {
+  const bytes = new Uint8Array(await bundle.arrayBuffer());
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/octet-stream", "X-Release-Bundle": btoa(bin) };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch("/api/v1/agent-releases", { method: "POST", headers, credentials: "same-origin", cache: "no-store", body: binary });
+  const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+  if (!res.ok) throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Upload failed (HTTP ${res.status})`);
+  return data as AgentRelease;
+}
+
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
