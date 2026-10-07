@@ -39,6 +39,9 @@ type RunSpec struct {
 	Timeout time.Duration
 	// LogPath, if set, is read after the run and its tail returned (e.g. msiexec /l*v).
 	LogPath string
+	// Helper carries what the user-context helper needs to re-verify the job
+	// (set by the engine for user-scope runs; the platform completes the rest).
+	Helper *HelperTask
 }
 
 // RunResult is the outcome of RunSpec.

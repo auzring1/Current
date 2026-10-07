@@ -796,6 +796,15 @@ func (a *Agent) startJobs(ctx context.Context) {
 	}
 	a.Jobs.Report = jobReporter{a}
 	a.Jobs.Now = a.serverNow
+	if a.Jobs.Trust == nil {
+		a.Jobs.Trust = func() ([]byte, [][]byte, string, string) {
+			id, err := a.Store.Identity()
+			if err != nil || id == nil {
+				return nil, nil, "", ""
+			}
+			return id.RootDER, id.SigningDER, id.DeviceID, id.OrgID
+		}
+	}
 	a.Jobs.Security = func(k agentv1.SecurityEventKind, d string) { a.securityEvent(nil, k, d) }
 	a.Jobs.InventoryNow = func() {
 		select {

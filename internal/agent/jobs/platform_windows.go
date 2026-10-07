@@ -352,10 +352,6 @@ func (p *winPlatform) Run(ctx context.Context, spec RunSpec) (RunResult, error) 
 	return runInJob(ctx, spec, 0)
 }
 
-func (p *winPlatform) RunAsUser(ctx context.Context, sid string, spec RunSpec) (RunResult, error) {
-	return RunResult{}, ErrUnsupported
-}
-
 func (p *winPlatform) HasSession(sid string) bool {
 	_, ok := sessionOf(sid)
 	return ok

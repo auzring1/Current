@@ -60,6 +60,9 @@ func main() {
 		err = cmdStatus(os.Args[2:])
 	case "run":
 		err = cmdRun(os.Args[2:])
+	case "helper":
+		// Internal: the user-context helper started by the service with inherited pipe handles.
+		err = jobs.HelperMain(os.Args[2:])
 	case "service":
 		err = errors.New("the service command is only used by the Windows Service Control Manager")
 	case "version", "--version", "-v":

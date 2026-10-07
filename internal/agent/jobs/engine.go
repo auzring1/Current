@@ -39,6 +39,9 @@ type Engine struct {
 	PollUserJobs time.Duration
 	// MaxIdle bounds how long the loop sleeps without any wake source (default 5 min).
 	MaxIdle time.Duration
+	// Trust returns the pinned root, job-signing certificates and identity the
+	// user-context helper needs to re-verify a job.
+	Trust func() (root []byte, signing [][]byte, deviceID, orgID string)
 
 	mu      sync.Mutex
 	wake    chan struct{}
@@ -407,4 +410,13 @@ func short(s string) string {
 		return s[:1024]
 	}
 	return s
+}
+
+// helperTask prepares the re-verification material for a user-scope run.
+func (e *Engine) helperTask(r *Record, stageDir, file string) *HelperTask {
+	t := &HelperTask{Signed: r.Signed, SID: r.SID, StageDir: stageDir, File: file, Now: e.now().Unix()}
+	if e.Trust != nil {
+		t.Root, t.SigningDER, t.DeviceID, t.OrgID = e.Trust()
+	}
+	return t
 }

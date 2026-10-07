@@ -162,6 +162,7 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 		}
 		spec := RunSpec{Exe: exe, Args: args, Dir: filepath.Dir(path), Timeout: timeout, LogPath: log}
 		if scope == installer.User {
+			spec.Helper = e.helperTask(r, dir, file)
 			rr, err = e.P.RunAsUser(ctx, sid, spec)
 			if errors.Is(err, ErrNoSession) {
 				return &outcome{waitUser: true, res: &agentv1.JobResult{}}
