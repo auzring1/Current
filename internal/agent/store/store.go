@@ -17,6 +17,7 @@ var (
 	bMeta     = []byte("meta")
 	bOutbox   = []byte("outbox")
 	bLedger   = []byte("ledger")
+	bJobs     = []byte("jobs")
 	kIdentity = []byte("identity")
 )
 
@@ -48,7 +49,7 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, b := range [][]byte{bIdentity, bMeta, bOutbox, bLedger} {
+		for _, b := range [][]byte{bIdentity, bMeta, bOutbox, bLedger, bJobs} {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
 				return err
 			}
@@ -249,4 +250,38 @@ func (s *Store) SaveSnapshot(name string, snap map[string][]byte) error {
 		}
 		return nil
 	})
+}
+
+// JobPut stores a job record (opaque bytes owned by the jobs package).
+func (s *Store) JobPut(id string, rec []byte) error {
+	return s.db.Update(func(tx *bolt.Tx) error { return tx.Bucket(bJobs).Put([]byte(id), rec) })
+}
+
+// JobGet returns a job record, or nil.
+func (s *Store) JobGet(id string) []byte {
+	var out []byte
+	_ = s.db.View(func(tx *bolt.Tx) error {
+		if v := tx.Bucket(bJobs).Get([]byte(id)); v != nil {
+			out = append([]byte(nil), v...)
+		}
+		return nil
+	})
+	return out
+}
+
+// JobAll returns every job record keyed by job ID.
+func (s *Store) JobAll() (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := s.db.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(bJobs).ForEach(func(k, v []byte) error {
+			out[string(k)] = append([]byte(nil), v...)
+			return nil
+		})
+	})
+	return out, err
+}
+
+// JobDelete removes a job record.
+func (s *Store) JobDelete(id string) error {
+	return s.db.Update(func(tx *bolt.Tx) error { return tx.Bucket(bJobs).Delete([]byte(id)) })
 }

@@ -1,0 +1,249 @@
+package jobs
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/shared/installer"
+)
+
+var (
+	guidInRe = regexp.MustCompile(`\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}`)
+	innoRe   = regexp.MustCompile(`(?i)^unins\d{3}\.exe$`)
+)
+
+// uninstallPlan is a resolved command line plus how to run and judge it.
+type uninstallPlan struct {
+	exe  string
+	args []string
+	typ  installer.Type
+	// viaHelper is true when the command must run in the user's context.
+	desc string
+}
+
+// uninstall removes software named by an inventory row. The command line is
+// derived locally from that row's registry entry; nothing executable is taken
+// from the server (docs/ARCHITECTURE.md §7.5).
+func (e *Engine) uninstall(ctx context.Context, r *Record, env *agentv1.JobEnvelope) *outcome {
+	b := env.GetUninstall()
+	scope, _ := scopeOf(b.Scope)
+	sid := env.TargetUserSid
+	timeout, _ := timeoutOf(b.TimeoutS)
+
+	roots, err := e.P.UninstallRoots(scope, sid)
+	if err != nil {
+		return fail("cannot read the Uninstall registry: %v", err)
+	}
+	entry, closeAll := findEntry(roots, b.ItemKey)
+	defer closeAll()
+	if entry == nil && b.ItemSource != "msi" {
+		return &outcome{res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, DetectionPassed: true,
+			AlreadySatisfied: true, Message: "already uninstalled; nothing to do"}}
+	}
+
+	plan, perr := e.planUninstall(b, scope, entry)
+	if perr != nil {
+		return fail("%v", perr)
+	}
+	dir, derr := e.P.StagingDir(scope, sid, r.JobID)
+	if derr != nil {
+		return fail("cannot create the working directory: %v", derr)
+	}
+	defer func() { _ = e.P.RemoveAll(dir) }()
+	log := filepath.Join(dir, "uninstall.log")
+	exe, args := plan.exe, plan.args
+	if plan.typ == installer.MSI {
+		exe, args = installer.MSIUninstallCommand(plan.args[0], log)
+		exe = e.P.MsiExec()
+	}
+	spec := RunSpec{Exe: exe, Args: args, Dir: dir, Timeout: timeout, LogPath: log}
+	var rr RunResult
+	if scope == installer.User {
+		rr, err = e.P.RunAsUser(ctx, sid, spec)
+		if errors.Is(err, ErrNoSession) {
+			return &outcome{waitUser: true, res: &agentv1.JobResult{}}
+		}
+	} else {
+		if plan.typ != installer.MSI {
+			if terr := e.P.TrustedExecutable(exe); terr != nil {
+				return fail("refusing to run %s as the service: %v", winBase(exe), terr)
+			}
+		}
+		rr, err = e.P.Run(ctx, spec)
+	}
+	if err != nil {
+		if ctx.Err() != nil {
+			return &outcome{res: &agentv1.JobResult{}, cancelled: true}
+		}
+		return fail("could not run the uninstaller: %v", err)
+	}
+	oc := installer.Resolve(plan.typ, rr.ExitCode, nil, nil)
+	if rr.TimedOut {
+		oc = installer.Failed
+	}
+	res := &agentv1.JobResult{ExitCode: int32(rr.ExitCode), LogTail: tail(rr.LogTail), // #nosec G115 -- exit codes fit int32
+		Message: fmt.Sprintf("uninstaller exit code %d (%s); %s", rr.ExitCode, oc, plan.desc)}
+	switch oc {
+	case installer.Success:
+		res.Outcome = agentv1.JobOutcome_JOB_OUTCOME_SUCCESS
+	case installer.RebootRequired:
+		res.Outcome = agentv1.JobOutcome_JOB_OUTCOME_REBOOT_REQUIRED
+	case installer.Retryable:
+		res.Outcome = agentv1.JobOutcome_JOB_OUTCOME_RETRYABLE
+	default:
+		res.Outcome = agentv1.JobOutcome_JOB_OUTCOME_FAILED
+	}
+	if res.Outcome == agentv1.JobOutcome_JOB_OUTCOME_FAILED || res.Outcome == agentv1.JobOutcome_JOB_OUTCOME_RETRYABLE {
+		return &outcome{res: res, reason: "uninstaller_failed"}
+	}
+	// Post-check: the Uninstall entry must be gone.
+	roots2, rerr := e.P.UninstallRoots(scope, sid)
+	if rerr == nil {
+		still, closeRoots := findEntry(roots2, b.ItemKey)
+		closeRoots()
+		res.DetectionPassed = still == nil
+		if still != nil {
+			res.Outcome = agentv1.JobOutcome_JOB_OUTCOME_FAILED
+			res.Message = short("the uninstaller reported success but the program is still listed; " + res.Message)
+			return &outcome{res: res, reason: "failed_detection"}
+		}
+	}
+	return &outcome{res: res}
+}
+
+// entryInfo is what the planner needs from an Uninstall key.
+type entryInfo struct {
+	quiet, uninstall string
+	windowsInstaller bool
+}
+
+// findEntry looks for the Uninstall subkey named key in any root. The returned
+// closer closes every root.
+func findEntry(roots []inventory.RegNode, key string) (*entryInfo, func()) {
+	closeAll := func() {
+		for _, r := range roots {
+			r.Close()
+		}
+	}
+	for _, r := range roots {
+		k, err := r.Open(key)
+		if err != nil {
+			continue
+		}
+		info := &entryInfo{}
+		info.quiet, _ = k.String("QuietUninstallString")
+		info.uninstall, _ = k.String("UninstallString")
+		if v, ok := k.DWord("WindowsInstaller"); ok && v == 1 {
+			info.windowsInstaller = true
+		}
+		k.Close()
+		return info, closeAll
+	}
+	return nil, closeAll
+}
+
+// planUninstall picks the uninstall method in the documented order: MSI
+// product code, recorded quiet string, recorded uninstall string plus known
+// silent switches for the detected installer type.
+func (e *Engine) planUninstall(b *agentv1.UninstallBody, scope installer.Scope, en *entryInfo) (*uninstallPlan, error) {
+	code := b.ProductCode
+	if code == "" && guidInRe.MatchString(b.ItemKey) && guidRe.MatchString(b.ItemKey) {
+		code = b.ItemKey
+	}
+	if en != nil && code == "" && en.windowsInstaller {
+		for _, s := range []string{en.uninstall, en.quiet} {
+			if m := guidInRe.FindString(s); m != "" {
+				code = m
+				break
+			}
+		}
+	}
+	if code != "" && guidRe.MatchString(code) {
+		return &uninstallPlan{typ: installer.MSI, args: []string{code}, desc: "msiexec /x " + code}, nil
+	}
+	if en == nil {
+		return nil, errors.New("no uninstall information is recorded for this program")
+	}
+	pick := func(cmd string) (*uninstallPlan, error) {
+		toks, err := installer.SplitCommandLine(cmd)
+		if err != nil || len(toks) == 0 {
+			return nil, errors.New("the recorded uninstall command could not be parsed")
+		}
+		exe := toks[0]
+		if !isAbsWin(exe) {
+			return nil, errors.New("the recorded uninstall command is not an absolute path")
+		}
+		if strings.EqualFold(winBase(exe), "msiexec.exe") {
+			if m := guidInRe.FindString(cmd); m != "" {
+				return &uninstallPlan{typ: installer.MSI, args: []string{m}, desc: "msiexec /x " + m}, nil
+			}
+			return nil, errors.New("msiexec uninstall without a product code")
+		}
+		return &uninstallPlan{exe: exe, args: toks[1:], typ: installer.EXE, desc: winBase(exe)}, nil
+	}
+	if en.quiet != "" {
+		p, err := pick(en.quiet)
+		if err != nil {
+			return nil, err
+		}
+		if err := validateStringArgs(p.args); err != nil {
+			return nil, err
+		}
+		p.args = append(p.args, b.ExtraArgs...)
+		return p, nil
+	}
+	if en.uninstall != "" {
+		p, err := pick(en.uninstall)
+		if err != nil {
+			return nil, err
+		}
+		base := winBase(p.exe)
+		switch {
+		case innoRe.MatchString(base):
+			p.args = []string{"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"}
+			p.typ = installer.Inno
+		case len(b.ExtraArgs) > 0:
+			p.args = append([]string(nil), b.ExtraArgs...) // an administrator supplied the silent switches
+		default:
+			return nil, fmt.Errorf("%s has no silent uninstall command; add silent switches in the package override", base)
+		}
+		return p, nil
+	}
+	return nil, errors.New("no uninstall command is recorded for this program")
+}
+
+// validateStringArgs accepts the arguments of a recorded quiet string. These
+// come from the machine's own registry (HKLM) or the user's (HKCU), so they are
+// only checked for shell metacharacters; the grammar of installer.ValidateArg is
+// for administrator-entered switches.
+func validateStringArgs(args []string) error {
+	for _, a := range args {
+		if len(a) > 1024 || strings.ContainsAny(a, "\x00\r\n") {
+			return errors.New("the recorded uninstall command has unusable arguments")
+		}
+	}
+	return nil
+}
+
+// isAbsWin reports whether p is an absolute Windows path (drive or UNC). The
+// engine's logic is shared with Linux test builds, so it does not use filepath.
+func isAbsWin(p string) bool {
+	if len(p) >= 3 && ((p[0] >= 'A' && p[0] <= 'Z') || (p[0] >= 'a' && p[0] <= 'z')) && p[1] == ':' && (p[2] == '\\' || p[2] == '/') {
+		return true
+	}
+	return strings.HasPrefix(p, `\\`)
+}
+
+// winBase is the last element of a Windows path.
+func winBase(p string) string {
+	if i := strings.LastIndexAny(p, `\/`); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
