@@ -151,3 +151,15 @@ WHERE si.title_id = @title_id::uuid AND d.org_id = @org_id::uuid
   AND (sqlc.narg('older_than')::bytea IS NULL OR si.version_key < sqlc.narg('older_than')::bytea)
 ORDER BY lower(d.hostname), d.id, si.user_sid, si.source, si.item_key
 LIMIT @row_limit::int OFFSET @row_offset::int;
+
+-- name: GetDeviceInstall :one
+SELECT si.name, si.version, si.system_component, si.product_code
+FROM software_installs si
+WHERE si.device_id = $1 AND si.source = $2 AND si.scope = $3 AND si.user_sid = $4 AND si.item_key = $5;
+
+-- name: ListDeviceInstallRows :many
+-- Everything a device reports that could be matched to a catalog package (for "missing updates").
+SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+FROM software_installs si JOIN software_titles st ON st.id = si.title_id
+WHERE si.device_id = $1 AND NOT si.system_component
+ORDER BY lower(si.name), si.scope, si.user_sid, si.item_key;

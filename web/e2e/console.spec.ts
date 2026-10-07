@@ -194,14 +194,36 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.getByRole("link", { name: "Settings" }).click();
       await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
-      // Back to the device for the revoke flow.
+      // Back to the device: refresh, missing updates, uninstall from the inventory, then revoke and delete.
       await page.getByRole("link", { name: "Devices" }).click();
       await page.getByTestId("device-row").first().click();
       await shot(page, "05-device-detail");
+      await page.getByRole("button", { name: /Refresh/ }).click();
+      await expect(page.getByText("Device information refreshed.")).toBeVisible({ timeout: 30_000 });
+      await page.getByRole("tab", { name: "Missing updates" }).click();
+      await expect(page.getByText(/No missing updates/)).toBeVisible();
+      await page.getByRole("tab", { name: /^Software/ }).click();
+      await expect(page.getByTestId("software-row").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Uninstall Software" })).toBeDisabled();
+      await page.getByTestId("software-row").first().getByRole("checkbox").check();
+      await expect(page.getByText("1 item selected")).toBeVisible();
+      await shot(page, "14-device-software-selected");
+      await page.getByRole("button", { name: "Uninstall Software" }).click();
+      await expect(page.getByRole("table", { name: "Programs to uninstall" })).toBeVisible();
+      await page.getByRole("dialog").getByRole("button", { name: "Uninstall" }).click();
+      await expect(page.getByText(/Uninstall queued for 1 program/)).toBeVisible();
+      await page.getByRole("tab", { name: "Jobs" }).click();
+      await expect(page.getByRole("table", { name: "Device jobs" }).getByText(/^Uninstall /).first()).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { name: "Revoke" }).click();
       await page.getByLabel("Reason (recorded in the audit log)").fill("GUI test");
       await page.getByRole("button", { name: "Revoke device" }).click();
       await expect(page.getByText("Revoked: GUI test")).toBeVisible({ timeout: 15_000 });
+      // A revoked device can be deleted; an active one cannot (no button).
+      await page.getByRole("button", { name: "Delete device" }).click();
+      await page.getByRole("button", { name: "Delete permanently" }).click();
+      await expect(page).toHaveURL(/localhost:\d+\/$/);
+      await page.getByText("Revoked", { exact: true }).click();
+      await expect(page.getByText("No devices yet")).toBeVisible();
     }
   } finally {
     agent?.kill();

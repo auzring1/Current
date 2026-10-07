@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/agent/core"
+	"github.com/auzring1/auzring/internal/agent/inventory"
 	"github.com/auzring1/auzring/internal/agent/jobs"
 	"github.com/auzring1/auzring/internal/agent/store"
 )
@@ -267,4 +269,73 @@ func TestDeploymentValidation(t *testing.T) {
 		t.Fatalf("hostile override accepted: %d", st)
 	}
 	_ = context.Background
+}
+
+func TestDeviceRefreshAndUninstallFromInventory(t *testing.T) {
+	h := newHarness(t)
+	h.setupAndLogin()
+	fc := &fakeCollector{items: map[string]*agentv1.SoftwareItem{}}
+	fc.set(sw("sevenzip", "7-Zip", "23.01"))
+	wire := func(a *core.Agent, st *store.Store) { a.Inv = &inventory.Manager{Collector: fc, Store: st, Log: a.Log} }
+	ta := h.startAgent(h.createToken("dep4", 5, false), &fakeHW{host: "LAP-D4", serial: "SD4", uuid: "UD4"}, nil, withJobs, wire)
+	waitFor(t, 15*time.Second, "agent connected", func() bool { return ta.state() == "connected" })
+	devID := h.devices()[0]["id"].(string)
+	waitFor(t, 15*time.Second, "first inventory", func() bool { return len(h.softwareOf(devID)) == 1 })
+
+	// Refresh: one job, reused while it is still fresh, and the agent completes it. Software that
+	// appeared since the last report (nothing watched the registry here) shows up without waiting.
+	fc.set(sw("chrome", "Google Chrome", "129.0.1"))
+	st, r1 := h.do("POST", "/api/v1/devices/"+devID+"/refresh", map[string]any{}, nil)
+	if st != 202 {
+		t.Fatalf("refresh: %d %v", st, r1)
+	}
+	st, r2 := h.do("POST", "/api/v1/devices/"+devID+"/refresh", map[string]any{}, nil)
+	if st != 202 || r2["job_id"] != r1["job_id"] {
+		t.Fatalf("a second refresh within two minutes should reuse the first: %d %v %v", st, r1, r2)
+	}
+	waitFor(t, 20*time.Second, "refresh job succeeded", func() bool {
+		_, d := h.do("GET", "/api/v1/jobs/"+r1["job_id"].(string), nil, nil)
+		return d["status"] == "succeeded"
+	})
+	waitFor(t, 15*time.Second, "refreshed inventory", func() bool { return len(h.softwareOf(devID)) == 2 })
+
+	// Uninstall straight from the device's inventory (no catalog package involved).
+	var row map[string]any
+	waitFor(t, 20*time.Second, "software inventory", func() bool {
+		_, sw := h.do("GET", "/api/v1/devices/"+devID+"/software", nil, nil)
+		for _, it := range items(sw) {
+			if it["system_component"] == false && it["item_key"] != "" && it["source"] != "appx" && it["source"] != "portable" {
+				row = it
+				return true
+			}
+		}
+		return false
+	})
+	ref := map[string]any{"source": row["source"], "scope": row["scope"], "user_sid": row["user_sid"], "item_key": row["item_key"]}
+	st, res := h.do("POST", "/api/v1/devices/"+devID+"/software/uninstall", map[string]any{"items": []any{ref}}, nil)
+	if st != 201 || len(res["job_ids"].([]any)) != 1 {
+		t.Fatalf("uninstall: %d %v", st, res)
+	}
+	id := res["job_ids"].([]any)[0].(string)
+	waitFor(t, 20*time.Second, "uninstall job finished", func() bool {
+		_, d := h.do("GET", "/api/v1/jobs/"+id, nil, nil)
+		return d["status"] == "succeeded" || d["status"] == "failed"
+	})
+	// A row the device never reported is skipped, a malformed request refused.
+	ghost := map[string]any{"source": "reg64", "scope": "machine", "user_sid": "", "item_key": "NoSuchProgram"}
+	st, res = h.do("POST", "/api/v1/devices/"+devID+"/software/uninstall", map[string]any{"items": []any{ghost}}, nil)
+	if st != 201 || len(res["job_ids"].([]any)) != 0 || len(res["skipped"].([]any)) != 1 {
+		t.Fatalf("unknown program: %d %v", st, res)
+	}
+	bad := map[string]any{"source": "reg64", "scope": "user", "user_sid": "", "item_key": "x"}
+	if st, _ := h.do("POST", "/api/v1/devices/"+devID+"/software/uninstall", map[string]any{"items": []any{bad}}, nil); st != 422 {
+		t.Fatalf("scope/user mismatch accepted: %d", st)
+	}
+
+	// An offline device cannot be refreshed.
+	ta.stop()
+	waitFor(t, 10*time.Second, "device offline", func() bool { return h.device(devID)["online"] == false })
+	if st, _ := h.do("POST", "/api/v1/devices/"+devID+"/refresh", map[string]any{}, nil); st != 409 {
+		t.Fatalf("refresh of an offline device: %d", st)
+	}
 }

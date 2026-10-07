@@ -59,6 +59,16 @@ UPDATE devices SET status = 'revoked', status_reason = $3, revoked_by = $4, revo
                    online = false, enroll_ticket_hash = NULL, pending_csr = NULL
 WHERE id = $1 AND org_id = $2 AND status IN ('pending', 'active');
 
+-- name: DeleteDeviceCerts :exec
+DELETE FROM device_certs WHERE device_id = $1;
+
+-- name: ClearReplacesDevice :exec
+UPDATE devices SET replaces_device_id = NULL WHERE replaces_device_id = $1;
+
+-- name: DeleteDevice :execrows
+-- Only a revoked or retired device may be removed; inventory, jobs and group membership cascade.
+DELETE FROM devices WHERE id = $1 AND org_id = $2 AND status IN ('revoked', 'retired');
+
 -- name: CompleteDeviceEnrollment :exec
 UPDATE devices SET enroll_ticket_hash = NULL, pending_csr = NULL WHERE id = $1;
 

@@ -438,6 +438,28 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatal("revoked device could still open a stream")
 	}
 
+	// --- Deleting devices: only revoked ones, everything of theirs goes ---
+	if st, _ := h.do("DELETE", "/api/v1/devices/"+id1, nil, nil); st != 409 {
+		t.Fatalf("an active device was deletable: %d", st)
+	}
+	if st, _ := h.do("DELETE", "/api/v1/devices/"+id2, nil, nil); st != 204 {
+		t.Fatalf("delete revoked device: %d", st)
+	}
+	if st, _ := h.do("GET", "/api/v1/devices/"+id2, nil, nil); st != 404 {
+		t.Fatalf("deleted device still readable: %d", st)
+	}
+	var left int
+	_ = h.db.Pool.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM device_certs WHERE device_id=$1) + (SELECT count(*) FROM devices WHERE id=$1)`, id2).Scan(&left)
+	if left != 0 {
+		t.Fatalf("device rows left behind: %d", left)
+	}
+	if err := mtlsConnect(h, a2, idn2); err == nil {
+		t.Fatal("a deleted device could open a stream")
+	}
+	if st, b := h.do("POST", "/api/v1/devices/delete", map[string]any{"ids": []string{id1, id2}}, nil); st != 200 || b["deleted"].(float64) != 0 || b["skipped"].(float64) != 2 {
+		t.Fatalf("bulk delete of an active and a missing device: %d %v", st, b)
+	}
+
 	// --- Enrollment with a bad token is rejected generically ---
 	if code := enrollRaw(h, "bogus-token-bogus-token-bogus-token-bogus-token"); code != codes.PermissionDenied {
 		t.Fatalf("bad token: %v", code)
@@ -453,7 +475,7 @@ func TestEndToEnd(t *testing.T) {
 		seen[it.(map[string]any)["action"].(string)] = true
 	}
 	for _, want := range []string{"setup.complete", "auth.login", "enrollment_token.create", "device.enroll",
-		"device.approve", "device.revoke", "device.certificate_issue"} {
+		"device.approve", "device.revoke", "device.delete", "device.certificate_issue"} {
 		if !seen[want] {
 			t.Errorf("audit missing %q (have %v)", want, seen)
 		}

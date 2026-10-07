@@ -73,3 +73,6 @@ ON CONFLICT (org_id, sha256) DO UPDATE SET file_name = EXCLUDED.file_name;
 
 -- name: GetContentBlob :one
 SELECT * FROM content_blobs WHERE org_id = $1 AND sha256 = $2;
+
+-- name: ListAllOrgPackages :many
+SELECT * FROM catalog_packages WHERE org_id = $1 ORDER BY lower(name), id LIMIT 2000;

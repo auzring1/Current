@@ -195,6 +195,40 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Device" }
         "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [devices]
+      summary: Delete a revoked device and its inventory, jobs and certificates (requires devices:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /devices/delete:
+    post:
+      tags: [devices]
+      summary: Delete several revoked devices at once; others are skipped (requires devices:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ids]
+              properties:
+                ids: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 500 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, skipped]
+                properties:
+                  deleted: { type: integer }
+                  skipped: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
   /devices/{id}/approve:
     post:
       tags: [devices]
@@ -578,6 +612,91 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/DeviceJob" } }
         "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/updates:
+    get:
+      tags: [deployments]
+      summary: Installed programs for which the catalog holds a newer version (requires deployments:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AvailableUpdate" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/software/uninstall:
+    post:
+      tags: [deployments]
+      summary: Queue an uninstall job for each listed inventory row (requires deployments:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [source, scope, item_key]
+                    properties:
+                      source: { type: string, enum: [reg64, reg32, hku, hku32, msi, appx, portable] }
+                      scope: { type: string, enum: [machine, user] }
+                      user_sid: { type: string }
+                      item_key: { type: string }
+      responses:
+        "201":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_ids, skipped]
+                properties:
+                  job_ids: { type: array, items: { type: string, format: uuid } }
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      required: [device, reason]
+                      properties:
+                        device: { type: string, description: The program that was skipped }
+                        reason: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /devices/{id}/refresh:
+    post:
+      tags: [devices]
+      summary: Ask an online device to send its hardware, software and user information now (requires devices:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "202":
+          description: Requested
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id]
+                properties:
+                  job_id: { type: string, format: uuid }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /catalog/packages:
     get:
       tags: [catalog]
@@ -967,6 +1086,24 @@ components:
             name: { type: string }
         permissions: { type: array, items: { type: string } }
         csrf_token: { type: string }
+    AvailableUpdate:
+      type: object
+      required: [name, installed_version, source, scope, item_key, package_id, package_name, latest_version, deployable]
+      properties:
+        name: { type: string }
+        installed_version: { type: string }
+        source: { type: string }
+        scope: { type: string, enum: [machine, user] }
+        user_sid: { type: string }
+        item_key: { type: string }
+        package_id: { type: string, format: uuid }
+        package_name: { type: string }
+        identifier: { type: string }
+        latest_version: { type: string }
+        verified: { type: boolean }
+        self_updating: { type: boolean }
+        deployable: { type: boolean }
+        reason: { type: string }
     DeviceSoftware:
       type: object
       required: [title_id, name, version, source, scope, system_component, first_seen_at, last_seen_at]
@@ -978,6 +1115,7 @@ components:
         source: { type: string, enum: [reg64, reg32, hku, hku32, msi, appx, portable] }
         scope: { type: string, enum: [machine, user] }
         user_sid: { type: string, description: Empty for machine-scope installs }
+        item_key: { type: string, description: Uninstall subkey name or MSI product code (identifies the row) }
         install_date: { type: string }
         install_location: { type: string }
         product_code: { type: string }

@@ -28,6 +28,7 @@ export type DeploymentSummary = components["schemas"]["DeploymentSummary"];
 export type DeploymentDetail = components["schemas"]["DeploymentDetail"];
 export type DeploymentJob = components["schemas"]["DeploymentJob"];
 export type DeviceJob = components["schemas"]["DeviceJob"];
+export type AvailableUpdate = components["schemas"]["AvailableUpdate"];
 export type JobDetail = components["schemas"]["JobDetail"];
 
 let csrfToken = "";

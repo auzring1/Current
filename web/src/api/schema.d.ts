@@ -405,6 +405,74 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        /** Delete a revoked device and its inventory, jobs and certificates (requires devices:write) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete several revoked devices at once; others are skipped (requires devices:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ids: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted: number;
+                            skipped: number;
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1302,6 +1370,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/devices/{id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Installed programs for which the catalog holds a newer version (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["AvailableUpdate"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/software/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue an uninstall job for each listed inventory row (requires deployments:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @enum {string} */
+                            source: "reg64" | "reg32" | "hku" | "hku32" | "msi" | "appx" | "portable";
+                            /** @enum {string} */
+                            scope: "machine" | "user";
+                            user_sid?: string;
+                            item_key: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Queued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            job_ids: string[];
+                            skipped: {
+                                /** @description The program that was skipped */
+                                device: string;
+                                reason: string;
+                            }[];
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask an online device to send its hardware, software and user information now (requires devices:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Requested */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            job_id: string;
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog/packages": {
         parameters: {
             query?: never;
@@ -2089,6 +2306,24 @@ export interface components {
             permissions: string[];
             csrf_token: string;
         };
+        AvailableUpdate: {
+            name: string;
+            installed_version: string;
+            source: string;
+            /** @enum {string} */
+            scope: "machine" | "user";
+            user_sid?: string;
+            item_key: string;
+            /** Format: uuid */
+            package_id: string;
+            package_name: string;
+            identifier?: string;
+            latest_version: string;
+            verified?: boolean;
+            self_updating?: boolean;
+            deployable: boolean;
+            reason?: string;
+        };
         DeviceSoftware: {
             /** Format: uuid */
             title_id: string;
@@ -2101,6 +2336,8 @@ export interface components {
             scope: "machine" | "user";
             /** @description Empty for machine-scope installs */
             user_sid?: string;
+            /** @description Uninstall subkey name or MSI product code (identifies the row) */
+            item_key?: string;
             install_date?: string;
             install_location?: string;
             product_code?: string;

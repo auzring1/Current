@@ -35,6 +35,45 @@ func (q *Queries) FinishSoftwareSync(ctx context.Context, arg FinishSoftwareSync
 	return err
 }
 
+const getDeviceInstall = `-- name: GetDeviceInstall :one
+SELECT si.name, si.version, si.system_component, si.product_code
+FROM software_installs si
+WHERE si.device_id = $1 AND si.source = $2 AND si.scope = $3 AND si.user_sid = $4 AND si.item_key = $5
+`
+
+type GetDeviceInstallParams struct {
+	DeviceID uuid.UUID
+	Source   string
+	Scope    string
+	UserSid  string
+	ItemKey  string
+}
+
+type GetDeviceInstallRow struct {
+	Name            string
+	Version         string
+	SystemComponent bool
+	ProductCode     string
+}
+
+func (q *Queries) GetDeviceInstall(ctx context.Context, arg GetDeviceInstallParams) (GetDeviceInstallRow, error) {
+	row := q.db.QueryRow(ctx, getDeviceInstall,
+		arg.DeviceID,
+		arg.Source,
+		arg.Scope,
+		arg.UserSid,
+		arg.ItemKey,
+	)
+	var i GetDeviceInstallRow
+	err := row.Scan(
+		&i.Name,
+		&i.Version,
+		&i.SystemComponent,
+		&i.ProductCode,
+	)
+	return i, err
+}
+
 const getSoftwareTitle = `-- name: GetSoftwareTitle :one
 SELECT id, org_id, normalized_name, normalized_publisher, display_name, display_publisher, created_at FROM software_titles WHERE id = $1::uuid AND org_id = $2::uuid
 `
@@ -57,6 +96,54 @@ func (q *Queries) GetSoftwareTitle(ctx context.Context, arg GetSoftwareTitlePara
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listDeviceInstallRows = `-- name: ListDeviceInstallRows :many
+SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+FROM software_installs si JOIN software_titles st ON st.id = si.title_id
+WHERE si.device_id = $1 AND NOT si.system_component
+ORDER BY lower(si.name), si.scope, si.user_sid, si.item_key
+`
+
+type ListDeviceInstallRowsRow struct {
+	Source         string
+	Scope          string
+	UserSid        string
+	ItemKey        string
+	Name           string
+	Version        string
+	VersionKey     []byte
+	NormalizedName string
+}
+
+// Everything a device reports that could be matched to a catalog package (for "missing updates").
+func (q *Queries) ListDeviceInstallRows(ctx context.Context, deviceID uuid.UUID) ([]ListDeviceInstallRowsRow, error) {
+	rows, err := q.db.Query(ctx, listDeviceInstallRows, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDeviceInstallRowsRow{}
+	for rows.Next() {
+		var i ListDeviceInstallRowsRow
+		if err := rows.Scan(
+			&i.Source,
+			&i.Scope,
+			&i.UserSid,
+			&i.ItemKey,
+			&i.Name,
+			&i.Version,
+			&i.VersionKey,
+			&i.NormalizedName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDeviceSoftware = `-- name: ListDeviceSoftware :many

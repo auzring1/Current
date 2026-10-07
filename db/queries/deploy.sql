@@ -134,3 +134,9 @@ SELECT id FROM jobs WHERE device_id = $1 AND cancel_pending AND finished_at > no
 
 -- name: ClearCancelPending :exec
 UPDATE jobs SET cancel_pending = false WHERE id = $1 AND device_id = $2;
+
+-- name: FindRecentRefresh :one
+SELECT id FROM jobs
+WHERE device_id = $1 AND type = 'inventory_full' AND status IN ('queued', 'sent', 'accepted', 'waiting', 'running')
+  AND created_at > now() - interval '2 minutes'
+ORDER BY created_at DESC LIMIT 1;

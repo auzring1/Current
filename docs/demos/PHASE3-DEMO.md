@@ -77,6 +77,14 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 9. **Uninstall.** **New deployment → Action: Uninstall**, 7-Zip, scope machine, your device. ✅ The job succeeds and `C:\Program Files\7-Zip\` is gone.
    🔒 *Check:* the uninstall command is **not** sent by the server. It is derived on the device from that program's own Uninstall registry entry (product code, quiet string, or Inno switches). Open **Details**: the message names how it was uninstalled.
 
+## Part E2: Device page actions (about 10 minutes)
+
+- **↻ Refresh** (top of the device page): ✅ the button spins for a few seconds, then "Device information refreshed"; install something on the machine first and it shows up immediately instead of after the 30 s change detection.
+- **Missing updates** tab: with an older 7-Zip installed (Step 8) ✅ it lists *7-Zip 23.01 → newest*. Select it and **Deploy Updates** ✅ an update is queued (Jobs tab). Firefox and other self-updating apps show **vendor updates** and cannot be selected.
+- **Update replaces old copies:** install the *EXE* 7-Zip, then deploy the update (the catalog prefers the MSI). ✅ The Jobs tab shows `Remove old 7-Zip …` first, then `Update 7-Zip …`, and Apps & features ends up with one 7-Zip.
+- **Software** tab: tick programs and **Uninstall Software** (or the ⋮ menu on a row). ✅ A confirmation lists them; jobs appear on the Jobs tab. Windows components are refused with a message.
+- **Delete a device:** revoke a test device, then **Delete device** (or tick several under **Devices → Revoked** and **Delete selected**). ✅ It disappears; the audit log shows `device.delete`.
+
 ## Part F: Live progress, retry, cancel, offline devices (about 10 minutes)
 
 10. **Retry** is shown after the failure in Part H (Step 16): a failed, expired, rejected or cancelled job has a **Retry** button that creates a new attempt.

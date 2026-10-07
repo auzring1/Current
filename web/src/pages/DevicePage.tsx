@@ -1,21 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Checkbox, Group, Loader, Modal, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Title } from "@mantine/core";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Alert, Anchor, Badge, Button, Group, Loader, Modal, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
   api,
   errorMessage,
   type Device,
-  type DeviceSoftware,
   type DeviceJob,
   type DeviceUser,
-  type SoftwareChange,
 } from "../api/client";
 import { ago, bytes, dateTime, duration } from "../api/format";
 import { useSession } from "../api/session";
 import { OnlineDot, StatusBadge } from "../components/common";
 import { JobBadge } from "./DeploymentsPage";
+import { MissingUpdatesTab, SoftwareTab } from "../components/DeviceSoftware";
 import { JobModal } from "./DeploymentPage";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -51,6 +50,40 @@ export function DevicePage() {
     onSuccess: () => (setRevokeOpen(false), setReason(""), notifications.show({ color: "green", message: "Device revoked and disconnected." }), refresh()),
     onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
   });
+  const refreshDevice = useMutation({
+    mutationFn: async () => {
+      const { job_id } = await api<{ job_id: string }>("POST", `/devices/${id}/refresh`, {});
+      // The agent answers within seconds; wait for the job so the page can show fresh data.
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const j = await api<{ status: string }>("GET", `/jobs/${job_id}`);
+        if (["succeeded", "succeeded_reboot", "failed", "expired", "cancelled", "rejected"].includes(j.status)) return j.status;
+      }
+      return "timeout";
+    },
+    onSuccess: (status) => {
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+      void qc.invalidateQueries({ queryKey: ["device", id] });
+      void qc.invalidateQueries({ queryKey: ["device-jobs", id] });
+      notifications.show(
+        status === "succeeded"
+          ? { color: "green", message: "Device information refreshed." }
+          : { color: "yellow", message: "The device did not confirm the refresh in time. It will update when the device reports." },
+      );
+    },
+    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+  });
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const nav = useNavigate();
+  const del = useMutation({
+    mutationFn: () => api("DELETE", `/devices/${id}`),
+    onSuccess: () => {
+      notifications.show({ color: "green", message: "Device deleted." });
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+      nav("/");
+    },
+    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+  });
   const d = q.data;
   const hw = d?.hardware;
 
@@ -84,9 +117,21 @@ export function DevicePage() {
                   Approve
                 </Button>
               )}
+              {d.status === "active" && (
+                <Tooltip label={d.online ? "Ask the device to send its hardware, software and user information now" : "The device is offline"}>
+                  <Button variant="default" onClick={() => refreshDevice.mutate()} loading={refreshDevice.isPending} disabled={!d.online}>
+                    ↻ Refresh
+                  </Button>
+                </Tooltip>
+              )}
               {(d.status === "pending" || d.status === "active") && (
                 <Button color="red" variant="light" onClick={() => setRevokeOpen(true)}>
                   {d.status === "pending" ? "Reject" : "Revoke"}
+                </Button>
+              )}
+              {(d.status === "revoked" || d.status === "retired") && (
+                <Button color="red" variant="light" onClick={() => setDeleteOpen(true)}>
+                  Delete device
                 </Button>
               )}
             </Group>
@@ -95,6 +140,7 @@ export function DevicePage() {
             <Tabs.List>
               <Tabs.Tab value="overview">Overview</Tabs.Tab>
               <Tabs.Tab value="hardware">Hardware</Tabs.Tab>
+              {can("deployments:read") && <Tabs.Tab value="updates">Missing updates</Tabs.Tab>}
               <Tabs.Tab value="software">Software{d.software_count ? ` (${d.software_count})` : ""}</Tabs.Tab>
               <Tabs.Tab value="users">Users</Tabs.Tab>
               {can("deployments:read") && <Tabs.Tab value="jobs">Jobs</Tabs.Tab>}
@@ -189,8 +235,14 @@ export function DevicePage() {
               )}
             </Tabs.Panel>
 
+            {can("deployments:read") && (
+              <Tabs.Panel value="updates" pt="md">
+                <MissingUpdatesTab id={id} hostname={d.hostname} active={d.status === "active"} />
+              </Tabs.Panel>
+            )}
+
             <Tabs.Panel value="software" pt="md">
-              <SoftwareTab id={id} />
+              <SoftwareTab id={id} hostname={d.hostname} active={d.status === "active"} />
             </Tabs.Panel>
 
             <Tabs.Panel value="users" pt="md">
@@ -243,107 +295,23 @@ export function DevicePage() {
           </Button>
         </Stack>
       </Modal>
+      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete device">
+        <Stack>
+          <Text size="sm">
+            This removes {d?.hostname} and everything stored about it: hardware, software inventory, user profiles, jobs and client certificates. The audit log keeps
+            the record that it existed. This cannot be undone. If the machine still has the agent, uninstall it first or it will need a new enrollment token.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={() => del.mutate()} loading={del.isPending}>
+              Delete permanently
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
-  );
-}
-
-function SoftwareTab({ id }: { id: string }) {
-  const [system, setSystem] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [history, setHistory] = useState(false);
-  const q = useQuery({
-    queryKey: ["device", id, "software", system],
-    queryFn: () =>
-      api<{ items: DeviceSoftware[]; total: number; truncated: boolean; updated_at: string | null }>(
-        "GET",
-        `/devices/${id}/software${system ? "?include_system=true" : ""}`,
-      ),
-  });
-  const hist = useQuery({
-    queryKey: ["device", id, "software-history"],
-    queryFn: () => api<{ items: SoftwareChange[] }>("GET", `/devices/${id}/software/history?limit=100`),
-    enabled: history,
-  });
-  const users = useQuery({ queryKey: ["device", id, "users"], queryFn: () => api<{ items: DeviceUser[] }>("GET", `/devices/${id}/users`) });
-  const who = (sid: string) => {
-    if (!sid) return "all users";
-    const u = users.data?.items.find((x) => x.sid === sid);
-    return u ? (u.domain ? `${u.domain}\\${u.username}` : u.username) : sid;
-  };
-  const f = filter.trim().toLowerCase();
-  const rows = (q.data?.items ?? []).filter((s) => !f || s.name.toLowerCase().includes(f) || (s.publisher ?? "").toLowerCase().includes(f));
-
-  return (
-    <Stack>
-      {q.data?.truncated && <Alert color="yellow">The agent reported only part of this device's software (item limit reached).</Alert>}
-      <Group justify="space-between">
-        <TextInput placeholder="Filter by name or publisher" value={filter} onChange={(e) => setFilter(e.currentTarget.value)} w={280} aria-label="Filter software" />
-        <Group>
-          <Checkbox label="Show system components" checked={system} onChange={(e) => setSystem(e.currentTarget.checked)} />
-          <Checkbox label="Change history" checked={history} onChange={(e) => setHistory(e.currentTarget.checked)} />
-        </Group>
-      </Group>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && rows.length === 0 && <Text c="dimmed">No software reported yet.</Text>}
-      {rows.length > 0 && (
-        <Table.ScrollContainer minWidth={700}>
-          <Table aria-label="Installed software" verticalSpacing={4} fz="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Version</Table.Th>
-                <Table.Th>Publisher</Table.Th>
-                <Table.Th>Installed for</Table.Th>
-                <Table.Th>Type</Table.Th>
-                <Table.Th>Installed</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((s) => (
-                <Table.Tr key={`${s.source}|${s.scope}|${s.user_sid}|${s.name}|${s.version}`} data-testid="software-row">
-                  <Table.Td>{s.name}</Table.Td>
-                  <Table.Td ff="monospace">{s.version || "—"}</Table.Td>
-                  <Table.Td>{s.publisher || "—"}</Table.Td>
-                  <Table.Td>{who(s.user_sid ?? "")}</Table.Td>
-                  <Table.Td>
-                    <Badge variant="light" color="gray" size="sm">
-                      {s.source}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>{s.install_date || dateTime(s.first_seen_at)}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
-      {history && (
-        <>
-          <Title order={5}>Recent changes</Title>
-          {hist.isLoading && <Loader />}
-          {hist.data && hist.data.items.length === 0 && <Text c="dimmed">No changes recorded since the first report.</Text>}
-          {!!hist.data?.items.length && (
-            <Table aria-label="Software changes" verticalSpacing={4} fz="sm">
-              <Table.Tbody>
-                {hist.data.items.map((h) => (
-                  <Table.Tr key={h.id}>
-                    <Table.Td>{dateTime(h.observed_at)}</Table.Td>
-                    <Table.Td>
-                      <Badge variant="light" color={h.change === "added" ? "green" : h.change === "removed" ? "red" : "blue"} size="sm">
-                        {h.change}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{h.name}</Table.Td>
-                    <Table.Td ff="monospace">{h.change === "version" ? `${h.old_version} → ${h.new_version}` : h.change === "added" ? h.new_version : h.old_version}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          )}
-        </>
-      )}
-    </Stack>
   );
 }
 

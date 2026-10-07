@@ -120,6 +120,7 @@ winget_index(package_identifier, name, publisher, latest_version, tags, moniker,
 **Phase 3 as built:**
 - `deployments(id, org_id, name, action[install|update|uninstall], package_id, version_id, scope[machine|user], target_group_ids, target_device_ids, starts_at, expires_at, maint_window jsonb, unverified_confirmed, status[active|paused|completed|cancelled], created_by, created_at)`. The maintenance window is stored on the deployment and signed into each job; rings are Phase 4.
 - `jobs(id, org_id, deployment_id, device_id, user_sid, type[software_install|software_uninstall|software_update|inventory_full], title, body bytea (unsigned envelope), depends_on, not_before, expires_at, attempt, status, status_reason, envelope bytea (last signed offer), created_at, sent_at, acked_at, started_at, finished_at, exit_code, detection_passed, reboot_required, cancel_pending, result jsonb)`. Indexes `(device_id, status)`, `(deployment_id, status)`, `depends_on`. A retry creates a new row with `attempt + 1`.
+- `jobs.depends_when` (`success` default | `finished`, migration `00004`): a dependent job normally waits for its parent to succeed; `finished` releases it when the parent ends in any way except cancellation (used by update cleanup chains).
 - `job_events(id, job_id, ts, kind, message, data)`: the per-job timeline shown in the console (not partitioned yet).
 - A deployment becomes `completed` when none of its jobs is `queued/sent/accepted/waiting/running`.
 
