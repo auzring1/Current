@@ -10,6 +10,12 @@ export function useLiveEvents(enabled: boolean) {
     const onEvent = (ev: MessageEvent<string>) => {
       try {
         const e = JSON.parse(ev.data) as { type: string; device_id?: string; job_id?: string; deployment_id?: string };
+        if (e.type === "updates.updated") {
+          void qc.invalidateQueries({ queryKey: ["updates"] });
+          void qc.invalidateQueries({ queryKey: ["update-policy"] });
+          if (e.device_id) void qc.invalidateQueries({ queryKey: ["device", e.device_id, "wu"] });
+          return;
+        }
         if (e.type === "job.updated" || e.type === "deployment.updated") {
           void qc.invalidateQueries({ queryKey: ["deployments"] });
           if (e.deployment_id) void qc.invalidateQueries({ queryKey: ["deployment", e.deployment_id] });
@@ -25,7 +31,7 @@ export function useLiveEvents(enabled: boolean) {
         /* ignore malformed events */
       }
     };
-    for (const t of ["device.online", "device.offline", "device.enrolled", "device.updated", "job.updated", "deployment.updated"]) {
+    for (const t of ["device.online", "device.offline", "device.enrolled", "device.updated", "job.updated", "deployment.updated", "updates.updated"]) {
       es.addEventListener(t, onEvent as EventListener);
     }
     return () => es.close();

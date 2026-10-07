@@ -1,3 +1,6 @@
+//go:build !windows
+
+// The scripted Windows Update client exists only in non-Windows builds (internal/agent/wu).
 package e2e
 
 import (

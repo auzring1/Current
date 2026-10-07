@@ -2,7 +2,7 @@
 
 Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
 
-## 0. Implementation status (Phases 1–3)
+## 0. Implementation status (Phases 1–4)
 
 | Area | State | Where |
 |---|---|---|
@@ -27,7 +27,11 @@ Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are buil
 | **Phase 3:** user-context helper and logon queue | ⚠️ implemented, **unverified on a real multi-user Windows machine** | `internal/agent/jobs/helper*.go`, `winsvc` |
 | **Phase 3:** web console (catalog, package overrides, deployment wizard, live job results, static groups, settings) | ✅ | `web/` |
 | **Phase 3:** VM test matrix | ⚠️ harness only; no package is verified yet | `test/vm-matrix` |
-| WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 4–5 | — |
+| **Phase 4:** Windows Update on the agent (WUA COM scan/download/install/hide, policy detection, pending-reboot detection, daily autonomous scan, snapshot reporting) | ✅ on the Linux dev client; the COM code compiles and vets for Windows but is **unverified on a real machine** | `internal/agent/wu`, `internal/agent/jobs/wujobs.go` |
+| **Phase 4:** reboot policy (never / outside active hours / deadline, visible countdown, persisted plan) | ⚠️ logic tested with fakes; the real `InitiateSystemShutdownEx` countdown is **unverified on a real machine** | `internal/agent/jobs`, `internal/agent/wu` |
+| **Phase 4:** update catalog, approvals, auto-approval rules, rings with soak and success thresholds, holds, retry limits, conflict report | ✅ | `internal/server/updates`, `db/migrations/00005_windows_update.sql` |
+| **Phase 4:** web console (Windows updates, Update policy, device "Windows updates" tab, restart) | ✅ | `web/` |
+| Self-update, MSI, API tokens, WebAuthn | ⏳ Phase 5 | — |
 
 Implementation notes that refine the design below:
 - **REST layer (D6, revised):** handlers are hand-written with strict JSON decoding. `api/openapi.yaml` is the contract, and `TestRoutesMatchSpec` fails the build if routes and spec drift. TypeScript types are generated from the spec.
@@ -45,6 +49,16 @@ Implementation notes that refine the design below:
   - *Helper:* the service runs the pipeline; the helper only starts the verified command in the user's session (D45). The service passes it a JSON task over an anonymous pipe (inherited handle list; no named pipe). The helper re-verifies the signed envelope, device/org, that its own SID equals the target, that the staged file lies under its own staging directory, and the file's hash; the result is size-capped (64 KiB) and untrusted.
   - *Per-user policy* resolves package override → organization default (D47). Machine deployments that find per-user copies apply it: report only, update in place (skipped for self-managed apps, D50), convert to machine (uninstall is a dependent job, D48) or remove.
   - *Not built in Phase 3:* rings and success thresholds, reboot policy beyond "report", manifest dependency resolution, the peer-cache source, MSIX, the self-update loop guard, `requires_elevation` helpers, group-level policy.
+- **Phase 4 as built (differences from §6 and §9, with decision numbers in DECISIONS.md):**
+  - *Reporting* is a full-replacement `WU` section of the inventory report: the agent keeps a generation counter (`wu_gen`/`wu_sent`) and the server remembers the last generation it applied (`devices.wu_rev`, sent in Hello as `revs["wu"]`); a mismatch triggers `ResyncSections` (D58). Installed updates are never reported, only what is missing, downloaded, hidden, pending a restart or failed.
+  - *Approvals* are per update identity, not per revision. Pending is the absence of a row. Rules only act on pending updates and never override a manual decision (D59).
+  - *Rings* are ordered. A device belongs to the first ring whose groups contain it; devices in no ring are not touched automatically. Each ring has `delay_days` (after approval), `soak_hours` (before the next ring opens), a success threshold, an optional maintenance window and a restart policy (D60).
+  - *Gating* (`gate()` in `internal/server/updates/schedule.go`): the next ring opens when the previous one has soaked and at least half of its devices have reported (or a week has passed since the soak). A failure rate above the allowed rate raises a hold at once; a released hold counts as a pass. A ring that has nothing to do for an update does not block the next one, a ring that has not started does (D60).
+  - *Scheduler tick* (once a minute): at most 500 jobs per tick, at most 50 updates per job, jobs live 7 days, at most 3 automatic failures per (device, update) with at least 24 hours between tries (D61). Jobs are created (and dispatched ahead of time, so offline devices run them when they reconnect) for active devices in the ring that are missing an approved update.
+  - *Source settings* (service and drivers) are an organization setting. Devices get them as a `WU_SCAN` job when their `wu_settings_rev` is behind; the agent stores the options and repeats the scan every 24 hours on its own (D62).
+  - *Reboot:* an install job carries a `RebootPolicy`. The agent persists a reboot plan, re-evaluates it every tick, never starts a restart inside active hours (except "deadline" at the deadline), and starts it with `InitiateSystemShutdownEx` so signed-in users see a countdown and an administrator can abort with `shutdown /a`. Install jobs cannot ask for an immediate restart; the explicit `REBOOT` job needs an online device and a countdown of at least one minute (D63).
+  - *Conflicts:* the agent reports WSUS (`UseWUServer`), Windows Update for Business deferrals, "configure automatic updates" and a disabled `wuauserv`; the console shows a banner on the device and a list under Update policy. Auzring never changes these policies (D64).
+  - *Hiding* an update (manual "hide on devices") queues `WU_HIDE` jobs for devices that have it; hidden updates stay in the catalog with state `hidden`.
 - **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
 
 
@@ -219,7 +233,7 @@ The ring promoter moves to the next ring once the time has passed and the succes
 
 **Maintenance windows** are evaluated **on the device**, in device-local time by default or in a fixed time zone. The window definition (days of week, start time, duration) is in the signed payload.
 
-**Windows-update approval rules** (Phase 4): (classification, severity, product, include drivers) → auto-approve after N days, per ring. Manual approve, decline and hide overrides are always audited.
+**Windows-update approval rules** (Phase 4, as built): (classification, severity, include drivers) → auto-approve once the update is N days past its release date. Rings add their own delay after approval. Manual approve, decline and hide decisions always win over rules and are audited. Product filters were not built.
 
 **Policies** (Phase 5):
 
@@ -370,7 +384,8 @@ SYSTEM service                                              user session (SID S,
 - Results are reported as (UpdateID, RevisionNumber, KB, classification, severity, driver fields).
 - Install runs only for the UpdateID/revision pairs listed in the signed job. Hide and unhide use `IUpdate.IsHidden`.
 - Conflict detection reports WSUS (`UseWUServer`), WUfB deferral policies and "configure automatic updates" GPO, so admins know who is in charge.
-- Reboot handling: we check `RebootRequired` and the pending markers, then apply the reboot policy. The policy respects active hours and the maintenance window, and can show notifications through the session notifier.
+- Reboot handling: we check `RebootRequired` and the pending markers, then apply the reboot policy. The policy respects active hours and the maintenance window; the countdown is the system's own shutdown notice (D63) rather than a custom session notifier.
+- *As built:* see §0 "Phase 4 as built". The COM implementation is `internal/agent/wu/wua_windows.go`; non-Windows builds use a scripted dev client (`wu-dev.json` in the data directory) for tests and demos.
 
 ## 10. Agent self-update *(Phase 5)*
 1. The server offers `AGENT_UPDATE` (a signed job) pointing to a release artifact plus a **release manifest signed by the vendor release key**. That key is compiled into the agent and is separate from every customer server key. A compromised customer server can't push a custom agent.

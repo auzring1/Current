@@ -207,6 +207,27 @@ It names an inventory row. **The server never sends a command line**: the agent 
 
 `INVENTORY_FULL` (`InventoryBody`) is the **refresh** job: it triggers an immediate software/users sync, a hardware report if the hardware changed, and a heartbeat.
 
+### 5.2a Windows Update bodies (Phase 4)
+
+```
+WuScanBody    { service [DEFAULT|WINDOWS_UPDATE|MICROSOFT_UPDATE], include_drivers }
+WuInstallBody { service, include_drivers, updates[{update_id uuid, revision}] (1..200), reboot RebootPolicy,
+                timeout_s, max_retries, retry_backoff_s }
+WuHideBody    { service, updates[], hide bool }
+RebootBody    { reboot RebootPolicy, reason (plain text, bounded) }
+RebootPolicy  { allow [NEVER|OUTSIDE_ACTIVE_HOURS|DEADLINE|NOW], active_hours{start_minute,end_minute},
+                deadline_at, notify_minutes 1..1440 }
+```
+
+- **Updates are named by identity, never by title.** The agent runs a fresh WUA search and installs exactly the listed `(update_id, revision)` pairs it finds; a pair it cannot find is reported as a per-update failure, and nothing outside the list is touched. `WU_*` jobs are machine-scope only; the agent's policy ceiling names them (`wu_scan`, `wu_install`, `wu_hide`, `reboot`).
+- **`RebootAllow`.** `NEVER` only reports. `OUTSIDE_ACTIVE_HOURS` and `DEADLINE` are stored as a persisted plan that the agent re-checks every tick; a restart never starts inside the active hours (a `DEADLINE` plan restarts at the deadline at the latest) and always gives signed-in users `notify_minutes` of system countdown. `NOW` is accepted only in `RebootBody` (a `WU_INSTALL` that asks for it is rejected by validation) and needs at least one minute of countdown.
+- **Result.** `JobResult.wu_results` has one `WuUpdateResult{update_id, revision, result [INSTALLED|INSTALLED_REBOOT|FAILED|NOT_APPLICABLE|DOWNLOAD_FAILED], hresult}` per requested update. The job outcome is `REBOOT_REQUIRED` when any update needs a restart, `RETRYABLE` for transient WUA errors (retried with the job's backoff inside its expiry) and `FAILED` when none was installed. `NOT_APPLICABLE` (the scan no longer offers it) counts as done.
+- **Window.** The optional `MaintenanceWindow` of the envelope applies to WU jobs exactly as to installs (device-local time unless `tz` is set).
+
+### 5.2b The `WU` inventory section
+
+`InventoryReport{section=WU}` is always a **full replacement** (`WuInventory{ scanned_at, scan_error, reboot_required, truncated, service, policy WuPolicyInfo, updates[] }`) as one message of at most 1,000 updates (the agent sets `truncated` beyond that and the server rejects more). Only updates that are missing, downloaded, hidden, pending a restart or failed are listed; installed updates are never reported. The agent bumps a generation counter whenever the snapshot changes (a new scan result, a reboot-state change, a policy change); the server stores the last generation it applied (`devices.wu_rev`), the agent advertises its own in `Hello.revs["wu"]`, and a mismatch makes the server ask for `ResyncRequest{WU}` (`HelloAck.resync_sections`). `WuPolicyInfo` reports WSUS (`UseWUServer`, server URL), Windows Update for Business deferrals, "configure automatic updates" options, a disabled Windows Update service and notes.
+
 ### 5.3 Job reporting
 
 ```
@@ -223,7 +244,7 @@ JobResult { outcome [SUCCESS|REBOOT_REQUIRED|RETRYABLE|FAILED], exit_code, detec
 
 ## 6. Inventory deltas
 
-Sections: `HARDWARE`, `USERS`, `SOFTWARE` (and `WU` in Phase 4). Each section has its own revision counter, kept by the agent and by the server (`devices.hardware_rev`, `users_rev`, `software_rev`).
+Sections: `HARDWARE`, `USERS`, `SOFTWARE` and `WU` (§5.2b). Each section has its own revision counter, kept by the agent and by the server (`devices.hardware_rev`, `users_rev`, `software_rev`).
 
 **Item key.** A software item is identified by the tuple `(source, scope, user_sid, item_key)`: `source` is `reg64`, `reg32`, `hku`, `hku32`, `msi`, `appx` or `portable`; `scope` is `machine` or `user`; `user_sid` is empty for machine scope. `item_key` is the Uninstall subkey name, MSI ProductCode, AppX package full name or portable directory.
 

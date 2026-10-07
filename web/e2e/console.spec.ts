@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -194,9 +194,71 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.getByRole("link", { name: "Settings" }).click();
       await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
-      // Back to the device: refresh, missing updates, uninstall from the inventory, then revoke and delete.
+      // Windows updates: the dev agent reads scripted updates from wu-dev.json in its data directory.
+      const wuDir = agentDirs[0]!;
+      const secID = "11111111-1111-4111-8111-111111111111";
+      const drvID = "22222222-2222-4222-8222-222222222222";
+      writeFileSync(
+        join(wuDir, "wu-dev.json"),
+        JSON.stringify({
+          updates: [
+            { id: secID, revision: 200, title: "2026-10 Cumulative Update for Windows 11 (KB5099999)", kb: ["5099999"], classification: "Security Updates", severity: "Critical", release_date: Math.floor(Date.now() / 1000) - 20 * 86400 },
+            { id: drvID, revision: 1, title: "Acme Corp - Net - 1.2.3.4", classification: "Updates" },
+          ],
+        }),
+      );
       await page.getByRole("link", { name: "Devices" }).click();
       await page.getByTestId("device-row").first().click();
+      await page.getByRole("tab", { name: "Windows updates" }).click();
+      await page.getByRole("button", { name: "Scan now" }).click();
+      const devUpdates = page.getByRole("table", { name: "Windows updates on this device" });
+      await expect(devUpdates.getByText("KB5099999", { exact: true })).toBeVisible({ timeout: 60_000 });
+      await shot(page, "15-device-windows-updates");
+
+      // Catalog: approve the security update, leave the other one pending.
+      await page.getByRole("link", { name: "Windows updates" }).click();
+      await expect(page.getByRole("heading", { name: "Windows updates" })).toBeVisible();
+      const secRow = page.getByRole("row", { name: /KB5099999/ });
+      await expect(secRow).toBeVisible({ timeout: 15_000 });
+      await secRow.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "Approve", exact: true }).click();
+      await expect(secRow.getByText("approved")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("row", { name: /Acme Corp/ }).getByText("pending")).toBeVisible();
+      await shot(page, "16-updates-catalog");
+
+      // Policy: a ring over the saved group, a rule, and the update source.
+      await page.getByRole("link", { name: "Update policy" }).click();
+      await expect(page.getByRole("heading", { name: "Update policy" })).toBeVisible();
+      await page.getByRole("button", { name: "Add ring" }).click();
+      await page.getByRole("dialog").getByLabel("Name").fill("Pilot");
+      await page.getByRole("dialog").getByLabel("Groups").click();
+      await page.getByRole("option", { name: "Has lib packages" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Save ring" }).click();
+      await expect(page.getByRole("table", { name: "Update rings" }).getByText("Pilot")).toBeVisible({ timeout: 15_000 });
+      await page.mouse.move(0, 0); // a hovered toast does not time out and would cover the next button
+      await page.getByRole("button", { name: "Add rule" }).click();
+      await page.getByRole("dialog").getByLabel("Name").fill("Critical security");
+      await page.getByRole("dialog").getByLabel("Severities").click({ force: true });
+      await page.getByRole("option", { name: "Critical" }).click();
+      await page.getByRole("dialog").getByText("Add rule").click();
+      await page.getByRole("dialog").getByRole("button", { name: "Save rule" }).click();
+      await expect(page.getByRole("table", { name: "Auto-approval rules" }).getByText("Critical security")).toBeVisible({ timeout: 15_000 });
+      await shot(page, "17-update-policy");
+
+      // Install the other update by hand on the device; after a rescan it is no longer missing.
+      await page.getByRole("link", { name: "Devices" }).click();
+      await page.getByTestId("device-row").first().click();
+      await page.getByRole("tab", { name: "Windows updates" }).click();
+      await devUpdates.getByRole("row", { name: /Acme Corp/ }).getByRole("checkbox").check();
+      await page.getByRole("button", { name: "Install selected" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Install", exact: true }).click();
+      await expect(page.getByText("Install queued.")).toBeVisible();
+      await expect(async () => {
+        await page.getByRole("button", { name: "Scan now" }).click();
+        await expect(devUpdates.getByText("Acme Corp")).toHaveCount(0, { timeout: 15_000 });
+      }).toPass({ timeout: 90_000 });
+
+      // On the device page already: refresh, missing updates, uninstall from the inventory, then revoke and delete.
       await shot(page, "05-device-detail");
       await page.getByRole("button", { name: /Refresh/ }).click();
       await expect(page.getByText("Device information refreshed.")).toBeVisible({ timeout: 30_000 });

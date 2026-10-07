@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 	"time"
 
@@ -174,8 +175,7 @@ func (e *Engine) autoScan(ctx context.Context) time.Time {
 	}
 	now := e.now()
 	if raw := e.Store.GetMeta(metaWUNext); len(raw) > 0 {
-		var at int64
-		fmt.Sscanf(string(raw), "%d", &at)
+		at, _ := strconv.ParseInt(string(raw), 10, 64) // unreadable = scan now
 		if t := time.Unix(at, 0); now.Before(t) {
 			return t
 		}

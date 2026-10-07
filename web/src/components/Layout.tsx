@@ -28,6 +28,8 @@ export function Layout() {
     { to: "/software", label: "Software", perm: "devices:read" },
     { to: "/groups", label: "Groups", perm: "groups:read" },
     { to: "/catalog", label: "Catalog", perm: "catalog:read" },
+    { to: "/updates", label: "Windows updates", perm: "updates:read" },
+    { to: "/update-policy", label: "Update policy", perm: "updates:read" },
     { to: "/deployments", label: "Deployments", perm: "deployments:read" },
     { to: "/enrollment", label: "Enrollment", perm: "enrollment:read" },
     { to: "/audit", label: "Audit log", perm: "audit:read" },

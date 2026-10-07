@@ -2,15 +2,10 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Button, Checkbox, Group, Loader, MultiSelect, NumberInput, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
+import { hhmm, parseHHMM } from "../api/format";
 import { api, errorMessage, type Device, type DeploymentPlan, type DeploymentRequest, type Group as Grp, type PackageDetail, type Pkg } from "../api/client";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-const parseHHMM = (s: string) => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
-  return m ? Math.min(1439, Number(m[1]) * 60 + Number(m[2])) : 0;
-};
 
 export function NewDeploymentPage() {
   const [sp] = useSearchParams();

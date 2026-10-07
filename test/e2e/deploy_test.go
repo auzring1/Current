@@ -290,8 +290,15 @@ func TestDeviceRefreshAndUninstallFromInventory(t *testing.T) {
 		t.Fatalf("refresh: %d %v", st, r1)
 	}
 	st, r2 := h.do("POST", "/api/v1/devices/"+devID+"/refresh", map[string]any{}, nil)
-	if st != 202 || r2["job_id"] != r1["job_id"] {
-		t.Fatalf("a second refresh within two minutes should reuse the first: %d %v %v", st, r1, r2)
+	if st != 202 {
+		t.Fatalf("second refresh: %d %v", st, r2)
+	}
+	if r2["job_id"] != r1["job_id"] {
+		// A fast agent may already have finished the first job; only a job still in flight is reused.
+		if _, d := h.do("GET", "/api/v1/jobs/"+r1["job_id"].(string), nil, nil); d["status"] != "succeeded" {
+			t.Fatalf("a second refresh within two minutes should reuse the unfinished first: %v %v (first is %v)", r1, r2, d["status"])
+		}
+		r1 = r2
 	}
 	waitFor(t, 20*time.Second, "refresh job succeeded", func() bool {
 		_, d := h.do("GET", "/api/v1/jobs/"+r1["job_id"].(string), nil, nil)

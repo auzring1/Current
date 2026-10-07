@@ -123,7 +123,7 @@ I stop for review after each phase.
 - Deployments: targets, schedule, live status over SSE, per-device result log.
 - The VM test matrix (see ARCHITECTURE §7.9) runs before any package is marked as supported.
 
-### Phase 4: Windows and driver updates
+### Phase 4: Windows and driver updates *(implemented; see docs/ARCHITECTURE.md §0, SECURITY §9c and docs/demos/PHASE4-DEMO.md. WUA and restart paths are unverified on real Windows)*
 - WUA COM: scan (software and drivers, choice of WU, Microsoft Update or managed server), download, install, hide/unhide, reboot detection.
 - Update catalog on the server, approval rules (classification, severity, delay days), manual approve or decline.
 - Rings (pilot, then broad, with success thresholds), maintenance windows evaluated on the device, reboot policy (never, outside active hours, deadline with a user notice through the session notifier), and detection of conflicting WSUS/WUfB policy.

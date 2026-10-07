@@ -15,6 +15,7 @@ import { useSession } from "../api/session";
 import { OnlineDot, StatusBadge } from "../components/common";
 import { JobBadge } from "./DeploymentsPage";
 import { MissingUpdatesTab, SoftwareTab } from "../components/DeviceSoftware";
+import { WindowsUpdatesTab } from "../components/DeviceWindowsUpdates";
 import { JobModal } from "./DeploymentPage";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -141,6 +142,7 @@ export function DevicePage() {
               <Tabs.Tab value="overview">Overview</Tabs.Tab>
               <Tabs.Tab value="hardware">Hardware</Tabs.Tab>
               {can("deployments:read") && <Tabs.Tab value="updates">Missing updates</Tabs.Tab>}
+              {can("updates:read") && <Tabs.Tab value="winupdates">Windows updates</Tabs.Tab>}
               <Tabs.Tab value="software">Software{d.software_count ? ` (${d.software_count})` : ""}</Tabs.Tab>
               <Tabs.Tab value="users">Users</Tabs.Tab>
               {can("deployments:read") && <Tabs.Tab value="jobs">Jobs</Tabs.Tab>}
@@ -238,6 +240,12 @@ export function DevicePage() {
             {can("deployments:read") && (
               <Tabs.Panel value="updates" pt="md">
                 <MissingUpdatesTab id={id} hostname={d.hostname} active={d.status === "active"} />
+              </Tabs.Panel>
+            )}
+
+            {can("updates:read") && (
+              <Tabs.Panel value="winupdates" pt="md">
+                <WindowsUpdatesTab id={id} active={d.status === "active"} />
               </Tabs.Panel>
             )}
 

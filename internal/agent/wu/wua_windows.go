@@ -212,7 +212,7 @@ func stringsOf(d *disp, o *ole.IDispatch, prop string) []string {
 		if s, ok := v.Value().(string); ok {
 			out = append(out, s)
 		}
-		v.Clear()
+		_ = v.Clear() // release only; nothing to recover from
 	}
 	return out
 }
@@ -228,7 +228,7 @@ func toProto(d *disp, u *ole.IDispatch, state agentv1.WuUpdateState) *agentv1.Wu
 		if t, ok := v.Value().(time.Time); ok {
 			out.ReleaseDate = t.Unix()
 		}
-		v.Clear()
+		_ = v.Clear() // release only; nothing to recover from
 	}
 	out.IsDriver = integer(u, "Type") == 2
 	out.RebootRequired = integer(u, "RebootBehavior") != 0

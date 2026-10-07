@@ -32,3 +32,12 @@ export function duration(seconds: number | undefined): string {
 }
 
 export const dateTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString() : "—");
+
+/** Minutes after midnight as "HH:MM". */
+export const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/** "HH:MM" as minutes after midnight (0 when it does not parse). */
+export const parseHHMM = (s: string) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  return m ? Math.min(1439, Number(m[1]) * 60 + Math.min(59, Number(m[2]))) : 0;
+};

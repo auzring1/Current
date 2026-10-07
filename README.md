@@ -2,7 +2,7 @@
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 
-**Status: Phase 3 (software deployment) complete, awaiting review.** On top of Phases 1 and 2 (server, internal CA, enrollment, mTLS channel, MFA console, full software inventory) you can now import packages from winget or upload your own installers, deploy installs, updates and uninstalls to groups or devices (machine-wide or per user, with maintenance windows and expiry), and watch per-device results live. Every job is signed, typed and verified on the device; installers are hash- and signature-checked before they run. **The Windows-only execution paths (especially per-user installs) are not yet verified on real VMs**; see [docs/SECURITY.md §9b](docs/SECURITY.md) and the [Phase 3 demo](docs/demos/PHASE3-DEMO.md). Windows Update, rings, self-update and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
+**Status: Phase 4 (Windows and driver updates) complete, awaiting review.** On top of Phases 1–3 (server, internal CA, enrollment, mTLS channel, MFA console, software inventory and deployment) you can now see what Windows Update offers every device, approve or decline updates by hand or by rule, roll them out through rings (pilot first, with soak time and success thresholds that stop a bad update), set maintenance windows and restart policies (never, outside active hours, or by a deadline, always with a countdown users can see), install or hide updates on one device, and see devices whose updates are controlled by WSUS or Windows Update for Business. **The Windows Update COM code and the restart countdown have not run on a real machine yet**; see [docs/SECURITY.md §9c](docs/SECURITY.md) and the [Phase 4 demo](docs/demos/PHASE4-DEMO.md). Agent self-update, the MSI and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
 
 ## Quick start (production-style, one host)
 ```bash
@@ -16,7 +16,7 @@ Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Window
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
-- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md)
+- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md)
 
 ## Development
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
