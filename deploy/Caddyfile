@@ -11,12 +11,12 @@
 	# "internal" = Caddy's own CA (LAN installs); an email address = Let's Encrypt (ACME).
 	tls {$AUZ_CADDY_TLS}
 	encode zstd gzip
-	# Installer uploads are the only large request bodies.
-	@upload path /api/v1/catalog/content
+	# Installer and agent-release uploads are the only large request bodies.
+	@upload path /api/v1/catalog/content /api/v1/agent-releases
 	request_body @upload {
 		max_size 2GB
 	}
-	@api not path /api/v1/catalog/content
+	@api not path /api/v1/catalog/content /api/v1/agent-releases
 	request_body @api {
 		max_size 1MB
 	}

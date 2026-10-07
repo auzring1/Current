@@ -22,6 +22,7 @@ tags:
   - name: catalog
   - name: deployments
   - name: updates
+  - name: releases
 paths:
   /setup/status:
     get:
@@ -980,6 +981,94 @@ paths:
       responses:
         "204": { description: Released }
         "404": { $ref: "#/components/responses/Error" }
+  /agent-releases:
+    get:
+      tags: [releases]
+      summary: Stored agent releases, the rollout setting and its progress (requires releases:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, rollout, status]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AgentRelease" } }
+                  rollout: { $ref: "#/components/schemas/AgentRollout" }
+                  status: { $ref: "#/components/schemas/AgentRolloutStatus" }
+    post:
+      tags: [releases]
+      summary: Upload a vendor-signed agent release (requires releases:write; audited)
+      description: >
+        The agent binary is the raw request body (application/octet-stream). The vendor bundle (.azr, produced by
+        auzring-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
+        vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
+      parameters:
+        - { name: X-Release-Bundle, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentRelease" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /agent-releases/{id}/status:
+    post:
+      tags: [releases]
+      summary: Withdraw a release (never offered again; pauses the rollout if it was the target) or make it available again (requires releases:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [available, withdrawn] }
+      responses:
+        "204": { description: Changed }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /agent-releases/{id}:
+    delete:
+      tags: [releases]
+      summary: Delete a release that is not the rollout target (requires releases:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /agent-rollout:
+    get:
+      tags: [releases]
+      summary: Which release devices should run and how they get there (requires releases:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentRollout" }
+    put:
+      tags: [releases]
+      summary: Choose the target release, the pilot and the pacing; release_id null stops updating (requires releases:write; audited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgentRolloutInput" }
+      responses:
+        "204": { description: Saved }
+        "422": { $ref: "#/components/responses/Error" }
   /update-conflicts:
     get:
       tags: [updates]
@@ -1537,6 +1626,70 @@ components:
         active_end: { type: integer, minimum: 0, maximum: 1439 }
         notify_minutes: { type: integer, minimum: 0, maximum: 1440, description: Countdown shown to signed-in users (default 15) }
         deadline_hours: { type: integer, minimum: 0, maximum: 720, description: For deadline - restart at the latest this long after the install }
+    AgentRelease:
+      type: object
+      required: [id, version, os, arch, sha256, size, status, created_at, devices_on, is_target]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: string }
+        os: { type: string }
+        arch: { type: string }
+        sha256: { type: string }
+        size: { type: integer, format: int64 }
+        key_id: { type: string }
+        notes: { type: string }
+        authenticode_subject: { type: string }
+        min_version: { type: string }
+        status: { type: string, enum: [available, withdrawn] }
+        created_at: { type: string, format: date-time }
+        devices_on: { type: integer, format: int64, description: Active devices currently running this version }
+        is_target: { type: boolean }
+    AgentRollout:
+      type: object
+      required: [release_id, pilot_group_ids, soak_hours, success_threshold, batch_per_tick, paused]
+      properties:
+        release_id: { type: string, format: uuid, nullable: true }
+        pilot_group_ids: { type: array, items: { type: string, format: uuid } }
+        soak_hours: { type: integer }
+        success_threshold: { type: integer }
+        batch_per_tick: { type: integer }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        paused: { type: boolean }
+        paused_reason: { type: string }
+        started_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time, nullable: true }
+    AgentRolloutInput:
+      type: object
+      additionalProperties: false
+      required: [soak_hours, success_threshold, batch_per_tick]
+      properties:
+        release_id: { type: string, format: uuid, nullable: true }
+        pilot_group_ids: { type: array, items: { type: string, format: uuid }, maxItems: 50 }
+        soak_hours: { type: integer, minimum: 0, maximum: 720 }
+        success_threshold: { type: integer, minimum: 1, maximum: 100 }
+        batch_per_tick: { type: integer, minimum: 1, maximum: 1000 }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        paused: { type: boolean }
+    AgentRolloutStatus:
+      type: object
+      required: [versions, updated, failed, queued, pilot_devices, pilot_updated, pilot_failed, waiting]
+      properties:
+        versions:
+          type: array
+          items:
+            type: object
+            required: [version, devices, online]
+            properties:
+              version: { type: string }
+              devices: { type: integer, format: int64 }
+              online: { type: integer, format: int64 }
+        updated: { type: integer, format: int64 }
+        failed: { type: integer, format: int64 }
+        queued: { type: integer, format: int64 }
+        pilot_devices: { type: integer }
+        pilot_updated: { type: integer, format: int64 }
+        pilot_failed: { type: integer, format: int64 }
+        waiting: { type: string, description: Why devices outside the pilot are not being updated yet }
     UpdateSettings:
       type: object
       additionalProperties: false

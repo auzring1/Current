@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/auzring/internal/server/agentrel"
 	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/catalog"
 	"github.com/auzring1/auzring/internal/server/config"
@@ -51,6 +52,7 @@ type Deps struct {
 	Deploy    *deploy.Service
 	Catalog   *catalog.Service
 	Updates   *updates.Service
+	Releases  *agentrel.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -161,6 +163,12 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/install", s.installDeviceUpdates)
 	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/hide", s.hideDeviceUpdates)
 	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/reboot", s.rebootDevice)
+	r.With(s.require(auth.PermReleasesRead)).Get("/agent-releases", s.listAgentReleases)
+	r.With(s.require(auth.PermReleasesWrite)).Post("/agent-releases", s.uploadAgentRelease)
+	r.With(s.require(auth.PermReleasesWrite)).Post("/agent-releases/{id}/status", s.setAgentReleaseStatus)
+	r.With(s.require(auth.PermReleasesWrite)).Delete("/agent-releases/{id}", s.deleteAgentRelease)
+	r.With(s.require(auth.PermReleasesRead)).Get("/agent-rollout", s.getAgentRollout)
+	r.With(s.require(auth.PermReleasesWrite)).Put("/agent-rollout", s.putAgentRollout)
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/updates", s.deviceUpdates)
 	r.With(s.require(auth.PermDeploymentsWrite)).Post("/devices/{id}/software/uninstall", s.uninstallDeviceSoftware)
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/refresh", s.refreshDevice)

@@ -19,6 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/auzring1/auzring/gen/dbq"
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/auzring/internal/server/agentrel"
 	"github.com/auzring1/auzring/internal/server/api"
 	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/catalog"
@@ -35,15 +37,16 @@ import (
 
 // App is a running server.
 type App struct {
-	Cfg     *config.Config
-	Log     *slog.Logger
-	Pool    *pgxpool.Pool
-	Sealer  *kek.Sealer
-	Events  *events.Broker
-	Hub     *gateway.Hub
-	Deploy  *deploy.Service
-	Updates *updates.Service
-	Catalog *catalog.Service
+	Cfg      *config.Config
+	Log      *slog.Logger
+	Pool     *pgxpool.Pool
+	Sealer   *kek.Sealer
+	Events   *events.Broker
+	Hub      *gateway.Hub
+	Deploy   *deploy.Service
+	Updates  *updates.Service
+	Releases *agentrel.Service
+	Catalog  *catalog.Service
 
 	authority atomic.Pointer[pki.Authority]
 
@@ -83,8 +86,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		GatewayReady: make(chan struct{})}
 	a.Deploy = &deploy.Service{Pool: pool, Authority: a.Authority, Dispatcher: a.Hub, Events: a.Events, Log: log.With("component", "deploy")}
 	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
-	a.Deploy.AfterTerminal = a.Updates.AfterJob
 	a.Catalog = newCatalog(cfg, pool)
+	a.Releases = &agentrel.Service{Pool: pool, Deploy: a.Deploy, Content: a.Catalog.Content, Events: a.Events, Log: log.With("component", "agentrel")}
+	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
+		a.Updates.AfterJob(ctx, j, status, u)
+		a.Releases.AfterJob(ctx, j, status, u)
+	}
 	q := dbq.New(pool)
 	if err := q.MarkAllDevicesOffline(ctx); err != nil {
 		pool.Close()
@@ -186,7 +193,7 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases,
 	}, webui.Handler())
 }
 
@@ -296,6 +303,7 @@ func (a *App) housekeeping(ctx context.Context) {
 		case <-t.C:
 			a.Deploy.Sweep(ctx)
 			a.Updates.Tick(ctx)
+			a.Releases.Tick(ctx)
 			n++
 			if n%1440 == 0 {
 				a.Updates.Prune(ctx)

@@ -252,3 +252,22 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 	}
 	return &b, nil
 }
+
+// ParseUnverified parses and validates a manifest WITHOUT checking its signature. Only for code
+// that is already trusted to have verified it (the customer server reading a release it stored
+// after verification); agents must always use Verify.
+func ParseUnverified(manifest []byte) (*Manifest, error) {
+	if len(manifest) == 0 || len(manifest) > MaxManifestBytes {
+		return nil, errors.New("release: manifest size is out of range")
+	}
+	var m Manifest
+	dec := json.NewDecoder(bytes.NewReader(manifest))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&m); err != nil {
+		return nil, fmt.Errorf("release: bad manifest: %w", err)
+	}
+	if err := m.validate(); err != nil {
+		return nil, err
+	}
+	return &m, nil
+}

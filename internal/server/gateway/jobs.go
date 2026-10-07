@@ -15,6 +15,7 @@ import (
 	"github.com/auzring1/auzring/gen/dbq"
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/server/deploy"
+	"github.com/auzring1/auzring/internal/shared/release"
 )
 
 const contentChunk = 256 << 10
@@ -102,19 +103,30 @@ func (g *Gateway) FetchContent(req *agentv1.FetchContentRequest, stream agentv1.
 		return status.Error(codes.FailedPrecondition, "the job has expired")
 	}
 	var env agentv1.JobEnvelope
-	if err := proto.Unmarshal(job.Body, &env); err != nil || env.GetInstall() == nil || env.GetInstall().Installer == nil ||
-		!bytes.Equal(env.GetInstall().Installer.Sha256, req.Sha256) {
-		g.securityAudit(ctx, dbq.Device{ID: ident.DeviceID, OrgID: job.OrgID}, "content_request_not_matching_job")
+	if err := proto.Unmarshal(job.Body, &env); err != nil {
 		return status.Error(codes.PermissionDenied, "that content is not part of this job")
 	}
-	hasServer := false
-	for _, s := range env.GetInstall().Installer.Sources {
-		if s.Kind == agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_SERVER {
-			hasServer = true
+	switch {
+	case env.GetInstall() != nil && env.GetInstall().Installer != nil && bytes.Equal(env.GetInstall().Installer.Sha256, req.Sha256):
+		hasServer := false
+		for _, s := range env.GetInstall().Installer.Sources {
+			if s.Kind == agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_SERVER {
+				hasServer = true
+			}
 		}
-	}
-	if !hasServer {
-		return status.Error(codes.PermissionDenied, "the job does not use server content")
+		if !hasServer {
+			return status.Error(codes.PermissionDenied, "the job does not use server content")
+		}
+	case env.GetAgentUpdate() != nil:
+		// The agent binary named by the (vendor-signed) manifest inside this job.
+		m, err := release.ParseUnverified(env.GetAgentUpdate().Manifest)
+		if err != nil || !bytes.Equal(m.SHA256Bytes(), req.Sha256) {
+			g.securityAudit(ctx, dbq.Device{ID: ident.DeviceID, OrgID: job.OrgID}, "content_request_not_matching_job")
+			return status.Error(codes.PermissionDenied, "that content is not part of this job")
+		}
+	default:
+		g.securityAudit(ctx, dbq.Device{ID: ident.DeviceID, OrgID: job.OrgID}, "content_request_not_matching_job")
+		return status.Error(codes.PermissionDenied, "that content is not part of this job")
 	}
 	f, size, err := g.content.Open(job.OrgID, req.Sha256)
 	if err != nil {
