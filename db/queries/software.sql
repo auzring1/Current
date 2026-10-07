@@ -89,7 +89,8 @@ ORDER BY lower(si.name), si.scope, si.user_sid, si.source, si.item_key;
 
 -- name: ListDeviceSoftwareHistory :many
 SELECT id, title_id, name, scope, user_sid, change, old_version, new_version, observed_at
-FROM software_history WHERE device_id = $1 AND ($2::bigint = 0 OR id < $2) ORDER BY id DESC LIMIT $3;
+FROM software_history WHERE device_id = @device_id::uuid AND (@before_id::bigint = 0 OR id < @before_id::bigint)
+ORDER BY id DESC LIMIT @row_limit::int;
 
 -- name: ReplaceUsersDelete :exec
 DELETE FROM device_users WHERE device_id = $1 AND NOT (sid = ANY(@sids::text[]));
@@ -110,3 +111,43 @@ UPDATE devices SET users_rev = $2 WHERE id = $1;
 
 -- name: ListDeviceUsers :many
 SELECT * FROM device_users WHERE device_id = $1 ORDER BY loaded DESC, lower(username), sid;
+
+-- name: SearchSoftwareTitles :many
+-- Fleet-wide software list: one row per product with how many (active) devices have it.
+SELECT st.id, st.display_name, st.display_publisher,
+       count(DISTINCT si.device_id)::int AS device_count,
+       count(DISTINCT si.version)::int AS version_count,
+       count(*) OVER ()::bigint AS total
+FROM software_titles st
+JOIN software_installs si ON si.title_id = st.id
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE st.org_id = @org_id::uuid
+  AND (@include_system::boolean OR NOT si.system_component)
+  AND (@q::text = '' OR strpos(st.normalized_name, @q::text) > 0 OR strpos(st.normalized_publisher, @q::text) > 0)
+GROUP BY st.id
+ORDER BY device_count DESC, lower(st.display_name), st.id
+LIMIT @row_limit::int OFFSET @row_offset::int;
+
+-- name: GetSoftwareTitle :one
+SELECT * FROM software_titles WHERE id = @id::uuid AND org_id = @org_id::uuid;
+
+-- name: ListTitleVersions :many
+-- Versions of one product across the fleet, newest first (by comparable version key).
+SELECT si.version, count(DISTINCT si.device_id)::int AS device_count
+FROM software_installs si
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE si.title_id = @title_id::uuid AND d.org_id = @org_id::uuid
+GROUP BY si.version, si.version_key
+ORDER BY si.version_key DESC NULLS LAST, si.version;
+
+-- name: ListTitleInstalls :many
+SELECT d.id AS device_id, d.hostname, d.online, si.version, si.scope, si.user_sid, si.source,
+       si.install_date, si.install_location, si.last_seen_at,
+       count(*) OVER ()::bigint AS total
+FROM software_installs si
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE si.title_id = @title_id::uuid AND d.org_id = @org_id::uuid
+  AND (@version::text = '' OR si.version = @version::text)
+  AND (sqlc.narg('older_than')::bytea IS NULL OR si.version_key < sqlc.narg('older_than')::bytea)
+ORDER BY lower(d.hostname), d.id, si.user_sid, si.source, si.item_key
+LIMIT @row_limit::int OFFSET @row_offset::int;

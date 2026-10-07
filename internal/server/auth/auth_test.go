@@ -87,8 +87,13 @@ func TestRecoveryCodes(t *testing.T) {
 }
 
 func TestRBAC(t *testing.T) {
-	if p := PermissionsFor([]string{RoleReadOnly}); len(p) != 1 || p[0] != PermDevicesRead {
+	if p := PermissionsFor([]string{RoleReadOnly}); len(p) != 2 || p[0] != PermDevicesRead || p[1] != PermGroupsRead {
 		t.Fatal(p)
+	}
+	for _, x := range PermissionsFor([]string{RoleReadOnly}) {
+		if x == PermInventoryExport || x == PermGroupsWrite {
+			t.Fatal("read-only must not export or edit groups")
+		}
 	}
 	p := PermissionsFor([]string{RoleOperator, RoleReadOnly})
 	for _, x := range p {

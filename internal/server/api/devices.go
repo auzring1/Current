@@ -20,30 +20,34 @@ import (
 )
 
 type deviceView struct {
-	ID               uuid.UUID       `json:"id"`
-	SiteID           uuid.UUID       `json:"site_id"`
-	Status           string          `json:"status"`
-	StatusReason     string          `json:"status_reason"`
-	Hostname         string          `json:"hostname"`
-	OSCaption        string          `json:"os_caption"`
-	OSBuild          string          `json:"os_build"`
-	Arch             string          `json:"arch"`
-	AgentVersion     string          `json:"agent_version"`
-	Manufacturer     string          `json:"manufacturer"`
-	Model            string          `json:"model"`
-	Serial           string          `json:"serial"`
-	Online           bool            `json:"online"`
-	LastSeenAt       *time.Time      `json:"last_seen_at"`
-	LastIP           string          `json:"last_ip"`
-	EnrolledAt       time.Time       `json:"enrolled_at"`
-	ApprovedAt       *time.Time      `json:"approved_at"`
-	RevokedAt        *time.Time      `json:"revoked_at"`
-	UptimeS          int64           `json:"uptime_s"`
-	PendingReboot    bool            `json:"pending_reboot"`
-	LoggedOnUser     string          `json:"logged_on_user"`
-	ReplacesDeviceID *uuid.UUID      `json:"replaces_device_id"`
-	Hardware         json.RawMessage `json:"hardware,omitempty"`
-	Certificates     []certView      `json:"certificates,omitempty"`
+	ID                 uuid.UUID       `json:"id"`
+	SiteID             uuid.UUID       `json:"site_id"`
+	Status             string          `json:"status"`
+	StatusReason       string          `json:"status_reason"`
+	Hostname           string          `json:"hostname"`
+	OSCaption          string          `json:"os_caption"`
+	OSBuild            string          `json:"os_build"`
+	Arch               string          `json:"arch"`
+	AgentVersion       string          `json:"agent_version"`
+	Manufacturer       string          `json:"manufacturer"`
+	Model              string          `json:"model"`
+	Serial             string          `json:"serial"`
+	Online             bool            `json:"online"`
+	LastSeenAt         *time.Time      `json:"last_seen_at"`
+	LastIP             string          `json:"last_ip"`
+	EnrolledAt         time.Time       `json:"enrolled_at"`
+	ApprovedAt         *time.Time      `json:"approved_at"`
+	RevokedAt          *time.Time      `json:"revoked_at"`
+	UptimeS            int64           `json:"uptime_s"`
+	PendingReboot      bool            `json:"pending_reboot"`
+	LoggedOnUser       string          `json:"logged_on_user"`
+	ReplacesDeviceID   *uuid.UUID      `json:"replaces_device_id"`
+	Chassis            string          `json:"chassis"`
+	SoftwareCount      int32           `json:"software_count"`
+	SoftwareUpdatedAt  *time.Time      `json:"software_updated_at"`
+	InventoryTruncated bool            `json:"inventory_truncated"`
+	Hardware           json.RawMessage `json:"hardware,omitempty"`
+	Certificates       []certView      `json:"certificates,omitempty"`
 }
 
 type certView struct {
@@ -87,7 +91,8 @@ func (s *server) listDevices(w http.ResponseWriter, r *http.Request) {
 			Hostname: d.Hostname, OSCaption: d.OsCaption, OSBuild: d.OsBuild, Arch: d.Arch, AgentVersion: d.AgentVersion,
 			Manufacturer: d.Manufacturer, Model: d.Model, Serial: d.Serial, Online: d.Online, LastSeenAt: d.LastSeenAt,
 			LastIP: d.LastIp, EnrolledAt: d.EnrolledAt, ApprovedAt: d.ApprovedAt, RevokedAt: d.RevokedAt,
-			UptimeS: d.UptimeS, PendingReboot: d.PendingReboot, LoggedOnUser: d.LoggedOnUser, ReplacesDeviceID: d.ReplacesDeviceID})
+			UptimeS: d.UptimeS, PendingReboot: d.PendingReboot, LoggedOnUser: d.LoggedOnUser, ReplacesDeviceID: d.ReplacesDeviceID,
+			Chassis: d.Chassis, SoftwareCount: d.SoftwareCount, SoftwareUpdatedAt: d.SoftwareUpdatedAt})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
@@ -118,7 +123,8 @@ func (s *server) getDevice(w http.ResponseWriter, r *http.Request) {
 		OSCaption: d.OsCaption, OSBuild: d.OsBuild, Arch: d.Arch, AgentVersion: d.AgentVersion, Serial: d.Serial,
 		Online: d.Online, LastSeenAt: d.LastSeenAt, LastIP: d.LastIp, EnrolledAt: d.EnrolledAt, ApprovedAt: d.ApprovedAt,
 		RevokedAt: d.RevokedAt, UptimeS: d.UptimeS, PendingReboot: d.PendingReboot, LoggedOnUser: d.LoggedOnUser,
-		ReplacesDeviceID: d.ReplacesDeviceID, Certificates: []certView{}}
+		ReplacesDeviceID: d.ReplacesDeviceID, Certificates: []certView{}, Chassis: d.Chassis,
+		SoftwareCount: d.SoftwareCount, SoftwareUpdatedAt: d.SoftwareUpdatedAt, InventoryTruncated: d.InventoryTruncated}
 	if len(d.Hardware) > 0 {
 		v.Hardware = d.Hardware
 		var hw struct {

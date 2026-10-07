@@ -110,6 +110,25 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
 
+	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
+	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software/history", s.deviceSoftwareHistory)
+	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/users", s.deviceUsers)
+
+	r.With(s.require(auth.PermDevicesRead)).Get("/software", s.searchSoftware)
+	r.With(s.require(auth.PermDevicesRead)).Get("/software/{id}", s.getSoftware)
+	r.With(s.require(auth.PermDevicesRead)).Get("/software/{id}/installs", s.titleInstalls)
+
+	r.With(s.require(auth.PermGroupsRead)).Get("/groups", s.listGroups)
+	r.With(s.require(auth.PermGroupsWrite)).Post("/groups", s.createGroup)
+	r.With(s.require(auth.PermGroupsRead)).Post("/groups/preview", s.previewGroup)
+	r.With(s.require(auth.PermGroupsRead)).Get("/groups/{id}", s.getGroup)
+	r.With(s.require(auth.PermGroupsWrite)).Put("/groups/{id}", s.updateGroup)
+	r.With(s.require(auth.PermGroupsWrite)).Delete("/groups/{id}", s.deleteGroup)
+	r.With(s.require(auth.PermGroupsRead)).Get("/groups/{id}/devices", s.groupDevices)
+
+	r.With(s.require(auth.PermInventoryExport)).Get("/reports/software.csv", s.softwareCSV)
+	r.With(s.require(auth.PermInventoryExport)).Get("/reports/devices.csv", s.devicesCSV)
+
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens", s.createToken)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens/{id}/revoke", s.revokeToken)
