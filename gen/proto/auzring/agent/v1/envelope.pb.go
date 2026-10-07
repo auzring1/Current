@@ -426,6 +426,12 @@ type RebootAllow int32
 const (
 	RebootAllow_REBOOT_ALLOW_UNSPECIFIED RebootAllow = 0
 	RebootAllow_REBOOT_ALLOW_NEVER       RebootAllow = 1 // report "reboot required" only
+	// Restart when a reboot is required, at the first moment outside the active hours (with a short notice).
+	RebootAllow_REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS RebootAllow = 2
+	// Restart at deadline_at at the latest; signed-in users get notify_minutes of countdown.
+	RebootAllow_REBOOT_ALLOW_DEADLINE RebootAllow = 3
+	// Restart now, giving signed-in users notify_minutes of countdown (RebootBody only).
+	RebootAllow_REBOOT_ALLOW_NOW RebootAllow = 4
 )
 
 // Enum value maps for RebootAllow.
@@ -433,10 +439,16 @@ var (
 	RebootAllow_name = map[int32]string{
 		0: "REBOOT_ALLOW_UNSPECIFIED",
 		1: "REBOOT_ALLOW_NEVER",
+		2: "REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS",
+		3: "REBOOT_ALLOW_DEADLINE",
+		4: "REBOOT_ALLOW_NOW",
 	}
 	RebootAllow_value = map[string]int32{
-		"REBOOT_ALLOW_UNSPECIFIED": 0,
-		"REBOOT_ALLOW_NEVER":       1,
+		"REBOOT_ALLOW_UNSPECIFIED":          0,
+		"REBOOT_ALLOW_NEVER":                1,
+		"REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS": 2,
+		"REBOOT_ALLOW_DEADLINE":             3,
+		"REBOOT_ALLOW_NOW":                  4,
 	}
 )
 
@@ -465,6 +477,59 @@ func (x RebootAllow) Number() protoreflect.EnumNumber {
 // Deprecated: Use RebootAllow.Descriptor instead.
 func (RebootAllow) EnumDescriptor() ([]byte, []int) {
 	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
+}
+
+// WuService chooses which update service a scan or install talks to.
+type WuService int32
+
+const (
+	WuService_WU_SERVICE_UNSPECIFIED      WuService = 0
+	WuService_WU_SERVICE_DEFAULT          WuService = 1 // whatever the machine is configured for (WSUS if policy sets one)
+	WuService_WU_SERVICE_WINDOWS_UPDATE   WuService = 2 // Windows Update on the internet
+	WuService_WU_SERVICE_MICROSOFT_UPDATE WuService = 3 // Microsoft Update (Office and other Microsoft products as well)
+)
+
+// Enum value maps for WuService.
+var (
+	WuService_name = map[int32]string{
+		0: "WU_SERVICE_UNSPECIFIED",
+		1: "WU_SERVICE_DEFAULT",
+		2: "WU_SERVICE_WINDOWS_UPDATE",
+		3: "WU_SERVICE_MICROSOFT_UPDATE",
+	}
+	WuService_value = map[string]int32{
+		"WU_SERVICE_UNSPECIFIED":      0,
+		"WU_SERVICE_DEFAULT":          1,
+		"WU_SERVICE_WINDOWS_UPDATE":   2,
+		"WU_SERVICE_MICROSOFT_UPDATE": 3,
+	}
+)
+
+func (x WuService) Enum() *WuService {
+	p := new(WuService)
+	*p = x
+	return p
+}
+
+func (x WuService) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WuService) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_envelope_proto_enumTypes[8].Descriptor()
+}
+
+func (WuService) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[8]
+}
+
+func (x WuService) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WuService.Descriptor instead.
+func (WuService) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
 }
 
 type UninstallMethod int32
@@ -500,11 +565,11 @@ func (x UninstallMethod) String() string {
 }
 
 func (UninstallMethod) Descriptor() protoreflect.EnumDescriptor {
-	return file_auzring_agent_v1_envelope_proto_enumTypes[8].Descriptor()
+	return file_auzring_agent_v1_envelope_proto_enumTypes[9].Descriptor()
 }
 
 func (UninstallMethod) Type() protoreflect.EnumType {
-	return &file_auzring_agent_v1_envelope_proto_enumTypes[8]
+	return &file_auzring_agent_v1_envelope_proto_enumTypes[9]
 }
 
 func (x UninstallMethod) Number() protoreflect.EnumNumber {
@@ -513,7 +578,7 @@ func (x UninstallMethod) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UninstallMethod.Descriptor instead.
 func (UninstallMethod) EnumDescriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
 }
 
 // SignedEnvelope carries a job. The signature covers exactly `payload`
@@ -599,6 +664,10 @@ type JobEnvelope struct {
 	//
 	//	*JobEnvelope_Install
 	//	*JobEnvelope_Uninstall
+	//	*JobEnvelope_WuScan
+	//	*JobEnvelope_WuInstall
+	//	*JobEnvelope_WuHide
+	//	*JobEnvelope_Reboot
 	//	*JobEnvelope_Inventory
 	//	*JobEnvelope_Cancel
 	Body          isJobEnvelope_Body `protobuf_oneof:"body"`
@@ -752,6 +821,42 @@ func (x *JobEnvelope) GetUninstall() *UninstallBody {
 	return nil
 }
 
+func (x *JobEnvelope) GetWuScan() *WuScanBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_WuScan); ok {
+			return x.WuScan
+		}
+	}
+	return nil
+}
+
+func (x *JobEnvelope) GetWuInstall() *WuInstallBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_WuInstall); ok {
+			return x.WuInstall
+		}
+	}
+	return nil
+}
+
+func (x *JobEnvelope) GetWuHide() *WuHideBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_WuHide); ok {
+			return x.WuHide
+		}
+	}
+	return nil
+}
+
+func (x *JobEnvelope) GetReboot() *RebootBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_Reboot); ok {
+			return x.Reboot
+		}
+	}
+	return nil
+}
+
 func (x *JobEnvelope) GetInventory() *InventoryBody {
 	if x != nil {
 		if x, ok := x.Body.(*JobEnvelope_Inventory); ok {
@@ -782,6 +887,22 @@ type JobEnvelope_Uninstall struct {
 	Uninstall *UninstallBody `protobuf:"bytes,21,opt,name=uninstall,proto3,oneof"`
 }
 
+type JobEnvelope_WuScan struct {
+	WuScan *WuScanBody `protobuf:"bytes,22,opt,name=wu_scan,json=wuScan,proto3,oneof"`
+}
+
+type JobEnvelope_WuInstall struct {
+	WuInstall *WuInstallBody `protobuf:"bytes,23,opt,name=wu_install,json=wuInstall,proto3,oneof"`
+}
+
+type JobEnvelope_WuHide struct {
+	WuHide *WuHideBody `protobuf:"bytes,24,opt,name=wu_hide,json=wuHide,proto3,oneof"`
+}
+
+type JobEnvelope_Reboot struct {
+	Reboot *RebootBody `protobuf:"bytes,25,opt,name=reboot,proto3,oneof"`
+}
+
 type JobEnvelope_Inventory struct {
 	Inventory *InventoryBody `protobuf:"bytes,26,opt,name=inventory,proto3,oneof"`
 }
@@ -793,6 +914,14 @@ type JobEnvelope_Cancel struct {
 func (*JobEnvelope_Install) isJobEnvelope_Body() {}
 
 func (*JobEnvelope_Uninstall) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_WuScan) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_WuInstall) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_WuHide) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_Reboot) isJobEnvelope_Body() {}
 
 func (*JobEnvelope_Inventory) isJobEnvelope_Body() {}
 
@@ -1232,6 +1361,438 @@ func (x *Preconditions) GetOsBuildMin() uint32 {
 	return 0
 }
 
+// ActiveHours are device-local minutes after midnight when the user is likely working. A range
+// that wraps midnight (start > end) is allowed. Equal values mean "no active hours".
+type ActiveHours struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StartMinute   uint32                 `protobuf:"varint,1,opt,name=start_minute,json=startMinute,proto3" json:"start_minute,omitempty"`
+	EndMinute     uint32                 `protobuf:"varint,2,opt,name=end_minute,json=endMinute,proto3" json:"end_minute,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActiveHours) Reset() {
+	*x = ActiveHours{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActiveHours) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActiveHours) ProtoMessage() {}
+
+func (x *ActiveHours) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActiveHours.ProtoReflect.Descriptor instead.
+func (*ActiveHours) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ActiveHours) GetStartMinute() uint32 {
+	if x != nil {
+		return x.StartMinute
+	}
+	return 0
+}
+
+func (x *ActiveHours) GetEndMinute() uint32 {
+	if x != nil {
+		return x.EndMinute
+	}
+	return 0
+}
+
+// RebootPolicy says what the agent may do when an installation leaves the machine needing a restart.
+type RebootPolicy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allow         RebootAllow            `protobuf:"varint,1,opt,name=allow,proto3,enum=auzring.agent.v1.RebootAllow" json:"allow,omitempty"`
+	ActiveHours   *ActiveHours           `protobuf:"bytes,2,opt,name=active_hours,json=activeHours,proto3" json:"active_hours,omitempty"`
+	DeadlineAt    int64                  `protobuf:"varint,3,opt,name=deadline_at,json=deadlineAt,proto3" json:"deadline_at,omitempty"`          // unix seconds; REBOOT_ALLOW_DEADLINE
+	NotifyMinutes uint32                 `protobuf:"varint,4,opt,name=notify_minutes,json=notifyMinutes,proto3" json:"notify_minutes,omitempty"` // countdown shown to signed-in users, 1..1440
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RebootPolicy) Reset() {
+	*x = RebootPolicy{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RebootPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RebootPolicy) ProtoMessage() {}
+
+func (x *RebootPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RebootPolicy.ProtoReflect.Descriptor instead.
+func (*RebootPolicy) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RebootPolicy) GetAllow() RebootAllow {
+	if x != nil {
+		return x.Allow
+	}
+	return RebootAllow_REBOOT_ALLOW_UNSPECIFIED
+}
+
+func (x *RebootPolicy) GetActiveHours() *ActiveHours {
+	if x != nil {
+		return x.ActiveHours
+	}
+	return nil
+}
+
+func (x *RebootPolicy) GetDeadlineAt() int64 {
+	if x != nil {
+		return x.DeadlineAt
+	}
+	return 0
+}
+
+func (x *RebootPolicy) GetNotifyMinutes() uint32 {
+	if x != nil {
+		return x.NotifyMinutes
+	}
+	return 0
+}
+
+type WuScanBody struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=auzring.agent.v1.WuService" json:"service,omitempty"`
+	IncludeDrivers bool                   `protobuf:"varint,2,opt,name=include_drivers,json=includeDrivers,proto3" json:"include_drivers,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *WuScanBody) Reset() {
+	*x = WuScanBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuScanBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuScanBody) ProtoMessage() {}
+
+func (x *WuScanBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuScanBody.ProtoReflect.Descriptor instead.
+func (*WuScanBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WuScanBody) GetService() WuService {
+	if x != nil {
+		return x.Service
+	}
+	return WuService_WU_SERVICE_UNSPECIFIED
+}
+
+func (x *WuScanBody) GetIncludeDrivers() bool {
+	if x != nil {
+		return x.IncludeDrivers
+	}
+	return false
+}
+
+type WuUpdateRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UpdateId      string                 `protobuf:"bytes,1,opt,name=update_id,json=updateId,proto3" json:"update_id,omitempty"` // UUID of the update identity
+	Revision      int32                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`                // 0 = whatever revision the scan finds
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WuUpdateRef) Reset() {
+	*x = WuUpdateRef{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuUpdateRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuUpdateRef) ProtoMessage() {}
+
+func (x *WuUpdateRef) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuUpdateRef.ProtoReflect.Descriptor instead.
+func (*WuUpdateRef) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *WuUpdateRef) GetUpdateId() string {
+	if x != nil {
+		return x.UpdateId
+	}
+	return ""
+}
+
+func (x *WuUpdateRef) GetRevision() int32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+// WuInstallBody installs exactly the listed updates (found by a fresh scan, never by title).
+type WuInstallBody struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=auzring.agent.v1.WuService" json:"service,omitempty"`
+	IncludeDrivers bool                   `protobuf:"varint,2,opt,name=include_drivers,json=includeDrivers,proto3" json:"include_drivers,omitempty"`
+	Updates        []*WuUpdateRef         `protobuf:"bytes,3,rep,name=updates,proto3" json:"updates,omitempty"` // 1..200
+	Reboot         *RebootPolicy          `protobuf:"bytes,4,opt,name=reboot,proto3" json:"reboot,omitempty"`
+	TimeoutS       uint32                 `protobuf:"varint,5,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
+	MaxRetries     uint32                 `protobuf:"varint,6,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	RetryBackoffS  uint32                 `protobuf:"varint,7,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *WuInstallBody) Reset() {
+	*x = WuInstallBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuInstallBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuInstallBody) ProtoMessage() {}
+
+func (x *WuInstallBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuInstallBody.ProtoReflect.Descriptor instead.
+func (*WuInstallBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *WuInstallBody) GetService() WuService {
+	if x != nil {
+		return x.Service
+	}
+	return WuService_WU_SERVICE_UNSPECIFIED
+}
+
+func (x *WuInstallBody) GetIncludeDrivers() bool {
+	if x != nil {
+		return x.IncludeDrivers
+	}
+	return false
+}
+
+func (x *WuInstallBody) GetUpdates() []*WuUpdateRef {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+func (x *WuInstallBody) GetReboot() *RebootPolicy {
+	if x != nil {
+		return x.Reboot
+	}
+	return nil
+}
+
+func (x *WuInstallBody) GetTimeoutS() uint32 {
+	if x != nil {
+		return x.TimeoutS
+	}
+	return 0
+}
+
+func (x *WuInstallBody) GetMaxRetries() uint32 {
+	if x != nil {
+		return x.MaxRetries
+	}
+	return 0
+}
+
+func (x *WuInstallBody) GetRetryBackoffS() uint32 {
+	if x != nil {
+		return x.RetryBackoffS
+	}
+	return 0
+}
+
+type WuHideBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Service       WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=auzring.agent.v1.WuService" json:"service,omitempty"`
+	Updates       []*WuUpdateRef         `protobuf:"bytes,2,rep,name=updates,proto3" json:"updates,omitempty"`
+	Hide          bool                   `protobuf:"varint,3,opt,name=hide,proto3" json:"hide,omitempty"` // false = unhide
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WuHideBody) Reset() {
+	*x = WuHideBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuHideBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuHideBody) ProtoMessage() {}
+
+func (x *WuHideBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuHideBody.ProtoReflect.Descriptor instead.
+func (*WuHideBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *WuHideBody) GetService() WuService {
+	if x != nil {
+		return x.Service
+	}
+	return WuService_WU_SERVICE_UNSPECIFIED
+}
+
+func (x *WuHideBody) GetUpdates() []*WuUpdateRef {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+func (x *WuHideBody) GetHide() bool {
+	if x != nil {
+		return x.Hide
+	}
+	return false
+}
+
+type RebootBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reboot        *RebootPolicy          `protobuf:"bytes,1,opt,name=reboot,proto3" json:"reboot,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"` // shown to signed-in users, plain text, bounded
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RebootBody) Reset() {
+	*x = RebootBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RebootBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RebootBody) ProtoMessage() {}
+
+func (x *RebootBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RebootBody.ProtoReflect.Descriptor instead.
+func (*RebootBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *RebootBody) GetReboot() *RebootPolicy {
+	if x != nil {
+		return x.Reboot
+	}
+	return nil
+}
+
+func (x *RebootBody) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 type InstallBody struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	PackageId      string                 `protobuf:"bytes,1,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"` // catalog identifier, informational
@@ -1253,7 +1814,7 @@ type InstallBody struct {
 
 func (x *InstallBody) Reset() {
 	*x = InstallBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1265,7 +1826,7 @@ func (x *InstallBody) String() string {
 func (*InstallBody) ProtoMessage() {}
 
 func (x *InstallBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[8]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1278,7 +1839,7 @@ func (x *InstallBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallBody.ProtoReflect.Descriptor instead.
 func (*InstallBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *InstallBody) GetPackageId() string {
@@ -1397,7 +1958,7 @@ type UninstallBody struct {
 
 func (x *UninstallBody) Reset() {
 	*x = UninstallBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1409,7 +1970,7 @@ func (x *UninstallBody) String() string {
 func (*UninstallBody) ProtoMessage() {}
 
 func (x *UninstallBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[9]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1422,7 +1983,7 @@ func (x *UninstallBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UninstallBody.ProtoReflect.Descriptor instead.
 func (*UninstallBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UninstallBody) GetPackageId() string {
@@ -1518,7 +2079,7 @@ type CancelBody struct {
 
 func (x *CancelBody) Reset() {
 	*x = CancelBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1530,7 +2091,7 @@ func (x *CancelBody) String() string {
 func (*CancelBody) ProtoMessage() {}
 
 func (x *CancelBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[10]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1543,7 +2104,7 @@ func (x *CancelBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelBody.ProtoReflect.Descriptor instead.
 func (*CancelBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{10}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CancelBody) GetJobId() string {
@@ -1563,7 +2124,7 @@ type InventoryBody struct {
 
 func (x *InventoryBody) Reset() {
 	*x = InventoryBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1575,7 +2136,7 @@ func (x *InventoryBody) String() string {
 func (*InventoryBody) ProtoMessage() {}
 
 func (x *InventoryBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[11]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1588,7 +2149,7 @@ func (x *InventoryBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventoryBody.ProtoReflect.Descriptor instead.
 func (*InventoryBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{11}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *InventoryBody) GetSections() []uint32 {
@@ -1606,7 +2167,7 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x0eSignedEnvelope\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xb3\x05\n" +
+	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\x9f\a\n" +
 	"\vJobEnvelope\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x15\n" +
@@ -1625,7 +2186,12 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x04type\x18\r \x01(\x0e2\x19.auzring.agent.v1.JobTypeR\x04type\x12;\n" +
 	"\x06window\x18\f \x01(\v2#.auzring.agent.v1.MaintenanceWindowR\x06window\x129\n" +
 	"\ainstall\x18\x14 \x01(\v2\x1d.auzring.agent.v1.InstallBodyH\x00R\ainstall\x12?\n" +
-	"\tuninstall\x18\x15 \x01(\v2\x1f.auzring.agent.v1.UninstallBodyH\x00R\tuninstall\x12?\n" +
+	"\tuninstall\x18\x15 \x01(\v2\x1f.auzring.agent.v1.UninstallBodyH\x00R\tuninstall\x127\n" +
+	"\awu_scan\x18\x16 \x01(\v2\x1c.auzring.agent.v1.WuScanBodyH\x00R\x06wuScan\x12@\n" +
+	"\n" +
+	"wu_install\x18\x17 \x01(\v2\x1f.auzring.agent.v1.WuInstallBodyH\x00R\twuInstall\x127\n" +
+	"\awu_hide\x18\x18 \x01(\v2\x1c.auzring.agent.v1.WuHideBodyH\x00R\x06wuHide\x126\n" +
+	"\x06reboot\x18\x19 \x01(\v2\x1c.auzring.agent.v1.RebootBodyH\x00R\x06reboot\x12?\n" +
 	"\tinventory\x18\x1a \x01(\v2\x1f.auzring.agent.v1.InventoryBodyH\x00R\tinventory\x126\n" +
 	"\x06cancel\x18\x1c \x01(\v2\x1c.auzring.agent.v1.CancelBodyH\x00R\x06cancelB\x06\n" +
 	"\x04body\"\x85\x01\n" +
@@ -1670,7 +2236,42 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\rPreconditions\x12\x1e\n" +
 	"\vmin_free_mb\x18\x01 \x01(\rR\tminFreeMb\x12 \n" +
 	"\fos_build_min\x18\x02 \x01(\rR\n" +
-	"osBuildMin\"\xab\x04\n" +
+	"osBuildMin\"O\n" +
+	"\vActiveHours\x12!\n" +
+	"\fstart_minute\x18\x01 \x01(\rR\vstartMinute\x12\x1d\n" +
+	"\n" +
+	"end_minute\x18\x02 \x01(\rR\tendMinute\"\xcd\x01\n" +
+	"\fRebootPolicy\x123\n" +
+	"\x05allow\x18\x01 \x01(\x0e2\x1d.auzring.agent.v1.RebootAllowR\x05allow\x12@\n" +
+	"\factive_hours\x18\x02 \x01(\v2\x1d.auzring.agent.v1.ActiveHoursR\vactiveHours\x12\x1f\n" +
+	"\vdeadline_at\x18\x03 \x01(\x03R\n" +
+	"deadlineAt\x12%\n" +
+	"\x0enotify_minutes\x18\x04 \x01(\rR\rnotifyMinutes\"l\n" +
+	"\n" +
+	"WuScanBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.auzring.agent.v1.WuServiceR\aservice\x12'\n" +
+	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\"F\n" +
+	"\vWuUpdateRef\x12\x1b\n" +
+	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x05R\brevision\"\xc6\x02\n" +
+	"\rWuInstallBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.auzring.agent.v1.WuServiceR\aservice\x12'\n" +
+	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\x127\n" +
+	"\aupdates\x18\x03 \x03(\v2\x1d.auzring.agent.v1.WuUpdateRefR\aupdates\x126\n" +
+	"\x06reboot\x18\x04 \x01(\v2\x1e.auzring.agent.v1.RebootPolicyR\x06reboot\x12\x1b\n" +
+	"\ttimeout_s\x18\x05 \x01(\rR\btimeoutS\x12\x1f\n" +
+	"\vmax_retries\x18\x06 \x01(\rR\n" +
+	"maxRetries\x12&\n" +
+	"\x0fretry_backoff_s\x18\a \x01(\rR\rretryBackoffS\"\x90\x01\n" +
+	"\n" +
+	"WuHideBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.auzring.agent.v1.WuServiceR\aservice\x127\n" +
+	"\aupdates\x18\x02 \x03(\v2\x1d.auzring.agent.v1.WuUpdateRefR\aupdates\x12\x12\n" +
+	"\x04hide\x18\x03 \x01(\bR\x04hide\"\\\n" +
+	"\n" +
+	"RebootBody\x126\n" +
+	"\x06reboot\x18\x01 \x01(\v2\x1e.auzring.agent.v1.RebootPolicyR\x06reboot\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\xab\x04\n" +
 	"\vInstallBody\x12\x1d\n" +
 	"\n" +
 	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
@@ -1760,10 +2361,18 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"VersionCmp\x12\x1b\n" +
 	"\x17VERSION_CMP_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eVERSION_CMP_EQ\x10\x01\x12\x12\n" +
-	"\x0eVERSION_CMP_GE\x10\x02*C\n" +
+	"\x0eVERSION_CMP_GE\x10\x02*\x9b\x01\n" +
 	"\vRebootAllow\x12\x1c\n" +
 	"\x18REBOOT_ALLOW_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12REBOOT_ALLOW_NEVER\x10\x01*q\n" +
+	"\x12REBOOT_ALLOW_NEVER\x10\x01\x12%\n" +
+	"!REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS\x10\x02\x12\x19\n" +
+	"\x15REBOOT_ALLOW_DEADLINE\x10\x03\x12\x14\n" +
+	"\x10REBOOT_ALLOW_NOW\x10\x04*\x7f\n" +
+	"\tWuService\x12\x1a\n" +
+	"\x16WU_SERVICE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12WU_SERVICE_DEFAULT\x10\x01\x12\x1d\n" +
+	"\x19WU_SERVICE_WINDOWS_UPDATE\x10\x02\x12\x1f\n" +
+	"\x1bWU_SERVICE_MICROSOFT_UPDATE\x10\x03*q\n" +
 	"\x0fUninstallMethod\x12 \n" +
 	"\x1cUNINSTALL_METHOD_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15UNINSTALL_METHOD_AUTO\x10\x01\x12!\n" +
@@ -1781,8 +2390,8 @@ func file_auzring_agent_v1_envelope_proto_rawDescGZIP() []byte {
 	return file_auzring_agent_v1_envelope_proto_rawDescData
 }
 
-var file_auzring_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_auzring_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_auzring_agent_v1_envelope_proto_goTypes = []any{
 	(JobType)(0),              // 0: auzring.agent.v1.JobType
 	(InstallScope)(0),         // 1: auzring.agent.v1.InstallScope
@@ -1792,49 +2401,70 @@ var file_auzring_agent_v1_envelope_proto_goTypes = []any{
 	(DetectionKind)(0),        // 5: auzring.agent.v1.DetectionKind
 	(VersionCmp)(0),           // 6: auzring.agent.v1.VersionCmp
 	(RebootAllow)(0),          // 7: auzring.agent.v1.RebootAllow
-	(UninstallMethod)(0),      // 8: auzring.agent.v1.UninstallMethod
-	(*SignedEnvelope)(nil),    // 9: auzring.agent.v1.SignedEnvelope
-	(*JobEnvelope)(nil),       // 10: auzring.agent.v1.JobEnvelope
-	(*MaintenanceWindow)(nil), // 11: auzring.agent.v1.MaintenanceWindow
-	(*ContentSource)(nil),     // 12: auzring.agent.v1.ContentSource
-	(*SignerPin)(nil),         // 13: auzring.agent.v1.SignerPin
-	(*Installer)(nil),         // 14: auzring.agent.v1.Installer
-	(*Detection)(nil),         // 15: auzring.agent.v1.Detection
-	(*Preconditions)(nil),     // 16: auzring.agent.v1.Preconditions
-	(*InstallBody)(nil),       // 17: auzring.agent.v1.InstallBody
-	(*UninstallBody)(nil),     // 18: auzring.agent.v1.UninstallBody
-	(*CancelBody)(nil),        // 19: auzring.agent.v1.CancelBody
-	(*InventoryBody)(nil),     // 20: auzring.agent.v1.InventoryBody
-	nil,                       // 21: auzring.agent.v1.Installer.CodeMapEntry
+	(WuService)(0),            // 8: auzring.agent.v1.WuService
+	(UninstallMethod)(0),      // 9: auzring.agent.v1.UninstallMethod
+	(*SignedEnvelope)(nil),    // 10: auzring.agent.v1.SignedEnvelope
+	(*JobEnvelope)(nil),       // 11: auzring.agent.v1.JobEnvelope
+	(*MaintenanceWindow)(nil), // 12: auzring.agent.v1.MaintenanceWindow
+	(*ContentSource)(nil),     // 13: auzring.agent.v1.ContentSource
+	(*SignerPin)(nil),         // 14: auzring.agent.v1.SignerPin
+	(*Installer)(nil),         // 15: auzring.agent.v1.Installer
+	(*Detection)(nil),         // 16: auzring.agent.v1.Detection
+	(*Preconditions)(nil),     // 17: auzring.agent.v1.Preconditions
+	(*ActiveHours)(nil),       // 18: auzring.agent.v1.ActiveHours
+	(*RebootPolicy)(nil),      // 19: auzring.agent.v1.RebootPolicy
+	(*WuScanBody)(nil),        // 20: auzring.agent.v1.WuScanBody
+	(*WuUpdateRef)(nil),       // 21: auzring.agent.v1.WuUpdateRef
+	(*WuInstallBody)(nil),     // 22: auzring.agent.v1.WuInstallBody
+	(*WuHideBody)(nil),        // 23: auzring.agent.v1.WuHideBody
+	(*RebootBody)(nil),        // 24: auzring.agent.v1.RebootBody
+	(*InstallBody)(nil),       // 25: auzring.agent.v1.InstallBody
+	(*UninstallBody)(nil),     // 26: auzring.agent.v1.UninstallBody
+	(*CancelBody)(nil),        // 27: auzring.agent.v1.CancelBody
+	(*InventoryBody)(nil),     // 28: auzring.agent.v1.InventoryBody
+	nil,                       // 29: auzring.agent.v1.Installer.CodeMapEntry
 }
 var file_auzring_agent_v1_envelope_proto_depIdxs = []int32{
 	0,  // 0: auzring.agent.v1.JobEnvelope.type:type_name -> auzring.agent.v1.JobType
-	11, // 1: auzring.agent.v1.JobEnvelope.window:type_name -> auzring.agent.v1.MaintenanceWindow
-	17, // 2: auzring.agent.v1.JobEnvelope.install:type_name -> auzring.agent.v1.InstallBody
-	18, // 3: auzring.agent.v1.JobEnvelope.uninstall:type_name -> auzring.agent.v1.UninstallBody
-	20, // 4: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
-	19, // 5: auzring.agent.v1.JobEnvelope.cancel:type_name -> auzring.agent.v1.CancelBody
-	4,  // 6: auzring.agent.v1.ContentSource.kind:type_name -> auzring.agent.v1.ContentSourceKind
-	2,  // 7: auzring.agent.v1.Installer.type:type_name -> auzring.agent.v1.InstallerType
-	2,  // 8: auzring.agent.v1.Installer.nested_type:type_name -> auzring.agent.v1.InstallerType
-	13, // 9: auzring.agent.v1.Installer.signer_pin:type_name -> auzring.agent.v1.SignerPin
-	12, // 10: auzring.agent.v1.Installer.sources:type_name -> auzring.agent.v1.ContentSource
-	21, // 11: auzring.agent.v1.Installer.code_map:type_name -> auzring.agent.v1.Installer.CodeMapEntry
-	5,  // 12: auzring.agent.v1.Detection.kind:type_name -> auzring.agent.v1.DetectionKind
-	6,  // 13: auzring.agent.v1.Detection.cmp:type_name -> auzring.agent.v1.VersionCmp
-	1,  // 14: auzring.agent.v1.InstallBody.scope:type_name -> auzring.agent.v1.InstallScope
-	14, // 15: auzring.agent.v1.InstallBody.installer:type_name -> auzring.agent.v1.Installer
-	15, // 16: auzring.agent.v1.InstallBody.detection:type_name -> auzring.agent.v1.Detection
-	16, // 17: auzring.agent.v1.InstallBody.preconditions:type_name -> auzring.agent.v1.Preconditions
-	7,  // 18: auzring.agent.v1.InstallBody.reboot:type_name -> auzring.agent.v1.RebootAllow
-	1,  // 19: auzring.agent.v1.UninstallBody.scope:type_name -> auzring.agent.v1.InstallScope
-	8,  // 20: auzring.agent.v1.UninstallBody.method:type_name -> auzring.agent.v1.UninstallMethod
-	3,  // 21: auzring.agent.v1.Installer.CodeMapEntry.value:type_name -> auzring.agent.v1.JobOutcome
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	12, // 1: auzring.agent.v1.JobEnvelope.window:type_name -> auzring.agent.v1.MaintenanceWindow
+	25, // 2: auzring.agent.v1.JobEnvelope.install:type_name -> auzring.agent.v1.InstallBody
+	26, // 3: auzring.agent.v1.JobEnvelope.uninstall:type_name -> auzring.agent.v1.UninstallBody
+	20, // 4: auzring.agent.v1.JobEnvelope.wu_scan:type_name -> auzring.agent.v1.WuScanBody
+	22, // 5: auzring.agent.v1.JobEnvelope.wu_install:type_name -> auzring.agent.v1.WuInstallBody
+	23, // 6: auzring.agent.v1.JobEnvelope.wu_hide:type_name -> auzring.agent.v1.WuHideBody
+	24, // 7: auzring.agent.v1.JobEnvelope.reboot:type_name -> auzring.agent.v1.RebootBody
+	28, // 8: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
+	27, // 9: auzring.agent.v1.JobEnvelope.cancel:type_name -> auzring.agent.v1.CancelBody
+	4,  // 10: auzring.agent.v1.ContentSource.kind:type_name -> auzring.agent.v1.ContentSourceKind
+	2,  // 11: auzring.agent.v1.Installer.type:type_name -> auzring.agent.v1.InstallerType
+	2,  // 12: auzring.agent.v1.Installer.nested_type:type_name -> auzring.agent.v1.InstallerType
+	14, // 13: auzring.agent.v1.Installer.signer_pin:type_name -> auzring.agent.v1.SignerPin
+	13, // 14: auzring.agent.v1.Installer.sources:type_name -> auzring.agent.v1.ContentSource
+	29, // 15: auzring.agent.v1.Installer.code_map:type_name -> auzring.agent.v1.Installer.CodeMapEntry
+	5,  // 16: auzring.agent.v1.Detection.kind:type_name -> auzring.agent.v1.DetectionKind
+	6,  // 17: auzring.agent.v1.Detection.cmp:type_name -> auzring.agent.v1.VersionCmp
+	7,  // 18: auzring.agent.v1.RebootPolicy.allow:type_name -> auzring.agent.v1.RebootAllow
+	18, // 19: auzring.agent.v1.RebootPolicy.active_hours:type_name -> auzring.agent.v1.ActiveHours
+	8,  // 20: auzring.agent.v1.WuScanBody.service:type_name -> auzring.agent.v1.WuService
+	8,  // 21: auzring.agent.v1.WuInstallBody.service:type_name -> auzring.agent.v1.WuService
+	21, // 22: auzring.agent.v1.WuInstallBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
+	19, // 23: auzring.agent.v1.WuInstallBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
+	8,  // 24: auzring.agent.v1.WuHideBody.service:type_name -> auzring.agent.v1.WuService
+	21, // 25: auzring.agent.v1.WuHideBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
+	19, // 26: auzring.agent.v1.RebootBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
+	1,  // 27: auzring.agent.v1.InstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	15, // 28: auzring.agent.v1.InstallBody.installer:type_name -> auzring.agent.v1.Installer
+	16, // 29: auzring.agent.v1.InstallBody.detection:type_name -> auzring.agent.v1.Detection
+	17, // 30: auzring.agent.v1.InstallBody.preconditions:type_name -> auzring.agent.v1.Preconditions
+	7,  // 31: auzring.agent.v1.InstallBody.reboot:type_name -> auzring.agent.v1.RebootAllow
+	1,  // 32: auzring.agent.v1.UninstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	9,  // 33: auzring.agent.v1.UninstallBody.method:type_name -> auzring.agent.v1.UninstallMethod
+	3,  // 34: auzring.agent.v1.Installer.CodeMapEntry.value:type_name -> auzring.agent.v1.JobOutcome
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_envelope_proto_init() }
@@ -1845,6 +2475,10 @@ func file_auzring_agent_v1_envelope_proto_init() {
 	file_auzring_agent_v1_envelope_proto_msgTypes[1].OneofWrappers = []any{
 		(*JobEnvelope_Install)(nil),
 		(*JobEnvelope_Uninstall)(nil),
+		(*JobEnvelope_WuScan)(nil),
+		(*JobEnvelope_WuInstall)(nil),
+		(*JobEnvelope_WuHide)(nil),
+		(*JobEnvelope_Reboot)(nil),
 		(*JobEnvelope_Inventory)(nil),
 		(*JobEnvelope_Cancel)(nil),
 	}
@@ -1853,8 +2487,8 @@ func file_auzring_agent_v1_envelope_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_envelope_proto_rawDesc), len(file_auzring_agent_v1_envelope_proto_rawDesc)),
-			NumEnums:      9,
-			NumMessages:   13,
+			NumEnums:      10,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -189,6 +189,64 @@ func (SoftwareSource) EnumDescriptor() ([]byte, []int) {
 	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
 }
 
+type WuUpdateState int32
+
+const (
+	WuUpdateState_WU_UPDATE_STATE_UNSPECIFIED    WuUpdateState = 0
+	WuUpdateState_WU_UPDATE_STATE_MISSING        WuUpdateState = 1 // applicable and not installed
+	WuUpdateState_WU_UPDATE_STATE_DOWNLOADED     WuUpdateState = 2 // applicable, content already on the machine
+	WuUpdateState_WU_UPDATE_STATE_HIDDEN         WuUpdateState = 3 // applicable but hidden (declined) on this machine
+	WuUpdateState_WU_UPDATE_STATE_PENDING_REBOOT WuUpdateState = 4 // installed, waiting for a restart
+	WuUpdateState_WU_UPDATE_STATE_FAILED         WuUpdateState = 5 // the last installation attempt failed
+)
+
+// Enum value maps for WuUpdateState.
+var (
+	WuUpdateState_name = map[int32]string{
+		0: "WU_UPDATE_STATE_UNSPECIFIED",
+		1: "WU_UPDATE_STATE_MISSING",
+		2: "WU_UPDATE_STATE_DOWNLOADED",
+		3: "WU_UPDATE_STATE_HIDDEN",
+		4: "WU_UPDATE_STATE_PENDING_REBOOT",
+		5: "WU_UPDATE_STATE_FAILED",
+	}
+	WuUpdateState_value = map[string]int32{
+		"WU_UPDATE_STATE_UNSPECIFIED":    0,
+		"WU_UPDATE_STATE_MISSING":        1,
+		"WU_UPDATE_STATE_DOWNLOADED":     2,
+		"WU_UPDATE_STATE_HIDDEN":         3,
+		"WU_UPDATE_STATE_PENDING_REBOOT": 4,
+		"WU_UPDATE_STATE_FAILED":         5,
+	}
+)
+
+func (x WuUpdateState) Enum() *WuUpdateState {
+	p := new(WuUpdateState)
+	*p = x
+	return p
+}
+
+func (x WuUpdateState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WuUpdateState) Descriptor() protoreflect.EnumDescriptor {
+	return file_auzring_agent_v1_inventory_proto_enumTypes[3].Descriptor()
+}
+
+func (WuUpdateState) Type() protoreflect.EnumType {
+	return &file_auzring_agent_v1_inventory_proto_enumTypes[3]
+}
+
+func (x WuUpdateState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WuUpdateState.Descriptor instead.
+func (WuUpdateState) EnumDescriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
+}
+
 // InventoryReport carries one section. Phase 1 sends HARDWARE as a full
 // snapshot whenever it changes (it is small). SOFTWARE deltas arrive in Phase 2.
 type InventoryReport struct {
@@ -203,6 +261,7 @@ type InventoryReport struct {
 	//	*InventoryReport_Users
 	//	*InventoryReport_SoftwareDelta
 	//	*InventoryReport_SoftwareChunk
+	//	*InventoryReport_Wu
 	Body isInventoryReport_Body `protobuf_oneof:"body"`
 	// True when the agent hit its item cap and the inventory is incomplete.
 	Truncated     bool `protobuf:"varint,20,opt,name=truncated,proto3" json:"truncated,omitempty"`
@@ -304,6 +363,15 @@ func (x *InventoryReport) GetSoftwareChunk() *SoftwareChunk {
 	return nil
 }
 
+func (x *InventoryReport) GetWu() *WuInventory {
+	if x != nil {
+		if x, ok := x.Body.(*InventoryReport_Wu); ok {
+			return x.Wu
+		}
+	}
+	return nil
+}
+
 func (x *InventoryReport) GetTruncated() bool {
 	if x != nil {
 		return x.Truncated
@@ -331,6 +399,10 @@ type InventoryReport_SoftwareChunk struct {
 	SoftwareChunk *SoftwareChunk `protobuf:"bytes,13,opt,name=software_chunk,json=softwareChunk,proto3,oneof"`
 }
 
+type InventoryReport_Wu struct {
+	Wu *WuInventory `protobuf:"bytes,14,opt,name=wu,proto3,oneof"`
+}
+
 func (*InventoryReport_Hardware) isInventoryReport_Body() {}
 
 func (*InventoryReport_Users) isInventoryReport_Body() {}
@@ -338,6 +410,8 @@ func (*InventoryReport_Users) isInventoryReport_Body() {}
 func (*InventoryReport_SoftwareDelta) isInventoryReport_Body() {}
 
 func (*InventoryReport_SoftwareChunk) isInventoryReport_Body() {}
+
+func (*InventoryReport_Wu) isInventoryReport_Body() {}
 
 // SoftwareItemKey identifies one installed item on one device:
 // (source, scope, user_sid, item_key). user_sid is empty for machine scope.
@@ -1168,11 +1242,386 @@ func (x *NetInterface) GetAddresses() []string {
 	return nil
 }
 
+type WuUpdate struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UpdateId       string                 `protobuf:"bytes,1,opt,name=update_id,json=updateId,proto3" json:"update_id,omitempty"`
+	Revision       int32                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	Title          string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Kb             []string               `protobuf:"bytes,4,rep,name=kb,proto3" json:"kb,omitempty"`
+	Classification string                 `protobuf:"bytes,5,opt,name=classification,proto3" json:"classification,omitempty"` // "Security Updates", "Critical Updates", "Drivers", ...
+	Severity       string                 `protobuf:"bytes,6,opt,name=severity,proto3" json:"severity,omitempty"`             // MSRC: Critical | Important | Moderate | Low | "" (unrated)
+	Products       []string               `protobuf:"bytes,7,rep,name=products,proto3" json:"products,omitempty"`
+	IsDriver       bool                   `protobuf:"varint,8,opt,name=is_driver,json=isDriver,proto3" json:"is_driver,omitempty"`
+	DriverClass    string                 `protobuf:"bytes,9,opt,name=driver_class,json=driverClass,proto3" json:"driver_class,omitempty"`
+	DriverHwid     string                 `protobuf:"bytes,10,opt,name=driver_hwid,json=driverHwid,proto3" json:"driver_hwid,omitempty"`
+	DriverVersion  string                 `protobuf:"bytes,11,opt,name=driver_version,json=driverVersion,proto3" json:"driver_version,omitempty"`
+	ReleaseDate    int64                  `protobuf:"varint,12,opt,name=release_date,json=releaseDate,proto3" json:"release_date,omitempty"` // unix seconds, 0 = unknown
+	SupportUrl     string                 `protobuf:"bytes,13,opt,name=support_url,json=supportUrl,proto3" json:"support_url,omitempty"`
+	SizeBytes      uint64                 `protobuf:"varint,14,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	RebootRequired bool                   `protobuf:"varint,15,opt,name=reboot_required,json=rebootRequired,proto3" json:"reboot_required,omitempty"` // installing it needs a restart
+	State          WuUpdateState          `protobuf:"varint,16,opt,name=state,proto3,enum=auzring.agent.v1.WuUpdateState" json:"state,omitempty"`
+	LastError      string                 `protobuf:"bytes,17,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"` // e.g. "0x80070643" for FAILED
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *WuUpdate) Reset() {
+	*x = WuUpdate{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuUpdate) ProtoMessage() {}
+
+func (x *WuUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuUpdate.ProtoReflect.Descriptor instead.
+func (*WuUpdate) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WuUpdate) GetUpdateId() string {
+	if x != nil {
+		return x.UpdateId
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetRevision() int32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *WuUpdate) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetKb() []string {
+	if x != nil {
+		return x.Kb
+	}
+	return nil
+}
+
+func (x *WuUpdate) GetClassification() string {
+	if x != nil {
+		return x.Classification
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetSeverity() string {
+	if x != nil {
+		return x.Severity
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetProducts() []string {
+	if x != nil {
+		return x.Products
+	}
+	return nil
+}
+
+func (x *WuUpdate) GetIsDriver() bool {
+	if x != nil {
+		return x.IsDriver
+	}
+	return false
+}
+
+func (x *WuUpdate) GetDriverClass() string {
+	if x != nil {
+		return x.DriverClass
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetDriverHwid() string {
+	if x != nil {
+		return x.DriverHwid
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetDriverVersion() string {
+	if x != nil {
+		return x.DriverVersion
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetReleaseDate() int64 {
+	if x != nil {
+		return x.ReleaseDate
+	}
+	return 0
+}
+
+func (x *WuUpdate) GetSupportUrl() string {
+	if x != nil {
+		return x.SupportUrl
+	}
+	return ""
+}
+
+func (x *WuUpdate) GetSizeBytes() uint64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *WuUpdate) GetRebootRequired() bool {
+	if x != nil {
+		return x.RebootRequired
+	}
+	return false
+}
+
+func (x *WuUpdate) GetState() WuUpdateState {
+	if x != nil {
+		return x.State
+	}
+	return WuUpdateState_WU_UPDATE_STATE_UNSPECIFIED
+}
+
+func (x *WuUpdate) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+// WuPolicyInfo says who is in charge of updates on this machine, so administrators are not
+// surprised when another tool (WSUS, Intune, a GPO) fights Auzring.
+type WuPolicyInfo struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	WsusConfigured    bool                   `protobuf:"varint,1,opt,name=wsus_configured,json=wsusConfigured,proto3" json:"wsus_configured,omitempty"` // UseWUServer = 1
+	WsusServer        string                 `protobuf:"bytes,2,opt,name=wsus_server,json=wsusServer,proto3" json:"wsus_server,omitempty"`
+	WufbDeferrals     bool                   `protobuf:"varint,3,opt,name=wufb_deferrals,json=wufbDeferrals,proto3" json:"wufb_deferrals,omitempty"` // quality/feature deferral or pause policies present
+	NoAutoUpdate      bool                   `protobuf:"varint,4,opt,name=no_auto_update,json=noAutoUpdate,proto3" json:"no_auto_update,omitempty"`  // "Configure Automatic Updates" = disabled
+	AuOptions         uint32                 `protobuf:"varint,5,opt,name=au_options,json=auOptions,proto3" json:"au_options,omitempty"`             // AUOptions when the GPO is set, else 0
+	ActiveHoursPolicy bool                   `protobuf:"varint,6,opt,name=active_hours_policy,json=activeHoursPolicy,proto3" json:"active_hours_policy,omitempty"`
+	WuServiceDisabled bool                   `protobuf:"varint,7,opt,name=wu_service_disabled,json=wuServiceDisabled,proto3" json:"wu_service_disabled,omitempty"` // the wuauserv service cannot start
+	EffectiveSource   string                 `protobuf:"bytes,8,opt,name=effective_source,json=effectiveSource,proto3" json:"effective_source,omitempty"`          // "windows_update" | "microsoft_update" | "wsus"
+	Notes             []string               `protobuf:"bytes,9,rep,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *WuPolicyInfo) Reset() {
+	*x = WuPolicyInfo{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuPolicyInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuPolicyInfo) ProtoMessage() {}
+
+func (x *WuPolicyInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuPolicyInfo.ProtoReflect.Descriptor instead.
+func (*WuPolicyInfo) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *WuPolicyInfo) GetWsusConfigured() bool {
+	if x != nil {
+		return x.WsusConfigured
+	}
+	return false
+}
+
+func (x *WuPolicyInfo) GetWsusServer() string {
+	if x != nil {
+		return x.WsusServer
+	}
+	return ""
+}
+
+func (x *WuPolicyInfo) GetWufbDeferrals() bool {
+	if x != nil {
+		return x.WufbDeferrals
+	}
+	return false
+}
+
+func (x *WuPolicyInfo) GetNoAutoUpdate() bool {
+	if x != nil {
+		return x.NoAutoUpdate
+	}
+	return false
+}
+
+func (x *WuPolicyInfo) GetAuOptions() uint32 {
+	if x != nil {
+		return x.AuOptions
+	}
+	return 0
+}
+
+func (x *WuPolicyInfo) GetActiveHoursPolicy() bool {
+	if x != nil {
+		return x.ActiveHoursPolicy
+	}
+	return false
+}
+
+func (x *WuPolicyInfo) GetWuServiceDisabled() bool {
+	if x != nil {
+		return x.WuServiceDisabled
+	}
+	return false
+}
+
+func (x *WuPolicyInfo) GetEffectiveSource() string {
+	if x != nil {
+		return x.EffectiveSource
+	}
+	return ""
+}
+
+func (x *WuPolicyInfo) GetNotes() []string {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+// WuInventory is a full snapshot of what Windows Update says about this machine.
+type WuInventory struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Updates        []*WuUpdate            `protobuf:"bytes,1,rep,name=updates,proto3" json:"updates,omitempty"`
+	Policy         *WuPolicyInfo          `protobuf:"bytes,2,opt,name=policy,proto3" json:"policy,omitempty"`
+	RebootRequired bool                   `protobuf:"varint,3,opt,name=reboot_required,json=rebootRequired,proto3" json:"reboot_required,omitempty"`
+	ScannedAt      int64                  `protobuf:"varint,4,opt,name=scanned_at,json=scannedAt,proto3" json:"scanned_at,omitempty"`
+	Service        int32                  `protobuf:"varint,5,opt,name=service,proto3" json:"service,omitempty"` // WuService used for the scan
+	Truncated      bool                   `protobuf:"varint,6,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	ScanError      string                 `protobuf:"bytes,7,opt,name=scan_error,json=scanError,proto3" json:"scan_error,omitempty"` // set when the scan failed; updates is then empty
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *WuInventory) Reset() {
+	*x = WuInventory{}
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WuInventory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WuInventory) ProtoMessage() {}
+
+func (x *WuInventory) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WuInventory.ProtoReflect.Descriptor instead.
+func (*WuInventory) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *WuInventory) GetUpdates() []*WuUpdate {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+func (x *WuInventory) GetPolicy() *WuPolicyInfo {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+func (x *WuInventory) GetRebootRequired() bool {
+	if x != nil {
+		return x.RebootRequired
+	}
+	return false
+}
+
+func (x *WuInventory) GetScannedAt() int64 {
+	if x != nil {
+		return x.ScannedAt
+	}
+	return 0
+}
+
+func (x *WuInventory) GetService() int32 {
+	if x != nil {
+		return x.Service
+	}
+	return 0
+}
+
+func (x *WuInventory) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+func (x *WuInventory) GetScanError() string {
+	if x != nil {
+		return x.ScanError
+	}
+	return ""
+}
+
 var File_auzring_agent_v1_inventory_proto protoreflect.FileDescriptor
 
 const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	" auzring/agent/v1/inventory.proto\x12\x10auzring.agent.v1\"\xaa\x03\n" +
+	" auzring/agent/v1/inventory.proto\x12\x10auzring.agent.v1\"\xdb\x03\n" +
 	"\x0fInventoryReport\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12<\n" +
 	"\asection\x18\x02 \x01(\x0e2\".auzring.agent.v1.InventorySectionR\asection\x12\x10\n" +
@@ -1181,7 +1630,8 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	" \x01(\v2#.auzring.agent.v1.HardwareInventoryH\x00R\bhardware\x128\n" +
 	"\x05users\x18\v \x01(\v2 .auzring.agent.v1.UsersInventoryH\x00R\x05users\x12H\n" +
 	"\x0esoftware_delta\x18\f \x01(\v2\x1f.auzring.agent.v1.SoftwareDeltaH\x00R\rsoftwareDelta\x12H\n" +
-	"\x0esoftware_chunk\x18\r \x01(\v2\x1f.auzring.agent.v1.SoftwareChunkH\x00R\rsoftwareChunk\x12\x1c\n" +
+	"\x0esoftware_chunk\x18\r \x01(\v2\x1f.auzring.agent.v1.SoftwareChunkH\x00R\rsoftwareChunk\x12/\n" +
+	"\x02wu\x18\x0e \x01(\v2\x1d.auzring.agent.v1.WuInventoryH\x00R\x02wu\x12\x1c\n" +
 	"\ttruncated\x18\x14 \x01(\bR\ttruncatedB\x06\n" +
 	"\x04body\"\xb8\x01\n" +
 	"\x0fSoftwareItemKey\x128\n" +
@@ -1268,7 +1718,52 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\fNetInterface\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x1c\n" +
-	"\taddresses\x18\x03 \x03(\tR\taddresses*\xac\x01\n" +
+	"\taddresses\x18\x03 \x03(\tR\taddresses\"\xb3\x04\n" +
+	"\bWuUpdate\x12\x1b\n" +
+	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x05R\brevision\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x0e\n" +
+	"\x02kb\x18\x04 \x03(\tR\x02kb\x12&\n" +
+	"\x0eclassification\x18\x05 \x01(\tR\x0eclassification\x12\x1a\n" +
+	"\bseverity\x18\x06 \x01(\tR\bseverity\x12\x1a\n" +
+	"\bproducts\x18\a \x03(\tR\bproducts\x12\x1b\n" +
+	"\tis_driver\x18\b \x01(\bR\bisDriver\x12!\n" +
+	"\fdriver_class\x18\t \x01(\tR\vdriverClass\x12\x1f\n" +
+	"\vdriver_hwid\x18\n" +
+	" \x01(\tR\n" +
+	"driverHwid\x12%\n" +
+	"\x0edriver_version\x18\v \x01(\tR\rdriverVersion\x12!\n" +
+	"\frelease_date\x18\f \x01(\x03R\vreleaseDate\x12\x1f\n" +
+	"\vsupport_url\x18\r \x01(\tR\n" +
+	"supportUrl\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x0e \x01(\x04R\tsizeBytes\x12'\n" +
+	"\x0freboot_required\x18\x0f \x01(\bR\x0erebootRequired\x125\n" +
+	"\x05state\x18\x10 \x01(\x0e2\x1f.auzring.agent.v1.WuUpdateStateR\x05state\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x11 \x01(\tR\tlastError\"\xe5\x02\n" +
+	"\fWuPolicyInfo\x12'\n" +
+	"\x0fwsus_configured\x18\x01 \x01(\bR\x0ewsusConfigured\x12\x1f\n" +
+	"\vwsus_server\x18\x02 \x01(\tR\n" +
+	"wsusServer\x12%\n" +
+	"\x0ewufb_deferrals\x18\x03 \x01(\bR\rwufbDeferrals\x12$\n" +
+	"\x0eno_auto_update\x18\x04 \x01(\bR\fnoAutoUpdate\x12\x1d\n" +
+	"\n" +
+	"au_options\x18\x05 \x01(\rR\tauOptions\x12.\n" +
+	"\x13active_hours_policy\x18\x06 \x01(\bR\x11activeHoursPolicy\x12.\n" +
+	"\x13wu_service_disabled\x18\a \x01(\bR\x11wuServiceDisabled\x12)\n" +
+	"\x10effective_source\x18\b \x01(\tR\x0feffectiveSource\x12\x14\n" +
+	"\x05notes\x18\t \x03(\tR\x05notes\"\x9a\x02\n" +
+	"\vWuInventory\x124\n" +
+	"\aupdates\x18\x01 \x03(\v2\x1a.auzring.agent.v1.WuUpdateR\aupdates\x126\n" +
+	"\x06policy\x18\x02 \x01(\v2\x1e.auzring.agent.v1.WuPolicyInfoR\x06policy\x12'\n" +
+	"\x0freboot_required\x18\x03 \x01(\bR\x0erebootRequired\x12\x1d\n" +
+	"\n" +
+	"scanned_at\x18\x04 \x01(\x03R\tscannedAt\x12\x18\n" +
+	"\aservice\x18\x05 \x01(\x05R\aservice\x12\x1c\n" +
+	"\ttruncated\x18\x06 \x01(\bR\ttruncated\x12\x1d\n" +
+	"\n" +
+	"scan_error\x18\a \x01(\tR\tscanError*\xac\x01\n" +
 	"\x10InventorySection\x12!\n" +
 	"\x1dINVENTORY_SECTION_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aINVENTORY_SECTION_HARDWARE\x10\x01\x12\x1b\n" +
@@ -1287,7 +1782,14 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x15SOFTWARE_SOURCE_HKU32\x10\x04\x12\x17\n" +
 	"\x13SOFTWARE_SOURCE_MSI\x10\x05\x12\x18\n" +
 	"\x14SOFTWARE_SOURCE_APPX\x10\x06\x12\x1c\n" +
-	"\x18SOFTWARE_SOURCE_PORTABLE\x10\aB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x18SOFTWARE_SOURCE_PORTABLE\x10\a*\xc9\x01\n" +
+	"\rWuUpdateState\x12\x1f\n" +
+	"\x1bWU_UPDATE_STATE_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17WU_UPDATE_STATE_MISSING\x10\x01\x12\x1e\n" +
+	"\x1aWU_UPDATE_STATE_DOWNLOADED\x10\x02\x12\x1a\n" +
+	"\x16WU_UPDATE_STATE_HIDDEN\x10\x03\x12\"\n" +
+	"\x1eWU_UPDATE_STATE_PENDING_REBOOT\x10\x04\x12\x1a\n" +
+	"\x16WU_UPDATE_STATE_FAILED\x10\x05B@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_inventory_proto_rawDescOnce sync.Once
@@ -1301,43 +1803,51 @@ func file_auzring_agent_v1_inventory_proto_rawDescGZIP() []byte {
 	return file_auzring_agent_v1_inventory_proto_rawDescData
 }
 
-var file_auzring_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_auzring_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_auzring_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_auzring_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_auzring_agent_v1_inventory_proto_goTypes = []any{
 	(InventorySection)(0),     // 0: auzring.agent.v1.InventorySection
 	(SoftwareScope)(0),        // 1: auzring.agent.v1.SoftwareScope
 	(SoftwareSource)(0),       // 2: auzring.agent.v1.SoftwareSource
-	(*InventoryReport)(nil),   // 3: auzring.agent.v1.InventoryReport
-	(*SoftwareItemKey)(nil),   // 4: auzring.agent.v1.SoftwareItemKey
-	(*SoftwareItem)(nil),      // 5: auzring.agent.v1.SoftwareItem
-	(*SoftwareDelta)(nil),     // 6: auzring.agent.v1.SoftwareDelta
-	(*SoftwareChunk)(nil),     // 7: auzring.agent.v1.SoftwareChunk
-	(*DeviceUser)(nil),        // 8: auzring.agent.v1.DeviceUser
-	(*UsersInventory)(nil),    // 9: auzring.agent.v1.UsersInventory
-	(*HardwareInventory)(nil), // 10: auzring.agent.v1.HardwareInventory
-	(*Disk)(nil),              // 11: auzring.agent.v1.Disk
-	(*NetInterface)(nil),      // 12: auzring.agent.v1.NetInterface
+	(WuUpdateState)(0),        // 3: auzring.agent.v1.WuUpdateState
+	(*InventoryReport)(nil),   // 4: auzring.agent.v1.InventoryReport
+	(*SoftwareItemKey)(nil),   // 5: auzring.agent.v1.SoftwareItemKey
+	(*SoftwareItem)(nil),      // 6: auzring.agent.v1.SoftwareItem
+	(*SoftwareDelta)(nil),     // 7: auzring.agent.v1.SoftwareDelta
+	(*SoftwareChunk)(nil),     // 8: auzring.agent.v1.SoftwareChunk
+	(*DeviceUser)(nil),        // 9: auzring.agent.v1.DeviceUser
+	(*UsersInventory)(nil),    // 10: auzring.agent.v1.UsersInventory
+	(*HardwareInventory)(nil), // 11: auzring.agent.v1.HardwareInventory
+	(*Disk)(nil),              // 12: auzring.agent.v1.Disk
+	(*NetInterface)(nil),      // 13: auzring.agent.v1.NetInterface
+	(*WuUpdate)(nil),          // 14: auzring.agent.v1.WuUpdate
+	(*WuPolicyInfo)(nil),      // 15: auzring.agent.v1.WuPolicyInfo
+	(*WuInventory)(nil),       // 16: auzring.agent.v1.WuInventory
 }
 var file_auzring_agent_v1_inventory_proto_depIdxs = []int32{
 	0,  // 0: auzring.agent.v1.InventoryReport.section:type_name -> auzring.agent.v1.InventorySection
-	10, // 1: auzring.agent.v1.InventoryReport.hardware:type_name -> auzring.agent.v1.HardwareInventory
-	9,  // 2: auzring.agent.v1.InventoryReport.users:type_name -> auzring.agent.v1.UsersInventory
-	6,  // 3: auzring.agent.v1.InventoryReport.software_delta:type_name -> auzring.agent.v1.SoftwareDelta
-	7,  // 4: auzring.agent.v1.InventoryReport.software_chunk:type_name -> auzring.agent.v1.SoftwareChunk
-	2,  // 5: auzring.agent.v1.SoftwareItemKey.source:type_name -> auzring.agent.v1.SoftwareSource
-	1,  // 6: auzring.agent.v1.SoftwareItemKey.scope:type_name -> auzring.agent.v1.SoftwareScope
-	4,  // 7: auzring.agent.v1.SoftwareItem.key:type_name -> auzring.agent.v1.SoftwareItemKey
-	5,  // 8: auzring.agent.v1.SoftwareDelta.upserts:type_name -> auzring.agent.v1.SoftwareItem
-	4,  // 9: auzring.agent.v1.SoftwareDelta.removes:type_name -> auzring.agent.v1.SoftwareItemKey
-	5,  // 10: auzring.agent.v1.SoftwareChunk.items:type_name -> auzring.agent.v1.SoftwareItem
-	8,  // 11: auzring.agent.v1.UsersInventory.users:type_name -> auzring.agent.v1.DeviceUser
-	11, // 12: auzring.agent.v1.HardwareInventory.disks:type_name -> auzring.agent.v1.Disk
-	12, // 13: auzring.agent.v1.HardwareInventory.interfaces:type_name -> auzring.agent.v1.NetInterface
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	11, // 1: auzring.agent.v1.InventoryReport.hardware:type_name -> auzring.agent.v1.HardwareInventory
+	10, // 2: auzring.agent.v1.InventoryReport.users:type_name -> auzring.agent.v1.UsersInventory
+	7,  // 3: auzring.agent.v1.InventoryReport.software_delta:type_name -> auzring.agent.v1.SoftwareDelta
+	8,  // 4: auzring.agent.v1.InventoryReport.software_chunk:type_name -> auzring.agent.v1.SoftwareChunk
+	16, // 5: auzring.agent.v1.InventoryReport.wu:type_name -> auzring.agent.v1.WuInventory
+	2,  // 6: auzring.agent.v1.SoftwareItemKey.source:type_name -> auzring.agent.v1.SoftwareSource
+	1,  // 7: auzring.agent.v1.SoftwareItemKey.scope:type_name -> auzring.agent.v1.SoftwareScope
+	5,  // 8: auzring.agent.v1.SoftwareItem.key:type_name -> auzring.agent.v1.SoftwareItemKey
+	6,  // 9: auzring.agent.v1.SoftwareDelta.upserts:type_name -> auzring.agent.v1.SoftwareItem
+	5,  // 10: auzring.agent.v1.SoftwareDelta.removes:type_name -> auzring.agent.v1.SoftwareItemKey
+	6,  // 11: auzring.agent.v1.SoftwareChunk.items:type_name -> auzring.agent.v1.SoftwareItem
+	9,  // 12: auzring.agent.v1.UsersInventory.users:type_name -> auzring.agent.v1.DeviceUser
+	12, // 13: auzring.agent.v1.HardwareInventory.disks:type_name -> auzring.agent.v1.Disk
+	13, // 14: auzring.agent.v1.HardwareInventory.interfaces:type_name -> auzring.agent.v1.NetInterface
+	3,  // 15: auzring.agent.v1.WuUpdate.state:type_name -> auzring.agent.v1.WuUpdateState
+	14, // 16: auzring.agent.v1.WuInventory.updates:type_name -> auzring.agent.v1.WuUpdate
+	15, // 17: auzring.agent.v1.WuInventory.policy:type_name -> auzring.agent.v1.WuPolicyInfo
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_inventory_proto_init() }
@@ -1350,14 +1860,15 @@ func file_auzring_agent_v1_inventory_proto_init() {
 		(*InventoryReport_Users)(nil),
 		(*InventoryReport_SoftwareDelta)(nil),
 		(*InventoryReport_SoftwareChunk)(nil),
+		(*InventoryReport_Wu)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_inventory_proto_rawDesc), len(file_auzring_agent_v1_inventory_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   10,
+			NumEnums:      4,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

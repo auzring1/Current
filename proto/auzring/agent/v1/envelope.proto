@@ -46,6 +46,10 @@ message JobEnvelope {
   oneof body {
     InstallBody install = 20;
     UninstallBody uninstall = 21;
+    WuScanBody wu_scan = 22;
+    WuInstallBody wu_install = 23;
+    WuHideBody wu_hide = 24;
+    RebootBody reboot = 25;
     InventoryBody inventory = 26;
     CancelBody cancel = 28;
   }
@@ -147,6 +151,67 @@ message Preconditions {
 enum RebootAllow {
   REBOOT_ALLOW_UNSPECIFIED = 0;
   REBOOT_ALLOW_NEVER = 1;       // report "reboot required" only
+  // Restart when a reboot is required, at the first moment outside the active hours (with a short notice).
+  REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS = 2;
+  // Restart at deadline_at at the latest; signed-in users get notify_minutes of countdown.
+  REBOOT_ALLOW_DEADLINE = 3;
+  // Restart now, giving signed-in users notify_minutes of countdown (RebootBody only).
+  REBOOT_ALLOW_NOW = 4;
+}
+
+// ActiveHours are device-local minutes after midnight when the user is likely working. A range
+// that wraps midnight (start > end) is allowed. Equal values mean "no active hours".
+message ActiveHours {
+  uint32 start_minute = 1;
+  uint32 end_minute = 2;
+}
+
+// RebootPolicy says what the agent may do when an installation leaves the machine needing a restart.
+message RebootPolicy {
+  RebootAllow allow = 1;
+  ActiveHours active_hours = 2;
+  int64 deadline_at = 3;           // unix seconds; REBOOT_ALLOW_DEADLINE
+  uint32 notify_minutes = 4;       // countdown shown to signed-in users, 1..1440
+}
+
+// WuService chooses which update service a scan or install talks to.
+enum WuService {
+  WU_SERVICE_UNSPECIFIED = 0;
+  WU_SERVICE_DEFAULT = 1;           // whatever the machine is configured for (WSUS if policy sets one)
+  WU_SERVICE_WINDOWS_UPDATE = 2;    // Windows Update on the internet
+  WU_SERVICE_MICROSOFT_UPDATE = 3;  // Microsoft Update (Office and other Microsoft products as well)
+}
+
+message WuScanBody {
+  WuService service = 1;
+  bool include_drivers = 2;
+}
+
+message WuUpdateRef {
+  string update_id = 1;             // UUID of the update identity
+  int32 revision = 2;               // 0 = whatever revision the scan finds
+}
+
+// WuInstallBody installs exactly the listed updates (found by a fresh scan, never by title).
+message WuInstallBody {
+  WuService service = 1;
+  bool include_drivers = 2;
+  repeated WuUpdateRef updates = 3;  // 1..200
+  RebootPolicy reboot = 4;
+  uint32 timeout_s = 5;
+  uint32 max_retries = 6;
+  uint32 retry_backoff_s = 7;
+}
+
+message WuHideBody {
+  WuService service = 1;
+  repeated WuUpdateRef updates = 2;
+  bool hide = 3;                     // false = unhide
+}
+
+message RebootBody {
+  RebootPolicy reboot = 1;
+  string reason = 2;                 // shown to signed-in users, plain text, bounded
 }
 
 message InstallBody {
