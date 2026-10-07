@@ -67,3 +67,6 @@ test/vm-matrix/results/*.raw
 *.swp
 .DS_Store
 Thumbs.db
+web/test-results/
+web/playwright-report/
+web/blob-report/
