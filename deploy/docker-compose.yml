@@ -58,6 +58,11 @@ services:
       AUZ_MIGRATE_DATABASE_URL_FILE: /run/secrets/migrate_database_url
       AUZ_MASTER_KEY_FILE: /run/secrets/master_key
       AUZ_LOG_LEVEL: ${AUZ_LOG_LEVEL:-info}
+      # Uploaded (custom) installers; winget packages are never stored here.
+      AUZ_CONTENT_DIR: /var/lib/auzring/content
+      AUZ_WINGET_SOURCE: ${AUZ_WINGET_SOURCE:-github}
+    volumes:
+      - content:/var/lib/auzring/content
     secrets: [database_url, migrate_database_url, master_key]
     read_only: true
     tmpfs: [/tmp]
@@ -106,6 +111,7 @@ networks:
     internal: true
 
 volumes:
+  content:
   pgdata:
   caddy_data:
   caddy_config:

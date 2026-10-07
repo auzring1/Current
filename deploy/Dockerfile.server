@@ -30,8 +30,12 @@ RUN go build -trimpath \
       -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=${VERSION} -X github.com/auzring1/auzring/internal/shared/version.Commit=${COMMIT}" \
       -o /out/auzring-server ./cmd/auzring-server
 
+# Empty content directory owned by the runtime user; compose mounts a volume over it.
+RUN mkdir -p /out/content && chown 65532:65532 /out/content && chmod 700 /out/content
+
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 COPY --from=build /out/auzring-server /auzring-server
+COPY --from=build --chown=65532:65532 /out/content /var/lib/auzring/content
 USER 65532:65532
 EXPOSE 8080 8443
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 CMD ["/auzring-server", "healthcheck"]

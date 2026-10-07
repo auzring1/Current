@@ -294,6 +294,49 @@ func TestComposeStack(t *testing.T) {
 		return d["online"] == true && d["hardware"] != nil
 	})
 
+	// --- Software deployment through the real stack: a 3 MiB upload passes Caddy (1 MB default
+	// limit elsewhere), lands on the content volume, and the agent installs it from the gateway. ---
+	script := "#!/bin/sh\nmkdir -p \"$(dirname \"$0\")/../../pf/Acme\"\necho ok > \"$(dirname \"$0\")/../../pf/Acme/tool.txt\"\nexit 0\n"
+	body := append([]byte(script), bytes.Repeat([]byte("# padding\n"), 3<<20/10)...)
+	upReq, _ := http.NewRequest("POST", origin+"/api/v1/catalog/content", bytes.NewReader(body))
+	upReq.Header.Set("Origin", origin)
+	upReq.Header.Set("Content-Type", "application/octet-stream")
+	upReq.Header.Set("X-File-Name", "install.sh")
+	upReq.Header.Set("X-CSRF-Token", c.csrf)
+	upResp, err := c.h.Do(upReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var up map[string]any
+	_ = json.NewDecoder(upResp.Body).Decode(&up)
+	upResp.Body.Close()
+	if upResp.StatusCode != 201 {
+		t.Fatalf("upload through the proxy: %d %v", upResp.StatusCode, up)
+	}
+	st, b = c.do("POST", "/catalog/custom", map[string]any{"identifier": "Acme.Tool", "name": "Acme Tool", "version": "1.0.0",
+		"sha256": up["sha256"], "file_name": "install.sh", "type": "exe", "arch": "neutral", "scope": "machine", "args": []string{"/silent"},
+		"detection": []map[string]any{{"kind": "file", "key": "%ProgramFiles%/Acme/tool.txt"}}})
+	if st != 201 {
+		t.Fatalf("custom package: %d %v", st, b)
+	}
+	st, b = c.do("POST", "/deployments", map[string]any{"name": "compose test", "action": "install", "package_id": b["package_id"],
+		"scope": "machine", "device_ids": []string{deviceID}})
+	if st != 201 {
+		t.Fatalf("deployment: %d %v", st, b)
+	}
+	depID := b["deployment_id"].(string)
+	waitFor(t, 60*time.Second, "deployment completed", func() bool {
+		_, d := c.do("GET", "/deployments/"+depID, nil)
+		return d["status"] == "completed"
+	})
+	_, jb := c.do("GET", "/deployments/"+depID+"/jobs", nil)
+	if js, _ := jb["items"].([]any); len(js) != 1 || js[0].(map[string]any)["status"] != "succeeded" {
+		t.Fatalf("job results: %v", jb)
+	}
+	if _, err := os.Stat(filepath.Join(agentDir, "pf", "Acme", "tool.txt")); err != nil {
+		t.Fatalf("installer did not run: %v", err)
+	}
+
 	// --- Revocation cuts the agent off immediately ---
 	if st, _ := c.do("POST", "/devices/"+deviceID+"/revoke", map[string]any{"reason": "integration"}); st != 204 {
 		t.Fatalf("revoke: %d", st)
