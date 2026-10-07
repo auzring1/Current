@@ -19,12 +19,15 @@ import (
 	"github.com/auzring1/auzring/internal/server/auth"
 )
 
+var totpOut *string
+
 func main() {
 	base := flag.String("url", "http://localhost:18080", "server base URL (must equal AUZ_PUBLIC_URL)")
 	setupTok := flag.String("setup-token", "", "one-time setup token from the server log")
 	email := flag.String("email", "admin@example.com", "admin email")
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "admin password")
 	approval := flag.Bool("require-approval", false, "token requires approval")
+	totpOut = flag.String("totp-out", "", "write the administrator's TOTP secret to this file (for later scripted logins)")
 	flag.Parse()
 	if err := run(*base, *setupTok, *email, *password, *approval); err != nil {
 		fmt.Fprintln(os.Stderr, "bootstrap:", err)
@@ -93,6 +96,11 @@ func run(base, setupTok, email, password string, approval bool) error {
 	}
 	if err := call("/enrollment-tokens", map[string]any{"name": "ci", "max_uses": 5, "expires_in_hours": 2, "require_approval": approval}, &tok); err != nil {
 		return err
+	}
+	if *totpOut != "" {
+		if err := os.WriteFile(*totpOut, []byte(begin.TOTPSecret), 0o600); err != nil {
+			return err
+		}
 	}
 	fmt.Println(tok.Enrollment)
 	fmt.Fprintf(os.Stderr, "TOTP secret (for interactive login): %s\n", begin.TOTPSecret)
