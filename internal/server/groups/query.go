@@ -3,6 +3,7 @@ package groups
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,11 +41,14 @@ func Evaluate(ctx context.Context, pool *pgxpool.Pool, org uuid.UUID, f *Node, l
 	var members []Member
 	var total int64
 	err = readOnly(ctx, pool, func(tx pgx.Tx) error {
-		// where is built only from allow-listed fragments and placeholders.
+		// `where` is built only from the filter compiler's allow-listed fragments and
+		// $n placeholders; no user text reaches the SQL string (see Compile and its tests).
+		// nosemgrep: no-sql-string-building
 		if err := tx.QueryRow(ctx, "SELECT count(*) FROM devices d WHERE "+where, args...).Scan(&total); err != nil { // #nosec G202
 			return err
 		}
 		n := len(args)
+		// nosemgrep: no-sql-string-building
 		rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT d.id, d.hostname, d.chassis, d.manufacturer, d.model, d.os_caption,
 			d.os_build, d.online, d.last_seen_at, d.software_count
 			FROM devices d WHERE %s ORDER BY lower(d.hostname), d.id LIMIT $%d OFFSET $%d`, where, n+1, n+2), // #nosec G201
@@ -73,7 +77,8 @@ func readOnly(ctx context.Context, pool *pgxpool.Pool, f func(pgx.Tx) error) err
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, fmt.Sprintf("SET LOCAL statement_timeout = %d", queryTimeout.Milliseconds())); err != nil {
+	// set_config(..., true) is SET LOCAL with a bound parameter, so the SQL stays constant.
+	if _, err := tx.Exec(ctx, "SELECT set_config('statement_timeout', $1, true)", strconv.FormatInt(queryTimeout.Milliseconds(), 10)); err != nil {
 		return err
 	}
 	return f(tx)
