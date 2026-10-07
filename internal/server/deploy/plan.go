@@ -46,6 +46,9 @@ type Request struct {
 	// Actor for audit.
 	UserID uuid.UUID
 	IP     string
+	// Policy, when set, marks a deployment created by a software policy: it is audited as the system
+	// acting for that policy rather than as the user who created the policy.
+	Policy string
 }
 
 // Skip explains why a device got no job.
@@ -242,7 +245,12 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 		if pkg.Source == "winget" && !pkg.Verified {
 			details["unverified_confirmed"] = true
 		}
-		_, err := audit.Write(ctx, tx, audit.Entry{OrgID: &org, ActorType: audit.ActorUser, ActorID: r.UserID.String(), ActorIP: r.IP,
+		actorType, actorID := audit.ActorUser, r.UserID.String()
+		if r.Policy != "" {
+			actorType, actorID = audit.ActorSystem, "policy:"+r.Policy
+			details["policy"] = r.Policy
+		}
+		_, err := audit.Write(ctx, tx, audit.Entry{OrgID: &org, ActorType: actorType, ActorID: actorID, ActorIP: r.IP,
 			Action: "deployment.create", TargetType: "deployment", TargetIDs: []string{depID.String()}, Outcome: audit.Success, Details: details}, now)
 		return err
 	})

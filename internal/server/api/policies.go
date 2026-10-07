@@ -1,0 +1,227 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/auzring/internal/server/policies"
+)
+
+func (s *server) polSvc(w http.ResponseWriter) bool {
+	if s.Policies == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Software policies are not available.")
+		return false
+	}
+	return true
+}
+
+func (s *server) polError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, policies.ErrInvalid):
+		writeError(w, http.StatusUnprocessableEntity, "invalid_request", strings.TrimPrefix(err.Error(), policies.ErrInvalid.Error()+": "))
+	case errors.Is(err, policies.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "Not found.")
+	case errors.Is(err, policies.ErrConflict):
+		writeError(w, http.StatusConflict, "conflict", strings.TrimPrefix(err.Error(), policies.ErrConflict.Error()+": "))
+	default:
+		s.Log.Error("policies", "err", err)
+		internalError(w)
+	}
+}
+
+func (s *server) polActor(r *http.Request) policies.Actor {
+	p := principalFrom(r)
+	return policies.Actor{Org: p.OrgID, User: p.UserID, IP: clientIP(r)}
+}
+
+func (s *server) listPolicies(w http.ResponseWriter, r *http.Request) {
+	if !s.polSvc(w) {
+		return
+	}
+	items, err := s.Policies.List(r.Context(), principalFrom(r).OrgID)
+	if err != nil {
+		s.polError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *server) createPolicy(w http.ResponseWriter, r *http.Request) {
+	if !s.polSvc(w) {
+		return
+	}
+	var in policies.Input
+	if !decode(w, r, &in) {
+		return
+	}
+	id, err := s.Policies.Create(r.Context(), s.polActor(r), in)
+	if err != nil {
+		s.polError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": id})
+}
+
+func (s *server) updatePolicy(w http.ResponseWriter, r *http.Request) {
+	if !s.polSvc(w) {
+		return
+	}
+	id, ok := idParam(w, r)
+	if !ok {
+		return
+	}
+	var in policies.Input
+	if !decode(w, r, &in) {
+		return
+	}
+	if err := s.Policies.Update(r.Context(), s.polActor(r), id, in); err != nil {
+		s.polError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) deletePolicy(w http.ResponseWriter, r *http.Request) {
+	if !s.polSvc(w) {
+		return
+	}
+	id, ok := idParam(w, r)
+	if !ok {
+		return
+	}
+	if err := s.Policies.Delete(r.Context(), s.polActor(r), id); err != nil {
+		s.polError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ---- compliance report ----
+
+const staleAfter = 7 * 24 * time.Hour
+
+type complianceRow struct {
+	DeviceID        string     `json:"device_id"`
+	Hostname        string     `json:"hostname"`
+	SiteID          string     `json:"site_id"`
+	OS              string     `json:"os"`
+	OSBuild         string     `json:"os_build"`
+	AgentVersion    string     `json:"agent_version"`
+	Online          bool       `json:"online"`
+	LastSeenAt      *time.Time `json:"last_seen_at"`
+	LastScanAt      *time.Time `json:"last_scan_at"`
+	ApprovedMissing int32      `json:"approved_missing"`
+	CriticalMissing int32      `json:"critical_missing"`
+	FailedUpdates   int32      `json:"failed_updates"`
+	RebootPending   bool       `json:"reboot_pending"`
+	State           string     `json:"state"` // compliant | non_compliant | unknown
+}
+
+// complianceState: non-compliant when an approved or critical update is missing or an install failed;
+// unknown when the device has never scanned or its scan is more than a week old; otherwise compliant.
+func complianceState(r dbq.ComplianceReportRow, now time.Time) string {
+	if r.ApprovedMissing > 0 || r.CriticalMissing > 0 || r.FailedUpdates > 0 {
+		return "non_compliant"
+	}
+	if r.WuScannedAt == nil || now.Sub(*r.WuScannedAt) > staleAfter {
+		return "unknown"
+	}
+	return "compliant"
+}
+
+func (s *server) complianceRows(r *http.Request) ([]complianceRow, error) {
+	rows, err := s.q().ComplianceReport(r.Context(), principalFrom(r).OrgID)
+	if err != nil {
+		return nil, err
+	}
+	now := s.now()
+	out := make([]complianceRow, 0, len(rows))
+	for _, x := range rows {
+		out = append(out, complianceRow{DeviceID: x.ID.String(), Hostname: x.Hostname, SiteID: x.SiteID.String(), OS: x.OsCaption, OSBuild: x.OsBuild, AgentVersion: x.AgentVersion,
+			Online: x.Online, LastSeenAt: x.LastSeenAt, LastScanAt: x.WuScannedAt, ApprovedMissing: x.ApprovedMissing, CriticalMissing: x.CriticalMissing,
+			FailedUpdates: x.FailedUpdates, RebootPending: x.RebootPending != nil && *x.RebootPending, State: complianceState(x, now)})
+	}
+	return out, nil
+}
+
+// reportOverview: GET /reports/overview — fleet health at a glance.
+func (s *server) reportOverview(w http.ResponseWriter, r *http.Request) {
+	p := principalFrom(r)
+	rows, err := s.complianceRows(r)
+	if err != nil {
+		internalError(w)
+		return
+	}
+	counts, err := s.q().ReportDeviceCounts(r.Context(), dbq.ReportDeviceCountsParams{OrgID: p.OrgID, StaleBefore: s.now().Add(-staleAfter)})
+	if err != nil {
+		internalError(w)
+		return
+	}
+	comp := map[string]int{"compliant": 0, "non_compliant": 0, "unknown": 0}
+	reboot := 0
+	for _, x := range rows {
+		comp[x.State]++
+		if x.RebootPending {
+			reboot++
+		}
+	}
+	jobs, err := s.q().ReportJobCounts(r.Context(), dbq.ReportJobCountsParams{OrgID: p.OrgID, CreatedAt: s.now().Add(-30 * 24 * time.Hour)})
+	if err != nil {
+		internalError(w)
+		return
+	}
+	type jc struct {
+		Type   string `json:"type"`
+		Status string `json:"status"`
+		Count  int64  `json:"count"`
+	}
+	jl := make([]jc, 0, len(jobs))
+	for _, j := range jobs {
+		jl = append(jl, jc{j.Type, j.Status, j.N})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"devices":    map[string]any{"active": counts.Active, "pending": counts.Pending, "revoked": counts.Revoked, "online": counts.Online, "not_seen_for_a_week": counts.Stale, "reboot_pending": reboot},
+		"compliance": comp,
+		"jobs_30d":   jl,
+		"generated":  s.now(),
+	})
+}
+
+func (s *server) reportCompliance(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.complianceRows(r)
+	if err != nil {
+		internalError(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": rows})
+}
+
+func (s *server) complianceCSV(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.complianceRows(r)
+	if err != nil {
+		internalError(w)
+		return
+	}
+	cw, ok := s.startCSV(w, r, "compliance", map[string]any{})
+	if !ok {
+		return
+	}
+	_ = csvRow(cw, "hostname", "state", "approved_updates_missing", "critical_updates_missing", "failed_updates", "restart_pending", "last_scan", "last_seen", "online", "os", "os_build", "agent_version")
+	ts := func(t *time.Time) string {
+		if t == nil {
+			return ""
+		}
+		return t.UTC().Format(time.RFC3339)
+	}
+	for _, x := range rows {
+		if csvRow(cw, x.Hostname, x.State, strconv.Itoa(int(x.ApprovedMissing)), strconv.Itoa(int(x.CriticalMissing)), strconv.Itoa(int(x.FailedUpdates)),
+			strconv.FormatBool(x.RebootPending), ts(x.LastScanAt), ts(x.LastSeenAt), strconv.FormatBool(x.Online), x.OS, x.OSBuild, x.AgentVersion) != nil {
+			return
+		}
+	}
+	cw.Flush()
+}

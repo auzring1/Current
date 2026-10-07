@@ -370,6 +370,15 @@ type PkiMaterial struct {
 	RetiredAt     *time.Time
 }
 
+type PolicyAttempt struct {
+	PolicyID     uuid.UUID
+	DeviceID     uuid.UUID
+	Version      string
+	DeploymentID *uuid.UUID
+	Failures     int32
+	CreatedAt    time.Time
+}
+
 type RoleBinding struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
@@ -439,6 +448,23 @@ type SoftwareInstall struct {
 	SystemComponent      bool
 	FirstSeenAt          time.Time
 	LastSeenAt           time.Time
+}
+
+type SoftwarePolicy struct {
+	ID                  uuid.UUID
+	OrgID               uuid.UUID
+	Name                string
+	Kind                string
+	PackageID           uuid.UUID
+	GroupIds            []uuid.UUID
+	DelayDays           int32
+	OnlyNewDevices      bool
+	UnverifiedConfirmed bool
+	MaintWindow         []byte
+	Enabled             bool
+	CreatedBy           *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type SoftwareTitle struct {

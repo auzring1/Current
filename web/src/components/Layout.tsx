@@ -30,6 +30,8 @@ export function Layout() {
     { to: "/catalog", label: "Catalog", perm: "catalog:read" },
     { to: "/updates", label: "Windows updates", perm: "updates:read" },
     { to: "/update-policy", label: "Update policy", perm: "updates:read" },
+    { to: "/policies", label: "Software policies", perm: "policies:read" },
+    { to: "/reports", label: "Reports", perm: "reports:read" },
     { to: "/agent-updates", label: "Agent updates", perm: "releases:read" },
     { to: "/deployments", label: "Deployments", perm: "deployments:read" },
     { to: "/enrollment", label: "Enrollment", perm: "enrollment:read" },

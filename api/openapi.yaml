@@ -24,6 +24,7 @@ tags:
   - name: updates
   - name: releases
   - name: identity
+  - name: policies
 paths:
   /setup/status:
     get:
@@ -324,6 +325,13 @@ paths:
       parameters:
         - { name: before_id, in: query, schema: { type: integer, minimum: 1 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { $ref: "#/components/parameters/AuditAction" }
+        - { $ref: "#/components/parameters/AuditOutcome" }
+        - { $ref: "#/components/parameters/AuditActorType" }
+        - { $ref: "#/components/parameters/AuditActor" }
+        - { $ref: "#/components/parameters/AuditTarget" }
+        - { $ref: "#/components/parameters/AuditFrom" }
+        - { $ref: "#/components/parameters/AuditTo" }
       responses:
         "200":
           description: OK
@@ -334,6 +342,46 @@ paths:
                 required: [items]
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+  /audit/verify:
+    post:
+      tags: [audit]
+      summary: Walk the whole hash chain and report whether it is intact (requires audit:read; audited)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [intact, checked, broken_at, seconds]
+                properties:
+                  intact: { type: boolean }
+                  checked: { type: integer, format: int64 }
+                  broken_at: { type: integer, format: int64, description: First bad entry id, 0 when intact }
+                  seconds: { type: number }
+        "409": { $ref: "#/components/responses/Error" }
+  /audit.csv:
+    get:
+      tags: [audit]
+      summary: The filtered audit log as CSV, at most 100000 rows (requires audit:read; audited)
+      parameters:
+        - { $ref: "#/components/parameters/AuditAction" }
+        - { $ref: "#/components/parameters/AuditOutcome" }
+        - { $ref: "#/components/parameters/AuditActorType" }
+        - { $ref: "#/components/parameters/AuditActor" }
+        - { $ref: "#/components/parameters/AuditTarget" }
+        - { $ref: "#/components/parameters/AuditFrom" }
+        - { $ref: "#/components/parameters/AuditTo" }
+      responses:
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema: { type: string }
   /devices/{id}/software:
     get:
       tags: [inventory]
@@ -1426,6 +1474,96 @@ paths:
       responses:
         "204": { description: Revoked }
         "404": { $ref: "#/components/responses/Error" }
+  /policies:
+    get:
+      tags: [policies]
+      summary: Software policies (requires policies:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/SoftwarePolicy" } }
+    post:
+      tags: [policies]
+      summary: Create a software policy (requires policies:write; audited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SoftwarePolicyInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /policies/{id}:
+    put:
+      tags: [policies]
+      summary: Replace a software policy (requires policies:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SoftwarePolicyInput" }
+      responses:
+        "204": { description: Saved }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [policies]
+      summary: Delete a software policy; deployments it already made keep running (requires policies:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /reports/overview:
+    get:
+      tags: [reports]
+      summary: Fleet health at a glance - device counts, patch compliance, jobs of the last 30 days (requires reports:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportOverview" }
+  /reports/compliance:
+    get:
+      tags: [reports]
+      summary: Patch compliance per device (requires reports:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ComplianceRow" } }
+  /reports/compliance.csv:
+    get:
+      tags: [reports]
+      summary: Patch compliance per device as CSV (requires inventory:export; audited)
+      responses:
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema: { type: string }
   /update-conflicts:
     get:
       tags: [updates]
@@ -1858,6 +1996,13 @@ components:
       scheme: bearer
       description: An API token (azt_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
   parameters:
+    AuditAction: { name: action, in: query, description: Action name prefix such as user. or deployment.create, schema: { type: string, maxLength: 100 } }
+    AuditOutcome: { name: outcome, in: query, schema: { type: string, enum: [success, denied, error] } }
+    AuditActorType: { name: actor_type, in: query, schema: { type: string, enum: [user, system, device, anonymous] } }
+    AuditActor: { name: actor, in: query, description: Actor id or IP address, schema: { type: string, maxLength: 100 } }
+    AuditTarget: { name: target, in: query, description: A target id, schema: { type: string, maxLength: 100 } }
+    AuditFrom: { name: from, in: query, schema: { type: string, format: date-time } }
+    AuditTo: { name: to, in: query, schema: { type: string, format: date-time } }
     ID:
       name: id
       in: path
@@ -2138,6 +2283,85 @@ components:
               role: { type: string }
               scope_type: { type: string }
               scope_id: { type: string, format: uuid }
+    SoftwarePolicy:
+      type: object
+      required: [id, name, kind, package_id, package_name, group_ids, delay_days, only_new_devices, unverified_confirmed, enabled, created_at, devices_attempted]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string, enum: [keep_updated, baseline] }
+        package_id: { type: string, format: uuid }
+        package_name: { type: string }
+        package_identifier: { type: string }
+        group_ids: { type: array, items: { type: string, format: uuid } }
+        delay_days: { type: integer }
+        only_new_devices: { type: boolean }
+        unverified_confirmed: { type: boolean }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        devices_attempted: { type: integer, format: int64 }
+    SoftwarePolicyInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, package_id, group_ids]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        kind: { type: string, enum: [keep_updated, baseline] }
+        package_id: { type: string, format: uuid }
+        group_ids: { type: array, minItems: 1, maxItems: 50, items: { type: string, format: uuid } }
+        delay_days: { type: integer, minimum: 0, maximum: 365 }
+        only_new_devices: { type: boolean }
+        unverified_confirmed: { type: boolean }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        enabled: { type: boolean }
+    ComplianceRow:
+      type: object
+      required: [device_id, hostname, state, approved_missing, critical_missing, failed_updates, reboot_pending, online]
+      properties:
+        device_id: { type: string, format: uuid }
+        hostname: { type: string }
+        site_id: { type: string, format: uuid }
+        os: { type: string }
+        os_build: { type: string }
+        agent_version: { type: string }
+        online: { type: boolean }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+        last_scan_at: { type: string, format: date-time, nullable: true }
+        approved_missing: { type: integer }
+        critical_missing: { type: integer }
+        failed_updates: { type: integer }
+        reboot_pending: { type: boolean }
+        state: { type: string, enum: [compliant, non_compliant, unknown] }
+    ReportOverview:
+      type: object
+      required: [devices, compliance, jobs_30d, generated]
+      properties:
+        devices:
+          type: object
+          properties:
+            active: { type: integer, format: int64 }
+            pending: { type: integer, format: int64 }
+            revoked: { type: integer, format: int64 }
+            online: { type: integer, format: int64 }
+            not_seen_for_a_week: { type: integer, format: int64 }
+            reboot_pending: { type: integer }
+        compliance:
+          type: object
+          properties:
+            compliant: { type: integer }
+            non_compliant: { type: integer }
+            unknown: { type: integer }
+        jobs_30d:
+          type: array
+          items:
+            type: object
+            required: [type, status, count]
+            properties:
+              type: { type: string }
+              status: { type: string }
+              count: { type: integer, format: int64 }
+        generated: { type: string, format: date-time }
     UpdateSettings:
       type: object
       additionalProperties: false
@@ -2728,6 +2952,7 @@ components:
         ts: { type: string, format: date-time }
         actor_type: { type: string }
         actor_id: { type: string }
+        actor_name: { type: string, description: Email of a user actor }
         actor_ip: { type: string }
         action: { type: string }
         target_type: { type: string }

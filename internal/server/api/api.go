@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -22,6 +23,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
+	"github.com/auzring1/auzring/internal/server/policies"
 	"github.com/auzring1/auzring/internal/server/updates"
 )
 
@@ -54,6 +56,7 @@ type Deps struct {
 	Catalog   *catalog.Service
 	Updates   *updates.Service
 	Releases  *agentrel.Service
+	Policies  *policies.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -65,6 +68,7 @@ type server struct {
 	setupIP    *auth.Limiter
 	apiIP      *auth.Limiter
 	sse        *sseLimiter
+	verifying  sync.Mutex
 	webauthn   *webauthn.WebAuthn // nil when the public URL cannot host WebAuthn
 }
 
@@ -210,7 +214,17 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens/{id}/revoke", s.revokeToken)
 
 	r.With(s.require(auth.PermAuditRead)).Get("/audit", s.listAudit)
+	r.With(s.require(auth.PermAuditRead)).Post("/audit/verify", s.verifyAudit)
+	r.With(s.require(auth.PermAuditRead)).Get("/audit.csv", s.auditCSV)
 	r.With(s.requireAny(auth.PermDevicesRead)).Get("/events", s.events)
+
+	r.With(s.require(auth.PermPoliciesRead)).Get("/policies", s.listPolicies)
+	r.With(s.require(auth.PermPoliciesWrite)).Post("/policies", s.createPolicy)
+	r.With(s.require(auth.PermPoliciesWrite)).Put("/policies/{id}", s.updatePolicy)
+	r.With(s.require(auth.PermPoliciesWrite)).Delete("/policies/{id}", s.deletePolicy)
+	r.With(s.require(auth.PermReportsRead)).Get("/reports/overview", s.reportOverview)
+	r.With(s.require(auth.PermReportsRead)).Get("/reports/compliance", s.reportCompliance)
+	r.With(s.require(auth.PermInventoryExport)).Get("/reports/compliance.csv", s.complianceCSV)
 
 	r.With(s.requireAny(auth.PermSitesRead)).Get("/sites", s.listSites)
 	r.With(s.require(auth.PermSitesWrite)).Post("/sites", s.createSite)
