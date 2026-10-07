@@ -62,7 +62,71 @@ These modes only affect the console. The agent channel always uses the server's 
 4. The command copies the agent to `C:\Program Files\Auzring\Agent\slot-a\`, locks down `C:\ProgramData\Auzring\`, registers and starts the **AuzringAgent** service (LocalSystem, automatic start, restart on failure), and waits for enrollment.
 5. Check the agent at any time with `"C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" status`.
 
-To **remove** the agent, run `auzring-agent.exe uninstall`. It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
+To **remove** the agent, run `auzring-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
+
+### Install with the MSI (GPO, Intune, RMM)
+
+For fleets, use the MSI instead of copying the exe around. It is a thin wrapper around the commands above (decision O6/D67): it carries `auzring-agent.exe`, and a SYSTEM-context step runs `auzring-agent.exe install ...` (service, slot-a, enrollment). Build it with `installer/windows/build.ps1` (see `installer/windows/README.md`); the release pipeline signs it. Per-machine, x64 only, Windows 10 1809+ / Server 2019+, must run elevated (or as SYSTEM, which is what GPO, Intune and RMM agents do).
+
+**Public properties** (anything else on the command line is ignored by the agent):
+
+| Property | Required | Meaning |
+|---|---|---|
+| `SERVER` | first install | Gateway `host:port`, e.g. `auzring.example.com:8443`. Letters, digits and `. - _ :` (IPv6 in `[..]`). |
+| `TOKEN` | first install | The enrollment string (`AURZ1....`). Letters, digits and `. - _`. Treated as a secret. |
+| `ALLOWEDJOBS` | no | Comma list for the local job ceiling, e.g. `inventory,wu_scan`. Lower-case letters, digits, `_`, `,`. |
+
+Values with spaces, quotes or shell characters are refused by the MSI (and again by the agent). Nothing is run through `cmd.exe` or PowerShell.
+
+**Silent install (copy and paste):**
+```
+msiexec /i auzring-agent-1.0.0-x64.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... ALLOWEDJOBS=inventory,wu_scan /l*v C:\Windows\Temp\auzring-msi.log
+```
+`/qn` is fully silent, `/qb` shows only the progress bar. The MSI does not request a restart. Because `TOKEN` is declared a hidden property, Windows Installer writes it as `***` in verbose logs and the custom action receives it only as CustomActionData and runs the agent exe directly. **The token is still on the `msiexec` command line**, so it is visible in the process list to administrators while the install runs and in whatever logs your deployment tool keeps of the command (see the Intune and RMM notes).
+
+**Upgrades.** Installing a newer MSI over an enrolled machine needs no properties and no token: the old package's uninstall step is skipped during a major upgrade and `install --if-not-installed` exits 0 when the service and `config.json` exist. The device identity, key and data stay. Installing the MSI on a machine where the agent is already installed (for example by hand) also does not re-enroll it; to move a device to another server, uninstall first. The MSI upgrade does **not** replace the binary in `slot-a`/`slot-b`; that is the agent's own update mechanism (ARCHITECTURE section 10).
+
+**Group Policy.** GPO software installation (Computer Configuration, Software Settings, Software installation, "Assigned") cannot pass properties. The two workable options:
+1. *Startup script (recommended).* A computer startup script runs as SYSTEM and can use the command above. Keep the MSI on a share that Domain Computers can read. Make the script skip machines that are already enrolled, so it can run on every boot:
+   ```
+   if not exist "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" msiexec /i "\\fs01\software\auzring-agent.msi" /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%windir%\Temp\auzring-msi.log"
+   ```
+2. *Transform (.mst).* Create a transform that adds `SERVER` and `TOKEN` rows to the `Property` table (Orca, or the Windows SDK transform tools), put it next to the MSI and add it on the Modifications tab of the GPO package. Be aware that the token is then stored in the transform.
+**SYSVOL and script shares are readable by every authenticated domain user, so anyone in the domain can read a token placed in a GPO script or transform.** Use the mitigations below, and prefer a share whose ACL allows only the computer accounts (and administrators) to read.
+
+**Intune (Win32 app).** Wrap the MSI with the Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) and set:
+- Install command: `msiexec /i auzring-agent-1.0.0-x64.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%ProgramData%\Auzring-msi-install.log"`
+- Uninstall command: `msiexec /x auzring-agent-1.0.0-x64.msi /qn` (runs from the content folder; the ProductCode changes with every build, so do not hard-code it).
+- Install behavior: System. Device restart behavior: No specific action.
+- Detection rule: file exists `C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe` (or "Service" via a custom script rule: `Get-Service AuzringAgent`).
+- Return codes: 0 success; 1603 failed (see below); 3010 is not used.
+Intune keeps the install command line in the Intune Management Extension log on the device (`C:\ProgramData\Microsoft\IntuneManagementExtension\Logs`) and in the app definition, so the token is readable there by local administrators and by Intune admins who can read the app. That is the reason for the short-lived multi-use token below.
+
+**Generic RMM / script.** Run as SYSTEM, wait for the exit code, and treat anything other than 0 as failure:
+```powershell
+$p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/i C:\Temp\auzring-agent.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v C:\Windows\Temp\auzring-msi.log'
+if ($p.ExitCode -ne 0) { Get-Content C:\ProgramData\Auzring\logs\agent.log -Tail 40 -ErrorAction SilentlyContinue; exit $p.ExitCode }
+```
+Do not echo the command into your RMM's job output.
+
+**Exit codes and where to look.**
+
+| msiexec exit | Meaning | What to do |
+|---|---|---|
+| 0 | Installed (or enrolled and waiting for approval), or nothing to do on an enrolled machine | |
+| 1603 | Fatal error: a launch condition failed (`SERVER is required...`, `TOKEN is not an Auzring enrollment string...`, `... may only contain...`, unsupported Windows, not elevated), an older MSI than the installed one was run (downgrade), or the install step failed (the agent or the server rejected the token or `ALLOWEDJOBS`, the gateway is unreachable or does not trust the pin). The MSI rolls back: service, data directory and program files are removed. | Repeat with `/l*v msi.log` and search it for `LaunchCondition` and `Return value 3`. The MSI log never contains the agent's command line or output (the token is on it), so for an install-step failure run the release's `auzring-agent.exe` by hand (the same file the MSI carries) from an elevated prompt: `auzring-agent.exe install --server ... --token ...` prints the reason, and `auzring-agent.exe uninstall` cleans up. If enrollment got as far as the service, `C:\ProgramData\Auzring\logs\agent.log` has the details until the rollback deletes it. |
+| 1618 | Another installation is running | Retry later |
+| 3010 | Not used | |
+| 1605 | `/x` of a product that is not installed | Nothing to remove |
+
+Uninstall: `msiexec /x auzring-agent-1.0.0-x64.msi /qn` (or `/x {ProductCode}`). It stops and deletes the service, deletes the device key and `C:\ProgramData\Auzring\`, `C:\Program Files\Auzring\` and the staged `C:\Program Files\AuzringSetup\`. A failed uninstall step does not block removal of the MSI entry, so check that the service is gone (`Get-Service AuzringAgent`). As always, also revoke the device in the console.
+
+**Tokens for mass deployment.** A token has a maximum number of uses, an expiry, and optionally requires approval; every successful enrollment consumes one use. A single-use token therefore works for one machine only, and a token that enrolls and is then rolled back is spent. For a rollout:
+- create **one multi-use token per rollout wave** (max uses a little above the number of machines, for example 120 for 100 machines),
+- give it a **short lifetime** (hours to a few days, not weeks), and revoke it when the wave is done,
+- turn on **Require administrator approval** and approve the devices that you recognize in the console (a device whose hardware ID matches an existing one needs approval regardless),
+- do not reuse the token for later waves, do not put it in a repository, and treat anything that stores the command line (GPO script, transform, Intune app, RMM job history) as a place where the token can be read until it expires.
+Devices that enroll with a leaked token before it is revoked appear as pending when approval is on, so a leak costs you an approval click, not a rogue managed device.
 
 ## 5. Day-2 operations
 
