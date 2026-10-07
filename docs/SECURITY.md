@@ -197,7 +197,7 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 | Revision-checked deltas: a delta with the wrong `base_rev` changes nothing; a replay is a mismatch | `TestDeltaRevMismatchChangesNothing`, `test/e2e` (`TestInventoryEndToEnd`, `TestInventoryHelloResync`) |
 | Group filters cannot inject SQL: allow-listed identifiers, all values bound, depth/node/length limits, read-only transaction with a statement timeout; fuzzed | `internal/server/groups/filter_test.go` (golden SQL, hostile payloads, `FuzzCompile`) |
 | Formula-injection-safe CSV, audited exports, new `inventory:export` permission (not granted to the read-only role) | `test/e2e` (`TestInventoryEndToEnd`), `internal/server/auth` (`TestRBAC`) |
-| Offline user hives are opened with `RegLoadAppKey` and a read-only mask; the hive file is verified unmodified | `internal/agent/inventory/windows_test.go` (Windows CI) |
+| Offline user hives are loaded with `RegLoadAppKey` from a private copy in the protected data directory (deleted afterwards); the user's original hive is verified unmodified | `internal/agent/inventory/windows_test.go` (Windows CI) |
 | Inventory text is rendered by React (no raw HTML); the console CSP is unchanged and the browser test still sees zero violations | `web/e2e/console.spec.ts` |
 | Tenant isolation: every inventory/group query is scoped by `org_id` (titles are per organization) | `internal/server/groups` DB test (foreign organization's device and title are never matched) |
 

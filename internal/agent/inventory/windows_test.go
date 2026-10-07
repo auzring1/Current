@@ -100,7 +100,7 @@ func diffForTest(a, b *Scan) (Snapshot, int, int) {
 	return next, len(ups), len(rms)
 }
 
-// RegLoadAppKey must open an offline hive without modifying the file.
+// An offline hive must load without touching the user's real file.
 func TestLoadAppHiveIsReadOnly(t *testing.T) {
 	name := randName("AuzringCIHive")
 	writeUninstall(t, registry.CURRENT_USER, `Software\`+name+`\Microsoft\Windows\CurrentVersion\Uninstall`, "Pkg", "Offline Pkg", "9.9.9")
@@ -109,9 +109,10 @@ func TestLoadAppHiveIsReadOnly(t *testing.T) {
 		t.Fatalf("reg save: %v: %s", err, out)
 	}
 	before := fileHash(t, file)
-	node, err := loadAppHive(file)
+	root := t.TempDir()
+	node, err := loadOfflineCopy(file, root)
 	if err != nil {
-		t.Fatalf("RegLoadAppKey: %v", err)
+		t.Fatalf("loading offline hive: %v", err)
 	}
 	// The saved hive's root is the key itself.
 	sub, err := node.Open(`Microsoft\Windows\CurrentVersion\Uninstall\Pkg`)
@@ -124,8 +125,22 @@ func TestLoadAppHiveIsReadOnly(t *testing.T) {
 	sub.Close()
 	node.Close()
 	if after := fileHash(t, file); !bytes.Equal(before, after) {
-		t.Fatal("loading the hive modified the file")
+		t.Fatal("loading the hive modified the original file")
 	}
+	if left, _ := os.ReadDir(root); len(left) != 0 {
+		t.Fatalf("temporary hive copy not removed: %v", left)
+	}
+
+	// Documents the spike result (research U8): a direct RegLoadAppKey of the
+	// same file may rewrite it, which is why production code loads a copy.
+	direct := filepath.Join(t.TempDir(), "direct.dat")
+	b, _ := os.ReadFile(file)
+	_ = os.WriteFile(direct, b, 0o600)
+	h0 := fileHash(t, direct)
+	if n, err := loadAppHive(direct); err == nil {
+		n.Close()
+	}
+	t.Logf("direct RegLoadAppKey modified the file: %v", !bytes.Equal(h0, fileHash(t, direct)))
 }
 
 func fileHash(t *testing.T, path string) []byte {

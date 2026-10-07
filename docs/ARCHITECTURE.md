@@ -144,7 +144,7 @@ The service `ImagePath` is quoted, and the service DACL denies non-admins `SERVI
   - portable packages under our own `C:\Program Files\Auzring\Portable`.
 - **User scope, for each profile under `HKLM\...\ProfileList`:**
   - if the profile is loaded, read `HKU\<SID>\...\Uninstall`;
-  - otherwise load its `NTUSER.DAT` privately with `RegLoadAppKey` and read-only access (see the research note);
+  - otherwise copy its `NTUSER.DAT` (plus `.LOG1`/`.LOG2`) to a temporary directory under the protected data directory and load the **copy** privately with `RegLoadAppKey`, deleting it afterwards (a direct load can rewrite the user's hive; see research U8 and D40);
   - `%LOCALAPPDATA%\Microsoft\WinGet\Packages` (winget portable);
   - per-user AppX via `PackageManager.FindPackagesForUser`.
 - **Hardware/OS:**
