@@ -51,6 +51,8 @@ func (s *Service) newJobWindow(org, device uuid.UUID, sid string, typ agentv1.Jo
 		env.Body = &agentv1.JobEnvelope_WuHide{WuHide: b}
 	case *agentv1.RebootBody:
 		env.Body = &agentv1.JobEnvelope_Reboot{Reboot: b}
+	case *agentv1.AgentUpdateBody:
+		env.Body = &agentv1.JobEnvelope_AgentUpdate{AgentUpdate: b}
 	default:
 		return dbq.InsertJobParams{}, errors.New("deploy: unsupported ad-hoc body")
 	}

@@ -2134,6 +2134,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent-releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stored agent releases, the rollout setting and its progress (requires releases:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["AgentRelease"][];
+                            rollout: components["schemas"]["AgentRollout"];
+                            status: components["schemas"]["AgentRolloutStatus"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Upload a vendor-signed agent release (requires releases:write; audited)
+         * @description The agent binary is the raw request body (application/octet-stream). The vendor bundle (.azr, produced by auzring-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    "X-Release-Bundle": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            responses: {
+                /** @description Stored */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentRelease"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                413: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-releases/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a release (never offered again; pauses the rollout if it was the target) or make it available again (requires releases:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "available" | "withdrawn";
+                    };
+                };
+            };
+            responses: {
+                /** @description Changed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-releases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a release that is not the rollout target (requires releases:write; audited) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which release devices should run and how they get there (requires releases:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentRollout"];
+                    };
+                };
+            };
+        };
+        /** Choose the target release, the pilot and the pacing; release_id null stops updating (requires releases:write; audited) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentRolloutInput"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update-conflicts": {
         parameters: {
             query?: never;
@@ -3216,6 +3430,77 @@ export interface components {
             notify_minutes?: number;
             /** @description For deadline - restart at the latest this long after the install */
             deadline_hours?: number;
+        };
+        AgentRelease: {
+            /** Format: uuid */
+            id: string;
+            version: string;
+            os: string;
+            arch: string;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+            key_id?: string;
+            notes?: string;
+            authenticode_subject?: string;
+            min_version?: string;
+            /** @enum {string} */
+            status: "available" | "withdrawn";
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: int64
+             * @description Active devices currently running this version
+             */
+            devices_on: number;
+            is_target: boolean;
+        };
+        AgentRollout: {
+            /** Format: uuid */
+            release_id: string | null;
+            pilot_group_ids: string[];
+            soak_hours: number;
+            success_threshold: number;
+            batch_per_tick: number;
+            window?: components["schemas"]["MaintenanceWindow"];
+            paused: boolean;
+            paused_reason?: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            updated_at?: string | null;
+        };
+        AgentRolloutInput: {
+            /** Format: uuid */
+            release_id?: string | null;
+            pilot_group_ids?: string[];
+            soak_hours: number;
+            success_threshold: number;
+            batch_per_tick: number;
+            window?: components["schemas"]["MaintenanceWindow"];
+            paused?: boolean;
+        };
+        AgentRolloutStatus: {
+            versions: {
+                version: string;
+                /** Format: int64 */
+                devices: number;
+                /** Format: int64 */
+                online: number;
+            }[];
+            /** Format: int64 */
+            updated: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            queued: number;
+            pilot_devices: number;
+            /** Format: int64 */
+            pilot_updated: number;
+            /** Format: int64 */
+            pilot_failed: number;
+            /** @description Why devices outside the pilot are not being updated yet */
+            waiting: string;
         };
         UpdateSettings: {
             /** @enum {string} */

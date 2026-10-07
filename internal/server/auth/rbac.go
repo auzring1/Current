@@ -21,6 +21,8 @@ const (
 	PermUpdatesRead      = "updates:read"
 	PermUpdatesWrite     = "updates:write"  // approve, decline, hide, install, scan, restart
 	PermUpdatesPolicy    = "updates:policy" // rules, rings, source settings, releasing holds
+	PermReleasesRead     = "releases:read"  // agent releases and rollout progress
+	PermReleasesWrite    = "releases:write" // upload releases, choose the target, pause
 )
 
 // Roles.
@@ -34,10 +36,10 @@ var rolePerms = map[string][]string{
 	RoleAdmin: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermEnrollmentWrite, PermAuditRead,
 		PermGroupsRead, PermGroupsWrite, PermInventoryExport,
 		PermCatalogRead, PermCatalogWrite, PermCatalogOverride, PermDeploymentsRead, PermDeploymentsWrite, PermSettingsWrite,
-		PermUpdatesRead, PermUpdatesWrite, PermUpdatesPolicy},
+		PermUpdatesRead, PermUpdatesWrite, PermUpdatesPolicy, PermReleasesRead, PermReleasesWrite},
 	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermGroupsRead, PermGroupsWrite, PermInventoryExport,
-		PermCatalogRead, PermCatalogWrite, PermDeploymentsRead, PermDeploymentsWrite, PermUpdatesRead, PermUpdatesWrite},
-	RoleReadOnly: {PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead},
+		PermCatalogRead, PermCatalogWrite, PermDeploymentsRead, PermDeploymentsWrite, PermUpdatesRead, PermUpdatesWrite, PermReleasesRead},
+	RoleReadOnly: {PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead, PermReleasesRead},
 }
 
 // PermissionsFor returns the sorted union of permissions for org-scoped roles.

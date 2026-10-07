@@ -10,6 +10,51 @@ import (
 	"github.com/google/uuid"
 )
 
+type AgentAttempt struct {
+	DeviceID   uuid.UUID
+	ReleaseID  uuid.UUID
+	OrgID      uuid.UUID
+	JobID      *uuid.UUID
+	Pilot      bool
+	State      string
+	Failures   int32
+	LastError  string
+	CreatedAt  time.Time
+	FinishedAt *time.Time
+}
+
+type AgentRelease struct {
+	ID         uuid.UUID
+	OrgID      uuid.UUID
+	Version    string
+	Os         string
+	Arch       string
+	Sha256     []byte
+	Size       int64
+	Manifest   []byte
+	Signature  []byte
+	KeyID      string
+	Notes      string
+	Status     string
+	UploadedBy *uuid.UUID
+	CreatedAt  time.Time
+}
+
+type AgentRollout struct {
+	OrgID            uuid.UUID
+	ReleaseID        *uuid.UUID
+	PilotGroupIds    []uuid.UUID
+	SoakHours        int32
+	SuccessThreshold int32
+	BatchPerTick     int32
+	MaintWindow      []byte
+	Paused           bool
+	PausedReason     string
+	StartedAt        *time.Time
+	UpdatedBy        *uuid.UUID
+	UpdatedAt        time.Time
+}
+
 type AuditLog struct {
 	ID         int64
 	Ts         time.Time
