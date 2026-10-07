@@ -144,6 +144,14 @@ type Device struct {
 	Model              string
 	RamBytes           int64
 	OsBuildNum         int32
+	WuRev              int64
+	WuScannedAt        *time.Time
+	WuScanError        string
+	WuRebootRequired   bool
+	WuPolicy           []byte
+	WuService          int32
+	WuTruncated        bool
+	WuSettingsRev      int32
 }
 
 type DeviceCert struct {
@@ -155,6 +163,15 @@ type DeviceCert struct {
 	IssuedAt        time.Time
 	RevokedAt       *time.Time
 	RevokeReason    string
+}
+
+type DeviceUpdate struct {
+	DeviceID  uuid.UUID
+	UpdateID  uuid.UUID
+	Revision  int32
+	State     string
+	LastError string
+	ScannedAt time.Time
 }
 
 type DeviceUser struct {
@@ -255,9 +272,12 @@ type MfaTotp struct {
 }
 
 type OrgSetting struct {
-	OrgID           uuid.UUID
-	UserScopePolicy string
-	UpdatedAt       time.Time
+	OrgID            uuid.UUID
+	UserScopePolicy  string
+	UpdatedAt        time.Time
+	WuService        string
+	WuIncludeDrivers bool
+	WuRev            int32
 }
 
 type Organization struct {
@@ -390,4 +410,90 @@ type UserIdentity struct {
 	UserID   uuid.UUID
 	Provider string
 	Subject  string
+}
+
+type WuApproval struct {
+	OrgID     uuid.UUID
+	UpdateID  uuid.UUID
+	Decision  string
+	Source    string
+	RuleID    *uuid.UUID
+	Note      string
+	DecidedBy *uuid.UUID
+	DecidedAt time.Time
+}
+
+type WuAttempt struct {
+	OrgID      uuid.UUID
+	UpdateID   uuid.UUID
+	DeviceID   uuid.UUID
+	RingID     *uuid.UUID
+	JobID      *uuid.UUID
+	State      string
+	Failures   int32
+	Hresult    int32
+	CreatedAt  time.Time
+	FinishedAt *time.Time
+}
+
+type WuHold struct {
+	ID         uuid.UUID
+	OrgID      uuid.UUID
+	UpdateID   uuid.UUID
+	RingID     uuid.UUID
+	Reason     string
+	CreatedAt  time.Time
+	ReleasedAt *time.Time
+	ReleasedBy *uuid.UUID
+}
+
+type WuRing struct {
+	ID               uuid.UUID
+	OrgID            uuid.UUID
+	Name             string
+	Ordinal          int32
+	GroupIds         []uuid.UUID
+	DelayDays        int32
+	SoakHours        int32
+	SuccessThreshold int32
+	MaintWindow      []byte
+	Reboot           []byte
+	Enabled          bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type WuRule struct {
+	ID              uuid.UUID
+	OrgID           uuid.UUID
+	Name            string
+	Classifications []string
+	Severities      []string
+	IncludeDrivers  bool
+	DelayDays       int32
+	Enabled         bool
+	CreatedBy       *uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type WuUpdate struct {
+	OrgID          uuid.UUID
+	UpdateID       uuid.UUID
+	Revision       int32
+	Title          string
+	Kb             []string
+	Classification string
+	Severity       string
+	Products       []string
+	IsDriver       bool
+	DriverClass    string
+	DriverHwid     string
+	DriverVersion  string
+	ReleaseDate    *time.Time
+	SupportUrl     string
+	SizeBytes      int64
+	RebootRequired bool
+	FirstSeenAt    time.Time
+	LastSeenAt     time.Time
 }

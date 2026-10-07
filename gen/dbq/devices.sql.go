@@ -179,7 +179,7 @@ func (q *Queries) DeleteDeviceCerts(ctx context.Context, deviceID uuid.UUID) err
 }
 
 const findActiveDeviceByHardware = `-- name: FindActiveDeviceByHardware :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num, wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy, wu_service, wu_truncated, wu_settings_rev FROM devices
 WHERE org_id = $1 AND status = 'active' AND smbios_uuid = $2 AND serial = $3
   AND smbios_uuid <> '' AND serial <> ''
 ORDER BY enrolled_at DESC LIMIT 1
@@ -235,12 +235,20 @@ func (q *Queries) FindActiveDeviceByHardware(ctx context.Context, arg FindActive
 		&i.Model,
 		&i.RamBytes,
 		&i.OsBuildNum,
+		&i.WuRev,
+		&i.WuScannedAt,
+		&i.WuScanError,
+		&i.WuRebootRequired,
+		&i.WuPolicy,
+		&i.WuService,
+		&i.WuTruncated,
+		&i.WuSettingsRev,
 	)
 	return i, err
 }
 
 const getDevice = `-- name: GetDevice :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE id = $1
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num, wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy, wu_service, wu_truncated, wu_settings_rev FROM devices WHERE id = $1
 `
 
 func (q *Queries) GetDevice(ctx context.Context, id uuid.UUID) (Device, error) {
@@ -287,12 +295,20 @@ func (q *Queries) GetDevice(ctx context.Context, id uuid.UUID) (Device, error) {
 		&i.Model,
 		&i.RamBytes,
 		&i.OsBuildNum,
+		&i.WuRev,
+		&i.WuScannedAt,
+		&i.WuScanError,
+		&i.WuRebootRequired,
+		&i.WuPolicy,
+		&i.WuService,
+		&i.WuTruncated,
+		&i.WuSettingsRev,
 	)
 	return i, err
 }
 
 const getDeviceByTicketHash = `-- name: GetDeviceByTicketHash :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE enroll_ticket_hash = $1
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num, wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy, wu_service, wu_truncated, wu_settings_rev FROM devices WHERE enroll_ticket_hash = $1
 `
 
 func (q *Queries) GetDeviceByTicketHash(ctx context.Context, enrollTicketHash []byte) (Device, error) {
@@ -339,12 +355,20 @@ func (q *Queries) GetDeviceByTicketHash(ctx context.Context, enrollTicketHash []
 		&i.Model,
 		&i.RamBytes,
 		&i.OsBuildNum,
+		&i.WuRev,
+		&i.WuScannedAt,
+		&i.WuScanError,
+		&i.WuRebootRequired,
+		&i.WuPolicy,
+		&i.WuService,
+		&i.WuTruncated,
+		&i.WuSettingsRev,
 	)
 	return i, err
 }
 
 const getDeviceInOrg = `-- name: GetDeviceInOrg :one
-SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num FROM devices WHERE id = $1 AND org_id = $2
+SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num, wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy, wu_service, wu_truncated, wu_settings_rev FROM devices WHERE id = $1 AND org_id = $2
 `
 
 type GetDeviceInOrgParams struct {
@@ -396,6 +420,14 @@ func (q *Queries) GetDeviceInOrg(ctx context.Context, arg GetDeviceInOrgParams) 
 		&i.Model,
 		&i.RamBytes,
 		&i.OsBuildNum,
+		&i.WuRev,
+		&i.WuScannedAt,
+		&i.WuScanError,
+		&i.WuRebootRequired,
+		&i.WuPolicy,
+		&i.WuService,
+		&i.WuTruncated,
+		&i.WuSettingsRev,
 	)
 	return i, err
 }

@@ -39,6 +39,9 @@ type Service struct {
 	Log        *slog.Logger
 	Now        func() time.Time
 
+	// AfterTerminal, if set, runs once when a job reaches a final state (Windows Update bookkeeping).
+	AfterTerminal func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate)
+
 	bg sync.WaitGroup // background dispatches started by Create
 }
 

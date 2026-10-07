@@ -1519,6 +1519,856 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Windows updates reported by devices, with approval state and counts (requires updates:read) */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    classification?: string;
+                    severity?: "" | "Critical" | "Important" | "Moderate" | "Low";
+                    decision?: "pending" | "approved" | "declined" | "hidden";
+                    /** @description Only updates some device is missing */
+                    missing?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["WindowsUpdate"][];
+                            total: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/updates/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve, decline or hide updates, or reset them to pending (requires updates:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        update_ids: string[];
+                        /** @enum {string} */
+                        decision: "approved" | "declined" | "hidden" | "none";
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            changed: number;
+                            missing: number;
+                            hide_jobs: number;
+                        };
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/updates/{id}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices that report this update, with install attempts (requires updates:read) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** Format: uuid */
+                                device_id: string;
+                                hostname: string;
+                                online?: boolean;
+                                /** @enum {string} */
+                                state: "missing" | "downloaded" | "hidden" | "pending_reboot" | "failed";
+                                last_error?: string;
+                                /** Format: date-time */
+                                scanned_at?: string;
+                                revision?: number;
+                                /** @enum {string} */
+                                attempt_state?: "" | "queued" | "installed" | "failed";
+                                attempt_failures?: number;
+                                /** Format: date-time */
+                                attempt_finished_at?: string | null;
+                                ring?: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/updates/{id}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install one update now on the listed devices, or on every device that misses it (requires updates:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        device_ids?: string[];
+                        restart?: components["schemas"]["RestartPolicy"];
+                    };
+                };
+            };
+            responses: {
+                /** @description Queued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            jobs: number;
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which update service devices use and whether drivers are included (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateSettings"];
+                    };
+                };
+            };
+        };
+        /** Change the update service settings; every device is sent them (requires updates:policy, admin only) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSettings"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Auto-approval rules (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["UpdateRule"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create an auto-approval rule (requires updates:policy) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRule"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateRule"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a rule (requires updates:policy) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRule"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateRule"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Delete a rule; approvals it already made stay (requires updates:policy) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-rings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rollout rings in order (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["UpdateRing"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a ring (requires updates:policy) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRing"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateRing"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-rings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a ring (requires updates:policy) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRing"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateRing"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Delete a ring (requires updates:policy) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Updates stopped from reaching later rings because a ring failed its success threshold (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                update_id: string;
+                                title?: string;
+                                ring_name: string;
+                                reason: string;
+                                /** Format: date-time */
+                                created_at: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-holds/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Let the update continue to later rings despite the failures (requires updates:policy; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Released */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-conflicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices whose update policy is managed by something else (WSUS, deferral policies, disabled automatic updates) (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** Format: uuid */
+                                device_id: string;
+                                hostname: string;
+                                policy?: components["schemas"]["WuPolicy"];
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/windows-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What this device's last Windows Update scan found, plus who manages updates on it (requires updates:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeviceWindowsUpdates"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/windows-updates/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan the device for updates now (requires updates:write) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/windows-updates/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install the chosen updates on this device now, ignoring rings and approval (requires updates:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        update_ids: string[];
+                        restart?: components["schemas"]["RestartPolicy"];
+                    };
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/windows-updates/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide or unhide updates on this device (requires updates:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        update_ids: string[];
+                        hide: boolean;
+                    };
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/reboot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart an online device after a countdown that signed-in users can see (requires updates:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        minutes: number;
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog/packages": {
         parameters: {
             query?: never;
@@ -2324,6 +3174,123 @@ export interface components {
             deployable: boolean;
             reason?: string;
         };
+        WindowsUpdate: {
+            /** Format: uuid */
+            update_id: string;
+            revision?: number;
+            title: string;
+            kb?: string[];
+            classification: string;
+            severity?: string;
+            products?: string[];
+            is_driver?: boolean;
+            /** Format: date-time */
+            release_date?: string | null;
+            reboot_required?: boolean;
+            support_url?: string;
+            /** Format: date-time */
+            first_seen_at?: string;
+            /**
+             * @description Empty = pending review
+             * @enum {string}
+             */
+            decision: "" | "approved" | "declined" | "hidden";
+            /** @enum {string} */
+            decision_source?: "" | "manual" | "rule";
+            /** Format: date-time */
+            decided_at?: string | null;
+            note?: string;
+            devices_missing: number;
+            devices_pending_reboot?: number;
+            devices_installed?: number;
+            devices_failed?: number;
+            holds?: number;
+        };
+        RestartPolicy: {
+            /** @enum {string} */
+            allow?: "never" | "outside_active_hours" | "deadline";
+            /** @description Device-local minutes after midnight */
+            active_start?: number;
+            active_end?: number;
+            /** @description Countdown shown to signed-in users (default 15) */
+            notify_minutes?: number;
+            /** @description For deadline - restart at the latest this long after the install */
+            deadline_hours?: number;
+        };
+        UpdateSettings: {
+            /** @enum {string} */
+            service: "default" | "windows_update" | "microsoft_update";
+            include_drivers?: boolean;
+        };
+        UpdateRule: {
+            /** Format: uuid */
+            id?: string;
+            name: string;
+            /** @description Empty = any */
+            classifications?: string[];
+            /** @description Empty = any */
+            severities?: ("Critical" | "Important" | "Moderate" | "Low" | "Unrated")[];
+            include_drivers?: boolean;
+            /** @description Days after release */
+            delay_days?: number;
+            enabled?: boolean;
+        };
+        UpdateRing: {
+            /** Format: uuid */
+            id?: string;
+            name: string;
+            ordinal: number;
+            group_ids?: string[];
+            /** @description Days after approval before this ring may install */
+            delay_days?: number;
+            /** @description How long the next ring waits after this ring started */
+            soak_hours?: number;
+            /** @description Percent of reporting devices that must install successfully */
+            success_threshold: number;
+            window?: components["schemas"]["MaintenanceWindow"];
+            restart?: components["schemas"]["RestartPolicy"];
+            enabled?: boolean;
+        };
+        WuPolicy: {
+            wsus_configured?: boolean;
+            wsus_server?: string;
+            wufb_deferrals?: boolean;
+            no_auto_update?: boolean;
+            au_options?: number;
+            active_hours_policy?: boolean;
+            wu_service_disabled?: boolean;
+            effective_source?: string;
+            notes?: string[];
+        };
+        DeviceWindowsUpdates: {
+            /** Format: date-time */
+            scanned_at?: string | null;
+            scan_error?: string;
+            reboot_required: boolean;
+            truncated?: boolean;
+            service?: number;
+            policy?: components["schemas"]["WuPolicy"];
+            items: {
+                /** Format: uuid */
+                update_id: string;
+                revision?: number;
+                /** @enum {string} */
+                state: "missing" | "downloaded" | "hidden" | "pending_reboot" | "failed";
+                last_error?: string;
+                title: string;
+                kb?: string[];
+                classification?: string;
+                severity?: string;
+                is_driver?: boolean;
+                /** Format: date-time */
+                release_date?: string | null;
+                reboot_required?: boolean;
+                support_url?: string;
+                decision?: string;
+                attempt_state?: string;
+                attempt_failures?: number;
+            }[];
+        };
         DeviceSoftware: {
             /** Format: uuid */
             title_id: string;
@@ -2881,6 +3848,18 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description A job was queued for the device */
+        JobQueued: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    job_id: string;
+                };
             };
         };
         /** @description Signed in */

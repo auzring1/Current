@@ -29,6 +29,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
 	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/auzring/internal/server/updates"
 	"github.com/auzring1/auzring/internal/server/webui"
 )
 
@@ -41,6 +42,7 @@ type App struct {
 	Events  *events.Broker
 	Hub     *gateway.Hub
 	Deploy  *deploy.Service
+	Updates *updates.Service
 	Catalog *catalog.Service
 
 	authority atomic.Pointer[pki.Authority]
@@ -80,6 +82,8 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a := &App{Cfg: cfg, Log: log, Pool: pool, Sealer: sealer, Events: events.NewBroker(), Hub: gateway.NewHub(),
 		GatewayReady: make(chan struct{})}
 	a.Deploy = &deploy.Service{Pool: pool, Authority: a.Authority, Dispatcher: a.Hub, Events: a.Events, Log: log.With("component", "deploy")}
+	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
+	a.Deploy.AfterTerminal = a.Updates.AfterJob
 	a.Catalog = newCatalog(cfg, pool)
 	q := dbq.New(pool)
 	if err := q.MarkAllDevicesOffline(ctx); err != nil {
@@ -182,7 +186,7 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates,
 	}, webui.Handler())
 }
 
@@ -261,7 +265,7 @@ func (a *App) startGateway() error {
 	}
 	ctx := a.runCtx
 	gw := gateway.New(gateway.Options{Config: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Authority: a.Authority(),
-		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Content: a.Catalog.Content})
+		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Updates: a.Updates, Content: a.Catalog.Content})
 	if err := gw.RefreshCertificate(ctx); err != nil {
 		return fmt.Errorf("gateway certificate: %w", err)
 	}
@@ -291,7 +295,12 @@ func (a *App) housekeeping(ctx context.Context) {
 			return
 		case <-t.C:
 			a.Deploy.Sweep(ctx)
-			if n++; n%10 != 0 {
+			a.Updates.Tick(ctx)
+			n++
+			if n%1440 == 0 {
+				a.Updates.Prune(ctx)
+			}
+			if n%10 != 0 {
 				continue
 			}
 			if n, err := dbq.New(a.Pool).DeleteExpiredSessions(ctx, time.Now()); err != nil {

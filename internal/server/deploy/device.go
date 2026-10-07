@@ -28,17 +28,29 @@ var (
 
 // newJob builds the stored (unsigned) form of an ad-hoc job that belongs to no deployment.
 func (s *Service) newJob(org, device uuid.UUID, sid string, typ agentv1.JobType, jobType, title string, body proto.Message, notBefore, expires time.Time) (dbq.InsertJobParams, error) {
+	return s.newJobWindow(org, device, sid, typ, jobType, title, body, notBefore, expires, nil)
+}
+
+func (s *Service) newJobWindow(org, device uuid.UUID, sid string, typ agentv1.JobType, jobType, title string, body proto.Message, notBefore, expires time.Time, win *agentv1.MaintenanceWindow) (dbq.InsertJobParams, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return dbq.InsertJobParams{}, err
 	}
 	env := &agentv1.JobEnvelope{Version: 1, JobId: id.String(), OrgId: org.String(), DeviceId: device.String(), TargetUserSid: sid,
-		Type: typ, Attempt: 1, NotBefore: notBefore.Unix(), ExpiresAt: expires.Unix()}
+		Type: typ, Attempt: 1, NotBefore: notBefore.Unix(), ExpiresAt: expires.Unix(), Window: win}
 	switch b := body.(type) {
 	case *agentv1.UninstallBody:
 		env.Body = &agentv1.JobEnvelope_Uninstall{Uninstall: b}
 	case *agentv1.InventoryBody:
 		env.Body = &agentv1.JobEnvelope_Inventory{Inventory: b}
+	case *agentv1.WuScanBody:
+		env.Body = &agentv1.JobEnvelope_WuScan{WuScan: b}
+	case *agentv1.WuInstallBody:
+		env.Body = &agentv1.JobEnvelope_WuInstall{WuInstall: b}
+	case *agentv1.WuHideBody:
+		env.Body = &agentv1.JobEnvelope_WuHide{WuHide: b}
+	case *agentv1.RebootBody:
+		env.Body = &agentv1.JobEnvelope_Reboot{Reboot: b}
 	default:
 		return dbq.InsertJobParams{}, errors.New("deploy: unsupported ad-hoc body")
 	}
@@ -272,3 +284,51 @@ func (s *Service) DeviceUpdates(ctx context.Context, org, device uuid.UUID) ([]A
 	}
 	return out, nil
 }
+
+// JobSpec describes an ad-hoc job (no deployment) for NewJob.
+type JobSpec struct {
+	Type      agentv1.JobType
+	DBType    string // the jobs.type value: wu_scan, wu_install, wu_hide, reboot, ...
+	Title     string
+	Body      proto.Message
+	NotBefore time.Time
+	Expires   time.Time
+	Window    *agentv1.MaintenanceWindow
+}
+
+// NewJob builds the stored form of an ad-hoc machine-scope job so the caller can insert it in its
+// own transaction (and call Dispatch afterwards).
+func (s *Service) NewJob(org, device uuid.UUID, sp JobSpec) (dbq.InsertJobParams, error) {
+	return s.newJobWindow(org, device, "", sp.Type, sp.DBType, sp.Title, sp.Body, sp.NotBefore, sp.Expires, sp.Window)
+}
+
+// WindowProto converts a console maintenance window to its wire form after range checks.
+func WindowProto(w *Window) (*agentv1.MaintenanceWindow, error) {
+	if w == nil {
+		return nil, nil
+	}
+	if w.StartMinute < 0 || w.StartMinute > 1439 || w.DurationMinutes < 1 || w.DurationMinutes > 1440 || len(w.Days) > 7 {
+		return nil, invalid("maintenance window out of range")
+	}
+	out := &agentv1.MaintenanceWindow{StartMinute: uint32(w.StartMinute), DurationMinutes: uint32(w.DurationMinutes), Tz: w.TZ} // #nosec G115 -- bounded above
+	for _, d := range w.Days {
+		if d < 0 || d > 6 {
+			return nil, invalid("maintenance window day out of range")
+		}
+		out.Days = append(out.Days, uint32(d)) // #nosec G115 -- bounded above
+	}
+	if w.TZ != "" {
+		if _, err := time.LoadLocation(w.TZ); err != nil {
+			return nil, invalid("unknown time zone")
+		}
+	}
+	return out, nil
+}
+
+// Publish lets other services emit job events for the console.
+func (s *Service) Publish(org uuid.UUID, typ string, device, job, dep uuid.UUID) {
+	s.publish(org, typ, device, job, dep)
+}
+
+// DispatchAsync hands queued jobs to the device without holding up the caller.
+func (s *Service) DispatchAsync(device uuid.UUID) { s.dispatchAsync(device) }

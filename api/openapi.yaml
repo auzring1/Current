@@ -21,6 +21,7 @@ tags:
   - name: reports
   - name: catalog
   - name: deployments
+  - name: updates
 paths:
   /setup/status:
     get:
@@ -697,6 +698,395 @@ paths:
                   job_id: { type: string, format: uuid }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /updates:
+    get:
+      tags: [updates]
+      summary: Windows updates reported by devices, with approval state and counts (requires updates:read)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: classification, in: query, schema: { type: string } }
+        - { name: severity, in: query, schema: { type: string, enum: ["", Critical, Important, Moderate, Low] } }
+        - { name: decision, in: query, schema: { type: string, enum: [pending, approved, declined, hidden] } }
+        - { name: missing, in: query, description: Only updates some device is missing, schema: { type: boolean } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/WindowsUpdate" } }
+                  total: { type: integer }
+  /updates/decision:
+    post:
+      tags: [updates]
+      summary: Approve, decline or hide updates, or reset them to pending (requires updates:write; audited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [update_ids, decision]
+              properties:
+                update_ids: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 200 }
+                decision: { type: string, enum: [approved, declined, hidden, none] }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changed, missing, hide_jobs]
+                properties:
+                  changed: { type: integer }
+                  missing: { type: integer }
+                  hide_jobs: { type: integer }
+        "422": { $ref: "#/components/responses/Error" }
+  /updates/{id}/devices:
+    get:
+      tags: [updates]
+      summary: Devices that report this update, with install attempts (requires updates:read)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [device_id, hostname, state]
+                      properties:
+                        device_id: { type: string, format: uuid }
+                        hostname: { type: string }
+                        online: { type: boolean }
+                        state: { type: string, enum: [missing, downloaded, hidden, pending_reboot, failed] }
+                        last_error: { type: string }
+                        scanned_at: { type: string, format: date-time }
+                        revision: { type: integer }
+                        attempt_state: { type: string, enum: ["", queued, installed, failed] }
+                        attempt_failures: { type: integer }
+                        attempt_finished_at: { type: string, format: date-time, nullable: true }
+                        ring: { type: string }
+  /updates/{id}/install:
+    post:
+      tags: [updates]
+      summary: Install one update now on the listed devices, or on every device that misses it (requires updates:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                device_ids: { type: array, items: { type: string, format: uuid }, maxItems: 5000 }
+                restart: { $ref: "#/components/schemas/RestartPolicy" }
+      responses:
+        "201":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs: { type: integer }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /update-settings:
+    get:
+      tags: [updates]
+      summary: Which update service devices use and whether drivers are included (requires updates:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateSettings" }
+    put:
+      tags: [updates]
+      summary: Change the update service settings; every device is sent them (requires updates:policy, admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSettings" }
+      responses:
+        "204": { description: Saved }
+        "422": { $ref: "#/components/responses/Error" }
+  /update-rules:
+    get:
+      tags: [updates]
+      summary: Auto-approval rules (requires updates:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/UpdateRule" } }
+    post:
+      tags: [updates]
+      summary: Create an auto-approval rule (requires updates:policy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRule" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateRule" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /update-rules/{id}:
+    put:
+      tags: [updates]
+      summary: Replace a rule (requires updates:policy)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRule" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateRule" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [updates]
+      summary: Delete a rule; approvals it already made stay (requires updates:policy)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /update-rings:
+    get:
+      tags: [updates]
+      summary: Rollout rings in order (requires updates:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/UpdateRing" } }
+    post:
+      tags: [updates]
+      summary: Create a ring (requires updates:policy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRing" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateRing" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /update-rings/{id}:
+    put:
+      tags: [updates]
+      summary: Replace a ring (requires updates:policy)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRing" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdateRing" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [updates]
+      summary: Delete a ring (requires updates:policy)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /update-holds:
+    get:
+      tags: [updates]
+      summary: Updates stopped from reaching later rings because a ring failed its success threshold (requires updates:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, update_id, ring_name, reason, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        update_id: { type: string, format: uuid }
+                        title: { type: string }
+                        ring_name: { type: string }
+                        reason: { type: string }
+                        created_at: { type: string, format: date-time }
+  /update-holds/{id}/release:
+    post:
+      tags: [updates]
+      summary: Let the update continue to later rings despite the failures (requires updates:policy; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "204": { description: Released }
+        "404": { $ref: "#/components/responses/Error" }
+  /update-conflicts:
+    get:
+      tags: [updates]
+      summary: Devices whose update policy is managed by something else (WSUS, deferral policies, disabled automatic updates) (requires updates:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [device_id, hostname]
+                      properties:
+                        device_id: { type: string, format: uuid }
+                        hostname: { type: string }
+                        policy: { $ref: "#/components/schemas/WuPolicy" }
+  /devices/{id}/windows-updates:
+    get:
+      tags: [updates]
+      summary: What this device's last Windows Update scan found, plus who manages updates on it (requires updates:read)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceWindowsUpdates" }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/windows-updates/scan:
+    post:
+      tags: [updates]
+      summary: Scan the device for updates now (requires updates:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/windows-updates/install:
+    post:
+      tags: [updates]
+      summary: Install the chosen updates on this device now, ignoring rings and approval (requires updates:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [update_ids]
+              properties:
+                update_ids: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 200 }
+                restart: { $ref: "#/components/schemas/RestartPolicy" }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /devices/{id}/windows-updates/hide:
+    post:
+      tags: [updates]
+      summary: Hide or unhide updates on this device (requires updates:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [update_ids, hide]
+              properties:
+                update_ids: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 200 }
+                hide: { type: boolean }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /devices/{id}/reboot:
+    post:
+      tags: [updates]
+      summary: Restart an online device after a countdown that signed-in users can see (requires updates:write; audited)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [minutes]
+              properties:
+                minutes: { type: integer, minimum: 1, maximum: 1440 }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /catalog/packages:
     get:
       tags: [catalog]
@@ -1040,6 +1430,15 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    JobQueued:
+      description: A job was queued for the device
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [job_id]
+            properties:
+              job_id: { type: string, format: uuid }
     SessionStarted:
       description: Signed in
       content:
@@ -1104,6 +1503,117 @@ components:
         self_updating: { type: boolean }
         deployable: { type: boolean }
         reason: { type: string }
+    WindowsUpdate:
+      type: object
+      required: [update_id, title, classification, decision, devices_missing]
+      properties:
+        update_id: { type: string, format: uuid }
+        revision: { type: integer }
+        title: { type: string }
+        kb: { type: array, items: { type: string } }
+        classification: { type: string }
+        severity: { type: string }
+        products: { type: array, items: { type: string } }
+        is_driver: { type: boolean }
+        release_date: { type: string, format: date-time, nullable: true }
+        reboot_required: { type: boolean }
+        support_url: { type: string }
+        first_seen_at: { type: string, format: date-time }
+        decision: { type: string, enum: ["", approved, declined, hidden], description: Empty = pending review }
+        decision_source: { type: string, enum: ["", manual, rule] }
+        decided_at: { type: string, format: date-time, nullable: true }
+        note: { type: string }
+        devices_missing: { type: integer }
+        devices_pending_reboot: { type: integer }
+        devices_installed: { type: integer }
+        devices_failed: { type: integer }
+        holds: { type: integer }
+    RestartPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        allow: { type: string, enum: [never, outside_active_hours, deadline] }
+        active_start: { type: integer, minimum: 0, maximum: 1439, description: Device-local minutes after midnight }
+        active_end: { type: integer, minimum: 0, maximum: 1439 }
+        notify_minutes: { type: integer, minimum: 0, maximum: 1440, description: Countdown shown to signed-in users (default 15) }
+        deadline_hours: { type: integer, minimum: 0, maximum: 720, description: For deadline - restart at the latest this long after the install }
+    UpdateSettings:
+      type: object
+      additionalProperties: false
+      required: [service]
+      properties:
+        service: { type: string, enum: [default, windows_update, microsoft_update] }
+        include_drivers: { type: boolean }
+    UpdateRule:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        classifications: { type: array, items: { type: string }, description: Empty = any }
+        severities: { type: array, items: { type: string, enum: [Critical, Important, Moderate, Low, Unrated] }, description: Empty = any }
+        include_drivers: { type: boolean }
+        delay_days: { type: integer, minimum: 0, maximum: 365, description: Days after release }
+        enabled: { type: boolean }
+    UpdateRing:
+      type: object
+      additionalProperties: false
+      required: [name, ordinal, success_threshold]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        ordinal: { type: integer, minimum: 1, maximum: 20 }
+        group_ids: { type: array, items: { type: string, format: uuid } }
+        delay_days: { type: integer, minimum: 0, maximum: 365, description: Days after approval before this ring may install }
+        soak_hours: { type: integer, minimum: 0, maximum: 2160, description: How long the next ring waits after this ring started }
+        success_threshold: { type: integer, minimum: 1, maximum: 100, description: Percent of reporting devices that must install successfully }
+        window: { $ref: "#/components/schemas/MaintenanceWindow" }
+        restart: { $ref: "#/components/schemas/RestartPolicy" }
+        enabled: { type: boolean }
+    WuPolicy:
+      type: object
+      properties:
+        wsus_configured: { type: boolean }
+        wsus_server: { type: string }
+        wufb_deferrals: { type: boolean }
+        no_auto_update: { type: boolean }
+        au_options: { type: integer }
+        active_hours_policy: { type: boolean }
+        wu_service_disabled: { type: boolean }
+        effective_source: { type: string }
+        notes: { type: array, items: { type: string } }
+    DeviceWindowsUpdates:
+      type: object
+      required: [items, reboot_required]
+      properties:
+        scanned_at: { type: string, format: date-time, nullable: true }
+        scan_error: { type: string }
+        reboot_required: { type: boolean }
+        truncated: { type: boolean }
+        service: { type: integer }
+        policy: { $ref: "#/components/schemas/WuPolicy" }
+        items:
+          type: array
+          items:
+            type: object
+            required: [update_id, title, state]
+            properties:
+              update_id: { type: string, format: uuid }
+              revision: { type: integer }
+              state: { type: string, enum: [missing, downloaded, hidden, pending_reboot, failed] }
+              last_error: { type: string }
+              title: { type: string }
+              kb: { type: array, items: { type: string } }
+              classification: { type: string }
+              severity: { type: string }
+              is_driver: { type: boolean }
+              release_date: { type: string, format: date-time, nullable: true }
+              reboot_required: { type: boolean }
+              support_url: { type: string }
+              decision: { type: string }
+              attempt_state: { type: string }
+              attempt_failures: { type: integer }
     DeviceSoftware:
       type: object
       required: [title_id, name, version, source, scope, system_component, first_seen_at, last_seen_at]

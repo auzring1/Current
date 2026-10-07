@@ -33,6 +33,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/inventory"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
+	"github.com/auzring1/auzring/internal/server/updates"
 )
 
 // MaxMessageBytes bounds every gRPC message (PROTOCOL §1).
@@ -61,6 +62,7 @@ type Gateway struct {
 	invDevice   *auth.Limiter
 	inv         *inventory.Service
 	deploy      *deploy.Service
+	updates     *updates.Service
 	content     *catalog.Store
 	fetching    *fetchLimiter
 }
@@ -78,6 +80,8 @@ type Options struct {
 	// Deploy handles job updates and dispatch; Content serves uploaded installers.
 	Deploy  *deploy.Service
 	Content *catalog.Store
+	// Updates stores Windows Update snapshots from devices.
+	Updates *updates.Service
 }
 
 // New creates a gateway; call RefreshCertificate before Serve.
@@ -95,7 +99,7 @@ func New(o Options) *Gateway {
 		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
 		invDevice: auth.NewLimiter(120, time.Minute, 450),
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
-		deploy:    o.Deploy, content: o.Content, fetching: newFetchLimiter(2),
+		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2),
 	}
 }
 
