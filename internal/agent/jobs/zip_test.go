@@ -74,7 +74,7 @@ func TestPortableCopy(t *testing.T) {
 	se, env := r.installEnv("p1", func(e *agentv1.JobEnvelope, b *agentv1.InstallBody) {
 		b.Installer.Type = agentv1.InstallerType_INSTALLER_TYPE_PORTABLE
 		b.Installer.FileName = "tool.exe"
-		b.Detection = []*agentv1.Detection{{Kind: agentv1.DetectionKind_DETECTION_KIND_FILE, Key: `%ProgramFiles%\Auzring\Portable\Acme.Tool\tool.exe`}}
+		b.Detection = []*agentv1.Detection{{Kind: agentv1.DetectionKind_DETECTION_KIND_FILE, Key: "%ProgramFiles%/Auzring/Portable/Acme.Tool/tool.exe"}}
 	})
 	// the fake reports a file as present once the engine copied it
 	r.e.Accept(se, env)
