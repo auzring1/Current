@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
 
@@ -91,4 +92,13 @@ type Platform interface {
 	TrustedExecutable(path string) error
 	// Systemroot-resolved msiexec path.
 	MsiExec() string
+
+	// WindowsUpdate returns the Windows Update Agent client.
+	WindowsUpdate() wu.Client
+	// Reboot restarts the machine after delay; signed-in users see a countdown with message.
+	Reboot(delay time.Duration, message string) error
+	// AbortReboot cancels a countdown started by Reboot.
+	AbortReboot() error
+	// RebootRequired reports whether Windows has a restart pending.
+	RebootRequired() bool
 }

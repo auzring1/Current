@@ -14,6 +14,9 @@ type Store interface {
 	JobGet(id string) []byte
 	JobAll() (map[string][]byte, error)
 	JobDelete(id string) error
+	// GetMeta and SetMeta hold small agent-wide values (the pending reboot plan, scan timing).
+	GetMeta(key string) []byte
+	SetMeta(key string, val []byte) error
 }
 
 // Record is the agent's durable view of one accepted job.

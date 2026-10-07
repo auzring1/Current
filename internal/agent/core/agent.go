@@ -73,6 +73,7 @@ type Agent struct {
 
 	outKick chan struct{} // wakes the stream loop to send queued outbox messages
 	invNow  chan struct{} // requests an immediate software rescan
+	wuKick  chan struct{} // a new Windows Update snapshot is waiting to be sent
 	sentMu  sync.Mutex
 	sent    map[uint64]bool // outbox entries already sent on the current stream
 	clMu    sync.Mutex
@@ -83,6 +84,10 @@ type Agent struct {
 	lastHB      *agentv1.Heartbeat
 	lastHBSent  time.Time
 	hwPending   *pendingReport
+	wuPending   *pendingReport
+	wuMu        sync.Mutex
+	wuSnap      *agentv1.WuInventory
+	wuRev       uint64
 }
 
 func (a *Agent) now() time.Time {
@@ -114,7 +119,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	a.bootID = hex.EncodeToString(b)
-	a.outKick, a.invNow = make(chan struct{}, 1), make(chan struct{}, 1)
+	a.outKick, a.invNow, a.wuKick = make(chan struct{}, 1), make(chan struct{}, 1), make(chan struct{}, 1)
 	a.startJobs(ctx)
 	a.status("starting", "", "")
 	bo := &Backoff{Base: a.BackoffBase, Max: a.BackoffMax}
@@ -373,6 +378,10 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	}
 	revs := map[string]uint64{"hardware": a.Store.GetUint("hw_rev")}
 	caps := []string{"hardware"}
+	if a.Jobs != nil {
+		revs["wu"] = a.Store.GetUint("wu_rev")
+		caps = append(caps, "wu/v1")
+	}
 	if a.Inv != nil {
 		a.Inv.ResetPending() // acknowledgements of the previous stream can never arrive
 		revs["software"], revs["users"] = a.Inv.SoftwareRev(), a.Inv.UsersRev()
@@ -381,7 +390,7 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	if a.Jobs != nil {
 		caps = append(caps, "jobs/v1")
 	}
-	a.hwPending = nil
+	a.hwPending, a.wuPending = nil, nil
 	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Hello{Hello: &agentv1.Hello{
 		DeviceId: id.DeviceID, AgentVersion: a.Version, BootId: a.bootID, Capabilities: caps,
 		Revs: revs, OutboxPending: uint32(a.Store.OutboxLen()), // #nosec G115
@@ -422,7 +431,7 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	if err := a.flushOutbox(stream); err != nil {
 		return 0, 0, err
 	}
-	forceHW := false
+	forceHW, forceWU := false, false
 	var invOpt inventory.SyncOptions
 	for _, sec := range ack.ResyncSections {
 		switch sec {
@@ -432,10 +441,17 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 			invOpt.FullSoftware = true
 		case agentv1.InventorySection_INVENTORY_SECTION_USERS:
 			invOpt.FullUsers = true
+		case agentv1.InventorySection_INVENTORY_SECTION_WU:
+			forceWU = true
 		}
 	}
 	if a.hwPending, err = a.sendHardware(ctx, stream, forceHW); err != nil {
 		return a.now().Sub(start), 0, err
+	}
+	if wp, err := a.sendWU(stream, forceWU); err != nil {
+		return a.now().Sub(start), 0, err
+	} else if wp != nil {
+		a.wuPending = wp
 	}
 	invDirty := false
 	runInv := func(o inventory.SyncOptions) error { return a.syncInventory(ctx, stream, o, &invDirty) }
@@ -498,6 +514,12 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 			if err := a.sendQueued(stream); err != nil {
 				return a.now().Sub(start), 0, err
 			}
+		case <-a.wuKick:
+			if wp, err := a.sendWU(stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			} else if wp != nil {
+				a.wuPending = wp
+			}
 		case <-a.invNow:
 			// A refresh (console button, or after an install): software and users, hardware if it
 			// changed, and a heartbeat with the current uptime, reboot state and signed-in user.
@@ -555,6 +577,12 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 				case agentv1.InventorySection_INVENTORY_SECTION_HARDWARE:
 					if a.hwPending, err = a.sendHardware(ctx, stream, true); err != nil {
 						return a.now().Sub(start), 0, err
+					}
+				case agentv1.InventorySection_INVENTORY_SECTION_WU:
+					if wp, err := a.sendWU(stream, true); err != nil {
+						return a.now().Sub(start), 0, err
+					} else if wp != nil {
+						a.wuPending = wp
 					}
 				case agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE:
 					// The server refused the report it will never acknowledge: drop it, then send everything.
@@ -816,6 +844,10 @@ func (a *Agent) startJobs(ctx context.Context) {
 		}
 	}
 	a.Jobs.Security = func(k agentv1.SecurityEventKind, d string) { a.securityEvent(nil, k, d) }
+	a.Jobs.WUReport = a.queueWU
+	if a.Jobs.WUScanEvery == 0 {
+		a.Jobs.WUScanEvery = 24 * time.Hour
+	}
 	a.Jobs.InventoryNow = func() {
 		select {
 		case a.invNow <- struct{}{}:
@@ -864,9 +896,10 @@ func (a *Agent) fetchFromServer(ctx context.Context, jobID string, sha []byte) (
 }
 
 type pendingReport struct {
-	seq uint64
-	rev uint64
-	fp  []byte
+	seq    uint64
+	rev    uint64
+	fp     []byte
+	sentAt int64 // Windows Update snapshots: the scan time that was sent
 }
 
 // sendHardware collects inventory and sends it if it changed (or forced).
@@ -896,6 +929,12 @@ func (a *Agent) sendHardware(ctx context.Context, stream agentv1.AgentChannelSer
 
 func (a *Agent) handleAck(seq uint64) {
 	if a.Inv != nil && a.Inv.Ack(seq) {
+		return
+	}
+	if wp := a.wuPending; wp != nil && wp.seq == seq {
+		_ = a.Store.SetUint("wu_rev", wp.rev)
+		_ = a.Store.SetUint("wu_sent", uint64(wp.sentAt)) // #nosec G115 -- unix seconds
+		a.wuPending = nil
 		return
 	}
 	if hw := a.hwPending; hw != nil && hw.seq == seq {
@@ -968,4 +1007,59 @@ func (a *Agent) sendHeartbeat(ctx context.Context, stream agentv1.AgentChannelSe
 	}
 	a.lastHB, a.lastHBSent = hb, a.now()
 	return nil
+}
+
+// queueWU keeps the newest Windows Update snapshot (also on disk, so a restart does not lose an
+// unsent one) and wakes the stream loop to send it.
+func (a *Agent) queueWU(s *agentv1.WuInventory) {
+	a.wuMu.Lock()
+	a.wuSnap = s
+	a.wuMu.Unlock()
+	if b, err := proto.Marshal(s); err == nil {
+		_ = a.Store.SetMeta("wu_snapshot", b)
+	}
+	select {
+	case a.wuKick <- struct{}{}:
+	default:
+	}
+}
+
+// currentWU returns the newest snapshot, loading the stored one after a restart.
+func (a *Agent) currentWU() *agentv1.WuInventory {
+	a.wuMu.Lock()
+	defer a.wuMu.Unlock()
+	if a.wuSnap == nil {
+		var s agentv1.WuInventory
+		if b := a.Store.GetMeta("wu_snapshot"); len(b) > 0 && proto.Unmarshal(b, &s) == nil {
+			a.wuSnap = &s
+		}
+	}
+	return a.wuSnap
+}
+
+// sendWU sends the Windows Update snapshot if it has not been acknowledged yet (or when forced by
+// the server's resync request). Snapshots are full, so the server simply replaces what it had.
+func (a *Agent) sendWU(stream agentv1.AgentChannelService_ConnectClient, force bool) (*pendingReport, error) {
+	snap := a.currentWU()
+	if snap == nil {
+		return nil, nil
+	}
+	if !force && uint64(snap.ScannedAt) <= a.Store.GetUint("wu_sent") { // #nosec G115 -- unix seconds
+		return nil, nil
+	}
+	seq, err := a.Store.NextSeq()
+	if err != nil {
+		return nil, err
+	}
+	if a.wuRev == 0 {
+		a.wuRev = a.Store.GetUint("wu_rev")
+	}
+	a.wuRev++
+	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Inventory{Inventory: &agentv1.InventoryReport{
+		Seq: seq, Section: agentv1.InventorySection_INVENTORY_SECTION_WU, Rev: a.wuRev,
+		Body: &agentv1.InventoryReport_Wu{Wu: snap}, Truncated: snap.Truncated}}}); err != nil {
+		return nil, err
+	}
+	a.Log.Info("windows update snapshot sent", "updates", len(snap.Updates), "rev", a.wuRev)
+	return &pendingReport{seq: seq, rev: a.wuRev, sentAt: snap.ScannedAt}, nil
 }

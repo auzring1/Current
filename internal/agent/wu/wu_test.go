@@ -1,7 +1,6 @@
 package wu
 
 import (
-
 	"errors"
 	"testing"
 	"time"

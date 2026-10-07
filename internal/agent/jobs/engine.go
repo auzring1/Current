@@ -35,6 +35,10 @@ type Engine struct {
 	Security func(kind agentv1.SecurityEventKind, detail string)
 	// InventoryNow requests an immediate software rescan (after installs and on INVENTORY_FULL jobs).
 	InventoryNow func()
+	// WUReport delivers a Windows Update snapshot (after a scan or install) to the agent core.
+	WUReport func(snap *agentv1.WuInventory)
+	// WUScanEvery is the interval of the automatic Windows Update scan (0 = off).
+	WUScanEvery time.Duration
 	// PollUserJobs is the fallback interval for waiting-for-logon jobs (default 15 min).
 	PollUserJobs time.Duration
 	// MaxIdle bounds how long the loop sleeps without any wake source (default 5 min).
@@ -171,6 +175,12 @@ func (e *Engine) Accept(se *agentv1.SignedEnvelope, env *agentv1.JobEnvelope) {
 			return
 		}
 		e.setState(r, agentv1.JobState_JOB_STATE_ACCEPTED, "", nil)
+	case agentv1.JobType_JOB_TYPE_WU_SCAN, agentv1.JobType_JOB_TYPE_WU_INSTALL, agentv1.JobType_JOB_TYPE_WU_HIDE, agentv1.JobType_JOB_TYPE_REBOOT:
+		if err := ValidateWU(env); err != nil {
+			reject(err.Error(), agentv1.SecurityEventKind_SECURITY_EVENT_KIND_UNSPECIFIED)
+			return
+		}
+		e.setState(r, agentv1.JobState_JOB_STATE_ACCEPTED, "", nil)
 	default:
 		reject("unsupported job type", agentv1.SecurityEventKind_SECURITY_EVENT_KIND_UNSPECIFIED)
 		return
@@ -243,6 +253,12 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 			next = t
 		}
 	}
+	if t := e.autoScan(ctx); !t.IsZero() {
+		soonest(t)
+	}
+	if t := e.checkReboot(); !t.IsZero() {
+		soonest(t)
+	}
 	userPoll := e.PollUserJobs
 	if userPoll == 0 {
 		userPoll = 15 * time.Minute
@@ -298,6 +314,10 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 			soonest(time.Unix(r.NextRun, 0))
 		}
 	}
+	// A job in this pass may have scheduled a restart that is already due.
+	if t := e.checkReboot(); !t.IsZero() {
+		soonest(t)
+	}
 	if next.IsZero() {
 		return 0
 	}
@@ -329,6 +349,14 @@ func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope
 		out = e.install(jctx, r, env)
 	case agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL:
 		out = e.uninstall(jctx, r, env)
+	case agentv1.JobType_JOB_TYPE_WU_SCAN:
+		out = e.wuScan(jctx, env)
+	case agentv1.JobType_JOB_TYPE_WU_INSTALL:
+		out = e.wuInstall(jctx, env)
+	case agentv1.JobType_JOB_TYPE_WU_HIDE:
+		out = e.wuHide(jctx, env)
+	case agentv1.JobType_JOB_TYPE_REBOOT:
+		out = e.rebootJob(env)
 	}
 	if out == nil {
 		out = fail("unsupported job type")
@@ -373,7 +401,7 @@ func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope
 	default:
 		e.setState(r, agentv1.JobState_JOB_STATE_FAILED, out.reason, out.res)
 	}
-	if env.Type != agentv1.JobType_JOB_TYPE_INVENTORY_FULL && e.InventoryNow != nil {
+	if env.Type != agentv1.JobType_JOB_TYPE_INVENTORY_FULL && e.InventoryNow != nil && !isWUType(env.Type) {
 		e.InventoryNow() // reflect the change in the fleet inventory without waiting for the debounce
 	}
 }
@@ -385,6 +413,8 @@ func retryPolicy(env *agentv1.JobEnvelope) (max uint32, backoffS uint32) {
 		b, bo = env.GetInstall().MaxRetries, env.GetInstall().RetryBackoffS
 	case env.GetUninstall() != nil:
 		b, bo = env.GetUninstall().MaxRetries, env.GetUninstall().RetryBackoffS
+	case env.GetWuInstall() != nil:
+		b, bo = env.GetWuInstall().MaxRetries, env.GetWuInstall().RetryBackoffS
 	}
 	if bo == 0 {
 		bo = 60

@@ -260,6 +260,118 @@ func ceilingName(t agentv1.JobType) string {
 		return "software_uninstall"
 	case agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE:
 		return "software_update"
+	case agentv1.JobType_JOB_TYPE_WU_SCAN:
+		return "wu_scan"
+	case agentv1.JobType_JOB_TYPE_WU_INSTALL:
+		return "wu_install"
+	case agentv1.JobType_JOB_TYPE_WU_HIDE:
+		return "wu_hide"
+	case agentv1.JobType_JOB_TYPE_REBOOT:
+		return "reboot"
 	}
 	return ""
+}
+
+func isWUType(t agentv1.JobType) bool {
+	switch t {
+	case agentv1.JobType_JOB_TYPE_WU_SCAN, agentv1.JobType_JOB_TYPE_WU_INSTALL, agentv1.JobType_JOB_TYPE_WU_HIDE, agentv1.JobType_JOB_TYPE_REBOOT:
+		return true
+	}
+	return false
+}
+
+var updateIDRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// MaxWUUpdates bounds how many updates one job may name.
+const MaxWUUpdates = 200
+
+func validWuService(s agentv1.WuService) bool {
+	return s >= agentv1.WuService_WU_SERVICE_UNSPECIFIED && s <= agentv1.WuService_WU_SERVICE_MICROSOFT_UPDATE
+}
+
+func validateWuRefs(refs []*agentv1.WuUpdateRef) error {
+	if len(refs) == 0 || len(refs) > MaxWUUpdates {
+		return bad("a job names between 1 and %d updates", MaxWUUpdates)
+	}
+	for _, r := range refs {
+		if !updateIDRe.MatchString(r.GetUpdateId()) || r.Revision < 0 {
+			return bad("malformed update reference")
+		}
+	}
+	return nil
+}
+
+func validateRebootPolicy(p *agentv1.RebootPolicy, requireAllow bool) error {
+	if p == nil {
+		if requireAllow {
+			return bad("missing reboot policy")
+		}
+		return nil
+	}
+	switch p.Allow {
+	case agentv1.RebootAllow_REBOOT_ALLOW_UNSPECIFIED, agentv1.RebootAllow_REBOOT_ALLOW_NEVER,
+		agentv1.RebootAllow_REBOOT_ALLOW_OUTSIDE_ACTIVE_HOURS, agentv1.RebootAllow_REBOOT_ALLOW_DEADLINE, agentv1.RebootAllow_REBOOT_ALLOW_NOW:
+	default:
+		return bad("unknown reboot policy")
+	}
+	if p.NotifyMinutes > 1440 {
+		return bad("restart notice over 24 hours")
+	}
+	if a := p.ActiveHours; a != nil && (a.StartMinute > 1439 || a.EndMinute > 1439) {
+		return bad("active hours out of range")
+	}
+	if p.Allow == agentv1.RebootAllow_REBOOT_ALLOW_DEADLINE && p.DeadlineAt <= 0 {
+		return bad("deadline reboot without a deadline")
+	}
+	if p.Allow == agentv1.RebootAllow_REBOOT_ALLOW_NOW && p.NotifyMinutes == 0 {
+		return bad("an immediate restart needs a countdown of at least one minute")
+	}
+	return nil
+}
+
+// ValidateWU checks a Windows Update or reboot job body. These jobs are machine-scope only.
+func ValidateWU(env *agentv1.JobEnvelope) error {
+	if env.TargetUserSid != "" {
+		return bad("Windows Update jobs are machine-scope")
+	}
+	switch env.Type {
+	case agentv1.JobType_JOB_TYPE_WU_SCAN:
+		b := env.GetWuScan()
+		if b == nil || !validWuService(b.Service) {
+			return bad("bad scan body")
+		}
+	case agentv1.JobType_JOB_TYPE_WU_INSTALL:
+		b := env.GetWuInstall()
+		if b == nil || !validWuService(b.Service) {
+			return bad("bad install body")
+		}
+		if err := validateWuRefs(b.Updates); err != nil {
+			return err
+		}
+		if err := validateRebootPolicy(b.Reboot, false); err != nil {
+			return err
+		}
+		if b.Reboot != nil && b.Reboot.Allow == agentv1.RebootAllow_REBOOT_ALLOW_NOW {
+			return bad("an install job cannot demand an immediate restart")
+		}
+		if b.MaxRetries > MaxRetries {
+			return bad("too many retries")
+		}
+		if _, err := timeoutOf(b.TimeoutS); err != nil {
+			return err
+		}
+	case agentv1.JobType_JOB_TYPE_WU_HIDE:
+		b := env.GetWuHide()
+		if b == nil || !validWuService(b.Service) {
+			return bad("bad hide body")
+		}
+		return validateWuRefs(b.Updates)
+	case agentv1.JobType_JOB_TYPE_REBOOT:
+		b := env.GetReboot()
+		if b == nil || len(b.Reason) > 256 {
+			return bad("bad reboot body")
+		}
+		return validateRebootPolicy(b.Reboot, true)
+	}
+	return nil
 }
