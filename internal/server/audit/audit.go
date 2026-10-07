@@ -48,6 +48,14 @@ type Entry struct {
 
 var genesis = make([]byte, 32)
 
+type ctxKey struct{}
+
+// WithAPIToken marks a request context as authenticated by an API token, so that every audit
+// entry written under it says so (details.via_api_token).
+func WithAPIToken(ctx context.Context, tokenID string) context.Context {
+	return context.WithValue(ctx, ctxKey{}, tokenID)
+}
+
 // Write appends e using tx. Concurrent writers are serialized by an advisory lock.
 func Write(ctx context.Context, tx pgx.Tx, e Entry, now time.Time) (int64, error) {
 	if e.Action == "" || e.ActorType == "" || e.Outcome == "" {
@@ -62,6 +70,14 @@ func Write(ctx context.Context, tx pgx.Tx, e Entry, now time.Time) (int64, error
 		prev = genesis
 	} else if err != nil {
 		return 0, err
+	}
+	if id, ok := ctx.Value(ctxKey{}).(string); ok && id != "" {
+		d := make(map[string]any, len(e.Details)+1)
+		for k, v := range e.Details {
+			d[k] = v
+		}
+		d["via_api_token"] = id
+		e.Details = d
 	}
 	details, err := canonicalDetails(e.Details)
 	if err != nil {

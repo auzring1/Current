@@ -227,7 +227,7 @@ func (q *Queries) GetTOTP(ctx context.Context, userID uuid.UUID) (MfaTotp, error
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, org_id, email, display_name, password_hash, status, failed_logins, locked_until, password_changed_at, last_login_at, created_at FROM users WHERE email = $1
+SELECT id, org_id, email, display_name, password_hash, status, failed_logins, locked_until, password_changed_at, last_login_at, created_at, must_change_password, created_by FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -245,12 +245,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordChangedAt,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.MustChangePassword,
+		&i.CreatedBy,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, org_id, email, display_name, password_hash, status, failed_logins, locked_until, password_changed_at, last_login_at, created_at FROM users WHERE id = $1
+SELECT id, org_id, email, display_name, password_hash, status, failed_logins, locked_until, password_changed_at, last_login_at, created_at, must_change_password, created_by FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -268,6 +270,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.PasswordChangedAt,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.MustChangePassword,
+		&i.CreatedBy,
 	)
 	return i, err
 }

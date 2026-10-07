@@ -15,6 +15,7 @@ import (
 
 	"github.com/auzring1/auzring/gen/dbq"
 	"github.com/auzring1/auzring/internal/server/audit"
+	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/store"
 )
@@ -74,13 +75,18 @@ func (s *server) listDevices(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	q := s.q()
-	rows, err := q.ListDevices(r.Context(), dbq.ListDevicesParams{OrgID: p.OrgID, Limit: limit, Offset: offset, Status: status})
+	// A caller with only site-limited rights sees just the devices of those sites.
+	var sites []uuid.UUID
+	if all, ids := p.Access.SitesFor(auth.PermDevicesRead); !all {
+		sites = append([]uuid.UUID{}, ids...)
+	}
+	rows, err := q.ListDevices(r.Context(), dbq.ListDevicesParams{OrgID: p.OrgID, Limit: limit, Offset: offset, Status: status, SiteIds: sites})
 	if err != nil {
 		s.Log.Error("list devices", "err", err)
 		internalError(w)
 		return
 	}
-	total, err := q.CountDevices(r.Context(), dbq.CountDevicesParams{OrgID: p.OrgID, Status: status})
+	total, err := q.CountDevices(r.Context(), dbq.CountDevicesParams{OrgID: p.OrgID, Status: status, SiteIds: sites})
 	if err != nil {
 		internalError(w)
 		return
@@ -325,6 +331,10 @@ func (s *server) deleteDevices(w http.ResponseWriter, r *http.Request) {
 	for _, id := range req.IDs {
 		d, err := s.q().GetDeviceInOrg(r.Context(), dbq.GetDeviceInOrgParams{ID: id, OrgID: p.OrgID})
 		if err != nil {
+			skipped++
+			continue
+		}
+		if !p.Access.SiteHas(d.SiteID, auth.PermDevicesWrite) {
 			skipped++
 			continue
 		}

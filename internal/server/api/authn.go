@@ -85,9 +85,29 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		internalError(w)
 		return
 	}
+	s.Sessions.SetCookie(w, sess)
+	s.mfaChallenge(w, r, sess, &u)
+}
+
+// mfaChallenge tells a password-verified (MFA-pending) session what comes next: a forced password
+// change, enrolling a first factor, or verifying one.
+func (s *server) mfaChallenge(w http.ResponseWriter, r *http.Request, sess *auth.Session, u *dbq.User) {
+	ctx := r.Context()
+	q := s.q()
+	if u.MustChangePassword {
+		writeJSON(w, http.StatusOK, map[string]any{"mfa": "change_password", "csrf_token": sess.CSRFToken})
+		return
+	}
 	resp := map[string]any{"mfa": "verify", "csrf_token": sess.CSRFToken}
-	if _, err := q.GetTOTP(ctx, u.ID); errors.Is(err, pgx.ErrNoRows) {
-		// MFA was reset by an operator: the user must enroll before getting a session.
+	creds, err := q.ListWebAuthnCredentials(ctx, u.ID)
+	if err != nil {
+		internalError(w)
+		return
+	}
+	_, totpErr := q.GetTOTP(ctx, u.ID)
+	switch {
+	case errors.Is(totpErr, pgx.ErrNoRows) && len(creds) == 0:
+		// No second factor at all (new account or MFA reset by an administrator): enroll one now.
 		secret, err := auth.NewTOTPSecret()
 		if err != nil {
 			internalError(w)
@@ -104,12 +124,23 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		}
 		resp = map[string]any{"mfa": "enroll", "csrf_token": sess.CSRFToken,
 			"totp_secret": auth.TOTPSecretString(secret), "otpauth_uri": auth.TOTPURI("Auzring", u.Email, secret)}
-	} else if err != nil {
+	case totpErr != nil && !errors.Is(totpErr, pgx.ErrNoRows):
 		internalError(w)
 		return
 	}
-	s.Sessions.SetCookie(w, sess)
+	resp["methods"] = s.mfaMethods(totpErr == nil, len(creds) > 0)
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *server) mfaMethods(totp, webauthn bool) []string {
+	var m []string
+	if totp {
+		m = append(m, "totp")
+	}
+	if webauthn {
+		m = append(m, "webauthn")
+	}
+	return m
 }
 
 func (s *server) recordLoginFailure(r *http.Request, u dbq.User) {
@@ -141,6 +172,10 @@ func (s *server) pendingSession(w http.ResponseWriter, r *http.Request) (*auth.S
 	u, err := s.q().GetUserByID(r.Context(), sess.UserID)
 	if err != nil || u.Status != "active" {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in with your password first.")
+		return nil, nil, false
+	}
+	if u.MustChangePassword {
+		writeError(w, http.StatusConflict, "password_change_required", "Choose a new password first.")
 		return nil, nil, false
 	}
 	return sess, &u, true
@@ -194,6 +229,10 @@ func (s *server) mfaVerify(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		t, err := q.GetTOTP(ctx, u.ID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.mfaFailure(w, r, sess, u, method) // security-key-only account: a code cannot be right
+			return
+		}
 		if err != nil {
 			internalError(w)
 			return
@@ -306,6 +345,11 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) session(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r)
+	if sess == nil || !sess.MFAVerified {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
+		return
+	}
 	p, ok := s.principal(w, r)
 	if !ok {
 		return
@@ -319,7 +363,10 @@ func (s *server) session(w http.ResponseWriter, r *http.Request) {
 		"user":        map[string]any{"id": p.UserID, "email": p.Email, "display_name": p.DisplayName},
 		"org":         map[string]any{"id": org.ID, "name": org.Name},
 		"permissions": p.Permissions,
-		"csrf_token":  sessionFrom(r).CSRFToken,
+		// Permissions held only for some sites, so the console can offer device pages to site-limited users.
+		"scoped_permissions": p.Access.ScopedPermissions(),
+		"site_permissions":   p.Access.SitePermissions(),
+		"csrf_token":         sess.CSRFToken,
 	})
 }
 

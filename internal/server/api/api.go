@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -64,6 +65,7 @@ type server struct {
 	setupIP    *auth.Limiter
 	apiIP      *auth.Limiter
 	sse        *sseLimiter
+	webauthn   *webauthn.WebAuthn // nil when the public URL cannot host WebAuthn
 }
 
 func (s *server) now() time.Time {
@@ -84,6 +86,13 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 		setupIP:    auth.NewLimiter(5, time.Minute, 10),
 		apiIP:      auth.NewLimiter(20, time.Second, 60),
 		sse:        newSSELimiter(5),
+	}
+	if d.Cfg != nil && d.Cfg.PublicURL != nil {
+		if wa, err := webauthn.New(&webauthn.Config{RPDisplayName: "Auzring", RPID: d.Cfg.PublicURL.Hostname(), RPOrigins: []string{d.Cfg.Origin()}}); err == nil {
+			s.webauthn = wa
+		} else if d.Log != nil {
+			d.Log.Warn("security keys disabled", "err", err)
+		}
 	}
 	go s.sweepLimiters()
 
@@ -111,18 +120,21 @@ func (s *server) routes(r chi.Router) {
 	r.Post("/auth/mfa", s.mfaVerify)
 	r.Post("/auth/mfa/enroll", s.mfaEnroll)
 	r.Post("/auth/logout", s.logout)
+	r.Post("/auth/change-password", s.changePassword)
+	r.Post("/auth/webauthn/begin", s.beginKeyLogin)
+	r.Post("/auth/webauthn/finish", s.finishKeyLogin)
 	r.Get("/auth/session", s.session)
 
-	r.With(s.require(auth.PermDevicesRead)).Get("/devices", s.listDevices)
-	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}", s.getDevice)
-	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
-	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
-	r.With(s.require(auth.PermDevicesWrite)).Delete("/devices/{id}", s.deleteDevice)
-	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/delete", s.deleteDevices)
+	r.With(s.requireAny(auth.PermDevicesRead)).Get("/devices", s.listDevices)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}", s.getDevice)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Delete("/devices/{id}", s.deleteDevice)
+	r.With(s.requireAny(auth.PermDevicesWrite)).Post("/devices/delete", s.deleteDevices)
 
-	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
-	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software/history", s.deviceSoftwareHistory)
-	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/users", s.deviceUsers)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/software/history", s.deviceSoftwareHistory)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/users", s.deviceUsers)
 
 	r.With(s.require(auth.PermDevicesRead)).Get("/software", s.searchSoftware)
 	r.With(s.require(auth.PermDevicesRead)).Get("/software/{id}", s.getSoftware)
@@ -139,7 +151,7 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/software.csv", s.softwareCSV)
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/devices.csv", s.devicesCSV)
 
-	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/jobs", s.deviceJobs)
+	r.With(s.requireDevice(auth.PermDeploymentsRead)).Get("/devices/{id}/jobs", s.deviceJobs)
 
 	r.With(s.require(auth.PermUpdatesRead)).Get("/updates", s.listUpdates)
 	r.With(s.require(auth.PermUpdatesWrite)).Post("/updates/decision", s.decideUpdates)
@@ -158,20 +170,20 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermUpdatesRead)).Get("/update-holds", s.listUpdateHolds)
 	r.With(s.require(auth.PermUpdatesPolicy)).Post("/update-holds/{id}/release", s.releaseUpdateHold)
 	r.With(s.require(auth.PermUpdatesRead)).Get("/update-conflicts", s.updateConflicts)
-	r.With(s.require(auth.PermUpdatesRead)).Get("/devices/{id}/windows-updates", s.deviceWindowsUpdates)
-	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/scan", s.scanDeviceUpdates)
-	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/install", s.installDeviceUpdates)
-	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/hide", s.hideDeviceUpdates)
-	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/reboot", s.rebootDevice)
+	r.With(s.requireDevice(auth.PermUpdatesRead)).Get("/devices/{id}/windows-updates", s.deviceWindowsUpdates)
+	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/scan", s.scanDeviceUpdates)
+	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/install", s.installDeviceUpdates)
+	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/hide", s.hideDeviceUpdates)
+	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/reboot", s.rebootDevice)
 	r.With(s.require(auth.PermReleasesRead)).Get("/agent-releases", s.listAgentReleases)
 	r.With(s.require(auth.PermReleasesWrite)).Post("/agent-releases", s.uploadAgentRelease)
 	r.With(s.require(auth.PermReleasesWrite)).Post("/agent-releases/{id}/status", s.setAgentReleaseStatus)
 	r.With(s.require(auth.PermReleasesWrite)).Delete("/agent-releases/{id}", s.deleteAgentRelease)
 	r.With(s.require(auth.PermReleasesRead)).Get("/agent-rollout", s.getAgentRollout)
 	r.With(s.require(auth.PermReleasesWrite)).Put("/agent-rollout", s.putAgentRollout)
-	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/updates", s.deviceUpdates)
-	r.With(s.require(auth.PermDeploymentsWrite)).Post("/devices/{id}/software/uninstall", s.uninstallDeviceSoftware)
-	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/refresh", s.refreshDevice)
+	r.With(s.requireDevice(auth.PermDeploymentsRead)).Get("/devices/{id}/updates", s.deviceUpdates)
+	r.With(s.requireDevice(auth.PermDeploymentsWrite)).Post("/devices/{id}/software/uninstall", s.uninstallDeviceSoftware)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/refresh", s.refreshDevice)
 
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages", s.listPackages)
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/search", s.searchCatalog)
@@ -189,8 +201,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/deployments/{id}", s.getDeployment)
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/deployments/{id}/jobs", s.deploymentJobs)
 	r.With(s.require(auth.PermDeploymentsWrite)).Post("/deployments/{id}/cancel", s.cancelDeployment)
-	r.With(s.require(auth.PermDeploymentsRead)).Get("/jobs/{id}", s.getJob)
-	r.With(s.require(auth.PermDeploymentsWrite)).Post("/jobs/{id}/retry", s.retryJob)
+	r.With(s.requireAny(auth.PermDeploymentsRead)).Get("/jobs/{id}", s.getJob)
+	r.With(s.requireAny(auth.PermDeploymentsWrite)).Post("/jobs/{id}/retry", s.retryJob)
 	r.With(s.require(auth.PermGroupsWrite)).Post("/groups/{id}/members", s.changeGroupMembers)
 
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
@@ -198,7 +210,30 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens/{id}/revoke", s.revokeToken)
 
 	r.With(s.require(auth.PermAuditRead)).Get("/audit", s.listAudit)
-	r.With(s.require(auth.PermDevicesRead)).Get("/events", s.events)
+	r.With(s.requireAny(auth.PermDevicesRead)).Get("/events", s.events)
+
+	r.With(s.requireAny(auth.PermSitesRead)).Get("/sites", s.listSites)
+	r.With(s.require(auth.PermSitesWrite)).Post("/sites", s.createSite)
+	r.With(s.require(auth.PermSitesWrite)).Put("/sites/{id}", s.updateSite)
+	r.With(s.require(auth.PermSitesWrite)).Delete("/sites/{id}", s.deleteSite)
+
+	r.With(s.require(auth.PermUsersRead)).Get("/users", s.listUsers)
+	r.With(s.require(auth.PermUsersWrite)).Post("/users", s.createUser)
+	r.With(s.require(auth.PermUsersWrite)).Put("/users/{id}", s.updateUser)
+	r.With(s.require(auth.PermUsersWrite)).Post("/users/{id}/roles", s.addBinding)
+	r.With(s.require(auth.PermUsersWrite)).Delete("/users/{id}/roles/{bid}", s.removeBinding)
+	r.With(s.require(auth.PermUsersWrite)).Post("/users/{id}/reset-password", s.resetUserPassword)
+	r.With(s.require(auth.PermUsersWrite)).Post("/users/{id}/reset-mfa", s.resetUserMFA)
+	r.With(s.require(auth.PermUsersWrite)).Delete("/users/{id}", s.deleteUser)
+	r.With(s.require(auth.PermUsersRead)).Get("/api-tokens", s.listAllAPITokens)
+	r.With(s.require(auth.PermUsersWrite)).Delete("/api-tokens/{id}", s.revokeAnyAPIToken)
+
+	r.With(s.requireSelf).Get("/me/security", s.mySecurity)
+	r.With(s.requireSelf).Post("/me/api-tokens", s.createAPIToken)
+	r.With(s.requireSelf).Delete("/me/api-tokens/{id}", s.revokeOwnAPIToken)
+	r.With(s.requireSelf).Post("/me/security-keys/begin", s.beginSecurityKey)
+	r.With(s.requireSelf).Post("/me/security-keys/finish", s.finishSecurityKey)
+	r.With(s.requireSelf).Delete("/me/security-keys/{id}", s.deleteSecurityKey)
 }
 
 func (s *server) readyz(w http.ResponseWriter, r *http.Request) {

@@ -23,6 +23,7 @@ tags:
   - name: deployments
   - name: updates
   - name: releases
+  - name: identity
 paths:
   /setup/status:
     get:
@@ -123,8 +124,9 @@ paths:
                 type: object
                 required: [mfa, csrf_token]
                 properties:
-                  mfa: { type: string, enum: [verify, enroll] }
+                  mfa: { type: string, enum: [verify, enroll, change_password] }
                   csrf_token: { type: string }
+                  methods: { type: array, items: { type: string, enum: [totp, webauthn] }, description: Second factors the account can use (mfa=verify) }
                   totp_secret: { type: string, description: Present when mfa=enroll }
                   otpauth_uri: { type: string, description: Present when mfa=enroll }
         "401": { $ref: "#/components/responses/Error" }
@@ -292,6 +294,7 @@ paths:
                 max_uses: { type: integer, minimum: 1, maximum: 100000 }
                 expires_in_hours: { type: integer, minimum: 1, maximum: 8760 }
                 require_approval: { type: boolean }
+                site_id: { type: string, format: uuid, nullable: true, description: The site new devices join (default - the first site) }
       responses:
         "201":
           description: Created
@@ -1069,6 +1072,360 @@ paths:
       responses:
         "204": { description: Saved }
         "422": { $ref: "#/components/responses/Error" }
+  /auth/change-password:
+    post:
+      tags: [identity]
+      summary: Change your password (also the forced change after an administrator set a temporary one)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, maxLength: 1024 }
+                new_password: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: Changed during sign-in; carries the next MFA step like /auth/login
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mfa, csrf_token]
+                properties:
+                  mfa: { type: string, enum: [verify, enroll] }
+                  csrf_token: { type: string }
+                  methods: { type: array, items: { type: string } }
+                  totp_secret: { type: string }
+                  otpauth_uri: { type: string }
+        "204": { description: Changed }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/webauthn/begin:
+    post:
+      tags: [identity]
+      summary: Start signing in with a security key (password already verified)
+      responses:
+        "200":
+          description: WebAuthn assertion options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebAuthnCeremony" }
+        "409": { $ref: "#/components/responses/Error" }
+  /auth/webauthn/finish:
+    post:
+      tags: [identity]
+      summary: Finish signing in with a security key (the browser's assertion is the body; ceremony in the query)
+      parameters:
+        - { name: ceremony, in: query, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { $ref: "#/components/responses/SessionStarted" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /me/security:
+    get:
+      tags: [identity]
+      summary: Your second factors and API tokens
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MySecurity" }
+  /me/api-tokens:
+    post:
+      tags: [identity]
+      summary: Create an API token (session only; the secret is shown once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, scopes, expires_in_days]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                scopes: { type: array, items: { type: string }, minItems: 1, maxItems: 64 }
+                expires_in_days: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, token, expires_at, scopes]
+                properties:
+                  id: { type: string, format: uuid }
+                  token: { type: string }
+                  expires_at: { type: string, format: date-time }
+                  scopes: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /me/api-tokens/{id}:
+    delete:
+      tags: [identity]
+      summary: Revoke one of your API tokens
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+  /me/security-keys/begin:
+    post:
+      tags: [identity]
+      summary: Start registering a security key
+      responses:
+        "200":
+          description: WebAuthn creation options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebAuthnCeremony" }
+        "503": { $ref: "#/components/responses/Error" }
+  /me/security-keys/finish:
+    post:
+      tags: [identity]
+      summary: Finish registering a security key (the browser's credential is the body)
+      parameters:
+        - { name: ceremony, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: name, in: query, required: true, schema: { type: string, maxLength: 100 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecurityKey" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /me/security-keys/{id}:
+    delete:
+      tags: [identity]
+      summary: Remove one of your security keys (not the last second factor)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /sites:
+    get:
+      tags: [identity]
+      summary: Sites (requires sites:read, organization-wide or for some sites)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Site" } }
+    post:
+      tags: [identity]
+      summary: Create a site (requires sites:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /sites/{id}:
+    put:
+      tags: [identity]
+      summary: Rename a site or change its time zone (requires sites:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteInput" }
+      responses:
+        "204": { description: Saved }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [identity]
+      summary: Delete an empty site (requires sites:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /users:
+    get:
+      tags: [identity]
+      summary: Users and their role bindings (requires users:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/User" } }
+    post:
+      tags: [identity]
+      summary: Create a user with a temporary password they must change at first sign-in (requires users:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, display_name, roles]
+              properties:
+                email: { type: string, maxLength: 254 }
+                display_name: { type: string, maxLength: 200 }
+                password: { type: string, description: Optional; generated and returned once when empty }
+                roles: { type: array, minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/RoleBinding" } }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+                  temporary_password: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /users/{id}:
+    put:
+      tags: [identity]
+      summary: Change display name or enable/disable (requires users:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [display_name, status]
+              properties:
+                display_name: { type: string }
+                status: { type: string, enum: [active, disabled] }
+      responses:
+        "204": { description: Saved }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [identity]
+      summary: Delete a user (requires users:write; never yourself or the last administrator)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /users/{id}/roles:
+    post:
+      tags: [identity]
+      summary: Add a role binding (requires users:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleBinding" }
+      responses:
+        "204": { description: Added }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /users/{id}/roles/{bid}:
+    delete:
+      tags: [identity]
+      summary: Remove a role binding (requires users:write)
+      parameters:
+        - { $ref: "#/components/parameters/ID" }
+        - { name: bid, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /users/{id}/reset-password:
+    post:
+      tags: [identity]
+      summary: Set a temporary password and end the user's sessions (requires users:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                password: { type: string }
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temporary_password: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /users/{id}/reset-mfa:
+    post:
+      tags: [identity]
+      summary: Remove all second factors; the user enrolls a new one at the next sign-in (requires users:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "204": { description: Reset }
+  /api-tokens:
+    get:
+      tags: [identity]
+      summary: Every API token of the organization (requires users:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ApiToken" } }
+  /api-tokens/{id}:
+    delete:
+      tags: [identity]
+      summary: Revoke any API token (requires users:write)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
   /update-conflicts:
     get:
       tags: [updates]
@@ -1496,6 +1853,10 @@ components:
       type: apiKey
       in: cookie
       name: __Host-auz_session
+    apiToken:
+      type: http
+      scheme: bearer
+      description: An API token (azt_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
   parameters:
     ID:
       name: id
@@ -1572,7 +1933,9 @@ components:
           properties:
             id: { type: string, format: uuid }
             name: { type: string }
-        permissions: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string }, description: Organization-wide permissions }
+        scoped_permissions: { type: array, items: { type: string }, description: Permissions held only for some sites }
+        site_permissions: { type: object, additionalProperties: { type: array, items: { type: string } }, description: Per-site permissions by site id }
         csrf_token: { type: string }
     AvailableUpdate:
       type: object
@@ -1690,6 +2053,91 @@ components:
         pilot_updated: { type: integer, format: int64 }
         pilot_failed: { type: integer, format: int64 }
         waiting: { type: string, description: Why devices outside the pilot are not being updated yet }
+    WebAuthnCeremony:
+      type: object
+      required: [ceremony, options]
+      properties:
+        ceremony: { type: string, format: uuid }
+        options: { type: object, description: The WebAuthn options object for navigator.credentials }
+    SecurityKey:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+    ApiToken:
+      type: object
+      required: [id, name, prefix, scopes, created_at, expires_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix: { type: string }
+        scopes: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        last_used_ip: { type: string }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        owner: { type: string, description: Owner email (organization-wide list only) }
+    MySecurity:
+      type: object
+      required: [totp, security_keys, api_tokens, webauthn_available, token_scopes]
+      properties:
+        totp: { type: boolean }
+        security_keys: { type: array, items: { $ref: "#/components/schemas/SecurityKey" } }
+        api_tokens: { type: array, items: { $ref: "#/components/schemas/ApiToken" } }
+        webauthn_available: { type: boolean }
+        token_scopes: { type: array, items: { type: string }, description: Scopes you may put in a token }
+    Site:
+      type: object
+      required: [id, name, timezone, created_at, devices]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string }
+        created_at: { type: string, format: date-time }
+        devices: { type: integer, format: int64 }
+    SiteInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        timezone: { type: string }
+    RoleBinding:
+      type: object
+      additionalProperties: false
+      required: [role, scope_type, scope_id]
+      properties:
+        role: { type: string, enum: [admin, operator, readonly] }
+        scope_type: { type: string, enum: [org, site] }
+        scope_id: { type: string, format: uuid, description: The organization id for org, a site id for site }
+    User:
+      type: object
+      required: [id, email, display_name, status, created_at, must_change_password, has_totp, security_keys, bindings]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        display_name: { type: string }
+        status: { type: string, enum: [active, disabled] }
+        locked_until: { type: string, format: date-time, nullable: true }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        must_change_password: { type: boolean }
+        has_totp: { type: boolean }
+        security_keys: { type: integer }
+        bindings:
+          type: array
+          items:
+            type: object
+            required: [id, role, scope_type, scope_id]
+            properties:
+              id: { type: string, format: uuid }
+              role: { type: string }
+              scope_type: { type: string }
+              scope_id: { type: string, format: uuid }
     UpdateSettings:
       type: object
       additionalProperties: false

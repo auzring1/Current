@@ -43,12 +43,14 @@ SELECT id, org_id, site_id, status, status_reason, hostname, os_caption, os_buil
 FROM devices
 WHERE org_id = $1
   AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
+  AND (sqlc.narg('site_ids')::uuid[] IS NULL OR site_id = ANY(sqlc.narg('site_ids')::uuid[]))
 ORDER BY (status = 'pending') DESC, hostname, id
 LIMIT $2 OFFSET $3;
 
 -- name: CountDevices :one
 SELECT count(*) FROM devices
-WHERE org_id = $1 AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text);
+WHERE org_id = $1 AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
+  AND (sqlc.narg('site_ids')::uuid[] IS NULL OR site_id = ANY(sqlc.narg('site_ids')::uuid[]));
 
 -- name: ApproveDevice :execrows
 UPDATE devices SET status = 'active', approved_by = $3, approved_at = $4

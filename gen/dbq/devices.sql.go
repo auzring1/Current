@@ -58,15 +58,17 @@ func (q *Queries) CompleteDeviceEnrollment(ctx context.Context, id uuid.UUID) er
 const countDevices = `-- name: CountDevices :one
 SELECT count(*) FROM devices
 WHERE org_id = $1 AND ($2::text IS NULL OR status = $2::text)
+  AND ($3::uuid[] IS NULL OR site_id = ANY($3::uuid[]))
 `
 
 type CountDevicesParams struct {
-	OrgID  uuid.UUID
-	Status *string
+	OrgID   uuid.UUID
+	Status  *string
+	SiteIds []uuid.UUID
 }
 
 func (q *Queries) CountDevices(ctx context.Context, arg CountDevicesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countDevices, arg.OrgID, arg.Status)
+	row := q.db.QueryRow(ctx, countDevices, arg.OrgID, arg.Status, arg.SiteIds)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -472,15 +474,17 @@ SELECT id, org_id, site_id, status, status_reason, hostname, os_caption, os_buil
 FROM devices
 WHERE org_id = $1
   AND ($4::text IS NULL OR status = $4::text)
+  AND ($5::uuid[] IS NULL OR site_id = ANY($5::uuid[]))
 ORDER BY (status = 'pending') DESC, hostname, id
 LIMIT $2 OFFSET $3
 `
 
 type ListDevicesParams struct {
-	OrgID  uuid.UUID
-	Limit  int32
-	Offset int32
-	Status *string
+	OrgID   uuid.UUID
+	Limit   int32
+	Offset  int32
+	Status  *string
+	SiteIds []uuid.UUID
 }
 
 type ListDevicesRow struct {
@@ -518,6 +522,7 @@ func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]Lis
 		arg.Limit,
 		arg.Offset,
 		arg.Status,
+		arg.SiteIds,
 	)
 	if err != nil {
 		return nil, err
