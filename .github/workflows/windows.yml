@@ -191,3 +191,167 @@ jobs:
         with: { go-version: "${{ env.GO_VERSION }}" }
       - name: WUA scan, policy detection and reboot detection (read-only)
         run: go test -count=1 -v -run 'TestWin' ./internal/agent/wu/
+
+  # The agent MSI (WiX v7, installer/windows). Informational until it has been observed passing on a
+  # runner: it builds the MSI, runs the ICE validation, then drives a real msiexec install, upgrade and
+  # uninstall against a local server (docs/RUNBOOK.md section 4, docs/SECURITY.md 9d.b).
+  msi:
+    runs-on: windows-2025
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "${{ env.GO_VERSION }}" }
+
+      - name: Source tests (WiX sources parsed as XML, version mapping, install --if-not-installed)
+        run: go test -count=1 ./installer/... ./internal/agent/install/
+
+      - name: Start the runner's PostgreSQL
+        shell: pwsh
+        run: |
+          $svc = Get-Service -Name "postgresql*" | Select-Object -First 1
+          Set-Service -Name $svc.Name -StartupType Manual
+          Start-Service -Name $svc.Name
+
+      - name: Build two agent versions and their MSIs (WiX v7 from .config/dotnet-tools.json), then validate (ICE)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          dotnet --info | Select-Object -First 6
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($v in @("0.1.0", "0.1.1")) {
+            go build -trimpath -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=$v" -o "dist\auzring-agent-$v.exe" ./cmd/auzring-agent
+            if ($LASTEXITCODE -ne 0) { throw "agent build $v failed" }
+            ./installer/windows/build.ps1 -AgentExe "dist\auzring-agent-$v.exe" -Version $v -Output "$PWD\dist\auzring-agent-$v.msi"
+          }
+          go build -o auzring-server.exe ./cmd/auzring-server
+          if ($LASTEXITCODE -ne 0) { throw "server build failed" }
+
+      - name: Install, failure and rollback, upgrade, uninstall with msiexec
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $psql = "$env:PGBIN\psql.exe"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE auzring_msi"
+          $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+          $env:AUZ_DEV_MODE = "true"
+          $env:AUZ_PUBLIC_URL = "http://localhost:18080"
+          $env:AUZ_HTTP_ADDR = "127.0.0.1:18080"
+          $env:AUZ_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:AUZ_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_msi?sslmode=disable"
+          $env:AUZ_MASTER_KEY = $key
+          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+            -RedirectStandardError server.err -RedirectStandardOutput server.out
+          $setup = $null
+          for ($i = 0; $i -lt 60 -and -not $setup; $i++) {
+            Start-Sleep -Seconds 1
+            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            if ($m) { $setup = $m.Matches[0].Groups[1].Value }
+          }
+          if (-not $setup) { Get-Content server.err, server.out; throw "no setup token" }
+          $enroll = (go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $setup).Trim()
+          if ($LASTEXITCODE -ne 0 -or -not $enroll.StartsWith("AURZ1.")) { throw "bootstrap failed" }
+
+          $v1 = "$PWD\dist\auzring-agent-0.1.0.msi"
+          $v2 = "$PWD\dist\auzring-agent-0.1.1.msi"
+          $data = "$env:ProgramData\Auzring"
+          $pf = $env:ProgramFiles
+
+          function Invoke-Msi([string]$Args_) {
+            $p = Start-Process -FilePath msiexec.exe -ArgumentList $Args_ -Wait -PassThru
+            return $p.ExitCode
+          }
+          function Assert-Clean([string]$When) {
+            for ($i = 0; $i -lt 30 -and (Get-Service AuzringAgent -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+            if (Get-Service AuzringAgent -ErrorAction SilentlyContinue) { throw "$When: service still present" }
+            foreach ($d in @($data, "$pf\Auzring", "$pf\AuzringSetup")) {
+              if (Test-Path $d) { throw "$When: $d still present" }
+            }
+          }
+          function Test-LogLeak([string]$Path, [string]$Secret) {
+            # msiexec writes ANSI or UTF-16 depending on version: look for the secret in both encodings.
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            if ($bytes.Length -lt 2000) { throw "$Path is suspiciously small ($($bytes.Length) bytes): no verbose log" }
+            $ansi = [System.Text.Encoding]::Latin1.GetString($bytes)
+            $wide = [System.Text.Encoding]::Unicode.GetString($bytes)
+            return ($ansi.Contains($Secret) -or $wide.Contains($Secret))
+          }
+
+          # 1. Failures must exit 1603 and leave nothing behind.
+          $bad = @{
+            "malformed token"      = "SERVER=localhost:18443 TOKEN=AURZ1.not-a-real-token"
+            "missing TOKEN"        = "SERVER=localhost:18443"
+            "missing SERVER"       = "TOKEN=$enroll"
+            "metacharacter in SERVER" = "SERVER=localhost:18443&calc TOKEN=$enroll"
+            "unknown job type"     = "SERVER=localhost:18443 TOKEN=$enroll ALLOWEDJOBS=nonsense"
+            "server unreachable"   = "SERVER=127.0.0.1:1 TOKEN=$enroll"
+          }
+          foreach ($k in $bad.Keys) {
+            $rc = Invoke-Msi "/i `"$v1`" /qn $($bad[$k]) /l*v `"$PWD\fail.log`""
+            Write-Host "failure case '$k': msiexec exit $rc"
+            if ($rc -ne 1603) { Get-Content "$data\logs\agent.log" -Tail 30 -ErrorAction SilentlyContinue; throw "'$k' exited $rc, expected 1603" }
+            if (Test-LogLeak "$PWD\fail.log" $enroll) { throw "'$k': the token is in the MSI log" }
+            Assert-Clean "after failed install '$k'"
+          }
+
+          # 2. Silent install.
+          $rc = Invoke-Msi "/i `"$v1`" /qn SERVER=localhost:18443 TOKEN=$enroll ALLOWEDJOBS=inventory,wu_scan /l*v `"$PWD\msi.log`""
+          if ($rc -ne 0) { Get-Content "$data\logs\agent.log" -Tail 40 -ErrorAction SilentlyContinue; throw "install exited $rc" }
+          if ((Get-Service AuzringAgent).Status -ne "Running") { throw "service is not running" }
+          $status = Get-Content "$data\status.json" | ConvertFrom-Json
+          if ($status.state -ne "connected") { Get-Content "$data\logs\agent.log" -Tail 40; throw "agent not connected: $($status.state)" }
+          $deviceId = $status.device_id
+          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_msi -tAc "SELECT count(*) FROM devices")
+          if ($n -ne 1) { throw "expected 1 device, found $n" }
+          $cfg = Get-Content "$data\config.json" -Raw
+          if ($cfg -notmatch 'inventory' -or $cfg -notmatch 'wu_scan') { throw "ALLOWEDJOBS did not reach config.json" }
+          if ($cfg -match 'enrollment_token') { throw "token left in config.json" }
+          if (-not (Test-Path "$pf\Auzring\Agent\slot-a\auzring-agent.exe")) { throw "slot-a binary missing" }
+          if (Test-LogLeak "$PWD\msi.log" $enroll) { throw "the enrollment token is in msi.log" }
+          if (Test-LogLeak "$PWD\msi.log" $enroll.Substring(6, 24)) { throw "part of the enrollment token is in msi.log" }
+
+          # 3. Major upgrade of an enrolled machine: no properties, no new token, same device, still running.
+          $rc = Invoke-Msi "/i `"$v2`" /qn /l*v `"$PWD\upgrade.log`""
+          if ($rc -ne 0) { Get-Content "$data\logs\agent.log" -Tail 40 -ErrorAction SilentlyContinue; throw "upgrade exited $rc" }
+          if ((Get-Service AuzringAgent).Status -ne "Running") { throw "service stopped by the upgrade" }
+          if ((Get-Content "$data\status.json" | ConvertFrom-Json).device_id -ne $deviceId) { throw "device identity changed by the upgrade" }
+          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_msi -tAc "SELECT count(*) FROM devices")
+          if ($n -ne 1) { throw "upgrade re-enrolled: $n devices" }
+          $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "Auzring Agent"
+          if (@($arp).Count -ne 1) { throw "expected one Auzring Agent product after the upgrade, found $(@($arp).Count)" }
+          if (Test-LogLeak "$PWD\upgrade.log" $enroll) { throw "the enrollment token is in upgrade.log" }
+
+          # 4. Uninstall removes service, data, program files and the staged copy.
+          $rc = Invoke-Msi "/x `"$v2`" /qn /l*v `"$PWD\uninstall.log`""
+          if ($rc -ne 0) { throw "uninstall exited $rc" }
+          Assert-Clean "after uninstall"
+
+          # 5. /qb (basic UI) works too, then clean up.
+          $rc = Invoke-Msi "/i `"$v1`" /qb SERVER=localhost:18443 TOKEN=$enroll"
+          if ($rc -ne 0) { throw "/qb install exited $rc" }
+          if ((Get-Service AuzringAgent).Status -ne "Running") { throw "service is not running after /qb install" }
+          $rc = Invoke-Msi "/x `"$v1`" /qb"
+          if ($rc -ne 0) { throw "/qb uninstall exited $rc" }
+          Assert-Clean "after /qb uninstall"
+          Stop-Process -Id $server.Id
+
+      - name: Collect logs
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force logs | Out-Null
+          foreach ($f in "msi.log", "fail.log", "upgrade.log", "uninstall.log", "server.err") {
+            if (Test-Path $f) { Copy-Item $f logs\ }
+          }
+          if (Test-Path "$env:ProgramData\Auzring\logs\agent.log") { Copy-Item "$env:ProgramData\Auzring\logs\agent.log" logs\ }
+          Get-ChildItem dist -Filter *.msi | ForEach-Object { Copy-Item $_.FullName logs\ }
+
+      # The logs are only uploaded after the token check above has passed or failed; the enrollment
+      # token belongs to a throw-away local server, so they carry no usable secret either way.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: msi-logs
+          path: logs/
+          retention-days: 7
