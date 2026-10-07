@@ -12,8 +12,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -27,6 +29,7 @@ import (
 	"github.com/auzring1/auzring/internal/agent/config"
 	"github.com/auzring1/auzring/internal/agent/hardware"
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/jobs"
 	"github.com/auzring1/auzring/internal/agent/keystore"
 	"github.com/auzring1/auzring/internal/agent/store"
 	"github.com/auzring1/auzring/internal/shared/envelope"
@@ -52,6 +55,8 @@ type Agent struct {
 	HW      hardware.Collector
 	// Inv reports software and user inventory; nil disables it.
 	Inv *inventory.Manager
+	// Jobs runs verified jobs; nil disables job execution (jobs are then rejected).
+	Jobs *jobs.Engine
 	// Changes delivers raw change notifications (registry watcher); may be nil.
 	Changes <-chan struct{}
 	Log     *slog.Logger
@@ -65,6 +70,13 @@ type Agent struct {
 	// InvQuiet is the debounce period after a change notification (default 30s);
 	// ReconcileEvery is the safety-net full rescan interval (default 24h).
 	InvQuiet, ReconcileEvery time.Duration
+
+	outKick chan struct{} // wakes the stream loop to send queued outbox messages
+	invNow  chan struct{} // requests an immediate software rescan
+	sentMu  sync.Mutex
+	sent    map[uint64]bool // outbox entries already sent on the current stream
+	clMu    sync.Mutex
+	client  agentv1.AgentChannelServiceClient // current connection, for content downloads
 
 	bootID      string
 	clockOffset time.Duration
@@ -102,6 +114,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	a.bootID = hex.EncodeToString(b)
+	a.outKick, a.invNow = make(chan struct{}, 1), make(chan struct{}, 1)
+	a.startJobs(ctx)
 	a.status("starting", "", "")
 	bo := &Backoff{Base: a.BackoffBase, Max: a.BackoffMax}
 	for ctx.Err() == nil {
@@ -340,6 +354,8 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	}
 	defer func() { _ = conn.Close() }()
 	client := agentv1.NewAgentChannelServiceClient(conn)
+	a.setClient(client)
+	defer a.setClient(nil)
 
 	// Expired certificate inside the grace period: renew first.
 	if a.now().After(cert.NotAfter) {
@@ -361,6 +377,9 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 		a.Inv.ResetPending() // acknowledgements of the previous stream can never arrive
 		revs["software"], revs["users"] = a.Inv.SoftwareRev(), a.Inv.UsersRev()
 		caps = append(caps, "software", "users")
+	}
+	if a.Jobs != nil {
+		caps = append(caps, "jobs/v1")
 	}
 	a.hwPending = nil
 	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Hello{Hello: &agentv1.Hello{
@@ -473,6 +492,14 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 			return a.now().Sub(start), a.retryHint(err), err
 		case <-hbTick.C:
 			if err := a.sendHeartbeat(ctx, stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+		case <-a.outKick:
+			if err := a.sendQueued(stream); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+		case <-a.invNow:
+			if err := runInv(inventory.SyncOptions{}); err != nil {
 				return a.now().Sub(start), 0, err
 			}
 		case <-renewTick.C:
@@ -634,8 +661,9 @@ func equalDERs(a, b [][]byte) bool {
 	return true
 }
 
-// handleJobOffer verifies an envelope. Phase 1 executes no jobs: valid
-// envelopes are acknowledged in the log only; invalid ones are reported.
+// handleJobOffer verifies an envelope and hands it to the job engine. An offer
+// for a job the engine already holds is not a replay: the server simply never
+// saw our acknowledgement, so the engine reports the current state again.
 func (a *Agent) handleJobOffer(stream agentv1.AgentChannelService_ConnectClient, id *store.Identity, root *x509.Certificate, se *agentv1.SignedEnvelope) {
 	var certs []*x509.Certificate
 	for _, d := range id.SigningDER {
@@ -647,6 +675,10 @@ func (a *Agent) handleJobOffer(stream agentv1.AgentChannelService_ConnectClient,
 		Ledger: store.Ledger{S: a.Store}, Now: a.serverNow}
 	env, err := v.Open(se)
 	if err != nil {
+		if errors.Is(err, envelope.ErrReplay) && env != nil && a.Jobs != nil && a.Store.JobGet(env.JobId) != nil {
+			a.Jobs.Accept(se, env)
+			return
+		}
 		kind := agentv1.SecurityEventKind_SECURITY_EVENT_KIND_BAD_SIGNATURE
 		switch {
 		case errors.Is(err, envelope.ErrWrongDevice):
@@ -661,11 +693,17 @@ func (a *Agent) handleJobOffer(stream agentv1.AgentChannelService_ConnectClient,
 		return
 	}
 	_ = a.Store.LedgerRecord(env.JobId, time.Unix(env.ExpiresAt, 0))
-	a.Log.Info("verified job envelope; job execution arrives in a later version", "job_id", env.JobId, "type", env.Type.String())
+	if a.Jobs == nil {
+		a.Log.Info("verified job envelope but this agent has no job engine", "job_id", env.JobId, "type", env.Type.String())
+		return
+	}
+	a.Log.Info("job accepted", "job_id", env.JobId, "type", env.Type.String())
+	a.Jobs.Accept(se, env)
 }
 
-// securityEvent queues an event in the outbox and sends it.
-func (a *Agent) securityEvent(stream agentv1.AgentChannelService_ConnectClient, kind agentv1.SecurityEventKind, detail string) {
+// securityEvent queues an event in the outbox; the stream loop sends it. (It
+// may be called from the job engine's goroutine, so it never touches the stream.)
+func (a *Agent) securityEvent(_ agentv1.AgentChannelService_ConnectClient, kind agentv1.SecurityEventKind, detail string) {
 	seq, err := a.Store.NextSeq()
 	if err != nil {
 		return
@@ -673,19 +711,58 @@ func (a *Agent) securityEvent(stream agentv1.AgentChannelService_ConnectClient, 
 	if len(detail) > 1000 {
 		detail = detail[:1000]
 	}
-	msg := &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_SecurityEvent{SecurityEvent: &agentv1.SecurityEvent{Seq: seq, Kind: kind, Detail: detail}}}
+	a.queue(seq, &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_SecurityEvent{SecurityEvent: &agentv1.SecurityEvent{Seq: seq, Kind: kind, Detail: detail}}})
+}
+
+// queue persists a message in the outbox and wakes the stream loop.
+func (a *Agent) queue(seq uint64, msg *agentv1.ConnectRequest) {
 	if b, err := proto.Marshal(msg); err == nil {
 		_ = a.Store.OutboxPut(seq, b)
 	}
-	_ = stream.Send(msg)
+	select {
+	case a.outKick <- struct{}{}:
+	default:
+	}
 }
 
+// reportJob implements jobs.Reporter: updates are durable (outbox) and
+// delivered with acknowledgements, surviving disconnects and restarts.
+func (a *Agent) reportJob(u *agentv1.JobUpdate) {
+	seq, err := a.Store.NextSeq()
+	if err != nil {
+		return
+	}
+	u.Seq = seq
+	a.queue(seq, &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_JobUpdate{JobUpdate: u}})
+}
+
+type jobReporter struct{ a *Agent }
+
+func (r jobReporter) Report(u *agentv1.JobUpdate) { r.a.reportJob(u) }
+
+// flushOutbox sends everything queued, once per stream.
 func (a *Agent) flushOutbox(stream agentv1.AgentChannelService_ConnectClient) error {
+	a.sentMu.Lock()
+	a.sent = map[uint64]bool{}
+	a.sentMu.Unlock()
+	return a.sendQueued(stream)
+}
+
+// sendQueued sends outbox entries not yet sent on this stream.
+func (a *Agent) sendQueued(stream agentv1.AgentChannelService_ConnectClient) error {
 	m, order, err := a.Store.OutboxAll()
 	if err != nil {
 		return err
 	}
+	a.sentMu.Lock()
+	defer a.sentMu.Unlock()
+	if a.sent == nil {
+		a.sent = map[uint64]bool{}
+	}
 	for _, seq := range order {
+		if a.sent[seq] {
+			continue
+		}
 		var msg agentv1.ConnectRequest
 		if proto.Unmarshal(m[seq], &msg) != nil {
 			_ = a.Store.OutboxAck(seq)
@@ -694,8 +771,77 @@ func (a *Agent) flushOutbox(stream agentv1.AgentChannelService_ConnectClient) er
 		if err := stream.Send(&msg); err != nil {
 			return err
 		}
+		a.sent[seq] = true
 	}
 	return nil
+}
+
+func (a *Agent) setClient(c agentv1.AgentChannelServiceClient) {
+	a.clMu.Lock()
+	a.client = c
+	a.clMu.Unlock()
+}
+
+func (a *Agent) getClient() agentv1.AgentChannelServiceClient {
+	a.clMu.Lock()
+	defer a.clMu.Unlock()
+	return a.client
+}
+
+// startJobs wires the engine to the agent and runs it for the agent's lifetime;
+// it keeps working (queued jobs, windows, retries) while the server is unreachable.
+func (a *Agent) startJobs(ctx context.Context) {
+	if a.Jobs == nil {
+		return
+	}
+	a.Jobs.Report = jobReporter{a}
+	a.Jobs.Now = a.serverNow
+	a.Jobs.Security = func(k agentv1.SecurityEventKind, d string) { a.securityEvent(nil, k, d) }
+	a.Jobs.InventoryNow = func() {
+		select {
+		case a.invNow <- struct{}{}:
+		default:
+		}
+	}
+	if len(a.Jobs.Allowed) == 0 && len(a.Cfg.AllowedJobs) > 0 {
+		a.Jobs.Allowed = map[string]bool{}
+		for _, n := range a.Cfg.AllowedJobs {
+			a.Jobs.Allowed[n] = true
+		}
+	}
+	if a.Jobs.Fetch == nil {
+		a.Jobs.Fetch = &jobs.MultiFetcher{Server: a.fetchFromServer}
+	}
+	go a.Jobs.Run(ctx)
+}
+
+// fetchFromServer streams stored content over the mTLS channel (FetchContent).
+func (a *Agent) fetchFromServer(ctx context.Context, jobID string, sha []byte) (io.ReadCloser, error) {
+	c := a.getClient()
+	if c == nil {
+		return nil, errors.New("not connected to the server")
+	}
+	st, err := c.FetchContent(ctx, &agentv1.FetchContentRequest{Sha256: sha, JobId: jobID})
+	if err != nil {
+		return nil, err
+	}
+	pr, pw := io.Pipe()
+	go func() {
+		for {
+			ch, err := st.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					err = nil
+				}
+				_ = pw.CloseWithError(err)
+				return
+			}
+			if _, err := pw.Write(ch.Data); err != nil {
+				return
+			}
+		}
+	}()
+	return pr, nil
 }
 
 type pendingReport struct {

@@ -28,6 +28,7 @@ import (
 	"github.com/auzring1/auzring/internal/agent/hardware"
 	"github.com/auzring1/auzring/internal/agent/install"
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/jobs"
 	"github.com/auzring1/auzring/internal/agent/keystore"
 	"github.com/auzring1/auzring/internal/agent/logging"
 	"github.com/auzring1/auzring/internal/agent/store"
@@ -175,6 +176,7 @@ func runAgent(ctx context.Context, dataDir string, first *config.Config) error {
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dataDir, Store: st, Keys: keystore.Default(dataDir),
 		HW: hardware.New(), Log: log, Version: version.Version}
 	a.Inv = &inventory.Manager{Collector: inventory.NewCollector(), Store: st, Log: log}
+	a.Jobs = &jobs.Engine{P: jobs.NewPlatform(dataDir), Store: st, Log: log}
 	if w, err := inventory.NewWatcher(log); err != nil {
 		log.Warn("registry change watcher unavailable; relying on the daily rescan", "err", err)
 	} else {

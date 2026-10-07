@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows/svc"
+
+	"github.com/auzring1/auzring/internal/agent/jobs"
 )
 
 // IsService reports whether the process was started by the SCM.
@@ -28,13 +30,16 @@ func (h *handler) Execute(_ []string, req <-chan svc.ChangeRequest, st chan<- sv
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- h.run(ctx) }()
-	st <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+	st <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptSessionChange}
 	for {
 		select {
 		case c := <-req:
 			switch c.Cmd {
 			case svc.Interrogate:
 				st <- c.CurrentStatus
+			case svc.SessionChange:
+				// logon, unlock, remote connect: re-evaluate jobs waiting for a user
+				jobs.NotifySessionChange()
 			case svc.Stop, svc.Shutdown:
 				st <- svc.Status{State: svc.StopPending, WaitHint: 20000}
 				cancel()
