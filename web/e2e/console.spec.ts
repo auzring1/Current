@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 import { totp } from "./totp";
 
 const setupToken = process.env.AUZ_SETUP_TOKEN ?? "";
@@ -20,7 +20,7 @@ async function typeCode(page: Page, code: string) {
   await page.getByLabel("Authenticator code").fill(code);
 }
 
-test("first-run setup, MFA login, enrollment, live device, revoke, audit", async ({ page }) => {
+test("first-run setup, MFA login, enrollment, live device, revoke, audit", async ({ page, browser }) => {
   expect(setupToken, "AUZ_SETUP_TOKEN must be set").not.toBe("");
   // Record every CSP violation; the console must run under the strict policy.
   const violations: string[] = [];
@@ -290,6 +290,84 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   } finally {
     agent?.kill();
   }
+
+  // --- Identity: a site, a site-limited technician, a security key and an API token ---
+  const origin = new URL(page.url()).origin;
+  await page.getByRole("link", { name: "Sites" }).click();
+  await page.getByRole("button", { name: "Add site" }).click();
+  await page.getByRole("dialog").getByLabel(/^Name/).fill("Branch office");
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("table", { name: "Sites" }).getByText("Branch office")).toBeVisible();
+  await shot(page, "18-sites");
+
+  await page.getByRole("link", { name: "Users" }).click();
+  await page.getByRole("button", { name: "Add user" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel(/^Email/).fill("tech@example.com");
+  await dlg.getByLabel(/^Name/).fill("Tess Tech");
+  await dlg.getByLabel("Applies to").click();
+  await page.getByRole("option", { name: "Site: Branch office" }).click();
+  await dlg.getByRole("button", { name: "Create user" }).click();
+  const temp = (await page.getByRole("dialog").locator("pre").first().innerText()).trim();
+  expect(temp.length).toBeGreaterThanOrEqual(16);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("user-row").filter({ hasText: "tech@example.com" })).toContainText("site Branch office");
+  await shot(page, "19-users");
+
+  // The technician: forced password change, authenticator enrollment, and a console limited to devices.
+  const techCtx = await browser.newContext({ baseURL: origin });
+  const tp = await techCtx.newPage();
+  await tp.goto("/login");
+  await tp.getByLabel(/^Email/).fill("tech@example.com");
+  await tp.locator('input[type="password"]').fill(temp);
+  await tp.getByRole("button", { name: "Continue" }).click();
+  await expect(tp.getByText("temporary password")).toBeVisible();
+  await tp.getByLabel(/^New password/).fill("Quartz-Harbor-Violin-77");
+  await tp.getByLabel(/^Repeat the new password/).fill("Quartz-Harbor-Violin-77");
+  await tp.getByRole("button", { name: "Change password" }).click();
+  await expect(tp.getByAltText("Authenticator QR code")).toBeVisible();
+  const techSecret = (await tp.locator("pre").first().innerText()).trim();
+  await typeCode(tp, totp(techSecret, 0));
+  await tp.getByRole("button", { name: "Confirm" }).click();
+  await tp.getByRole("button", { name: "I have saved them, continue" }).click();
+  await expect(tp.getByRole("heading", { name: "Devices" })).toBeVisible();
+  for (const hidden of ["Software", "Groups", "Catalog", "Deployments", "Users", "Audit log", "Settings"]) {
+    await expect(tp.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
+  }
+  await shot(tp, "20-site-limited-console");
+  await techCtx.close();
+
+  // A security key (software authenticator through the browser's WebAuthn test API) and an API token.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: { protocol: "ctap2", transport: "usb", hasResidentKey: false, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  await page.getByRole("link", { name: "Ada Admin" }).click();
+  await expect(page.getByRole("heading", { name: "Account security" })).toBeVisible();
+  await page.getByLabel("Name for a new key").fill("Test key");
+  await page.getByRole("button", { name: "Add security key" }).click();
+  await expect(page.getByRole("table", { name: "Security keys" }).getByText("Test key")).toBeVisible();
+  await page.getByLabel("Token name").fill("CI sync");
+  await page.getByLabel("devices:read").check();
+  await page.getByRole("button", { name: "Create token" }).click();
+  await expect(page.getByText("Copy the token now")).toBeVisible();
+  const apiToken = (await page.getByRole("alert").locator("pre").first().innerText()).trim();
+  expect(apiToken).toMatch(/^azt_/);
+  await shot(page, "21-account-security");
+  const bare = await request.newContext({ baseURL: origin });
+  expect((await bare.get("/api/v1/devices", { headers: { Authorization: `Bearer ${apiToken}` } })).status()).toBe(200);
+  expect((await bare.get("/api/v1/audit", { headers: { Authorization: `Bearer ${apiToken}` } })).status()).toBe(403);
+  await bare.dispose();
+
+  // Sign out and back in with the security key instead of an authenticator code.
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel(/^Email/).fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Use a security key" }).click();
+  await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
 
   // --- Audit log ---
   await page.getByRole("link", { name: "Audit log" }).click();

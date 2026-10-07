@@ -18,6 +18,10 @@ import { SoftwarePage } from "./pages/SoftwarePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TokensPage } from "./pages/TokensPage";
+import { AgentUpdatesPage } from "./pages/AgentUpdatesPage";
+import { AccountPage } from "./pages/AccountPage";
+import { SitesPage } from "./pages/SitesPage";
+import { UsersPage } from "./pages/UsersPage";
 import { UpdatePolicyPage } from "./pages/UpdatePolicyPage";
 import { UpdatesPage } from "./pages/UpdatesPage";
 
@@ -52,6 +56,10 @@ export function App() {
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/catalog/:id" element={<PackagePage />} />
+        <Route path="/agent-updates" element={<AgentUpdatesPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/sites" element={<SitesPage />} />
         <Route path="/updates" element={<UpdatesPage />} />
         <Route path="/update-policy" element={<UpdatePolicyPage />} />
         <Route path="/deployments" element={<DeploymentsPage />} />
