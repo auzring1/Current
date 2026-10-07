@@ -17,6 +17,7 @@ const (
 	DeviceUpdated     = "device.updated"
 	JobUpdated        = "job.updated"
 	DeploymentUpdated = "deployment.updated"
+	UpdatesUpdated    = "updates.updated"
 )
 
 // Event is published to subscribers of an org.

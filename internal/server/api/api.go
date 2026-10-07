@@ -20,6 +20,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
+	"github.com/auzring1/auzring/internal/server/updates"
 )
 
 // SetupController is implemented by the app to drive first-run setup.
@@ -49,6 +50,7 @@ type Deps struct {
 	Authority func() *pki.Authority
 	Deploy    *deploy.Service
 	Catalog   *catalog.Service
+	Updates   *updates.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -136,6 +138,29 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/devices.csv", s.devicesCSV)
 
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/jobs", s.deviceJobs)
+
+	r.With(s.require(auth.PermUpdatesRead)).Get("/updates", s.listUpdates)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/updates/decision", s.decideUpdates)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/updates/{id}/devices", s.updateDevices)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/updates/{id}/install", s.installUpdate)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/update-settings", s.getUpdateSettings)
+	r.With(s.require(auth.PermUpdatesPolicy)).Put("/update-settings", s.putUpdateSettings)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/update-rules", s.listUpdateRules)
+	r.With(s.require(auth.PermUpdatesPolicy)).Post("/update-rules", s.createUpdateRule)
+	r.With(s.require(auth.PermUpdatesPolicy)).Put("/update-rules/{id}", s.putUpdateRule)
+	r.With(s.require(auth.PermUpdatesPolicy)).Delete("/update-rules/{id}", s.deleteUpdateRule)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/update-rings", s.listUpdateRings)
+	r.With(s.require(auth.PermUpdatesPolicy)).Post("/update-rings", s.createUpdateRing)
+	r.With(s.require(auth.PermUpdatesPolicy)).Put("/update-rings/{id}", s.putUpdateRing)
+	r.With(s.require(auth.PermUpdatesPolicy)).Delete("/update-rings/{id}", s.deleteUpdateRing)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/update-holds", s.listUpdateHolds)
+	r.With(s.require(auth.PermUpdatesPolicy)).Post("/update-holds/{id}/release", s.releaseUpdateHold)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/update-conflicts", s.updateConflicts)
+	r.With(s.require(auth.PermUpdatesRead)).Get("/devices/{id}/windows-updates", s.deviceWindowsUpdates)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/scan", s.scanDeviceUpdates)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/install", s.installDeviceUpdates)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/hide", s.hideDeviceUpdates)
+	r.With(s.require(auth.PermUpdatesWrite)).Post("/devices/{id}/reboot", s.rebootDevice)
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/updates", s.deviceUpdates)
 	r.With(s.require(auth.PermDeploymentsWrite)).Post("/devices/{id}/software/uninstall", s.uninstallDeviceSoftware)
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/refresh", s.refreshDevice)

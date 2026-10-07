@@ -11,6 +11,7 @@ import (
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/inventory"
+	"github.com/auzring1/auzring/internal/server/updates"
 )
 
 // maxChunks bounds a full software snapshot: MaxItems at the agent's chunk size
@@ -46,6 +47,12 @@ func (g *Gateway) handleInventory(ctx context.Context, c *conn, dev dbq.Device, 
 			return status.Error(codes.InvalidArgument, "users report without body")
 		}
 		err = g.inv.ApplyUsers(ctx, dev.ID, inv.Rev, u.Users)
+	case agentv1.InventorySection_INVENTORY_SECTION_WU:
+		w := inv.GetWu()
+		if w == nil || g.updates == nil {
+			return status.Error(codes.InvalidArgument, "windows update report without body")
+		}
+		err = g.updates.ApplySnapshot(ctx, dev, inv.Rev, w)
 	case agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE:
 		var done bool
 		if done, err = g.handleSoftware(ctx, c, inv); err == nil && !done {
@@ -60,6 +67,9 @@ func (g *Gateway) handleInventory(ctx context.Context, c *conn, dev dbq.Device, 
 		g.log.Info("software revision mismatch; requesting resync", "device", dev.ID)
 		return c.send(&agentv1.ConnectResponse{Msg: &agentv1.ConnectResponse_Resync{Resync: &agentv1.ResyncRequest{
 			Section: agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE}}})
+	case errors.Is(err, updates.ErrInvalid):
+		g.securityAudit(ctx, dev, "invalid_windows_update_data: "+cleanField(err.Error(), 200))
+		return status.Error(codes.InvalidArgument, "invalid windows update data")
 	case errors.Is(err, inventory.ErrInvalid):
 		g.securityAudit(ctx, dev, "invalid_inventory: "+cleanField(err.Error(), 200))
 		return status.Error(codes.InvalidArgument, "invalid inventory data")

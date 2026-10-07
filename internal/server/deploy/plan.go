@@ -657,3 +657,8 @@ func (p *planner) planUninstall(d dbq.ListActiveDevicesByIDsRow, rows []dbq.List
 		p.skip(d.Hostname, "the software is not installed in this scope")
 	}
 }
+
+// ResolveTargets returns the active devices behind groups and explicit device IDs.
+func (s *Service) ResolveTargets(ctx context.Context, org uuid.UUID, groupIDs, deviceIDs []uuid.UUID) ([]dbq.ListActiveDevicesByIDsRow, error) {
+	return s.resolveTargets(ctx, dbq.New(s.Pool), org, groupIDs, deviceIDs)
+}

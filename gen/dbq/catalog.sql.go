@@ -146,13 +146,20 @@ func (q *Queries) GetContentBlob(ctx context.Context, arg GetContentBlobParams) 
 }
 
 const getOrgSettings = `-- name: GetOrgSettings :one
-SELECT org_id, user_scope_policy, updated_at FROM org_settings WHERE org_id = $1
+SELECT org_id, user_scope_policy, updated_at, wu_service, wu_include_drivers, wu_rev FROM org_settings WHERE org_id = $1
 `
 
 func (q *Queries) GetOrgSettings(ctx context.Context, orgID uuid.UUID) (OrgSetting, error) {
 	row := q.db.QueryRow(ctx, getOrgSettings, orgID)
 	var i OrgSetting
-	err := row.Scan(&i.OrgID, &i.UserScopePolicy, &i.UpdatedAt)
+	err := row.Scan(
+		&i.OrgID,
+		&i.UserScopePolicy,
+		&i.UpdatedAt,
+		&i.WuService,
+		&i.WuIncludeDrivers,
+		&i.WuRev,
+	)
 	return i, err
 }
 

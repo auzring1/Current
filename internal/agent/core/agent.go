@@ -896,10 +896,10 @@ func (a *Agent) fetchFromServer(ctx context.Context, jobID string, sha []byte) (
 }
 
 type pendingReport struct {
-	seq    uint64
-	rev    uint64
-	fp     []byte
-	sentAt int64 // Windows Update snapshots: the scan time that was sent
+	seq uint64
+	rev uint64
+	fp  []byte
+	gen uint64 // Windows Update snapshots: the snapshot generation that was sent
 }
 
 // sendHardware collects inventory and sends it if it changed (or forced).
@@ -933,7 +933,7 @@ func (a *Agent) handleAck(seq uint64) {
 	}
 	if wp := a.wuPending; wp != nil && wp.seq == seq {
 		_ = a.Store.SetUint("wu_rev", wp.rev)
-		_ = a.Store.SetUint("wu_sent", uint64(wp.sentAt)) // #nosec G115 -- unix seconds
+		_ = a.Store.SetUint("wu_sent", wp.gen)
 		a.wuPending = nil
 		return
 	}
@@ -1018,6 +1018,7 @@ func (a *Agent) queueWU(s *agentv1.WuInventory) {
 	if b, err := proto.Marshal(s); err == nil {
 		_ = a.Store.SetMeta("wu_snapshot", b)
 	}
+	_ = a.Store.SetUint("wu_gen", a.Store.GetUint("wu_gen")+1) // which snapshot generation is waiting to be sent
 	select {
 	case a.wuKick <- struct{}{}:
 	default:
@@ -1044,7 +1045,8 @@ func (a *Agent) sendWU(stream agentv1.AgentChannelService_ConnectClient, force b
 	if snap == nil {
 		return nil, nil
 	}
-	if !force && uint64(snap.ScannedAt) <= a.Store.GetUint("wu_sent") { // #nosec G115 -- unix seconds
+	gen := a.Store.GetUint("wu_gen")
+	if !force && gen <= a.Store.GetUint("wu_sent") {
 		return nil, nil
 	}
 	seq, err := a.Store.NextSeq()
@@ -1061,5 +1063,5 @@ func (a *Agent) sendWU(stream agentv1.AgentChannelService_ConnectClient, force b
 		return nil, err
 	}
 	a.Log.Info("windows update snapshot sent", "updates", len(snap.Updates), "rev", a.wuRev)
-	return &pendingReport{seq: seq, rev: a.wuRev, sentAt: snap.ScannedAt}, nil
+	return &pendingReport{seq: seq, rev: a.wuRev, gen: gen}, nil
 }

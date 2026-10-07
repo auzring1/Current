@@ -80,6 +80,7 @@ func (s *Service) ApplyUpdate(ctx context.Context, dev dbq.Device, u *agentv1.Jo
 		resultJSON, _ = json.Marshal(map[string]any{
 			"outcome": r.Outcome.String(), "message": clean(r.Message, 1024), "log_tail": clean(r.LogTail, 16<<10),
 			"installed_version": clean(r.InstalledVersion, 128), "already_satisfied": r.AlreadySatisfied, "exit_code": r.ExitCode,
+			"wu_results": wuResultsJSON(r.WuResults),
 		})
 		if r.StartedAt > 0 {
 			t := time.Unix(r.StartedAt, 0)
@@ -126,9 +127,24 @@ func (s *Service) ApplyUpdate(ctx context.Context, dev dbq.Device, u *agentv1.Jo
 	}
 	s.publish(job.OrgID, "job.updated", job.DeviceID, job.ID, derefID(job.DeploymentID))
 	if terminal(status) {
+		if s.AfterTerminal != nil {
+			s.AfterTerminal(ctx, job, status, u)
+		}
 		s.afterTerminal(ctx, job, status)
 	}
 	return nil
+}
+
+// wuResultsJSON is the per-update outcome of a Windows Update job, as stored in the job result.
+func wuResultsJSON(rs []*agentv1.WuUpdateResult) []map[string]any {
+	out := make([]map[string]any, 0, len(rs))
+	for i, r := range rs {
+		if i >= 200 {
+			break
+		}
+		out = append(out, map[string]any{"update_id": clean(r.UpdateId, 36), "revision": r.Revision, "result": r.Result.String(), "hresult": r.Hresult})
+	}
+	return out
 }
 
 func derefID(p *uuid.UUID) uuid.UUID {
