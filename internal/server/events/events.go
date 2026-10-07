@@ -11,16 +11,21 @@ import (
 
 // Event types.
 const (
-	DeviceOnline   = "device.online"
-	DeviceOffline  = "device.offline"
-	DeviceEnrolled = "device.enrolled"
-	DeviceUpdated  = "device.updated"
+	DeviceOnline      = "device.online"
+	DeviceOffline     = "device.offline"
+	DeviceEnrolled    = "device.enrolled"
+	DeviceUpdated     = "device.updated"
+	JobUpdated        = "job.updated"
+	DeploymentUpdated = "deployment.updated"
 )
 
 // Event is published to subscribers of an org.
 type Event struct {
 	Type     string    `json:"type"`
 	DeviceID uuid.UUID `json:"device_id"`
+	// JobID and DeploymentID are set for job.* and deployment.* events.
+	JobID        uuid.UUID `json:"job_id,omitempty"`
+	DeploymentID uuid.UUID `json:"deployment_id,omitempty"`
 }
 
 // Broker fans out events per organization.

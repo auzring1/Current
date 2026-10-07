@@ -87,13 +87,20 @@ func TestRecoveryCodes(t *testing.T) {
 }
 
 func TestRBAC(t *testing.T) {
-	if p := PermissionsFor([]string{RoleReadOnly}); len(p) != 2 || p[0] != PermDevicesRead || p[1] != PermGroupsRead {
-		t.Fatal(p)
-	}
 	for _, x := range PermissionsFor([]string{RoleReadOnly}) {
-		if x == PermInventoryExport || x == PermGroupsWrite {
-			t.Fatal("read-only must not export or edit groups")
+		switch x {
+		case PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead:
+		default:
+			t.Fatalf("read-only role has %s", x)
 		}
+	}
+	for _, x := range PermissionsFor([]string{RoleOperator}) {
+		if x == PermCatalogOverride || x == PermSettingsWrite {
+			t.Fatalf("operator has %s: overrides (silent arguments) and org settings are admin-only", x)
+		}
+	}
+	if len(PermissionsFor([]string{RoleAdmin})) != 14 {
+		t.Fatal("admin permissions missing")
 	}
 	p := PermissionsFor([]string{RoleOperator, RoleReadOnly})
 	for _, x := range p {

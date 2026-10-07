@@ -21,7 +21,9 @@ import (
 	"github.com/auzring1/auzring/gen/dbq"
 	"github.com/auzring1/auzring/internal/server/api"
 	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/auzring/internal/server/catalog"
 	"github.com/auzring1/auzring/internal/server/config"
+	"github.com/auzring1/auzring/internal/server/deploy"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/gateway"
 	"github.com/auzring1/auzring/internal/server/kek"
@@ -32,12 +34,14 @@ import (
 
 // App is a running server.
 type App struct {
-	Cfg    *config.Config
-	Log    *slog.Logger
-	Pool   *pgxpool.Pool
-	Sealer *kek.Sealer
-	Events *events.Broker
-	Hub    *gateway.Hub
+	Cfg     *config.Config
+	Log     *slog.Logger
+	Pool    *pgxpool.Pool
+	Sealer  *kek.Sealer
+	Events  *events.Broker
+	Hub     *gateway.Hub
+	Deploy  *deploy.Service
+	Catalog *catalog.Service
 
 	authority atomic.Pointer[pki.Authority]
 
@@ -75,6 +79,8 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	}
 	a := &App{Cfg: cfg, Log: log, Pool: pool, Sealer: sealer, Events: events.NewBroker(), Hub: gateway.NewHub(),
 		GatewayReady: make(chan struct{})}
+	a.Deploy = &deploy.Service{Pool: pool, Authority: a.Authority, Dispatcher: a.Hub, Events: a.Events, Log: log.With("component", "deploy")}
+	a.Catalog = newCatalog(cfg, pool)
 	q := dbq.New(pool)
 	if err := q.MarkAllDevicesOffline(ctx); err != nil {
 		pool.Close()
@@ -176,7 +182,7 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog,
 	}, webui.Handler())
 }
 
@@ -255,7 +261,7 @@ func (a *App) startGateway() error {
 	}
 	ctx := a.runCtx
 	gw := gateway.New(gateway.Options{Config: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Authority: a.Authority(),
-		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway")})
+		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Content: a.Catalog.Content})
 	if err := gw.RefreshCertificate(ctx); err != nil {
 		return fmt.Errorf("gateway certificate: %w", err)
 	}
@@ -276,13 +282,18 @@ func (a *App) startGateway() error {
 }
 
 func (a *App) housekeeping(ctx context.Context) {
-	t := time.NewTicker(10 * time.Minute)
+	t := time.NewTicker(time.Minute)
 	defer t.Stop()
+	n := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			a.Deploy.Sweep(ctx)
+			if n++; n%10 != 0 {
+				continue
+			}
 			if n, err := dbq.New(a.Pool).DeleteExpiredSessions(ctx, time.Now()); err != nil {
 				a.Log.Error("session cleanup", "err", err)
 			} else if n > 0 {
@@ -290,4 +301,16 @@ func (a *App) housekeeping(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// newCatalog builds the catalog service from the configuration.
+func newCatalog(cfg *config.Config, pool *pgxpool.Pool) *catalog.Service {
+	s := &catalog.Service{Pool: pool, Overlay: catalog.LoadOverlay()}
+	if cfg.WingetSource == "github" {
+		s.Source = &catalog.GitHubSource{Token: cfg.GitHubToken}
+	}
+	if cfg.ContentDir != "" {
+		s.Content = &catalog.Store{Dir: cfg.ContentDir}
+	}
+	return s
 }

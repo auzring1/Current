@@ -226,6 +226,7 @@ type Job struct {
 	ExitCode        *int32
 	DetectionPassed *bool
 	RebootRequired  bool
+	CancelPending   bool
 	Result          []byte
 }
 

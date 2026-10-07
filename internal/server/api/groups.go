@@ -21,6 +21,7 @@ import (
 
 type groupView struct {
 	ID          uuid.UUID       `json:"id"`
+	Kind        string          `json:"kind"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Filter      json.RawMessage `json:"filter"`
@@ -29,10 +30,11 @@ type groupView struct {
 }
 
 func viewGroup(g dbq.Group) groupView {
-	return groupView{ID: g.ID, Name: g.Name, Description: g.Description, Filter: g.Filter, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
+	return groupView{ID: g.ID, Kind: g.Kind, Name: g.Name, Description: g.Description, Filter: g.Filter, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
 }
 
 type groupReq struct {
+	Kind        string          `json:"kind"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Filter      json.RawMessage `json:"filter"`
@@ -67,12 +69,26 @@ func (req *groupReq) validate(w http.ResponseWriter) ([]byte, bool) {
 		badRequest(w, "text must not contain NUL")
 		return nil, false
 	}
+	if req.Kind == "static" {
+		if len(req.Filter) > 0 && string(req.Filter) != "null" {
+			badRequest(w, "a static group has no filter")
+			return nil, false
+		}
+		return nil, true
+	}
 	_, canon, err := parseFilter(req.Filter)
 	if err != nil {
 		writeFilterError(w, err)
 		return nil, false
 	}
 	return canon, true
+}
+
+func kindOf(k string) string {
+	if k == "static" {
+		return "static"
+	}
+	return "dynamic"
 }
 
 func writeFilterError(w http.ResponseWriter, err error) {
@@ -138,7 +154,7 @@ func (s *server) createGroup(w http.ResponseWriter, r *http.Request) {
 	p, id, now := principalFrom(r), uuid.New(), s.now()
 	err := store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		if err := q.CreateGroup(r.Context(), dbq.CreateGroupParams{ID: id, OrgID: p.OrgID, Name: req.Name,
-			Description: req.Description, Kind: "dynamic", Filter: filter, CreatedBy: p.UserID}); err != nil {
+			Description: req.Description, Kind: kindOf(req.Kind), Filter: filter, CreatedBy: p.UserID}); err != nil {
 			return err
 		}
 		_, err := audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(),
@@ -178,6 +194,7 @@ func (s *server) updateGroup(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
+	req.Kind = g.Kind // the kind of a group never changes
 	filter, ok := req.validate(w)
 	if !ok {
 		return
@@ -261,12 +278,77 @@ func (s *server) groupDevices(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if g.Kind == "static" {
+		s.staticMembers(w, r, g)
+		return
+	}
 	f, err := groups.Parse(g.Filter)
 	if err != nil {
 		writeFilterError(w, err)
 		return
 	}
 	s.evaluate(w, r, f)
+}
+
+func (s *server) staticMembers(w http.ResponseWriter, r *http.Request, g dbq.Group) {
+	limit, offset, ok := paging(w, r, 100, 500)
+	if !ok {
+		return
+	}
+	q := s.q()
+	rows, err := q.ListGroupMembers(r.Context(), dbq.ListGroupMembersParams{GroupID: g.ID, OrgID: g.OrgID, Limit: limit, Offset: offset})
+	if err != nil {
+		internalError(w)
+		return
+	}
+	total, _ := q.CountGroupMembers(r.Context(), dbq.CountGroupMembersParams{GroupID: g.ID, OrgID: g.OrgID})
+	items := make([]groups.Member, 0, len(rows))
+	for _, d := range rows {
+		items = append(items, groups.Member{ID: d.ID, Hostname: d.Hostname, Chassis: d.Chassis, Manufacturer: d.Manufacturer, Model: d.Model,
+			OSCaption: d.OsCaption, Online: d.Online, LastSeenAt: d.LastSeenAt, SoftwareCount: d.SoftwareCount})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+}
+
+// changeGroupMembers: POST /groups/{id}/members {add:[ids], remove:[ids]} (static groups only).
+func (s *server) changeGroupMembers(w http.ResponseWriter, r *http.Request) {
+	g, ok := s.groupFromURL(w, r)
+	if !ok {
+		return
+	}
+	if g.Kind != "static" {
+		writeError(w, http.StatusConflict, "not_static", "Only static groups have an explicit member list.")
+		return
+	}
+	var req struct {
+		Add    []uuid.UUID `json:"add"`
+		Remove []uuid.UUID `json:"remove"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if len(req.Add) > 5000 || len(req.Remove) > 5000 {
+		badRequest(w, "at most 5000 devices per request")
+		return
+	}
+	p := principalFrom(r)
+	q := s.q()
+	if len(req.Add) > 0 {
+		if err := q.AddGroupMembers(r.Context(), dbq.AddGroupMembersParams{GroupID: g.ID, AddedBy: p.UserID, OrgID: p.OrgID, DeviceIds: req.Add}); err != nil {
+			internalError(w)
+			return
+		}
+	}
+	if len(req.Remove) > 0 {
+		if err := q.RemoveGroupMembers(r.Context(), dbq.RemoveGroupMembersParams{GroupID: g.ID, OrgID: p.OrgID, DeviceIds: req.Remove}); err != nil {
+			internalError(w)
+			return
+		}
+	}
+	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r),
+		Action: "group.members", TargetType: "group", TargetIDs: []string{g.ID.String()}, Outcome: audit.Success,
+		Details: map[string]any{"name": g.Name, "added": len(req.Add), "removed": len(req.Remove)}})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // previewGroup: POST /groups/preview — evaluate an unsaved filter.

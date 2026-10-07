@@ -14,7 +14,9 @@ import (
 
 	"github.com/auzring1/auzring/gen/dbq"
 	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/auzring/internal/server/catalog"
 	"github.com/auzring1/auzring/internal/server/config"
+	"github.com/auzring1/auzring/internal/server/deploy"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/kek"
 	"github.com/auzring1/auzring/internal/server/pki"
@@ -45,6 +47,8 @@ type Deps struct {
 	Setup     SetupController
 	Devices   DeviceController
 	Authority func() *pki.Authority
+	Deploy    *deploy.Service
+	Catalog   *catalog.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -128,6 +132,28 @@ func (s *server) routes(r chi.Router) {
 
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/software.csv", s.softwareCSV)
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/devices.csv", s.devicesCSV)
+
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/jobs", s.deviceJobs)
+
+	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages", s.listPackages)
+	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/search", s.searchCatalog)
+	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages/{id}", s.getPackage)
+	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/import", s.importPackage)
+	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/content", s.uploadContent)
+	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/custom", s.createCustom)
+	r.With(s.require(auth.PermCatalogOverride)).Put("/catalog/packages/{id}/overrides", s.putOverrides)
+	r.With(s.require(auth.PermCatalogWrite)).Delete("/catalog/packages/{id}", s.deletePackage)
+	r.With(s.require(auth.PermCatalogRead)).Get("/settings", s.getSettings)
+	r.With(s.require(auth.PermSettingsWrite)).Put("/settings", s.putSettings)
+
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/deployments", s.listDeployments)
+	r.With(s.require(auth.PermDeploymentsWrite)).Post("/deployments", s.createDeployment)
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/deployments/{id}", s.getDeployment)
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/deployments/{id}/jobs", s.deploymentJobs)
+	r.With(s.require(auth.PermDeploymentsWrite)).Post("/deployments/{id}/cancel", s.cancelDeployment)
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/jobs/{id}", s.getJob)
+	r.With(s.require(auth.PermDeploymentsWrite)).Post("/jobs/{id}/retry", s.retryJob)
+	r.With(s.require(auth.PermGroupsWrite)).Post("/groups/{id}/members", s.changeGroupMembers)
 
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens", s.createToken)

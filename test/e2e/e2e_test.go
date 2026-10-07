@@ -74,6 +74,7 @@ func newHarnessWith(t *testing.T, certLife time.Duration) *harness {
 		DeviceCertLifetime: certLife, DeviceRenewGrace: 180 * 24 * time.Hour,
 		EnrollPollInterval: time.Second, HeartbeatInterval: 2 * time.Second,
 		SessionIdleTimeout: 30 * time.Minute, SessionAbsTimeout: 12 * time.Hour, LogLevel: "warn",
+		ContentDir: t.TempDir(), WingetSource: "off",
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if testing.Verbose() {

@@ -148,6 +148,7 @@ CREATE TABLE jobs (
     exit_code     integer,
     detection_passed boolean,
     reboot_required  boolean NOT NULL DEFAULT false,
+    cancel_pending   boolean NOT NULL DEFAULT false,           -- cancelled on the server while the agent may still hold it
     result        jsonb
 );
 CREATE INDEX jobs_device_status ON jobs (device_id, status);

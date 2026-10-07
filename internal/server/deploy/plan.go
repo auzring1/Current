@@ -1,0 +1,594 @@
+package deploy
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/auzring1/auzring/gen/dbq"
+	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/auzring/internal/server/audit"
+	"github.com/auzring1/auzring/internal/server/catalog"
+	"github.com/auzring1/auzring/internal/server/groups"
+	"github.com/auzring1/auzring/internal/server/inventory"
+	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/auzring/internal/shared/vercmp"
+)
+
+// Window is a maintenance window (evaluated on the device).
+type Window struct {
+	Days            []int  `json:"days"`
+	StartMinute     int    `json:"start_minute"`
+	DurationMinutes int    `json:"duration_minutes"`
+	TZ              string `json:"tz"`
+}
+
+// Request creates a deployment.
+type Request struct {
+	Name                string
+	Action              string // install | update | uninstall
+	PackageID           uuid.UUID
+	Version             string // "" = newest allowed by the pin
+	Scope               string // machine | user
+	GroupIDs            []uuid.UUID
+	DeviceIDs           []uuid.UUID
+	StartsAt            time.Time // zero = now
+	ExpiresIn           time.Duration
+	Window              *Window
+	UnverifiedConfirmed bool
+	// Actor for audit.
+	UserID uuid.UUID
+	IP     string
+}
+
+// Skip explains why a device got no job.
+type Skip struct {
+	Device string `json:"device"`
+	Reason string `json:"reason"`
+}
+
+// Plan is what Create produced.
+type Plan struct {
+	DeploymentID uuid.UUID `json:"deployment_id"`
+	Devices      int       `json:"devices"`
+	Jobs         int       `json:"jobs"`
+	UserJobs     int       `json:"user_jobs"`
+	Skipped      []Skip    `json:"skipped"`
+	// PerUserFound counts per-user copies found on target devices and what policy did with them.
+	PerUserFound  int    `json:"per_user_found"`
+	PerUserPolicy string `json:"per_user_policy"`
+}
+
+const (
+	maxTargets  = 20000
+	maxLifetime = 30 * 24 * time.Hour
+)
+
+func (s *Service) resolveTargets(ctx context.Context, q *dbq.Queries, org uuid.UUID, groupIDs, deviceIDs []uuid.UUID) ([]dbq.ListActiveDevicesByIDsRow, error) {
+	ids := map[uuid.UUID]bool{}
+	for _, d := range deviceIDs {
+		ids[d] = true
+	}
+	if len(groupIDs) > 0 {
+		static, err := q.ListStaticGroupDeviceIDs(ctx, dbq.ListStaticGroupDeviceIDsParams{OrgID: org, Column2: groupIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range static {
+			ids[d] = true
+		}
+		for _, gid := range groupIDs {
+			g, err := q.GetGroup(ctx, dbq.GetGroupParams{ID: gid, OrgID: org})
+			if err != nil {
+				return nil, invalid("group %s not found", gid)
+			}
+			if g.Kind != "dynamic" {
+				continue
+			}
+			f, err := groups.Parse(g.Filter)
+			if err != nil {
+				return nil, invalid("group %q has an invalid filter", g.Name)
+			}
+			for off := int32(0); ; off += 500 {
+				ms, _, err := groups.Evaluate(ctx, s.Pool, org, f, 500, off)
+				if err != nil {
+					return nil, fmt.Errorf("evaluate group %q: %w", g.Name, err)
+				}
+				for _, m := range ms {
+					ids[m.ID] = true
+				}
+				if len(ms) < 500 || len(ids) > maxTargets {
+					break
+				}
+			}
+		}
+	}
+	if len(ids) > maxTargets {
+		return nil, invalid("the targets resolve to more than %d devices", maxTargets)
+	}
+	list := make([]uuid.UUID, 0, len(ids))
+	for id := range ids {
+		list = append(list, id)
+	}
+	return q.ListActiveDevicesByIDs(ctx, dbq.ListActiveDevicesByIDsParams{OrgID: org, Column2: list})
+}
+
+// Create plans a deployment and queues its jobs. Jobs for connected devices
+// are dispatched immediately; the rest when their device next connects.
+func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, error) {
+	if n := strings.TrimSpace(r.Name); n == "" || len(n) > 200 {
+		return nil, invalid("name must be 1 to 200 characters")
+	}
+	switch r.Action {
+	case "install", "update", "uninstall":
+	default:
+		return nil, invalid("action must be install, update or uninstall")
+	}
+	if r.Scope != "machine" && r.Scope != "user" {
+		return nil, invalid("scope must be machine or user")
+	}
+	if len(r.GroupIDs)+len(r.DeviceIDs) == 0 {
+		return nil, invalid("choose at least one group or device")
+	}
+	now := s.now()
+	starts := r.StartsAt
+	if starts.IsZero() || starts.Before(now) {
+		starts = now
+	}
+	life := r.ExpiresIn
+	if life == 0 {
+		life = 72 * time.Hour
+	}
+	if life < time.Hour || life > maxLifetime {
+		return nil, invalid("expiry must be between 1 hour and 30 days")
+	}
+	expires := starts.Add(life)
+	var win *agentv1.MaintenanceWindow
+	if r.Window != nil {
+		w := r.Window
+		if w.StartMinute < 0 || w.StartMinute > 1439 || w.DurationMinutes < 1 || w.DurationMinutes > 1440 || len(w.Days) > 7 {
+			return nil, invalid("maintenance window out of range")
+		}
+		win = &agentv1.MaintenanceWindow{StartMinute: uint32(w.StartMinute), DurationMinutes: uint32(w.DurationMinutes), Tz: w.TZ} // #nosec G115 -- bounded above
+		for _, d := range w.Days {
+			if d < 0 || d > 6 {
+				return nil, invalid("maintenance window day out of range")
+			}
+			win.Days = append(win.Days, uint32(d)) // #nosec G115 -- bounded above
+		}
+		if w.TZ != "" {
+			if _, err := time.LoadLocation(w.TZ); err != nil {
+				return nil, invalid("unknown time zone")
+			}
+		}
+	}
+
+	q := dbq.New(s.Pool)
+	pkg, err := q.GetCatalogPackage(ctx, dbq.GetCatalogPackageParams{ID: r.PackageID, OrgID: org})
+	if err != nil {
+		return nil, invalid("package not found")
+	}
+	var ov *dbq.PackageOverride
+	if o, err := q.GetPackageOverride(ctx, dbq.GetPackageOverrideParams{OrgID: org, PackageID: pkg.ID}); err == nil {
+		ov = &o
+	}
+	if ov != nil && ov.Excluded {
+		return nil, ErrExcluded
+	}
+	// Imported (winget) packages must have passed the VM matrix or be confirmed; an
+	// administrator's own uploads are not subject to the matrix.
+	if pkg.Source == "winget" && !pkg.Verified && !r.UnverifiedConfirmed {
+		return nil, ErrUnverified
+	}
+	devs, err := s.resolveTargets(ctx, q, org, r.GroupIDs, r.DeviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(devs) == 0 {
+		return nil, ErrNoTargets
+	}
+
+	pl := &planner{s: s, q: q, org: org, req: r, pkg: pkg, ov: ov, starts: starts, expires: expires, window: win, plan: &Plan{Devices: len(devs)}}
+	if err := pl.prepare(ctx); err != nil {
+		return nil, err
+	}
+	depID := uuid.New()
+	pl.plan.DeploymentID = depID
+	pl.depID = depID
+	if err := pl.build(ctx, devs); err != nil {
+		return nil, err
+	}
+	if len(pl.jobs) == 0 {
+		return nil, invalid("no jobs could be planned: %s", firstReason(pl.plan.Skipped))
+	}
+
+	var winJSON []byte
+	if r.Window != nil {
+		winJSON, _ = json.Marshal(r.Window)
+	}
+	var verID *uuid.UUID
+	if pl.version != nil {
+		verID = &pl.version.ID
+	}
+	err = store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
+		if err := q.InsertDeployment(ctx, dbq.InsertDeploymentParams{ID: depID, OrgID: org, Name: strings.TrimSpace(r.Name), Action: r.Action,
+			PackageID: pkg.ID, VersionID: verID, Scope: r.Scope, TargetGroupIds: nzu(r.GroupIDs), TargetDeviceIds: nzu(r.DeviceIDs),
+			StartsAt: starts, ExpiresAt: expires, MaintWindow: winJSON, UnverifiedConfirmed: r.UnverifiedConfirmed, CreatedBy: r.UserID}); err != nil {
+			return err
+		}
+		for _, j := range pl.jobs {
+			if err := q.InsertJob(ctx, j); err != nil {
+				return err
+			}
+		}
+		details := map[string]any{"name": r.Name, "action": r.Action, "package": pkg.Identifier, "scope": r.Scope,
+			"devices": pl.plan.Devices, "jobs": pl.plan.Jobs, "skipped": len(pl.plan.Skipped)}
+		if pl.version != nil {
+			details["version"] = pl.version.Version
+		}
+		if pkg.Source == "winget" && !pkg.Verified {
+			details["unverified_confirmed"] = true
+		}
+		_, err := audit.Write(ctx, tx, audit.Entry{OrgID: &org, ActorType: audit.ActorUser, ActorID: r.UserID.String(), ActorIP: r.IP,
+			Action: "deployment.create", TargetType: "deployment", TargetIDs: []string{depID.String()}, Outcome: audit.Success, Details: details}, now)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.publish(org, "deployment.updated", uuid.Nil, uuid.Nil, depID)
+	// Hand jobs to connected devices without blocking the request.
+	seen := map[uuid.UUID]bool{}
+	var targets []uuid.UUID
+	for _, j := range pl.jobs {
+		if !seen[j.DeviceID] {
+			seen[j.DeviceID] = true
+			targets = append(targets, j.DeviceID)
+		}
+	}
+	go func() {
+		bg := context.Background()
+		for _, d := range targets {
+			s.Dispatch(bg, d)
+		}
+	}()
+	return pl.plan, nil
+}
+
+func nzu(u []uuid.UUID) []uuid.UUID {
+	if u == nil {
+		return []uuid.UUID{}
+	}
+	return u
+}
+
+func firstReason(s []Skip) string {
+	if len(s) == 0 {
+		return "nothing to do"
+	}
+	return s[0].Reason
+}
+
+// planner builds the job rows of one deployment.
+type planner struct {
+	s       *Service
+	q       *dbq.Queries
+	org     uuid.UUID
+	req     Request
+	pkg     dbq.CatalogPackage
+	ov      *dbq.PackageOverride
+	starts  time.Time
+	expires time.Time
+	window  *agentv1.MaintenanceWindow
+	plan    *Plan
+	depID   uuid.UUID
+
+	version    *dbq.CatalogVersion
+	installers []dbq.CatalogInstaller
+	targetKey  []byte
+	policy     string
+	normName   string
+	jobs       []dbq.InsertJobParams
+}
+
+func (p *planner) prepare(ctx context.Context) error {
+	p.normName = inventory.NormalizeName(p.pkg.Name, "")
+	if p.req.Action == "uninstall" {
+		return nil
+	}
+	vs, err := p.q.ListPackageVersions(ctx, p.pkg.ID)
+	if err != nil {
+		return err
+	}
+	pin := ""
+	if p.ov != nil {
+		pin = p.ov.Pin
+	}
+	v, err := catalog.ChooseVersion(vs, p.req.Version, pin)
+	if err != nil {
+		return invalid("%v", err)
+	}
+	p.version = v
+	p.targetKey = vercmp.Key(v.Version)
+	if p.installers, err = p.q.ListVersionInstallers(ctx, v.ID); err != nil {
+		return err
+	}
+	// per-user policy: package override, then the organization default
+	p.policy = "report_only"
+	if os, err := p.q.GetOrgSettings(ctx, p.org); err == nil {
+		p.policy = os.UserScopePolicy
+	}
+	if p.ov != nil && p.ov.UserScopePolicy != "" {
+		p.policy = p.ov.UserScopePolicy
+	}
+	p.plan.PerUserPolicy = p.policy
+	return nil
+}
+
+func (p *planner) skip(host, reason string) {
+	p.plan.Skipped = append(p.plan.Skipped, Skip{Device: host, Reason: reason})
+}
+
+func (p *planner) addJob(device uuid.UUID, sid string, typ agentv1.JobType, title string, body proto.Message, depends *uuid.UUID) (uuid.UUID, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	env := &agentv1.JobEnvelope{Version: 1, JobId: id.String(), OrgId: p.org.String(), DeviceId: device.String(), TargetUserSid: sid,
+		Type: typ, DeploymentId: p.depID.String(), Window: p.window, Attempt: 1, NotBefore: p.starts.Unix(), ExpiresAt: p.expires.Unix()}
+	switch b := body.(type) {
+	case *agentv1.InstallBody:
+		env.Body = &agentv1.JobEnvelope_Install{Install: b}
+	case *agentv1.UninstallBody:
+		env.Body = &agentv1.JobEnvelope_Uninstall{Uninstall: b}
+	default:
+		return uuid.Nil, fmt.Errorf("unsupported body %T", body)
+	}
+	raw, err := proto.MarshalOptions{Deterministic: true}.Marshal(env)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	jt := map[agentv1.JobType]string{agentv1.JobType_JOB_TYPE_SOFTWARE_INSTALL: "software_install",
+		agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE: "software_update", agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL: "software_uninstall"}[typ]
+	p.jobs = append(p.jobs, dbq.InsertJobParams{ID: id, OrgID: p.org, DeploymentID: &p.depID, DeviceID: device, UserSid: sid, Type: jt, Title: title,
+		Body: raw, DependsOn: depends, NotBefore: p.starts, ExpiresAt: p.expires, Attempt: 1})
+	p.plan.Jobs++
+	if sid != "" {
+		p.plan.UserJobs++
+	}
+	return id, nil
+}
+
+func (p *planner) installBody(inst *dbq.CatalogInstaller, scope string, update bool) (*agentv1.InstallBody, error) {
+	return catalog.BuildInstallBody(catalog.BuildInput{Pkg: p.pkg, Ver: *p.version, Inst: *inst, Override: p.ov, Scope: scope, Update: update})
+}
+
+func (p *planner) title(verb, who string) string {
+	t := verb + " " + p.pkg.Name
+	if p.version != nil {
+		t += " " + p.version.Version
+	}
+	if who != "" {
+		t += " (" + who + ")"
+	}
+	return t
+}
+
+func (p *planner) build(ctx context.Context, devs []dbq.ListActiveDevicesByIDsRow) error {
+	ids := make([]uuid.UUID, len(devs))
+	for i, d := range devs {
+		ids[i] = d.ID
+	}
+	installs, err := p.q.ListPackageInstalls(ctx, dbq.ListPackageInstallsParams{OrgID: p.org, DeviceIds: ids, NormalizedName: p.normName})
+	if err != nil {
+		return err
+	}
+	byDev := map[uuid.UUID][]dbq.ListPackageInstallsRow{}
+	for _, r := range installs {
+		byDev[r.DeviceID] = append(byDev[r.DeviceID], r)
+	}
+	var users map[uuid.UUID][]dbq.ListDeviceUsersForDevicesRow
+	if p.req.Action == "install" && p.req.Scope == "user" {
+		rows, err := p.q.ListDeviceUsersForDevices(ctx, ids)
+		if err != nil {
+			return err
+		}
+		users = map[uuid.UUID][]dbq.ListDeviceUsersForDevicesRow{}
+		for _, u := range rows {
+			users[u.DeviceID] = append(users[u.DeviceID], u)
+		}
+	}
+	sort.SliceStable(devs, func(i, j int) bool { return strings.ToLower(devs[i].Hostname) < strings.ToLower(devs[j].Hostname) })
+	for _, d := range devs {
+		rows := byDev[d.ID]
+		switch p.req.Action {
+		case "uninstall":
+			p.planUninstall(d, rows)
+		case "install", "update":
+			if err := p.planInstall(d, rows, users[d.ID]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func olderThanTarget(r dbq.ListPackageInstallsRow, key []byte) bool {
+	if r.VersionKey == nil {
+		return true // unknown version: let the installer decide
+	}
+	return string(r.VersionKey) < string(key)
+}
+
+func (p *planner) planInstall(d dbq.ListActiveDevicesByIDsRow, rows []dbq.ListPackageInstallsRow, devUsers []dbq.ListDeviceUsersForDevicesRow) error {
+	update := p.req.Action == "update"
+	var machineRows, userRows []dbq.ListPackageInstallsRow
+	for _, r := range rows {
+		if r.Scope == "machine" {
+			machineRows = append(machineRows, r)
+		} else {
+			userRows = append(userRows, r)
+		}
+	}
+	if p.req.Scope == "user" {
+		inst := catalog.SelectInstaller(p.installers, d.Arch, "user")
+		if inst == nil {
+			p.skip(d.Hostname, "the package has no user-scope installer for this device")
+			return nil
+		}
+		if update {
+			n := 0
+			for _, r := range userRows {
+				if !olderThanTarget(r, p.targetKey) || r.UserSid == "" {
+					continue
+				}
+				body, err := p.installBody(inst, "user", true)
+				if err != nil {
+					p.skip(d.Hostname, err.Error())
+					return nil
+				}
+				if _, err := p.addJob(d.ID, r.UserSid, agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, p.title("Update", r.UserSid), body, nil); err != nil {
+					return err
+				}
+				n++
+			}
+			if n == 0 {
+				p.skip(d.Hostname, "no per-user copy older than the target version")
+			}
+			return nil
+		}
+		if len(devUsers) == 0 {
+			p.skip(d.Hostname, "no user profiles are known on this device yet")
+			return nil
+		}
+		for _, u := range devUsers {
+			body, err := p.installBody(inst, "user", false)
+			if err != nil {
+				p.skip(d.Hostname, err.Error())
+				return nil
+			}
+			if _, err := p.addJob(d.ID, u.Sid, agentv1.JobType_JOB_TYPE_SOFTWARE_INSTALL, p.title("Install", u.Username), body, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// machine scope
+	if update {
+		old := false
+		for _, r := range machineRows {
+			if olderThanTarget(r, p.targetKey) {
+				old = true
+			}
+		}
+		if len(machineRows) == 0 {
+			p.skip(d.Hostname, "not installed machine-wide")
+		} else if !old {
+			p.skip(d.Hostname, "already at or above the target version")
+		}
+		if !old {
+			return p.planUserExtras(d, userRows, nil)
+		}
+	}
+	inst := catalog.SelectInstaller(p.installers, d.Arch, "machine")
+	if inst == nil {
+		p.skip(d.Hostname, "the package has no machine-wide installer for this device ("+d.Arch+")")
+		return p.planUserExtras(d, userRows, nil)
+	}
+	body, err := p.installBody(inst, "machine", update)
+	if err != nil {
+		p.skip(d.Hostname, err.Error())
+		return nil
+	}
+	typ, verb := agentv1.JobType_JOB_TYPE_SOFTWARE_INSTALL, "Install"
+	if update {
+		typ, verb = agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, "Update"
+	}
+	machineJob, err := p.addJob(d.ID, "", typ, p.title(verb, ""), body, nil)
+	if err != nil {
+		return err
+	}
+	return p.planUserExtras(d, userRows, &machineJob)
+}
+
+// planUserExtras applies the per-user app policy to per-user copies found on a
+// device that is getting a machine-wide deployment (docs/ARCHITECTURE.md §7.4).
+func (p *planner) planUserExtras(d dbq.ListActiveDevicesByIDsRow, userRows []dbq.ListPackageInstallsRow, machineJob *uuid.UUID) error {
+	if len(userRows) == 0 || p.req.Scope != "machine" {
+		return nil
+	}
+	p.plan.PerUserFound += len(userRows)
+	switch p.policy {
+	case "update_in_place":
+		inst := catalog.SelectInstaller(p.installers, d.Arch, "user")
+		for _, r := range userRows {
+			if r.UserSid == "" || !olderThanTarget(r, p.targetKey) {
+				continue
+			}
+			if inst == nil {
+				p.skip(d.Hostname, "per-user copy found but the package has no user-scope installer to update it")
+				break
+			}
+			body, err := p.installBody(inst, "user", true)
+			if err != nil {
+				p.skip(d.Hostname, err.Error())
+				break
+			}
+			if _, err := p.addJob(d.ID, r.UserSid, agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, p.title("Update", r.UserSid), body, nil); err != nil {
+				return err
+			}
+		}
+	case "convert_to_machine", "remove":
+		for _, r := range userRows {
+			if r.UserSid == "" {
+				continue
+			}
+			var dep *uuid.UUID
+			if p.policy == "convert_to_machine" {
+				if machineJob == nil {
+					continue // without a machine job there is nothing to convert to
+				}
+				dep = machineJob
+			}
+			if _, err := p.addJob(d.ID, r.UserSid, agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL, "Remove per-user "+p.pkg.Name, uninstallBody(p.pkg, r, "user"), dep); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func uninstallBody(pkg dbq.CatalogPackage, r dbq.ListPackageInstallsRow, scope string) *agentv1.UninstallBody {
+	sc := agentv1.InstallScope_INSTALL_SCOPE_MACHINE
+	if scope == "user" {
+		sc = agentv1.InstallScope_INSTALL_SCOPE_USER
+	}
+	return &agentv1.UninstallBody{PackageId: pkg.Identifier, Name: pkg.Name, Scope: sc, ItemSource: r.Source, ItemKey: r.ItemKey,
+		Method: agentv1.UninstallMethod_UNINSTALL_METHOD_AUTO, TimeoutS: 3600, MaxRetries: 1, RetryBackoffS: 120}
+}
+
+func (p *planner) planUninstall(d dbq.ListActiveDevicesByIDsRow, rows []dbq.ListPackageInstallsRow) {
+	n := 0
+	for _, r := range rows {
+		if r.Scope != p.req.Scope {
+			continue
+		}
+		sid := ""
+		if r.Scope == "user" {
+			sid = r.UserSid
+		}
+		_, _ = p.addJob(d.ID, sid, agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL, "Uninstall "+r.Name, uninstallBody(p.pkg, r, r.Scope), nil)
+		n++
+	}
+	if n == 0 {
+		p.skip(d.Hostname, "the software is not installed in this scope")
+	}
+}
