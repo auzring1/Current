@@ -669,6 +669,7 @@ type JobEnvelope struct {
 	//	*JobEnvelope_WuHide
 	//	*JobEnvelope_Reboot
 	//	*JobEnvelope_Inventory
+	//	*JobEnvelope_AgentUpdate
 	//	*JobEnvelope_Cancel
 	Body          isJobEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
@@ -866,6 +867,15 @@ func (x *JobEnvelope) GetInventory() *InventoryBody {
 	return nil
 }
 
+func (x *JobEnvelope) GetAgentUpdate() *AgentUpdateBody {
+	if x != nil {
+		if x, ok := x.Body.(*JobEnvelope_AgentUpdate); ok {
+			return x.AgentUpdate
+		}
+	}
+	return nil
+}
+
 func (x *JobEnvelope) GetCancel() *CancelBody {
 	if x != nil {
 		if x, ok := x.Body.(*JobEnvelope_Cancel); ok {
@@ -907,6 +917,10 @@ type JobEnvelope_Inventory struct {
 	Inventory *InventoryBody `protobuf:"bytes,26,opt,name=inventory,proto3,oneof"`
 }
 
+type JobEnvelope_AgentUpdate struct {
+	AgentUpdate *AgentUpdateBody `protobuf:"bytes,27,opt,name=agent_update,json=agentUpdate,proto3,oneof"`
+}
+
 type JobEnvelope_Cancel struct {
 	Cancel *CancelBody `protobuf:"bytes,28,opt,name=cancel,proto3,oneof"`
 }
@@ -924,6 +938,8 @@ func (*JobEnvelope_WuHide) isJobEnvelope_Body() {}
 func (*JobEnvelope_Reboot) isJobEnvelope_Body() {}
 
 func (*JobEnvelope_Inventory) isJobEnvelope_Body() {}
+
+func (*JobEnvelope_AgentUpdate) isJobEnvelope_Body() {}
 
 func (*JobEnvelope_Cancel) isJobEnvelope_Body() {}
 
@@ -2070,6 +2086,77 @@ func (x *UninstallBody) GetRemoveOlderThan() string {
 	return ""
 }
 
+// AgentUpdateBody carries a vendor-signed release manifest. The customer server signs the job
+// (the usual envelope), but the agent trusts the release only because the manifest verifies
+// under a vendor release key compiled into the agent (docs/PROTOCOL.md §5.4).
+type AgentUpdateBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Manifest      []byte                 `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`        // the exact bytes the vendor signed (JSON, see internal/shared/release)
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`      // Ed25519 over "auzring/release/v1\0" || manifest
+	KeyId         []byte                 `protobuf:"bytes,3,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"` // first 8 bytes of SHA-256 of the vendor public key
+	TimeoutS      uint32                 `protobuf:"varint,4,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentUpdateBody) Reset() {
+	*x = AgentUpdateBody{}
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentUpdateBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentUpdateBody) ProtoMessage() {}
+
+func (x *AgentUpdateBody) ProtoReflect() protoreflect.Message {
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentUpdateBody.ProtoReflect.Descriptor instead.
+func (*AgentUpdateBody) Descriptor() ([]byte, []int) {
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *AgentUpdateBody) GetManifest() []byte {
+	if x != nil {
+		return x.Manifest
+	}
+	return nil
+}
+
+func (x *AgentUpdateBody) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+func (x *AgentUpdateBody) GetKeyId() []byte {
+	if x != nil {
+		return x.KeyId
+	}
+	return nil
+}
+
+func (x *AgentUpdateBody) GetTimeoutS() uint32 {
+	if x != nil {
+		return x.TimeoutS
+	}
+	return 0
+}
+
 type CancelBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -2079,7 +2166,7 @@ type CancelBody struct {
 
 func (x *CancelBody) Reset() {
 	*x = CancelBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2091,7 +2178,7 @@ func (x *CancelBody) String() string {
 func (*CancelBody) ProtoMessage() {}
 
 func (x *CancelBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[17]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2104,7 +2191,7 @@ func (x *CancelBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelBody.ProtoReflect.Descriptor instead.
 func (*CancelBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{17}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CancelBody) GetJobId() string {
@@ -2124,7 +2211,7 @@ type InventoryBody struct {
 
 func (x *InventoryBody) Reset() {
 	*x = InventoryBody{}
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2136,7 +2223,7 @@ func (x *InventoryBody) String() string {
 func (*InventoryBody) ProtoMessage() {}
 
 func (x *InventoryBody) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[18]
+	mi := &file_auzring_agent_v1_envelope_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2149,7 +2236,7 @@ func (x *InventoryBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventoryBody.ProtoReflect.Descriptor instead.
 func (*InventoryBody) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{18}
+	return file_auzring_agent_v1_envelope_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *InventoryBody) GetSections() []uint32 {
@@ -2167,7 +2254,7 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x0eSignedEnvelope\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\x9f\a\n" +
+	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xe7\a\n" +
 	"\vJobEnvelope\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x15\n" +
@@ -2192,7 +2279,8 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"wu_install\x18\x17 \x01(\v2\x1f.auzring.agent.v1.WuInstallBodyH\x00R\twuInstall\x127\n" +
 	"\awu_hide\x18\x18 \x01(\v2\x1c.auzring.agent.v1.WuHideBodyH\x00R\x06wuHide\x126\n" +
 	"\x06reboot\x18\x19 \x01(\v2\x1c.auzring.agent.v1.RebootBodyH\x00R\x06reboot\x12?\n" +
-	"\tinventory\x18\x1a \x01(\v2\x1f.auzring.agent.v1.InventoryBodyH\x00R\tinventory\x126\n" +
+	"\tinventory\x18\x1a \x01(\v2\x1f.auzring.agent.v1.InventoryBodyH\x00R\tinventory\x12F\n" +
+	"\fagent_update\x18\x1b \x01(\v2!.auzring.agent.v1.AgentUpdateBodyH\x00R\vagentUpdate\x126\n" +
 	"\x06cancel\x18\x1c \x01(\v2\x1c.auzring.agent.v1.CancelBodyH\x00R\x06cancelB\x06\n" +
 	"\x04body\"\x85\x01\n" +
 	"\x11MaintenanceWindow\x12\x12\n" +
@@ -2306,7 +2394,12 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	" \x01(\rR\n" +
 	"maxRetries\x12&\n" +
 	"\x0fretry_backoff_s\x18\v \x01(\rR\rretryBackoffS\x12*\n" +
-	"\x11remove_older_than\x18\f \x01(\tR\x0fremoveOlderThan\"#\n" +
+	"\x11remove_older_than\x18\f \x01(\tR\x0fremoveOlderThan\"\x7f\n" +
+	"\x0fAgentUpdateBody\x12\x1a\n" +
+	"\bmanifest\x18\x01 \x01(\fR\bmanifest\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x15\n" +
+	"\x06key_id\x18\x03 \x01(\fR\x05keyId\x12\x1b\n" +
+	"\ttimeout_s\x18\x04 \x01(\rR\btimeoutS\"#\n" +
 	"\n" +
 	"CancelBody\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"+\n" +
@@ -2391,7 +2484,7 @@ func file_auzring_agent_v1_envelope_proto_rawDescGZIP() []byte {
 }
 
 var file_auzring_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_auzring_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_auzring_agent_v1_envelope_proto_goTypes = []any{
 	(JobType)(0),              // 0: auzring.agent.v1.JobType
 	(InstallScope)(0),         // 1: auzring.agent.v1.InstallScope
@@ -2420,9 +2513,10 @@ var file_auzring_agent_v1_envelope_proto_goTypes = []any{
 	(*RebootBody)(nil),        // 24: auzring.agent.v1.RebootBody
 	(*InstallBody)(nil),       // 25: auzring.agent.v1.InstallBody
 	(*UninstallBody)(nil),     // 26: auzring.agent.v1.UninstallBody
-	(*CancelBody)(nil),        // 27: auzring.agent.v1.CancelBody
-	(*InventoryBody)(nil),     // 28: auzring.agent.v1.InventoryBody
-	nil,                       // 29: auzring.agent.v1.Installer.CodeMapEntry
+	(*AgentUpdateBody)(nil),   // 27: auzring.agent.v1.AgentUpdateBody
+	(*CancelBody)(nil),        // 28: auzring.agent.v1.CancelBody
+	(*InventoryBody)(nil),     // 29: auzring.agent.v1.InventoryBody
+	nil,                       // 30: auzring.agent.v1.Installer.CodeMapEntry
 }
 var file_auzring_agent_v1_envelope_proto_depIdxs = []int32{
 	0,  // 0: auzring.agent.v1.JobEnvelope.type:type_name -> auzring.agent.v1.JobType
@@ -2433,38 +2527,39 @@ var file_auzring_agent_v1_envelope_proto_depIdxs = []int32{
 	22, // 5: auzring.agent.v1.JobEnvelope.wu_install:type_name -> auzring.agent.v1.WuInstallBody
 	23, // 6: auzring.agent.v1.JobEnvelope.wu_hide:type_name -> auzring.agent.v1.WuHideBody
 	24, // 7: auzring.agent.v1.JobEnvelope.reboot:type_name -> auzring.agent.v1.RebootBody
-	28, // 8: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
-	27, // 9: auzring.agent.v1.JobEnvelope.cancel:type_name -> auzring.agent.v1.CancelBody
-	4,  // 10: auzring.agent.v1.ContentSource.kind:type_name -> auzring.agent.v1.ContentSourceKind
-	2,  // 11: auzring.agent.v1.Installer.type:type_name -> auzring.agent.v1.InstallerType
-	2,  // 12: auzring.agent.v1.Installer.nested_type:type_name -> auzring.agent.v1.InstallerType
-	14, // 13: auzring.agent.v1.Installer.signer_pin:type_name -> auzring.agent.v1.SignerPin
-	13, // 14: auzring.agent.v1.Installer.sources:type_name -> auzring.agent.v1.ContentSource
-	29, // 15: auzring.agent.v1.Installer.code_map:type_name -> auzring.agent.v1.Installer.CodeMapEntry
-	5,  // 16: auzring.agent.v1.Detection.kind:type_name -> auzring.agent.v1.DetectionKind
-	6,  // 17: auzring.agent.v1.Detection.cmp:type_name -> auzring.agent.v1.VersionCmp
-	7,  // 18: auzring.agent.v1.RebootPolicy.allow:type_name -> auzring.agent.v1.RebootAllow
-	18, // 19: auzring.agent.v1.RebootPolicy.active_hours:type_name -> auzring.agent.v1.ActiveHours
-	8,  // 20: auzring.agent.v1.WuScanBody.service:type_name -> auzring.agent.v1.WuService
-	8,  // 21: auzring.agent.v1.WuInstallBody.service:type_name -> auzring.agent.v1.WuService
-	21, // 22: auzring.agent.v1.WuInstallBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
-	19, // 23: auzring.agent.v1.WuInstallBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
-	8,  // 24: auzring.agent.v1.WuHideBody.service:type_name -> auzring.agent.v1.WuService
-	21, // 25: auzring.agent.v1.WuHideBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
-	19, // 26: auzring.agent.v1.RebootBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
-	1,  // 27: auzring.agent.v1.InstallBody.scope:type_name -> auzring.agent.v1.InstallScope
-	15, // 28: auzring.agent.v1.InstallBody.installer:type_name -> auzring.agent.v1.Installer
-	16, // 29: auzring.agent.v1.InstallBody.detection:type_name -> auzring.agent.v1.Detection
-	17, // 30: auzring.agent.v1.InstallBody.preconditions:type_name -> auzring.agent.v1.Preconditions
-	7,  // 31: auzring.agent.v1.InstallBody.reboot:type_name -> auzring.agent.v1.RebootAllow
-	1,  // 32: auzring.agent.v1.UninstallBody.scope:type_name -> auzring.agent.v1.InstallScope
-	9,  // 33: auzring.agent.v1.UninstallBody.method:type_name -> auzring.agent.v1.UninstallMethod
-	3,  // 34: auzring.agent.v1.Installer.CodeMapEntry.value:type_name -> auzring.agent.v1.JobOutcome
-	35, // [35:35] is the sub-list for method output_type
-	35, // [35:35] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	29, // 8: auzring.agent.v1.JobEnvelope.inventory:type_name -> auzring.agent.v1.InventoryBody
+	27, // 9: auzring.agent.v1.JobEnvelope.agent_update:type_name -> auzring.agent.v1.AgentUpdateBody
+	28, // 10: auzring.agent.v1.JobEnvelope.cancel:type_name -> auzring.agent.v1.CancelBody
+	4,  // 11: auzring.agent.v1.ContentSource.kind:type_name -> auzring.agent.v1.ContentSourceKind
+	2,  // 12: auzring.agent.v1.Installer.type:type_name -> auzring.agent.v1.InstallerType
+	2,  // 13: auzring.agent.v1.Installer.nested_type:type_name -> auzring.agent.v1.InstallerType
+	14, // 14: auzring.agent.v1.Installer.signer_pin:type_name -> auzring.agent.v1.SignerPin
+	13, // 15: auzring.agent.v1.Installer.sources:type_name -> auzring.agent.v1.ContentSource
+	30, // 16: auzring.agent.v1.Installer.code_map:type_name -> auzring.agent.v1.Installer.CodeMapEntry
+	5,  // 17: auzring.agent.v1.Detection.kind:type_name -> auzring.agent.v1.DetectionKind
+	6,  // 18: auzring.agent.v1.Detection.cmp:type_name -> auzring.agent.v1.VersionCmp
+	7,  // 19: auzring.agent.v1.RebootPolicy.allow:type_name -> auzring.agent.v1.RebootAllow
+	18, // 20: auzring.agent.v1.RebootPolicy.active_hours:type_name -> auzring.agent.v1.ActiveHours
+	8,  // 21: auzring.agent.v1.WuScanBody.service:type_name -> auzring.agent.v1.WuService
+	8,  // 22: auzring.agent.v1.WuInstallBody.service:type_name -> auzring.agent.v1.WuService
+	21, // 23: auzring.agent.v1.WuInstallBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
+	19, // 24: auzring.agent.v1.WuInstallBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
+	8,  // 25: auzring.agent.v1.WuHideBody.service:type_name -> auzring.agent.v1.WuService
+	21, // 26: auzring.agent.v1.WuHideBody.updates:type_name -> auzring.agent.v1.WuUpdateRef
+	19, // 27: auzring.agent.v1.RebootBody.reboot:type_name -> auzring.agent.v1.RebootPolicy
+	1,  // 28: auzring.agent.v1.InstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	15, // 29: auzring.agent.v1.InstallBody.installer:type_name -> auzring.agent.v1.Installer
+	16, // 30: auzring.agent.v1.InstallBody.detection:type_name -> auzring.agent.v1.Detection
+	17, // 31: auzring.agent.v1.InstallBody.preconditions:type_name -> auzring.agent.v1.Preconditions
+	7,  // 32: auzring.agent.v1.InstallBody.reboot:type_name -> auzring.agent.v1.RebootAllow
+	1,  // 33: auzring.agent.v1.UninstallBody.scope:type_name -> auzring.agent.v1.InstallScope
+	9,  // 34: auzring.agent.v1.UninstallBody.method:type_name -> auzring.agent.v1.UninstallMethod
+	3,  // 35: auzring.agent.v1.Installer.CodeMapEntry.value:type_name -> auzring.agent.v1.JobOutcome
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_auzring_agent_v1_envelope_proto_init() }
@@ -2480,6 +2575,7 @@ func file_auzring_agent_v1_envelope_proto_init() {
 		(*JobEnvelope_WuHide)(nil),
 		(*JobEnvelope_Reboot)(nil),
 		(*JobEnvelope_Inventory)(nil),
+		(*JobEnvelope_AgentUpdate)(nil),
 		(*JobEnvelope_Cancel)(nil),
 	}
 	type x struct{}
@@ -2488,7 +2584,7 @@ func file_auzring_agent_v1_envelope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_envelope_proto_rawDesc), len(file_auzring_agent_v1_envelope_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   20,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

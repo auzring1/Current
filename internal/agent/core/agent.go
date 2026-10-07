@@ -419,6 +419,9 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	a.acceptSigningCerts(ctx, stream, id, root, ack.JobSigningCertsDer)
 	a.Log.Info("connected", "server", a.Cfg.Server, "device_id", id.DeviceID)
 	a.status("connected", "", id.DeviceID)
+	if a.Jobs != nil {
+		a.Jobs.SelfUpdateHealthy() // a freshly updated agent proves itself by completing this handshake
+	}
 
 	if ack.RenewCertificate || a.renewDue(cert) {
 		if err := a.renew(ctx, client, id); err != nil {
@@ -847,6 +850,12 @@ func (a *Agent) startJobs(ctx context.Context) {
 	}
 	a.Jobs.Security = func(k agentv1.SecurityEventKind, d string) { a.securityEvent(nil, k, d) }
 	a.Jobs.WUReport = a.queueWU
+	if a.Jobs.DataDir == "" {
+		a.Jobs.DataDir = a.DataDir
+	}
+	if a.Jobs.Version == "" {
+		a.Jobs.Version = a.Version
+	}
 	if a.Jobs.WUScanEvery == 0 {
 		a.Jobs.WUScanEvery = 24 * time.Hour
 	}

@@ -17,6 +17,7 @@ import (
 
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/selfupdate"
 	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
@@ -90,6 +91,7 @@ type fakePlatform struct {
 	events chan struct{}
 
 	wuc       *fakeWU
+	su        *fakeUpdater
 	rebootReq bool
 	reboots   []rebootCall
 	aborts    int
@@ -469,3 +471,10 @@ func (r *rig) state(id string) agentv1.JobState {
 }
 
 func osReadDir(p string) ([]os.DirEntry, error) { return os.ReadDir(p) }
+
+func (f *fakePlatform) SelfUpdater() selfupdate.Platform {
+	if f.su == nil {
+		return nil
+	}
+	return f.su
+}

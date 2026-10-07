@@ -31,12 +31,14 @@ import (
 	"github.com/auzring1/auzring/internal/agent/jobs"
 	"github.com/auzring1/auzring/internal/agent/keystore"
 	"github.com/auzring1/auzring/internal/agent/logging"
+	"github.com/auzring1/auzring/internal/agent/selfupdate"
 	"github.com/auzring1/auzring/internal/agent/store"
 	"github.com/auzring1/auzring/internal/agent/winsvc"
 	"github.com/auzring1/auzring/internal/shared/version"
 )
 
 func main() {
+	jobs.RequestServiceRestart = winsvc.RequestRestart
 	// Footprint budget (ARCHITECTURE §3.1).
 	debug.SetMemoryLimit(24 << 20)
 
@@ -60,6 +62,9 @@ func main() {
 		err = cmdStatus(os.Args[2:])
 	case "run":
 		err = cmdRun(os.Args[2:])
+	case "rollback-check":
+		// Internal: run by the one-shot scheduled task that guards an agent update.
+		err = cmdRollbackCheck()
 	case "helper":
 		// Internal: the user-context helper started by the service with inherited pipe handles.
 		err = jobs.HelperMain(os.Args[2:])
@@ -102,6 +107,22 @@ func cmdInstall(args []string) error {
 		return errors.New("--token is required")
 	}
 	return install.Install(install.Options{Server: *server, Token: *token, AllowedJobs: *allowed, Wait: *wait, Out: os.Stdout})
+}
+
+func cmdRollbackCheck() error {
+	dir := install.DataDir()
+	msg, err := selfupdate.RollbackCheck(dir, selfupdate.Default(dir, nil), time.Now())
+	line := time.Now().Format(time.RFC3339) + " rollback-check: " + msg
+	if err != nil {
+		line = time.Now().Format(time.RFC3339) + " rollback-check: " + err.Error()
+	}
+	// The task has no console; keep a record next to the agent log.
+	if f, ferr := os.OpenFile(filepath.Join(dir, "logs", "rollback-check.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); ferr == nil { // #nosec G304 -- fixed path in the protected data directory
+		_, _ = fmt.Fprintln(f, line)
+		_ = f.Close()
+	}
+	fmt.Println(line)
+	return err
 }
 
 func cmdStatus(args []string) error {

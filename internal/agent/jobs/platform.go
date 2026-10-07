@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/auzring1/auzring/internal/agent/inventory"
+	"github.com/auzring1/auzring/internal/agent/selfupdate"
 	"github.com/auzring1/auzring/internal/agent/wu"
 	"github.com/auzring1/auzring/internal/shared/installer"
 )
@@ -101,4 +102,6 @@ type Platform interface {
 	AbortReboot() error
 	// RebootRequired reports whether Windows has a restart pending.
 	RebootRequired() bool
+	// SelfUpdater gives access to the A/B slots and the rollback task (nil = unsupported).
+	SelfUpdater() selfupdate.Platform
 }

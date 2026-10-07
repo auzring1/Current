@@ -36,6 +36,9 @@ type Record struct {
 	Finished  int64  `json:"finished,omitempty"`
 	Result    []byte `json:"result,omitempty"` // serialized JobResult
 	Cancel    bool   `json:"cancel,omitempty"`
+	// AwaitRestart marks an agent update that switched slots and waits for the new version to
+	// prove itself (or for the safety net to roll back); the loop must not run it again.
+	AwaitRestart bool `json:"await_restart,omitempty"`
 	// Keep is when a terminal record may be deleted (expires + 24h, like the replay ledger).
 	Keep int64 `json:"keep"`
 }
