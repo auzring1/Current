@@ -77,6 +77,7 @@ func (Windows) Collect(ctx context.Context) (*agentv1.HardwareInventory, error) 
 		hw.Chassis, hw.BiosVersion = s.Chassis, s.BIOSVersion
 	}
 	hw.Disks = fixedDisks()
+	annotateBitlocker(hw.Disks)
 	hw.Interfaces = Interfaces()
 	if k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI`, registry.QUERY_VALUE|registry.WOW64_64KEY); err == nil {
 		hw.LastLoggedOnUser = regString(k, "LastLoggedOnUser")
@@ -268,4 +269,20 @@ func consoleUser() string {
 		return d + `\` + user
 	}
 	return user
+}
+
+// annotateBitlocker fills Disk.Bitlocker; "unsupported" when BitLocker
+// management is not available on this edition.
+func annotateBitlocker(disks []*agentv1.Disk) {
+	status, ok := bitlockerStatus()
+	for _, d := range disks {
+		switch {
+		case !ok:
+			d.Bitlocker = "unsupported"
+		case status[strings.ToUpper(d.Mount)] != "":
+			d.Bitlocker = status[strings.ToUpper(d.Mount)]
+		default:
+			d.Bitlocker = "unknown"
+		}
+	}
 }
