@@ -36,6 +36,15 @@ export type UpdateSettings = components["schemas"]["UpdateSettings"];
 export type RestartPolicy = components["schemas"]["RestartPolicy"];
 export type WuPolicy = components["schemas"]["WuPolicy"];
 export type DeviceWindowsUpdates = components["schemas"]["DeviceWindowsUpdates"];
+export type Site = components["schemas"]["Site"];
+export type UserAccount = components["schemas"]["User"];
+export type RoleBinding = components["schemas"]["RoleBinding"];
+export type ApiToken = components["schemas"]["ApiToken"];
+export type SecurityKey = components["schemas"]["SecurityKey"];
+export type MySecurity = components["schemas"]["MySecurity"];
+export type AgentRelease = components["schemas"]["AgentRelease"];
+export type AgentRollout = components["schemas"]["AgentRollout"];
+export type AgentRolloutStatus = components["schemas"]["AgentRolloutStatus"];
 export type JobDetail = components["schemas"]["JobDetail"];
 
 let csrfToken = "";
