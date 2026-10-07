@@ -68,7 +68,7 @@ func ncryptErr(op string, r uintptr) error {
 	if r == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s: NCrypt status 0x%08x", op, uint32(r))
+	return fmt.Errorf("%s: NCrypt status 0x%08x", op, uint32(r)) // #nosec G115 -- SECURITY_STATUS is a 32-bit value
 }
 
 func openProvider(name string) (uintptr, error) {
@@ -167,7 +167,7 @@ func (c *CNG) Open(name string) (crypto.Signer, error) {
 			return k, nil
 		}
 		freeObject(hp)
-		if uint32(r) != nteBadKeyset && uint32(r) != nteNotFound {
+		if uint32(r) != nteBadKeyset && uint32(r) != nteNotFound { // #nosec G115 -- SECURITY_STATUS is a 32-bit value
 			return nil, ncryptErr("NCryptOpenKey", r)
 		}
 	}
@@ -227,10 +227,11 @@ func exportPublic(hk uintptr) (*ecdsa.PublicKey, error) {
 	if magic != magicECDSAP256Public || cb != 32 || len(buf) < 8+2*cb {
 		return nil, errors.New("public key is not ECDSA P-256")
 	}
-	pub := &ecdsa.PublicKey{Curve: elliptic.P256(),
-		X: new(big.Int).SetBytes(buf[8 : 8+cb]), Y: new(big.Int).SetBytes(buf[8+cb : 8+2*cb])}
-	if !pub.Curve.IsOnCurve(pub.X, pub.Y) { //nolint:staticcheck // validation of OS-provided point
-		return nil, errors.New("public key not on curve")
+	// Uncompressed SEC 1 point; ParseUncompressedPublicKey also checks it is on the curve.
+	point := append([]byte{4}, buf[8:8+2*cb]...)
+	pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+	if err != nil {
+		return nil, fmt.Errorf("invalid public key from CNG: %w", err)
 	}
 	return pub, nil
 }

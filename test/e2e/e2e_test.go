@@ -10,7 +10,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base32"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -284,7 +287,7 @@ func (h *harness) startAgent(enrollment string, hw *fakeHW, now func() time.Time
 		log = slog.New(slog.NewTextHandler(os.Stderr, nil)).With("agent", hw.host)
 	}
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dir, Store: st, Keys: keystore.Default(dir), HW: hw,
-		Log: log, Version: "test", BackoffBase: 50 * time.Millisecond, BackoffMax: 500 * time.Millisecond,
+		Log: log, Version: "test", KeyPrefix: uniquePrefix(h.t), BackoffBase: 50 * time.Millisecond, BackoffMax: 500 * time.Millisecond,
 		PendingPoll: 300 * time.Millisecond, Now: now}
 	ctx, cancel := context.WithCancel(context.Background())
 	ta := &testAgent{dir: dir, agent: a, cancel: cancel, done: make(chan struct{}), st: st}
@@ -505,7 +508,7 @@ func enrollRaw(h *harness, token string) codes.Code {
 		return codes.Unknown
 	}
 	defer conn.Close()
-	key, _, _ := keystore.Default(h.t.TempDir()).Create("k")
+	key, _, _ := keystore.Default(h.t.TempDir()).Create(uniquePrefix(h.t) + "1")
 	csr, _ := keystore.CSR(key)
 	_, err = agentv1.NewEnrollmentServiceClient(conn).Enroll(context.Background(), &agentv1.EnrollRequest{Token: token, CsrDer: csr, Hostname: "x"})
 	return status.Code(err)
@@ -528,8 +531,8 @@ func TestCertificateRenewal(t *testing.T) {
 		id, _ := ta.st.Identity()
 		return id != nil && id.KeyGen >= 2 && h.app.Hub.Online(devID)
 	})
-	if _, err := os.Stat(filepath.Join(ta.dir, "keys", "Auzring-Agent-Device-1.pem")); !os.IsNotExist(err) {
-		t.Fatal("old device key was not deleted after renewal")
+	if _, err := keystore.Default(ta.dir).Open(ta.agent.KeyPrefix + "1"); !errors.Is(err, keystore.ErrNotFound) {
+		t.Fatalf("old device key was not deleted after renewal: %v", err)
 	}
 	waitFor(t, 10*time.Second, "old certificate superseded", func() bool {
 		var n int
@@ -574,11 +577,26 @@ func (h *harness) restartAgent(old *testAgent) *testAgent {
 		h.t.Fatal(err)
 	}
 	a := &core.Agent{Cfg: cfg, CfgPath: filepath.Join(old.dir, "config.json"), DataDir: old.dir, Store: st,
-		Keys: keystore.Default(old.dir), HW: old.agent.HW, Log: old.agent.Log, Version: "test",
+		Keys: keystore.Default(old.dir), HW: old.agent.HW, Log: old.agent.Log, Version: "test", KeyPrefix: old.agent.KeyPrefix,
 		BackoffBase: 50 * time.Millisecond, BackoffMax: 500 * time.Millisecond}
 	ctx, cancel := context.WithCancel(context.Background())
 	ta := &testAgent{dir: old.dir, agent: a, cancel: cancel, done: make(chan struct{}), st: st}
 	go func() { _ = a.Run(ctx); close(ta.done) }()
 	h.t.Cleanup(ta.stop)
 	return ta
+}
+
+// uniquePrefix gives each test agent its own key names. On Windows the keys
+// are real CNG machine keys, so they are deleted when the test ends.
+func uniquePrefix(t *testing.T) string {
+	b := make([]byte, 6)
+	_, _ = rand.Read(b)
+	p := "Auzring-Test-" + hex.EncodeToString(b) + "-"
+	t.Cleanup(func() {
+		ks := keystore.Default(t.TempDir())
+		for g := 1; g <= 10; g++ {
+			_ = ks.Delete(fmt.Sprintf("%s%d", p, g))
+		}
+	})
+	return p
 }

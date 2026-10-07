@@ -89,7 +89,7 @@ func VerifyPassword(pw, encoded string) bool {
 		return false
 	}
 	hashSlots <- struct{}{}
-	got := argon2.IDKey([]byte(pw), salt, t, m, p, uint32(len(want)))
+	got := argon2.IDKey([]byte(pw), salt, t, m, p, uint32(len(want))) // #nosec G115 -- len(want) <= 64 checked above
 	<-hashSlots
 	return subtle.ConstantTimeCompare(got, want) == 1
 }

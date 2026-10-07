@@ -91,7 +91,7 @@ func (g *Gateway) Connect(stream agentv1.AgentChannelService_ConnectServer) erro
 		HeartbeatIntervalS: uint32(g.cfg.HeartbeatInterval.Seconds()),
 		RenewCertificate:   renewDue(ident, g.cfg.DeviceCertLifetime, now),
 	}
-	if hello.Revs["hardware"] != uint64(dev.HardwareRev) {
+	if dev.HardwareRev < 0 || hello.Revs["hardware"] != uint64(dev.HardwareRev) { // #nosec G115 -- negative values handled first
 		ack.ResyncSections = append(ack.ResyncSections, agentv1.InventorySection_INVENTORY_SECTION_HARDWARE)
 	}
 	if err := c.send(&agentv1.ConnectResponse{Msg: &agentv1.ConnectResponse_HelloAck{HelloAck: ack}}); err != nil {

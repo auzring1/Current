@@ -102,6 +102,7 @@ func healthcheck() error {
 		addr = "127.0.0.1" + addr
 	}
 	c := &http.Client{Timeout: 3 * time.Second}
+	// #nosec G704 -- probes this container's own listener from operator configuration
 	resp, err := c.Get("http://" + addr + "/readyz")
 	if err != nil {
 		return err

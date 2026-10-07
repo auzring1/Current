@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	keyPrefix          = "Auzring-Agent-Device-"
+	// KeyPrefix is the default CNG key-name prefix; generation N is KeyPrefix+N.
+	KeyPrefix          = "Auzring-Agent-Device-"
 	maxMsg             = 4 << 20
 	fullHeartbeatEvery = 30 * time.Minute
 	hardwareEvery      = 6 * time.Hour
@@ -50,6 +51,8 @@ type Agent struct {
 	HW      hardware.Collector
 	Log     *slog.Logger
 	Version string
+	// KeyPrefix overrides the device key name prefix (tests use unique ones).
+	KeyPrefix string
 	// Tunables (overridable in tests).
 	BackoffBase, BackoffMax time.Duration
 	PendingPoll             time.Duration
@@ -66,6 +69,13 @@ func (a *Agent) now() time.Time {
 		return a.Now()
 	}
 	return time.Now()
+}
+
+func (a *Agent) keyPrefix() string {
+	if a.KeyPrefix != "" {
+		return a.KeyPrefix
+	}
+	return KeyPrefix
 }
 
 func (a *Agent) status(state, msg, deviceID string) {
@@ -132,7 +142,7 @@ func (a *Agent) enroll(ctx context.Context) (time.Duration, error) {
 	}
 	a.status("enrolling", "", "")
 	// Create the device key first; reuse a key created by an interrupted attempt.
-	keyName := keyPrefix + "1"
+	keyName := a.keyPrefix() + "1"
 	key, err := a.Keys.Open(keyName)
 	provider := "existing"
 	if errors.Is(err, keystore.ErrNotFound) {
@@ -290,7 +300,6 @@ func (a *Agent) dial(tc *tls.Config) (*grpc.ClientConn, error) {
 
 // goAway carries the server's retry hint out of a session.
 type goAway struct {
-	retry  time.Duration
 	reason string
 }
 
@@ -483,7 +492,7 @@ func (a *Agent) renewDue(cert *x509.Certificate) bool {
 // renew creates a NEW key, gets it certified, then switches over.
 func (a *Agent) renew(ctx context.Context, client agentv1.AgentChannelServiceClient, id *store.Identity) error {
 	gen := id.KeyGen + 1
-	name := keyPrefix + strconv.Itoa(gen)
+	name := a.keyPrefix() + strconv.Itoa(gen)
 	key, provider, err := a.Keys.Create(name)
 	if err != nil {
 		return err
