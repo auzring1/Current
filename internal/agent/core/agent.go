@@ -26,6 +26,7 @@ import (
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 	"github.com/auzring1/auzring/internal/agent/config"
 	"github.com/auzring1/auzring/internal/agent/hardware"
+	"github.com/auzring1/auzring/internal/agent/inventory"
 	"github.com/auzring1/auzring/internal/agent/keystore"
 	"github.com/auzring1/auzring/internal/agent/store"
 	"github.com/auzring1/auzring/internal/shared/envelope"
@@ -49,6 +50,10 @@ type Agent struct {
 	Store   *store.Store
 	Keys    keystore.Provider
 	HW      hardware.Collector
+	// Inv reports software and user inventory; nil disables it.
+	Inv *inventory.Manager
+	// Changes delivers raw change notifications (registry watcher); may be nil.
+	Changes <-chan struct{}
 	Log     *slog.Logger
 	Version string
 	// KeyPrefix overrides the device key name prefix (tests use unique ones).
@@ -57,11 +62,15 @@ type Agent struct {
 	BackoffBase, BackoffMax time.Duration
 	PendingPoll             time.Duration
 	Now                     func() time.Time
+	// InvQuiet is the debounce period after a change notification (default 30s);
+	// ReconcileEvery is the safety-net full rescan interval (default 24h).
+	InvQuiet, ReconcileEvery time.Duration
 
 	bootID      string
 	clockOffset time.Duration
 	lastHB      *agentv1.Heartbeat
 	lastHBSent  time.Time
+	hwPending   *pendingReport
 }
 
 func (a *Agent) now() time.Time {
@@ -346,10 +355,17 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	if err != nil {
 		return 0, 0, err
 	}
-	hwRev := a.Store.GetUint("hw_rev")
+	revs := map[string]uint64{"hardware": a.Store.GetUint("hw_rev")}
+	caps := []string{"hardware"}
+	if a.Inv != nil {
+		a.Inv.ResetPending() // acknowledgements of the previous stream can never arrive
+		revs["software"], revs["users"] = a.Inv.SoftwareRev(), a.Inv.UsersRev()
+		caps = append(caps, "software", "users")
+	}
+	a.hwPending = nil
 	if err := stream.Send(&agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_Hello{Hello: &agentv1.Hello{
-		DeviceId: id.DeviceID, AgentVersion: a.Version, BootId: a.bootID, Capabilities: []string{"hardware"},
-		Revs: map[string]uint64{"hardware": hwRev}, OutboxPending: uint32(a.Store.OutboxLen()), // #nosec G115
+		DeviceId: id.DeviceID, AgentVersion: a.Version, BootId: a.bootID, Capabilities: caps,
+		Revs: revs, OutboxPending: uint32(a.Store.OutboxLen()), // #nosec G115
 		CertNotAfter: cert.NotAfter.Unix(),
 	}}}); err != nil {
 		return 0, 0, err
@@ -388,13 +404,23 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 		return 0, 0, err
 	}
 	forceHW := false
-	for _, s := range ack.ResyncSections {
-		if s == agentv1.InventorySection_INVENTORY_SECTION_HARDWARE {
+	var invOpt inventory.SyncOptions
+	for _, sec := range ack.ResyncSections {
+		switch sec {
+		case agentv1.InventorySection_INVENTORY_SECTION_HARDWARE:
 			forceHW = true
+		case agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE:
+			invOpt.FullSoftware = true
+		case agentv1.InventorySection_INVENTORY_SECTION_USERS:
+			invOpt.FullUsers = true
 		}
 	}
-	pendingHW, err := a.sendHardware(ctx, stream, forceHW)
-	if err != nil {
+	if a.hwPending, err = a.sendHardware(ctx, stream, forceHW); err != nil {
+		return a.now().Sub(start), 0, err
+	}
+	invDirty := false
+	runInv := func(o inventory.SyncOptions) error { return a.syncInventory(ctx, stream, o, &invDirty) }
+	if err := runInv(invOpt); err != nil {
 		return a.now().Sub(start), 0, err
 	}
 
@@ -410,6 +436,14 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 	renewEvery := min(max(pkix.Lifetime(cert)/10, time.Second), time.Hour)
 	renewTick := time.NewTicker(renewEvery)
 	defer renewTick.Stop()
+	// Change notifications are debounced; the daily reconcile is a safety net.
+	invTrig := a.startInventoryTriggers(sctx)
+	reconcile := a.ReconcileEvery
+	if reconcile <= 0 {
+		reconcile = 24 * time.Hour
+	}
+	reconcileTick := time.NewTicker(jitter(reconcile, reconcile/12))
+	defer reconcileTick.Stop()
 	if err := a.sendHeartbeat(ctx, stream, true); err != nil {
 		return a.now().Sub(start), 0, err
 	}
@@ -450,13 +484,27 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 				}
 			}
 		case <-hwTick.C:
-			if pendingHW, err = a.sendHardware(ctx, stream, false); err != nil {
+			if a.hwPending, err = a.sendHardware(ctx, stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+		case <-invTrig:
+			if err := runInv(inventory.SyncOptions{}); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+		case <-reconcileTick.C:
+			if err := runInv(inventory.SyncOptions{}); err != nil {
 				return a.now().Sub(start), 0, err
 			}
 		case m := <-msgs:
 			switch msg := m.Msg.(type) {
 			case *agentv1.ConnectResponse_Ack:
-				a.handleAck(msg.Ack.Seq, pendingHW)
+				a.handleAck(msg.Ack.Seq)
+				if invDirty && a.Inv != nil && !a.Inv.Busy() {
+					invDirty = false
+					if err := runInv(inventory.SyncOptions{}); err != nil {
+						return a.now().Sub(start), 0, err
+					}
+				}
 			case *agentv1.ConnectResponse_GoAway:
 				a.Log.Info("server asked us to disconnect", "reason", msg.GoAway.Reason, "retry_after_s", msg.GoAway.RetryAfterS)
 				if msg.GoAway.Reason == "revoked" {
@@ -466,8 +514,17 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 				}
 				return a.now().Sub(start), jitter(time.Duration(msg.GoAway.RetryAfterS)*time.Second, 30*time.Second), &goAway{reason: msg.GoAway.Reason}
 			case *agentv1.ConnectResponse_Resync:
-				if msg.Resync.Section == agentv1.InventorySection_INVENTORY_SECTION_HARDWARE {
-					if pendingHW, err = a.sendHardware(ctx, stream, true); err != nil {
+				switch msg.Resync.Section {
+				case agentv1.InventorySection_INVENTORY_SECTION_HARDWARE:
+					if a.hwPending, err = a.sendHardware(ctx, stream, true); err != nil {
+						return a.now().Sub(start), 0, err
+					}
+				case agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE:
+					if err := runInv(inventory.SyncOptions{FullSoftware: true}); err != nil {
+						return a.now().Sub(start), 0, err
+					}
+				case agentv1.InventorySection_INVENTORY_SECTION_USERS:
+					if err := runInv(inventory.SyncOptions{FullUsers: true}); err != nil {
 						return a.now().Sub(start), 0, err
 					}
 				}
@@ -665,13 +722,63 @@ func (a *Agent) sendHardware(ctx context.Context, stream agentv1.AgentChannelSer
 	return &pendingReport{seq: seq, rev: rev, fp: fp}, nil
 }
 
-func (a *Agent) handleAck(seq uint64, hw *pendingReport) {
-	if hw != nil && hw.seq == seq {
+func (a *Agent) handleAck(seq uint64) {
+	if a.Inv != nil && a.Inv.Ack(seq) {
+		return
+	}
+	if hw := a.hwPending; hw != nil && hw.seq == seq {
 		_ = a.Store.SetUint("hw_rev", hw.rev)
 		_ = a.Store.SetMeta("hw_fp", hw.fp)
+		a.hwPending = nil
 		return
 	}
 	_ = a.Store.OutboxAck(seq)
+}
+
+// syncInventory runs one software/users sync. ErrBusy (a report is still
+// awaiting its acknowledgement) is not an error: the sync is repeated once the
+// acknowledgement arrives. Scan failures are logged, not fatal to the stream.
+func (a *Agent) syncInventory(ctx context.Context, stream agentv1.AgentChannelService_ConnectClient, opt inventory.SyncOptions, dirty *bool) error {
+	if a.Inv == nil {
+		return nil
+	}
+	err := a.Inv.Sync(ctx, stream, opt)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, inventory.ErrBusy):
+		*dirty = true
+		return nil
+	case ctx.Err() != nil:
+		return nil
+	}
+	if status.Code(err) != codes.Unknown { // gRPC send failure: the stream is gone
+		return err
+	}
+	a.Log.Warn("inventory sync failed", "err", err)
+	return nil
+}
+
+// startInventoryTriggers debounces raw change notifications into one trigger.
+func (a *Agent) startInventoryTriggers(ctx context.Context) <-chan struct{} {
+	trig := make(chan struct{}, 1)
+	if a.Changes == nil || a.Inv == nil {
+		return trig
+	}
+	quiet := a.InvQuiet
+	if quiet <= 0 {
+		quiet = 30 * time.Second
+	}
+	go func() {
+		d := inventory.Debouncer{Quiet: quiet}
+		for d.Wait(ctx, a.Changes) {
+			select {
+			case trig <- struct{}{}:
+			default:
+			}
+		}
+	}()
+	return trig
 }
 
 // sendHeartbeat sends only when something changed or 30 minutes elapsed.

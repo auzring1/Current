@@ -454,18 +454,17 @@ func (q *Queries) UpsertSoftwareInstalls(ctx context.Context, arg UpsertSoftware
 
 const upsertSoftwareTitles = `-- name: UpsertSoftwareTitles :many
 INSERT INTO software_titles (id, org_id, normalized_name, normalized_publisher, display_name, display_publisher)
-SELECT gen.id, $1::uuid, t.nn, t.np, t.dn, t.dp
+SELECT t.id, $1::uuid, t.nn, t.np, t.dn, t.dp
 FROM unnest($2::uuid[], $3::text[], $4::text[],
             $5::text[], $6::text[])
      AS t(id, nn, np, dn, dp)
-JOIN LATERAL (SELECT t.id AS id) gen ON true
 ON CONFLICT (org_id, normalized_name, normalized_publisher)
 DO UPDATE SET normalized_name = software_titles.normalized_name
 RETURNING id, normalized_name, normalized_publisher
 `
 
 type UpsertSoftwareTitlesParams struct {
-	Column1              uuid.UUID
+	OrgID                uuid.UUID
 	Ids                  []uuid.UUID
 	NormalizedNames      []string
 	NormalizedPublishers []string
@@ -481,7 +480,7 @@ type UpsertSoftwareTitlesRow struct {
 
 func (q *Queries) UpsertSoftwareTitles(ctx context.Context, arg UpsertSoftwareTitlesParams) ([]UpsertSoftwareTitlesRow, error) {
 	rows, err := q.db.Query(ctx, upsertSoftwareTitles,
-		arg.Column1,
+		arg.OrgID,
 		arg.Ids,
 		arg.NormalizedNames,
 		arg.NormalizedPublishers,

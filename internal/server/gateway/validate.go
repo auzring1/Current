@@ -22,9 +22,13 @@ func validateHardware(hw *agentv1.HardwareInventory) error {
 		return errors.New("too many hardware entries")
 	}
 	for _, d := range hw.Disks {
-		if len(d.Mount) > 256 || len(d.Filesystem) > 64 {
+		if len(d.Mount) > 256 || len(d.Filesystem) > 64 || len(d.Bitlocker) > 32 {
 			return errors.New("disk field too long")
 		}
+	}
+	// Values feed generated bigint/integer columns: keep them in range.
+	if hw.RamBytes > 1<<50 || hw.OsBuild > 1_000_000_000 || hw.OsUbr > 1_000_000_000 {
+		return errors.New("hardware value out of range")
 	}
 	for _, n := range hw.Interfaces {
 		if len(n.Name) > 256 || len(n.Mac) > 64 || len(n.Addresses) > 32 {

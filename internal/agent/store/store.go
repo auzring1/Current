@@ -212,3 +212,41 @@ type Ledger struct{ S *Store }
 
 // Seen implements envelope.Ledger.
 func (l Ledger) Seen(id string) (bool, error) { return l.S.LedgerSeen(id) }
+
+// LoadSnapshot returns the persisted acknowledged snapshot (item key -> hash).
+func (s *Store) LoadSnapshot(name string) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := s.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("snap:" + name))
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			out[string(k)] = append([]byte(nil), v...)
+			return nil
+		})
+	})
+	return out, err
+}
+
+// SaveSnapshot atomically replaces the persisted snapshot.
+func (s *Store) SaveSnapshot(name string, snap map[string][]byte) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bn := []byte("snap:" + name)
+		if tx.Bucket(bn) != nil {
+			if err := tx.DeleteBucket(bn); err != nil {
+				return err
+			}
+		}
+		b, err := tx.CreateBucket(bn)
+		if err != nil {
+			return err
+		}
+		for k, v := range snap {
+			if err := b.Put([]byte(k), v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
