@@ -152,6 +152,10 @@ func (e *Engine) Accept(se *agentv1.SignedEnvelope, env *agentv1.JobEnvelope) {
 		e.cancelJob(env.GetCancel().GetJobId(), r)
 		return
 	}
+	if ceilingName(env.Type) == "" {
+		reject(fmt.Sprintf("this agent version does not support job type %s; install the current agent", env.Type), agentv1.SecurityEventKind_SECURITY_EVENT_KIND_UNSPECIFIED)
+		return
+	}
 	if !e.allowed(env.Type) {
 		reject("job type not allowed by the local policy ceiling", agentv1.SecurityEventKind_SECURITY_EVENT_KIND_POLICY_CEILING)
 		return
