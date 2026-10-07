@@ -11,6 +11,9 @@ option go_package = "github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agen
 // See docs/PROTOCOL.md §4.2.
 service AgentChannelService {
   rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+  // Streams stored content (custom packages, optional cache) to a device that
+  // has a live job referencing the hash. See docs/PROTOCOL.md §8.
+  rpc FetchContent(FetchContentRequest) returns (stream FetchContentResponse);
   // Also allowed with an expired certificate inside the renewal grace period.
   rpc RenewCertificate(RenewCertificateRequest) returns (RenewCertificateResponse);
 }
@@ -22,6 +25,7 @@ message ConnectRequest {
     Heartbeat heartbeat = 2;
     InventoryReport inventory = 3;
     SecurityEvent security_event = 4;
+    JobUpdate job_update = 5;
   }
 }
 
@@ -111,4 +115,53 @@ message RenewCertificateRequest {
 message RenewCertificateResponse {
   bytes client_cert_der = 1;
   bytes issuing_ca_der = 2;
+}
+
+// JobState is the agent-side lifecycle (docs/ARCHITECTURE.md §5).
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_ACCEPTED = 1;            // verified and persisted
+  JOB_STATE_WAITING = 2;             // not_before, window, preconditions or user logon
+  JOB_STATE_RUNNING = 3;
+  JOB_STATE_SUCCEEDED = 4;
+  JOB_STATE_SUCCEEDED_REBOOT = 5;
+  JOB_STATE_FAILED = 6;
+  JOB_STATE_EXPIRED = 7;
+  JOB_STATE_CANCELLED = 8;
+  JOB_STATE_REJECTED = 9;            // failed verification or policy ceiling
+}
+
+// JobUpdate reports progress or a result. Sent through the agent's outbox, so it
+// survives reconnects; the server acknowledges with Ack{seq}.
+message JobUpdate {
+  uint64 seq = 1;
+  string job_id = 2;
+  uint32 attempt = 3;
+  JobState state = 4;
+  string reason = 5;                 // short machine-friendly reason, e.g. "waiting_user_logon"
+  JobResult result = 6;              // present for terminal states
+}
+
+message JobResult {
+  JobOutcome outcome = 1;
+  int32 exit_code = 2;
+  bool detection_passed = 3;
+  bool reboot_required = 4;
+  string installed_version = 5;
+  string message = 6;                // human-readable, bounded
+  string log_tail = 7;               // installer log tail, bounded to 16 KiB
+  int64 started_at = 8;
+  int64 finished_at = 9;
+  bool already_satisfied = 10;       // pre-check found the target state; nothing was run
+}
+
+message FetchContentRequest {
+  bytes sha256 = 1;
+  string job_id = 2;
+  uint64 offset = 3;                 // resume
+}
+
+message FetchContentResponse {
+  bytes data = 1;
+  uint64 total_size = 2;             // on the first chunk
 }

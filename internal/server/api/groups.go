@@ -96,7 +96,7 @@ func (s *server) listGroups(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]groupView, 0, len(rows))
 	for _, g := range rows {
-		items = append(items, viewGroup(dbq.Group(g)))
+		items = append(items, viewGroup(g))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -115,7 +115,7 @@ func (s *server) groupFromURL(w http.ResponseWriter, r *http.Request) (dbq.Group
 		internalError(w)
 		return dbq.Group{}, false
 	}
-	return dbq.Group(g), true
+	return g, true
 }
 
 func (s *server) getGroup(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func (s *server) createGroup(w http.ResponseWriter, r *http.Request) {
 	p, id, now := principalFrom(r), uuid.New(), s.now()
 	err := store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		if err := q.CreateGroup(r.Context(), dbq.CreateGroupParams{ID: id, OrgID: p.OrgID, Name: req.Name,
-			Description: req.Description, Filter: filter, CreatedBy: p.UserID}); err != nil {
+			Description: req.Description, Kind: "dynamic", Filter: filter, CreatedBy: p.UserID}); err != nil {
 			return err
 		}
 		_, err := audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(),
@@ -166,7 +166,7 @@ func (s *server) groupByID(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 		internalError(w)
 		return dbq.Group{}, false
 	}
-	return dbq.Group(g), true
+	return g, true
 }
 
 func (s *server) updateGroup(w http.ResponseWriter, r *http.Request) {
