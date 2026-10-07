@@ -520,10 +520,17 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 						return a.now().Sub(start), 0, err
 					}
 				case agentv1.InventorySection_INVENTORY_SECTION_SOFTWARE:
+					// The server refused the report it will never acknowledge: drop it, then send everything.
+					if a.Inv != nil {
+						a.Inv.ResetPending()
+					}
 					if err := runInv(inventory.SyncOptions{FullSoftware: true}); err != nil {
 						return a.now().Sub(start), 0, err
 					}
 				case agentv1.InventorySection_INVENTORY_SECTION_USERS:
+					if a.Inv != nil {
+						a.Inv.ResetPending()
+					}
 					if err := runInv(inventory.SyncOptions{FullUsers: true}); err != nil {
 						return a.now().Sub(start), 0, err
 					}

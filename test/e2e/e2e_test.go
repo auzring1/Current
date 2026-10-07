@@ -267,7 +267,7 @@ type testAgent struct {
 	st     *store.Store
 }
 
-func (h *harness) startAgent(enrollment string, hw *fakeHW, now func() time.Time) *testAgent {
+func (h *harness) startAgent(enrollment string, hw *fakeHW, now func() time.Time, opts ...func(*core.Agent, *store.Store)) *testAgent {
 	h.t.Helper()
 	dir := h.t.TempDir()
 	cfg, err := config.FromBundle(enrollment, h.app.GatewayAddr())
@@ -289,6 +289,9 @@ func (h *harness) startAgent(enrollment string, hw *fakeHW, now func() time.Time
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dir, Store: st, Keys: keystore.Default(dir), HW: hw,
 		Log: log, Version: "test", KeyPrefix: uniquePrefix(h.t), BackoffBase: 50 * time.Millisecond, BackoffMax: 500 * time.Millisecond,
 		PendingPoll: 300 * time.Millisecond, Now: now}
+	for _, o := range opts {
+		o(a, st)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ta := &testAgent{dir: dir, agent: a, cancel: cancel, done: make(chan struct{}), st: st}
 	go func() { _ = a.Run(ctx); close(ta.done) }()
@@ -566,7 +569,7 @@ func TestCertificateRenewal(t *testing.T) {
 }
 
 // restartAgent starts a new agent process on an existing data directory.
-func (h *harness) restartAgent(old *testAgent) *testAgent {
+func (h *harness) restartAgent(old *testAgent, opts ...func(*core.Agent, *store.Store)) *testAgent {
 	h.t.Helper()
 	cfg, err := config.Load(filepath.Join(old.dir, "config.json"))
 	if err != nil {
@@ -579,6 +582,9 @@ func (h *harness) restartAgent(old *testAgent) *testAgent {
 	a := &core.Agent{Cfg: cfg, CfgPath: filepath.Join(old.dir, "config.json"), DataDir: old.dir, Store: st,
 		Keys: keystore.Default(old.dir), HW: old.agent.HW, Log: old.agent.Log, Version: "test", KeyPrefix: old.agent.KeyPrefix,
 		BackoffBase: 50 * time.Millisecond, BackoffMax: 500 * time.Millisecond}
+	for _, o := range opts {
+		o(a, st)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ta := &testAgent{dir: old.dir, agent: a, cancel: cancel, done: make(chan struct{}), st: st}
 	go func() { _ = a.Run(ctx); close(ta.done) }()
