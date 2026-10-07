@@ -190,3 +190,55 @@ func TestUninstallBodyValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanupUninstallOnlyRemovesOlderCopies(t *testing.T) {
+	cleanup := func(b *agentv1.UninstallBody) { b.RemoveOlderThan = "26.04" }
+	run := func(id string, mut func(*agentv1.JobEnvelope, *agentv1.UninstallBody)) *rig {
+		r := newRig(t)
+		r.removesKeyOnRun("AcmeTool", 0)
+		return r
+	}
+
+	// An older copy is removed.
+	r := run("c1", nil)
+	r.addProgram("AcmeTool", map[string]string{"QuietUninstallString": `"C:\Program Files\Acme\u.exe" /S`, "DisplayVersion": "25.01"}, nil)
+	se, env := r.uninstallEnv("c1", func(e *agentv1.JobEnvelope, b *agentv1.UninstallBody) { cleanup(b) })
+	r.e.Accept(se, env)
+	r.tick()
+	if r.state("c1") != agentv1.JobState_JOB_STATE_SUCCEEDED || len(r.p.runs) != 1 {
+		t.Fatalf("older copy: %v runs=%d", r.state("c1"), len(r.p.runs))
+	}
+
+	// A copy at or above the target (the new installer replaced it, or inventory was stale) is left alone.
+	for _, v := range []string{"26.04", "26.10", ""} {
+		r := run("c2", nil)
+		r.addProgram("AcmeTool", map[string]string{"QuietUninstallString": `"C:\Program Files\Acme\u.exe" /S`, "DisplayVersion": v}, nil)
+		se, env := r.uninstallEnv("c2", func(e *agentv1.JobEnvelope, b *agentv1.UninstallBody) { cleanup(b) })
+		r.e.Accept(se, env)
+		r.tick()
+		if r.state("c2") != agentv1.JobState_JOB_STATE_SUCCEEDED || len(r.p.runs) != 0 {
+			t.Fatalf("version %q must be left alone: %v runs=%d", v, r.state("c2"), len(r.p.runs))
+		}
+	}
+
+	// A copy that is already gone is success, even for an MSI row.
+	r = run("c3", nil)
+	se, env = r.uninstallEnv("c3", func(e *agentv1.JobEnvelope, b *agentv1.UninstallBody) {
+		cleanup(b)
+		b.ItemSource, b.ItemKey = "msi", code1
+	})
+	r.e.Accept(se, env)
+	r.tick()
+	if r.state("c3") != agentv1.JobState_JOB_STATE_SUCCEEDED || len(r.p.runs) != 0 {
+		t.Fatalf("gone: %v runs=%d", r.state("c3"), len(r.p.runs))
+	}
+
+	// A malformed target is rejected before anything runs.
+	r = run("c4", nil)
+	se, env = r.uninstallEnv("c4", func(e *agentv1.JobEnvelope, b *agentv1.UninstallBody) { b.RemoveOlderThan = "not a version" })
+	r.e.Accept(se, env)
+	r.tick()
+	if r.state("c4") != agentv1.JobState_JOB_STATE_REJECTED {
+		t.Fatalf("bad remove_older_than: %v", r.state("c4"))
+	}
+}

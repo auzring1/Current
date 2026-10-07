@@ -145,7 +145,7 @@ func (s *Service) afterTerminal(ctx context.Context, j dbq.Job, status string) {
 	if err == nil {
 		now := s.now()
 		for _, d := range deps {
-			if status == "succeeded" || status == "succeeded_reboot" {
+			if status == "succeeded" || status == "succeeded_reboot" || (d.DependsWhen == "finished" && status != "cancelled") {
 				s.signAndOffer(ctx, d)
 				continue
 			}

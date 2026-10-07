@@ -51,8 +51,9 @@ WHERE st.org_id = @org_id::uuid AND si.device_id = ANY(@device_ids::uuid[]) AND 
 SELECT device_id, sid, username FROM device_users WHERE device_id = ANY($1::uuid[]) AND profile_path <> '' ORDER BY device_id, sid;
 
 -- name: InsertJob :exec
-INSERT INTO jobs (id, org_id, deployment_id, device_id, user_sid, type, title, body, depends_on, not_before, expires_at, attempt)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO jobs (id, org_id, deployment_id, device_id, user_sid, type, title, body, depends_on, depends_when, not_before, expires_at, attempt)
+VALUES (@id, @org_id, @deployment_id, @device_id, @user_sid, @type, @title, @body, @depends_on,
+        COALESCE(NULLIF(@depends_when::text, ''), 'success'), @not_before, @expires_at, @attempt);
 
 -- name: GetJob :one
 SELECT * FROM jobs WHERE id = $1 AND org_id = $2;
@@ -79,7 +80,9 @@ ORDER BY j.created_at DESC, j.id DESC LIMIT $3;
 -- Jobs the device should hold: not yet acknowledged, still valid, dependencies satisfied.
 SELECT j.* FROM jobs j
 WHERE j.device_id = $1 AND j.status IN ('queued', 'sent') AND j.expires_at > now()
-  AND (j.depends_on IS NULL OR EXISTS (SELECT 1 FROM jobs p WHERE p.id = j.depends_on AND p.status IN ('succeeded', 'succeeded_reboot')))
+  AND (j.depends_on IS NULL OR EXISTS (SELECT 1 FROM jobs p WHERE p.id = j.depends_on AND (
+        p.status IN ('succeeded', 'succeeded_reboot')
+        OR (j.depends_when = 'finished' AND p.status IN ('failed', 'expired', 'rejected')))))
 ORDER BY j.not_before, j.created_at, j.id;
 
 -- name: MarkJobSent :exec

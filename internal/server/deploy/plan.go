@@ -350,6 +350,12 @@ func (p *planner) skip(host, reason string) {
 }
 
 func (p *planner) addJob(device uuid.UUID, sid string, typ agentv1.JobType, title string, body proto.Message, depends *uuid.UUID) (uuid.UUID, error) {
+	return p.addJobWhen(device, sid, typ, title, body, depends, "")
+}
+
+// addJobWhen is addJob with an explicit dependency mode: "" or "success" waits for the parent to
+// succeed, "finished" runs once the parent has ended in any way.
+func (p *planner) addJobWhen(device uuid.UUID, sid string, typ agentv1.JobType, title string, body proto.Message, depends *uuid.UUID, when string) (uuid.UUID, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return uuid.Nil, err
@@ -371,7 +377,7 @@ func (p *planner) addJob(device uuid.UUID, sid string, typ agentv1.JobType, titl
 	jt := map[agentv1.JobType]string{agentv1.JobType_JOB_TYPE_SOFTWARE_INSTALL: "software_install",
 		agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE: "software_update", agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL: "software_uninstall"}[typ]
 	p.jobs = append(p.jobs, dbq.InsertJobParams{ID: id, OrgID: p.org, DeploymentID: &p.depID, DeviceID: device, UserSid: sid, Type: jt, Title: title,
-		Body: raw, DependsOn: depends, NotBefore: p.starts, ExpiresAt: p.expires, Attempt: 1})
+		Body: raw, DependsOn: depends, DependsWhen: when, NotBefore: p.starts, ExpiresAt: p.expires, Attempt: 1})
 	p.plan.Jobs++
 	if sid != "" {
 		p.plan.UserJobs++
@@ -525,11 +531,53 @@ func (p *planner) planInstall(d dbq.ListActiveDevicesByIDsRow, rows []dbq.ListPa
 	if update {
 		typ, verb = agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, "Update"
 	}
-	machineJob, err := p.addJob(d.ID, "", typ, p.title(verb, ""), body, nil)
+	// An update removes older copies that the new installer will not replace by itself (for example
+	// a 25.01 EXE install when the update is an MSI): they are uninstalled first, one after another,
+	// and the install runs after them whether or not each removal succeeded.
+	var after *uuid.UUID
+	if update {
+		var err error
+		if after, err = p.planCleanup(d, machineRows, body); err != nil {
+			return err
+		}
+	}
+	machineJob, err := p.addJobWhen(d.ID, "", typ, p.title(verb, ""), body, after, "finished")
 	if err != nil {
 		return err
 	}
 	return p.planUserExtras(d, userRows, &machineJob)
+}
+
+// planCleanup queues "remove the old copy" jobs for machine-wide rows that are older than the target
+// and that the new installer will not upgrade in place. It returns the last job of the chain (nil if
+// there is nothing to remove). Rows the new installer registers under the same key are left to it.
+func (p *planner) planCleanup(d dbq.ListActiveDevicesByIDsRow, rows []dbq.ListPackageInstallsRow, newBody *agentv1.InstallBody) (*uuid.UUID, error) {
+	var last *uuid.UUID
+	for _, r := range rows {
+		if !olderThanTarget(r, p.targetKey) || replacedInPlace(r.ItemKey, newBody) {
+			continue
+		}
+		ub := uninstallBody(p.pkg, r, "machine")
+		ub.RemoveOlderThan = p.version.Version
+		id, err := p.addJobWhen(d.ID, "", agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL, "Remove old "+p.pkg.Name+" "+r.Version, ub, last, "finished")
+		if err != nil {
+			return nil, err
+		}
+		last = &id
+	}
+	return last, nil
+}
+
+// replacedInPlace reports whether the new installer registers under the given Uninstall key (its
+// detection rules name that key), meaning it upgrades that copy itself.
+func replacedInPlace(itemKey string, b *agentv1.InstallBody) bool {
+	for _, r := range b.Detection {
+		if (r.Kind == agentv1.DetectionKind_DETECTION_KIND_MSI_PRODUCT || r.Kind == agentv1.DetectionKind_DETECTION_KIND_REGISTRY) &&
+			strings.EqualFold(r.Key, itemKey) {
+			return true
+		}
+	}
+	return false
 }
 
 // planUserExtras applies the per-user app policy to per-user copies found on a

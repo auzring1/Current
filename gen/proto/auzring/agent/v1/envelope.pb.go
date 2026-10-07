@@ -1387,8 +1387,12 @@ type UninstallBody struct {
 	TimeoutS      uint32                 `protobuf:"varint,9,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
 	MaxRetries    uint32                 `protobuf:"varint,10,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	RetryBackoffS uint32                 `protobuf:"varint,11,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// remove_older_than makes this a cleanup of an outdated copy (set by "update" deployments):
+	// the agent removes the row only if its DisplayVersion is older than this version, and
+	// treats a row that is already gone as success. Empty = unconditional uninstall.
+	RemoveOlderThan string `protobuf:"bytes,12,opt,name=remove_older_than,json=removeOlderThan,proto3" json:"remove_older_than,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *UninstallBody) Reset() {
@@ -1496,6 +1500,13 @@ func (x *UninstallBody) GetRetryBackoffS() uint32 {
 		return x.RetryBackoffS
 	}
 	return 0
+}
+
+func (x *UninstallBody) GetRemoveOlderThan() string {
+	if x != nil {
+		return x.RemoveOlderThan
+	}
+	return ""
 }
 
 type CancelBody struct {
@@ -1676,7 +1687,7 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	" \x01(\rR\rretryBackoffS\x125\n" +
 	"\x06reboot\x18\v \x01(\x0e2\x1d.auzring.agent.v1.RebootAllowR\x06reboot\x12'\n" +
 	"\x0fallow_downgrade\x18\f \x01(\bR\x0eallowDowngrade\x12\x16\n" +
-	"\x06update\x18\r \x01(\bR\x06update\"\x97\x03\n" +
+	"\x06update\x18\r \x01(\bR\x06update\"\xc3\x03\n" +
 	"\rUninstallBody\x12\x1d\n" +
 	"\n" +
 	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
@@ -1693,7 +1704,8 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\vmax_retries\x18\n" +
 	" \x01(\rR\n" +
 	"maxRetries\x12&\n" +
-	"\x0fretry_backoff_s\x18\v \x01(\rR\rretryBackoffS\"#\n" +
+	"\x0fretry_backoff_s\x18\v \x01(\rR\rretryBackoffS\x12*\n" +
+	"\x11remove_older_than\x18\f \x01(\tR\x0fremoveOlderThan\"#\n" +
 	"\n" +
 	"CancelBody\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"+\n" +
