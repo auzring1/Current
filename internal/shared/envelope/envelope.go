@@ -135,7 +135,9 @@ func (v *Verifier) Open(se *agentv1.SignedEnvelope) (*agentv1.JobEnvelope, error
 			return nil, err
 		}
 		if seen {
-			return nil, ErrReplay
+			// The envelope is fully verified at this point; callers that keep their
+			// own job records can tell a server re-offer from a replay.
+			return env, ErrReplay
 		}
 	}
 	return env, nil
