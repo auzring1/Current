@@ -185,3 +185,43 @@ func TestExpandEnv(t *testing.T) {
 		}
 	}
 }
+
+// Anything ValidateArg accepts must be a single token with no shell or
+// line-control characters, whatever the input.
+func FuzzValidateArg(f *testing.F) {
+	for _, s := range []string{"/S", "/D=C:\\x", "INSTALLDIR=C:\\Program Files\\a", "a&b", "x\r\ny", "`calc`", "$(id)"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		if ValidateArg(s) != nil {
+			return
+		}
+		if strings.ContainsAny(s, "&|<>^%`$;\r\n\x00\"") {
+			t.Fatalf("accepted dangerous argument %q", s)
+		}
+	})
+}
+
+// A hostile archive must never be extracted outside dst or crash the extractor.
+func FuzzExtractZip(f *testing.F) {
+	f.Add([]byte("PK\x03\x04"))
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "in.zip")
+		if err := os.WriteFile(src, b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		dst := filepath.Join(dir, "out")
+		if err := os.Mkdir(dst, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		_ = ExtractZip(src, dst)
+		entries, _ := os.ReadDir(dir)
+		for _, e := range entries {
+			if e.Name() != "in.zip" && e.Name() != "out" {
+				t.Fatalf("extraction wrote outside the destination: %s", e.Name())
+			}
+		}
+	})
+}

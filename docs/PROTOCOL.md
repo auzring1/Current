@@ -2,6 +2,8 @@
 
 Status: **v1 implemented in Phase 1.** The normative source is `proto/auzring/agent/v1/*.proto` (`buf lint` runs in CI). This document explains intent, ordering and validation rules that protobuf can't express.
 
+**Phase 3 additions** (§5, §5.1–5.3, §8): job envelopes are issued (`SOFTWARE_INSTALL`, `SOFTWARE_UPDATE`, `SOFTWARE_UNINSTALL`, `INVENTORY_FULL`, `CANCEL`), the agent reports through `JobUpdate`, and uploaded installers are fetched with the `FetchContent` stream.
+
 **Phase 1 scope:**
 - Implemented: enrollment, approval polling, the `Connect` stream (Hello/HelloAck, Heartbeat, hardware inventory with Ack, SecurityEvent, GoAway), `RenewCertificate`, signing-certificate distribution, and agent-side envelope verification.
 - Not yet: the server sends no `JobOffer` messages until Phase 3; software inventory deltas and `InventoryChunk` arrive in Phase 2; content download arrives in Phase 3.
@@ -167,21 +169,53 @@ The agent verifies the signature over the raw bytes **before** parsing them. Tha
 
 **Revocation** statements are signed by the **root** (`"auzring/revoke/v1\x00" || key_id || revoked_at`). A stolen job-signing key can therefore never be used to sign itself back into validity.
 
-### 5.1 Install body (abridged)
+### 5.1 Install body (as built)
+
+The authoritative definition is `InstallBody` in `envelope.proto`. In short:
+
 ```
 InstallBody {
-  package_ref { catalog_package_id, identifier, version }
-  scope [MACHINE|USER]
-  installer { type, nested_type, nested_path, sha256, size, signer_pin?, sources[] (content-server and/or vendor URL),
-              args[] (pre-built, per-type token list), success_codes[], code_map{code→outcome} }
-  detection[] { kind, params }        // evaluated pre-check (skip if satisfied) and post-check
-  preconditions { min_free_mb, os_build_min, arch, on_ac_power, not_metered, no_active_user? }
+  package_id, name, version            // informational; shown in logs
+  scope [MACHINE|USER]                 // must agree with target_user_sid
+  installer { type, nested_type, nested_path, sha256 (required), size, file_name,
+              sources[] (server content and/or vendor URL), args[] (validated tokens only),
+              success_codes[], expected_codes[], signer_pin? { subject, thumbprint_sha256[] } }
+  detection[] { kind [MSI|REGISTRY|FILE|APPX], key, value_name, version, cmp [EQ|GE] }
+  preconditions { min_free_mb, os_build_min }
   timeout_s, max_retries, retry_backoff_s
-  reboot { allow [NEVER|IF_REQUIRED_OUTSIDE_ACTIVE_HOURS|DEADLINE], deadline_at, notify }
-  dependencies[] (InstallBody, ordered)
-  upgrade_behavior [INSTALL|UNINSTALL_PREVIOUS], allow_downgrade
+  reboot [NEVER]                       // reboot-required is reported, never performed
+  allow_downgrade, update              // update = SOFTWARE_UPDATE of an existing install
 }
 ```
+
+- The server builds `args` from the manifest or override switches after validating each token (`internal/shared/installer`). The agent validates them again; an argument containing shell metacharacters, a path traversal or a control character rejects the job.
+- A detection rule is evaluated before the run (already satisfied: success, nothing executed) and after it (a success exit code with a failed detection is `failed_detection`).
+- File detection paths may contain only allow-listed environment variables (`%ProgramFiles%`, `%ProgramFiles(x86)%`, `%ProgramW6432%`, `%CommonProgramFiles%`, `%ProgramData%`, `%SystemRoot%`, `%WinDir%`, and for user scope `%LOCALAPPDATA%`, `%APPDATA%`, `%USERPROFILE%`) and never `..`.
+
+### 5.2 Uninstall body
+
+```
+UninstallBody {
+  package_id, name, scope, item_source [reg64|reg32|hku|hku32|msi], item_key,
+  product_code?, method [AUTO|PRODUCT_CODE], extra_args[] (validated), timeout_s, max_retries, retry_backoff_s
+}
+```
+
+It names an inventory row. **The server never sends a command line**: the agent re-reads that row's `Uninstall` registry data itself and derives the command (design §7.5).
+
+### 5.3 Job reporting
+
+```
+JobUpdate { job_id, attempt, state (JobState), reason, result? (JobResult) }
+JobResult { outcome [SUCCESS|REBOOT_REQUIRED|RETRYABLE|FAILED], exit_code, detection_passed,
+            installed_version, message, log_tail (≤ 16 KiB), started_at, finished_at, already_satisfied }
+```
+
+- `JobUpdate` travels through the agent's durable outbox with the same `seq`/`Ack{seq}` mechanism as inventory, so a result survives a dropped stream or a restart and is delivered at least once. The server applies updates idempotently and ignores updates for a job that is already terminal.
+- The agent states are `ACCEPTED, WAITING, RUNNING, SUCCEEDED, SUCCEEDED_REBOOT, FAILED, EXPIRED, CANCELLED, REJECTED`; the server stores them as `accepted/waiting/running/succeeded/succeeded_reboot/failed/expired/cancelled/rejected` (plus `queued` and `sent` before the agent has acknowledged), with `status_reason` carrying the cause, for example `waiting_user_logon`, `retry_backoff`, `failed_detection`.
+- **Offer, re-offer and ack.** `JobOffer{signed}` is sent when a device connects (for every job that is `queued` or `sent`, not expired and with its dependency met) and at creation time to online devices. Until the server sees an update for the job it is offered again with a **fresh nonce** on the next connect. The agent recognizes a job ID it already holds and acknowledges instead of treating it as a replay (a genuinely replayed envelope for a job it does not hold is still rejected).
+- **Cancel.** Cancelling a job that the agent may already hold sets `cancel_pending` and issues a signed `CancelBody` job for it; the agent stops the process tree if the job is running and reports `CANCELLED`.
+- **Server-side limits.** Updates from a device are accepted only for that device's own jobs (`WHERE device_id = $cert_device`); unknown job IDs are ignored; result text is length-capped and stored as data, never interpreted.
 
 ## 6. Inventory deltas
 
@@ -222,19 +256,17 @@ Sections: `HARDWARE`, `USERS`, `SOFTWARE` (and `WU` in Phase 4). Each section ha
   - Renewals are rate-limited to 5 per device per hour.
 
 ## 8. Content download
-- `GET /v1/content/{sha256}` on the gateway listener requires mTLS and supports `Range`.
-- **Authorization:** content is served only if the requesting device has a non-expired job whose envelope references that hash. Devices can't enumerate or download other content.
-- Vendor URLs are fetched directly by the agent over HTTPS with the system trust store. The integrity guarantee is always the SHA-256 in the signed envelope, never the transport.
+- **Transport (D42):** the `FetchContent(FetchContentRequest{sha256, job_id, offset}) → stream FetchContentResponse{data, total_size}` RPC on the same mTLS channel. There is no separate HTTP endpoint. Chunks are 256 KiB; `offset` resumes an interrupted download.
+- **Authorization:** content is served only if the calling device has a live (non-terminal, non-expired) job `job_id` whose envelope references exactly that SHA-256, and the blob exists for the device's organization. Devices cannot enumerate or download anything else. At most a few concurrent downloads per device are allowed (`fetchLimiter`).
+- **Who serves what:** only **uploaded (custom)** installers come from the server. Winget installers are fetched by the agent straight from the vendor URL over HTTPS with the system trust store.
+- The integrity guarantee is always the SHA-256 in the signed envelope, never the transport: the agent hashes while streaming, then re-opens the staged file locked and hashes it again before running it.
 
 ## 9. Service ↔ helper IPC (local only)
-- Transport: an anonymous pipe pair created by the service. Only the helper's end is inherited (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`). There's no named pipe and no listening endpoint.
-- Framing: `uint32 length (≤ 1 MiB) || protobuf`.
-- Message flow:
-  1. The service sends `HelperTask{envelope (SignedEnvelope), staged_path, sha256, deadline}`.
-  2. The helper sends zero or more `HelperProgress` messages.
-  3. The helper sends exactly one `HelperResult`.
-- The helper re-verifies the envelope (§5 steps 1 to 6 and 8, plus `target_user_sid == own token SID`).
-- The service validates `HelperResult` against the schema and size limits, and treats every field as untrusted.
+- **Transport (as built):** two anonymous pipes created by the service, one for the task and one for the result. Only the helper's two ends are inherited (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and their numeric handle values are passed on the helper's command line (`auzring-agent.exe helper <taskHandle> <resultHandle>`). There is no named pipe and no listening endpoint. The helper process is created suspended in a kill-on-close Job Object with the user's primary token (`WTSQueryUserToken`, never the linked elevated token).
+- **Framing:** one JSON `HelperTask` (≤ 1 MiB) in, one JSON `HelperResult` (≤ 64 KiB) out. The helper takes exactly one task and exits.
+- **`HelperTask`:** the `SignedEnvelope` bytes, the pinned root and signing certificates (DER), device and org IDs, the server-corrected time, the target SID, the staging directory, the staged file (install jobs), and the already-built command (`exe`, `args`, working directory, log path, timeout).
+- **The helper re-verifies** the envelope signature and chain, device and org, expiry (§5 steps 1 to 5), that `target_user_sid` equals the SID of its own token, that every path it is given lies under its staging directory (`%ProgramData%\AuzringStage\<SID>`), and the SHA-256 of the staged file, before it starts the command in its own Job Object.
+- **`HelperResult`:** `exit_code`, `timed_out`, `log_tail`, `error`. The service treats every field as untrusted data and performs post-detection itself.
 
 ## 10. Versioning
 - Package `auzring.agent.v1`. Changes within v1 only add fields or messages. `Hello.capabilities` advertises optional features, such as `wu`, `userctx` and `appx`.

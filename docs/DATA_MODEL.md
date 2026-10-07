@@ -1,6 +1,6 @@
 # Data model (PostgreSQL)
 
-Status: Phase 1 tables are implemented in `db/migrations/00001_foundations.sql`: tenancy, identity, sessions, PKI, enrollment, devices, device certs and audit. Later sections are design. Column lists are abridged.
+Status: Phase 1 tables are implemented in `db/migrations/00001_foundations.sql` (Phase 2 in `00002_inventory.sql`, Phase 3 in `00003_deployments.sql`): tenancy, identity, sessions, PKI, enrollment, devices, device certs and audit. Later sections are design. Column lists are abridged.
 
 Phase 1 differences from the design below:
 - `pki_material` stores the **root key sealed with the owner passphrase** (`key_protection='passphrase'`; argon2id + AES-GCM), so the server can unlock it only when the owner types the passphrase. The issuing, job-signing and gateway keys are sealed with the KEK.
@@ -92,6 +92,14 @@ Phase 2 implements **dynamic groups only**; membership is computed on demand (no
 - Limits: depth 6, 50 nodes, 100 values in an `in` list, 200 bytes per value, 32 KiB per filter. Evaluation runs read-only with a 10 s statement timeout.
 
 ## Catalog
+**Phase 3 as built** (`00003_deployments.sql`; the design below was trimmed to what exists):
+- `groups.kind` (`dynamic` | `static`), `groups.filter` nullable for static groups, and `group_members(group_id, device_id)`.
+- `catalog_packages(id, org_id, source[winget|custom], identifier, name, publisher, homepage, license, description, verified, self_updating, imported_at, imported_by)`, unique on `(org_id, source, identifier)`. There is no global (null-org) catalog; each organization imports its own.
+- `catalog_versions(id, package_id, version, version_key, manifest_sha256)` and `catalog_installers(id, version_id, architecture, scope, installer_type, nested_type, nested_path, url, sha256, size, file_name, signer_subject, product_code, upgrade_code, switches, success_codes, expected_codes, min_os, detection, uses_content_blob, unsupported)`. Detection rules live in `catalog_installers.detection` (jsonb), not a separate table; `unsupported` explains why an installer cannot be deployed.
+- `package_overrides(org_id, package_id, silent_args, extra_detection, pin, excluded, user_scope_policy, self_update_policy, updated_by, updated_at)`, `org_settings(org_id, user_scope_policy)`, `content_blobs(org_id, sha256, size, file_name, uploaded_by)` (bytes live on the content volume under `<AUZ_CONTENT_DIR>/<org>/<sha256>`).
+- The winget index table is not built (D41). The `verified` flag is set at import from the shipped `matrix_results.json` (empty for now) and the `self_updating` mark from the shipped overlay.
+
+Design (original sketch):
 ```
 catalog_packages(id, org_id null(global), source[winget|custom|overlay], package_identifier,
                  name, publisher, homepage, license, verified bool, verified_matrix_run_id,
@@ -109,6 +117,13 @@ winget_index(package_identifier, name, publisher, latest_version, tags, moniker,
 ```
 
 ## Deployments and jobs
+**Phase 3 as built:**
+- `deployments(id, org_id, name, action[install|update|uninstall], package_id, version_id, scope[machine|user], target_group_ids, target_device_ids, starts_at, expires_at, maint_window jsonb, unverified_confirmed, status[active|paused|completed|cancelled], created_by, created_at)`. The maintenance window is stored on the deployment and signed into each job; rings are Phase 4.
+- `jobs(id, org_id, deployment_id, device_id, user_sid, type[software_install|software_uninstall|software_update|inventory_full], title, body bytea (unsigned envelope), depends_on, not_before, expires_at, attempt, status, status_reason, envelope bytea (last signed offer), created_at, sent_at, acked_at, started_at, finished_at, exit_code, detection_passed, reboot_required, cancel_pending, result jsonb)`. Indexes `(device_id, status)`, `(deployment_id, status)`, `depends_on`. A retry creates a new row with `attempt + 1`.
+- `job_events(id, job_id, ts, kind, message, data)`: the per-job timeline shown in the console (not partitioned yet).
+- A deployment becomes `completed` when none of its jobs is `queued/sent/accepted/waiting/running`.
+
+Design (original sketch):
 ```
 maintenance_windows(id, org_id, name, days smallint[], start_local time, duration interval,
                     tz_mode[device|fixed], tz)

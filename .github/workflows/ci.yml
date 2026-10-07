@@ -69,6 +69,8 @@ jobs:
         run: make web
       - name: Go tests (unit, database, in-process end-to-end), race detector
         run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - name: Fuzz the input parsers (short)
+        run: make fuzz
       - name: Web unit tests
         run: cd web && npm test
       - name: Agent size budget

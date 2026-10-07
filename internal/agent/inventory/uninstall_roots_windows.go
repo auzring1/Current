@@ -94,7 +94,7 @@ func ProfileFor(sid string) (Profile, error) {
 	}
 	loaded := false
 	if h, err := registry.OpenKey(registry.USERS, sid, registry.READ); err == nil {
-		h.Close()
+		_ = h.Close()
 		loaded = true
 	}
 	return Profile{SID: sid, Path: filepath.Clean(path), Loaded: loaded}, nil

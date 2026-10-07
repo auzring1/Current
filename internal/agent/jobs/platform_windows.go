@@ -89,7 +89,7 @@ func (p *winPlatform) StagingDir(scope installer.Scope, sid, jobID string) (stri
 		}
 		userDir := filepath.Join(root, sid)
 		// SYSTEM and Administrators write; the target user may read and execute (D13).
-		if err := ensureDir(userDir, sddlMachine[:len(sddlMachine)]+"(A;OICI;0x1200a9;;;"+sid+")"); err != nil {
+		if err := ensureDir(userDir, sddlMachine+"(A;OICI;0x1200a9;;;"+sid+")"); err != nil {
 			return "", err
 		}
 		dir := filepath.Join(userDir, jobID)
@@ -256,14 +256,13 @@ func (p *winPlatform) TrustedExecutable(path string) error {
 // ---- Authenticode ----
 
 var (
-	wintrust           = windows.NewLazySystemDLL("wintrust.dll")
-	procProvData       = wintrust.NewProc("WTHelperProvDataFromStateData")
-	procProvSigner     = wintrust.NewProc("WTHelperGetProvSignerFromChain")
-	procProvCert       = wintrust.NewProc("WTHelperGetProvCertFromChain")
-	errNoSignature     = windows.Errno(0x800B0100) // TRUST_E_NOSIGNATURE
-	errProviderUnk     = windows.Errno(0x800B0001) // TRUST_E_PROVIDER_UNKNOWN
-	errSubjectForm     = windows.Errno(0x800B0003) // TRUST_E_SUBJECT_FORM_UNKNOWN
-	errSubjectNotTrust = windows.Errno(0x800B0004) // TRUST_E_SUBJECT_NOT_TRUSTED
+	wintrust       = windows.NewLazySystemDLL("wintrust.dll")
+	procProvData   = wintrust.NewProc("WTHelperProvDataFromStateData")
+	procProvSigner = wintrust.NewProc("WTHelperGetProvSignerFromChain")
+	procProvCert   = wintrust.NewProc("WTHelperGetProvCertFromChain")
+	errNoSignature = windows.Errno(0x800B0100) // TRUST_E_NOSIGNATURE
+	errProviderUnk = windows.Errno(0x800B0001) // TRUST_E_PROVIDER_UNKNOWN
+	errSubjectForm = windows.Errno(0x800B0003) // TRUST_E_SUBJECT_FORM_UNKNOWN
 )
 
 type cryptProviderCert struct {

@@ -251,7 +251,7 @@ func (s *Service) Retry(ctx context.Context, org, user, jobID uuid.UUID, ip stri
 		return uuid.Nil, err
 	}
 	s.publish(org, "job.updated", j.DeviceID, nid, derefID(j.DeploymentID))
-	go s.Dispatch(context.Background(), j.DeviceID)
+	go s.Dispatch(context.Background(), j.DeviceID) // #nosec G118 -- delivery to the device must outlive the HTTP request
 	return nid, nil
 }
 

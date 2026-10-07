@@ -59,7 +59,7 @@ func (e *Engine) uninstall(ctx context.Context, r *Record, env *agentv1.JobEnvel
 	log := filepath.Join(dir, "uninstall.log")
 	exe, args := plan.exe, plan.args
 	if plan.typ == installer.MSI {
-		exe, args = installer.MSIUninstallCommand(plan.args[0], log)
+		_, args = installer.MSIUninstallCommand(plan.args[0], log)
 		exe = e.P.MsiExec()
 	}
 	spec := RunSpec{Exe: exe, Args: args, Dir: dir, Timeout: timeout, LogPath: log}

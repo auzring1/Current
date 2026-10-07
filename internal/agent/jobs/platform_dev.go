@@ -82,7 +82,8 @@ func (p *devPlatform) Run(ctx context.Context, s RunSpec) (RunResult, error) {
 		ctx, cancel = context.WithTimeout(ctx, s.Timeout)
 		defer cancel()
 	}
-	if err := os.Chmod(s.Exe, 0o700); err != nil && !errors.Is(err, os.ErrNotExist) { // staged scripts must be executable
+	// #nosec G302 -- dev platform only: the staged test script must be executable
+	if err := os.Chmod(s.Exe, 0o700); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return RunResult{}, err
 	}
 	cmd := exec.CommandContext(ctx, s.Exe, s.Args...) // #nosec G204 -- dev platform runs the staged, hash-verified test installer

@@ -9,7 +9,8 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity).
 | Server host | Linux with Docker Engine 24+ and Compose v2. 2 vCPU, 4 GB RAM and 40 GB disk are enough for Phase 1 and ~2k devices. Sizing for 10k devices comes from the Phase 6 load test. |
 | DNS | One name for the server, e.g. `auzring.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
 | Inbound firewall to the server | 443/tcp (console). 80/tcp only for Let's Encrypt HTTP challenges. 8443/tcp from every managed endpoint (agent gateway). |
-| Outbound from endpoints | 8443/tcp to the server only. |
+| Outbound from endpoints | 8443/tcp to the server. To install **winget-catalog** packages, also HTTPS to the vendors' download hosts (the URLs inside each manifest). Custom (uploaded) packages need only the server. |
+| Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**. Set `AUZ_WINGET_SOURCE=off` to disable it (custom uploads still work). |
 | Endpoints | Windows 10 1809+, Windows 11, Server 2019+, x64. |
 
 **TLS-inspecting proxies must exempt the gateway host:port.** Agents use mutual TLS and pin the server's own CA, so interception breaks the connection by design. That is the protection working, not a bug.
@@ -79,6 +80,29 @@ To **remove** the agent, run `auzring-agent.exe uninstall`. It stops and deletes
 | Gateway certificate | Renewed automatically 30 days before expiry, and re-issued when `AUZ_GATEWAY_SANS` or the hostname changes. Agents trust the CA, not the leaf, so nothing is needed on endpoints. |
 | Device certificates | 90-day lifetime. Agents renew automatically when 1/3 of the lifetime remains, and up to 180 days after expiry (for laptops that were offline). |
 
+### 5a. Software deployment (Phase 3)
+
+| Task | How |
+|---|---|
+| Import a package | Console, **Catalog → Import from winget**, enter the exact winget identifier (for example `7zip.7zip`) and optionally a version. Only metadata is stored. The package page lists each installer and why any is "not deployable" (MSIX, an `exe` with no silent switch, unknown architecture). |
+| Upload your own installer | **Catalog → Upload custom installer.** Choose the file, set type, architecture, scope, silent arguments and how to detect success (an MSI product code, an Uninstall registry key name, or a file path such as `%ProgramFiles%\Acme\tool.exe`). The file is stored on the `content` volume and served to devices over the agent channel. Back that volume up with the database. |
+| Deploy | **Deployments → New deployment** (or **Deploy** on a package page). Choose action (install, update, uninstall), scope (machine-wide or per user), groups and/or devices, optional start time, expiry (default 72 h) and an optional maintenance window evaluated on each device in its local time. Offline devices receive the job when they reconnect and run it inside the window before it expires. |
+| Watch progress | The deployment page updates live. Open a job for its timeline and the installer log tail. **Retry** creates a new attempt for a failed, expired, rejected or cancelled job; **Cancel deployment** stops everything unfinished (a job already running on a device is cancelled when the device is reachable). |
+| Unverified packages | Winget packages that have not passed the VM matrix ask for a confirmation that is recorded in the audit log. Custom uploads do not. |
+| Self-updating apps (Chrome, Edge, Firefox, Zoom, …) | Marked `self-updating`. Update deployments are refused and per-user in-place updates skipped, so Auzring does not fight the vendor's updater. An administrator can set **Self-updating behaviour: enforce** on the package page. |
+| Per-user installs | **Settings** sets the organization default (report only, update in place, convert to machine, remove); a package can override it. The policy applies when a machine-wide deployment finds per-user copies. Per-user changes run in the user's own session, at their next logon if they are signed out ("waiting for user logon"). |
+| Pin, exclude, change silent switches | Package page → **Overrides** (administrators only, audited). Pins: empty (newest), `latest`, `= 24.08`, `< 25`. |
+| Limit what an endpoint will run | Install with `--allowed-jobs inventory,software_install,software_update,software_uninstall` (or fewer). The server cannot raise this later. |
+| Where do installers come from? | Winget packages: the device downloads straight from the vendor and checks the SHA-256 from the manifest. Custom packages: from your server. The hash is signed into every job either way. |
+
+Configuration (all optional, set in the server's environment):
+
+| Variable | Meaning |
+|---|---|
+| `AUZ_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/auzring/content`). Empty disables custom packages. |
+| `AUZ_WINGET_SOURCE` | `github` (default) or `off`. |
+| `AUZ_GITHUB_TOKEN` / `AUZ_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
+
 ## 6. Backup and restore (manual until Phase 5 adds `auzring-server backup`)
 ```bash
 # Back up: database + secrets. Store the two separately, both encrypted at rest.
@@ -110,4 +134,12 @@ docker compose -f deploy/docker-compose.yml exec -T postgres pg_restore -U auzri
 | A group preview says the filter could not be evaluated | The filter was too expensive for the 10 s limit. Narrow it (add a device condition before a broad software title match). |
 | Agent `rejected` | The device was revoked or rejected. Uninstall, then reinstall with a new token. |
 | Logs | Agent: `C:\ProgramData\Auzring\logs\agent.log` (JSON, rotated at 5 MB × 3). Server: `docker compose ... logs server` (JSON; never contains request bodies, cookies or tokens). |
+| A job stays `sent` and never starts | The device is offline, or its agent is older than Phase 3 (reinstall the agent). Jobs are re-offered every time the device connects until it acknowledges. |
+| A job shows `rejected` | The agent refused it: a verification failure (see the audit log for a `security event`) or the local `--allowed-jobs` ceiling does not include the job type. |
+| A job `failed` with "signature does not match the pinned signer" or "invalid digital signature" | The installer's Authenticode signature is absent, broken or from a different publisher than pinned. Do not deploy it until you have confirmed why; fix or remove the signer pin only if you trust the file. |
+| A job `failed` with "hash" in the reason | The vendor changed the file after the manifest was imported. Re-import the package version (or upload the file yourself). |
+| A job `failed_detection` | The installer exited successfully but the detection rule does not see the program. Add or correct a detection rule under the package's Overrides. |
+| A per-user job says "waiting for user logon" | The target user has no session. It runs at their next logon until the deployment expires. |
+| Upload fails with 413 or a connection reset | Uploads are limited to 2 GiB. Behind your own proxy, raise its body limit for `/api/v1/catalog/content`. |
+| "Custom packages are disabled" | `AUZ_CONTENT_DIR` is not set on the server. |
 | Console says "Cross-origin request rejected" | `AUZ_PUBLIC_URL` (derived from `AUZ_HOSTNAME` and `AUZ_PUBLIC_PORT_SUFFIX`) must match exactly the URL in the browser's address bar. |

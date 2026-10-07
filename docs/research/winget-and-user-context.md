@@ -51,3 +51,19 @@ Our design combines these. Per-app policy (Report only / Update in place / Conve
 3. `RegLoadAppKey` on a copied profile: check the hive hash before and after (U8).
 4. WinRT `FindPackagesForUser` from Go under SYSTEM (U9).
 5. winget `source2.msix`: verify its signature on Linux and document the index schema (W9).
+
+## 4. Phase 3 spike status (honest record)
+
+What the Phase 3 build could and could not establish. Nothing below was observed on a real multi-user Windows VM; the sandbox this phase was built in is Linux-only with no outbound access to the winget CDN.
+
+| Item | Result |
+|---|---|
+| **W7/W8 (manifests carry what an engine needs; switches are unreliable for plain `exe`)** | Confirmed against real manifests committed as fixtures (7-Zip: several installer entries across architectures and types, no `Scope`; VS Code: root-level fields inherited by every installer, user and machine variants). The importer therefore maps `wix`→MSI and `nullsoft`→NSIS, derives default silent switches per installer type, and marks an `exe` with no silent switch **unsupported** instead of guessing |
+| **W9 (winget CDN index format and signature)** | **Not done.** The CDN could not be reached or verified from the build environment, so the catalog imports manifests from the `winget-pkgs` repository on GitHub (D41). A probe from a network that can reach `cdn.winget.microsoft.com` is still needed before index sync can be built |
+| **W5 (`--scope user` under SYSTEM installs into the SYSTEM profile)** | Not tested; irrelevant to the design because Auzring never runs the winget CLI (D11) |
+| **U2 (WTSQueryUserToken returns a filtered token for an admin user)** | Implemented as designed (`helper_windows.go` takes the primary token and never the linked token); **not yet confirmed** on Windows 10/11 with an admin and a standard user |
+| **U8 (offline hive load leaves the hive untouched)** | Done in Phase 2 (D40) |
+| **U9 (WinRT `FindPackagesForUser` from Go)** | Not done; MSIX is marked unsupported in Phase 3 (D46) |
+| **Job Object tree tracking with installers that respawn** | Implemented (kill-on-close Job Object, whole-tree wait and timeout kill); `TestWinRunExitCodeAndTimeout` covers a hung child tree on the Windows CI runner. Real-world respawning EXE installers (Chrome, Zoom) still need the VM matrix |
+
+Next spikes, in order: run `test/vm-matrix/run.ps1` on a Windows 11 VM with one admin and one standard user (this settles U2 and the helper); probe the winget CDN index; try `PackageManager` for MSIX.
