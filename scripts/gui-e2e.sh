@@ -18,7 +18,7 @@ dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print
 
 AUZ_DEV_MODE=true AUZ_PUBLIC_URL=http://localhost:18080 AUZ_HTTP_ADDR=127.0.0.1:18080 \
 AUZ_GATEWAY_ADDR=127.0.0.1:18443 AUZ_GATEWAY_PUBLIC_ADDR=localhost:18443 AUZ_GATEWAY_SANS=127.0.0.1 \
-AUZ_DATABASE_URL="$dburl" AUZ_MASTER_KEY=$(openssl rand -hex 32) AUZ_HEARTBEAT_INTERVAL=5s \
+AUZ_CONTENT_DIR="$work/content" AUZ_DATABASE_URL="$dburl" AUZ_MASTER_KEY=$(openssl rand -hex 32) AUZ_HEARTBEAT_INTERVAL=5s \
   "$work/auzring-server" serve >"$work/server.log" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 50); do grep -q "setup token" "$work/server.log" 2>/dev/null && break; sleep 0.2; done

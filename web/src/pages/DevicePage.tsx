@@ -8,12 +8,15 @@ import {
   errorMessage,
   type Device,
   type DeviceSoftware,
+  type DeviceJob,
   type DeviceUser,
   type SoftwareChange,
 } from "../api/client";
 import { ago, bytes, dateTime, duration } from "../api/format";
 import { useSession } from "../api/session";
 import { OnlineDot, StatusBadge } from "../components/common";
+import { JobBadge } from "./DeploymentsPage";
+import { JobModal } from "./DeploymentPage";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -94,6 +97,7 @@ export function DevicePage() {
               <Tabs.Tab value="hardware">Hardware</Tabs.Tab>
               <Tabs.Tab value="software">Software{d.software_count ? ` (${d.software_count})` : ""}</Tabs.Tab>
               <Tabs.Tab value="users">Users</Tabs.Tab>
+              {can("deployments:read") && <Tabs.Tab value="jobs">Jobs</Tabs.Tab>}
               <Tabs.Tab value="certificates">Client certificates</Tabs.Tab>
             </Tabs.List>
 
@@ -192,6 +196,12 @@ export function DevicePage() {
             <Tabs.Panel value="users" pt="md">
               <UsersTab id={id} />
             </Tabs.Panel>
+
+            {can("deployments:read") && (
+              <Tabs.Panel value="jobs" pt="md">
+                <JobsTab id={id} />
+              </Tabs.Panel>
+            )}
 
             <Tabs.Panel value="certificates" pt="md">
               {!d.certificates?.length && <Text c="dimmed">No certificates.</Text>}
@@ -377,5 +387,59 @@ function UsersTab({ id }: { id: string }) {
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>
+  );
+}
+
+function JobsTab({ id }: { id: string }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const q = useQuery({ queryKey: ["device-jobs", id], queryFn: () => api<{ items: DeviceJob[] }>("GET", `/devices/${id}/jobs`), refetchInterval: 30_000 });
+  return (
+    <>
+      {q.isLoading && <Loader />}
+      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
+      {q.data && q.data.items.length === 0 && <Alert color="blue">No jobs have been sent to this device.</Alert>}
+      {!!q.data?.items.length && (
+        <Table verticalSpacing="xs" fz="sm" aria-label="Device jobs">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Job</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Created</Table.Th>
+              <Table.Th />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {q.data.items.map((j) => (
+              <Table.Tr key={j.id}>
+                <Table.Td>
+                  {j.deployment_id ? (
+                    <Anchor component={Link} to={`/deployments/${j.deployment_id}`} size="sm">
+                      {j.title}
+                    </Anchor>
+                  ) : (
+                    j.title
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <JobBadge status={j.status} />
+                  {j.status_reason && (
+                    <Text size="xs" c="dimmed">
+                      {j.status_reason}
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>{dateTime(j.created_at)}</Table.Td>
+                <Table.Td ta="right">
+                  <Button size="compact-xs" variant="default" onClick={() => setOpen(j.id)}>
+                    Details
+                  </Button>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
+      {open && <JobModal id={open} onClose={() => setOpen(null)} />}
+    </>
   );
 }

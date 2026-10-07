@@ -243,6 +243,9 @@ func (s *Service) Create(ctx context.Context, org uuid.UUID, r Request) (*Plan, 
 	if err != nil {
 		return nil, err
 	}
+	if pl.plan.Skipped == nil {
+		pl.plan.Skipped = []Skip{} // JSON [] rather than null
+	}
 	s.publish(org, "deployment.updated", uuid.Nil, uuid.Nil, depID)
 	// Hand jobs to connected devices without blocking the request.
 	seen := map[uuid.UUID]bool{}

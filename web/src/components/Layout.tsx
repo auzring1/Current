@@ -16,7 +16,10 @@ export function Layout() {
   const logout = async () => {
     await api("POST", "/auth/logout", {}).catch(() => undefined);
     setCsrf("");
-    qc.clear();
+    // Drop everything cached for the old user, but keep the session query itself so the mounted
+    // provider sees "signed out" at once (clear() would detach it and leave a stale session).
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "session" });
+    qc.setQueryData(["session"], null);
     nav("/login", { replace: true });
   };
 
@@ -24,8 +27,11 @@ export function Layout() {
     { to: "/", label: "Devices", perm: "devices:read" },
     { to: "/software", label: "Software", perm: "devices:read" },
     { to: "/groups", label: "Groups", perm: "groups:read" },
+    { to: "/catalog", label: "Catalog", perm: "catalog:read" },
+    { to: "/deployments", label: "Deployments", perm: "deployments:read" },
     { to: "/enrollment", label: "Enrollment", perm: "enrollment:read" },
     { to: "/audit", label: "Audit log", perm: "audit:read" },
+    { to: "/settings", label: "Settings", perm: "catalog:read" },
   ];
 
   return (
@@ -51,7 +57,7 @@ export function Layout() {
         {links
           .filter((l) => can(l.perm))
           .map((l) => (
-            <NavLink key={l.to} component={RouterLink} to={l.to} end label={l.label} />
+            <NavLink key={l.to} component={RouterLink} to={l.to} end={l.to === "/"} label={l.label} />
           ))}
       </AppShell.Navbar>
       <AppShell.Main>

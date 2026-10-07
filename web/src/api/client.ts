@@ -13,6 +13,22 @@ export type TitleInstall = components["schemas"]["TitleInstall"];
 export type Filter = components["schemas"]["Filter"];
 export type Group = components["schemas"]["Group"];
 export type GroupMembers = components["schemas"]["GroupMembers"];
+export type Pkg = components["schemas"]["Package"];
+export type PackageDetail = components["schemas"]["PackageDetail"];
+export type Installer = components["schemas"]["Installer"];
+export type PackageOverride = components["schemas"]["PackageOverride"];
+export type Detection = components["schemas"]["Detection"];
+export type ImportResult = components["schemas"]["ImportResult"];
+export type CustomPackage = components["schemas"]["CustomPackage"];
+export type OrgSettings = components["schemas"]["OrgSettings"];
+export type MaintenanceWindow = components["schemas"]["MaintenanceWindow"];
+export type DeploymentRequest = components["schemas"]["DeploymentRequest"];
+export type DeploymentPlan = components["schemas"]["DeploymentPlan"];
+export type DeploymentSummary = components["schemas"]["DeploymentSummary"];
+export type DeploymentDetail = components["schemas"]["DeploymentDetail"];
+export type DeploymentJob = components["schemas"]["DeploymentJob"];
+export type DeviceJob = components["schemas"]["DeviceJob"];
+export type JobDetail = components["schemas"]["JobDetail"];
 
 let csrfToken = "";
 
@@ -49,6 +65,16 @@ export async function api<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: st
     throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Request failed (HTTP ${res.status})`);
   }
   return data as T;
+}
+
+/** Uploads a file as a raw body (installer content). The server stores it by SHA-256. */
+export async function uploadContent(file: File): Promise<{ sha256: string; size: number; file_name: string }> {
+  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/octet-stream", "X-File-Name": file.name };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch("/api/v1/catalog/content", { method: "POST", headers, credentials: "same-origin", cache: "no-store", body: file });
+  const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string }; sha256?: string; size?: number; file_name?: string };
+  if (!res.ok) throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Upload failed (HTTP ${res.status})`);
+  return data as { sha256: string; size: number; file_name: string };
 }
 
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
