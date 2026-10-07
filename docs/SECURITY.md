@@ -189,6 +189,28 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 - Agent RSS is measured informationally on Windows CI. A hard 30 MB budget check and load testing arrive in [6].
 - The placeholder job-signing EKU OID uses the documentation PEN 32473 (D25).
 
+## 9a. Phase 2: implemented controls and evidence
+
+| Control | Evidence |
+|---|---|
+| Agent-supplied inventory is untrusted: strict per-field length bounds, SID/date/enum validation, NUL stripping, 25k item / 10k change / 500 user caps, sequential chunk checks, per-device rate limit; violations end the stream and are audited as `gateway.protocol_violation` | `internal/server/inventory/ingest_test.go` (`TestIngestRejectsInvalidData`), `internal/server/gateway/inventory.go` |
+| Revision-checked deltas: a delta with the wrong `base_rev` changes nothing; a replay is a mismatch | `TestDeltaRevMismatchChangesNothing`, `test/e2e` (`TestInventoryEndToEnd`, `TestInventoryHelloResync`) |
+| Group filters cannot inject SQL: allow-listed identifiers, all values bound, depth/node/length limits, read-only transaction with a statement timeout; fuzzed | `internal/server/groups/filter_test.go` (golden SQL, hostile payloads, `FuzzCompile`) |
+| Formula-injection-safe CSV, audited exports, new `inventory:export` permission (not granted to the read-only role) | `test/e2e` (`TestInventoryEndToEnd`), `internal/server/auth` (`TestRBAC`) |
+| Offline user hives are opened with `RegLoadAppKey` and a read-only mask; the hive file is verified unmodified | `internal/agent/inventory/windows_test.go` (Windows CI) |
+| Inventory text is rendered by React (no raw HTML); the console CSP is unchanged and the browser test still sees zero violations | `web/e2e/console.spec.ts` |
+| Tenant isolation: every inventory/group query is scoped by `org_id` (titles are per organization) | `internal/server/groups` DB test (foreign organization's device and title are never matched) |
+
+**Known gaps and residual risks added in Phase 2:**
+- The Windows collectors (registry, per-user hives, MSI, AppX, BitLocker/WMI, watchers) are verified by the Windows CI job on a runner, not yet on the full Windows 10/11/Server matrix; per-OS differences (especially AppX registry layout and WMI BitLocker availability on Home/Server editions) may surface there [3, VM matrix].
+- AppX data comes from an undocumented registry layout (D33); it can silently under-report on a future Windows build.
+- A compromised agent can lie about its software (it is the source of truth for itself); the inventory is therefore evidence, not an authorization input. Later phases must not gate security decisions on it without server-side corroboration.
+- Group evaluation runs on demand with a 10 s timeout; a pathological filter on a 10k-device fleet may time out (returns 503) until membership caching is added if load tests show a need [6].
+- `software_history` grows without retention or partitioning (D37) [6].
+- CSV export reads up to 2M rows in one streaming request; it is audited and permission-gated, but there is no per-user export rate limit beyond the API limiter.
+- Title normalization is heuristic: unusual names may split into several titles or merge two products; the raw name per install is always kept.
+- The device Software tab renders all rows of one device (typically hundreds to ~1.5k) without pagination.
+
 ## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.

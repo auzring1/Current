@@ -56,26 +56,40 @@ pki_material(id, kind[root|issuing|job_signing], cert_der, key_enc bytea null, n
 
 ## Inventory
 ```
-software_titles(id, org_id, normalized_name, normalized_publisher, catalog_package_id null,
-                self_updating bool, unique(org_id, normalized_name, normalized_publisher))
+software_titles(id, org_id, normalized_name, normalized_publisher, display_name, display_publisher,
+                unique(org_id, normalized_name, normalized_publisher))
 software_installs(device_id, source, scope[machine|user], user_sid ('' for machine), item_key,
-                  title_id, name, version, version_key bytea, publisher, install_date,
+                  title_id, name, version, version_key bytea null, publisher, install_date,
                   install_location, uninstall_string, quiet_uninstall_string, product_code,
                   system_component bool, first_seen_at, last_seen_at,
                   primary key(device_id, source, scope, user_sid, item_key))
-software_history(id bigint, device_id, title_id, scope, user_sid, change[added|removed|version],
-                 old_version, new_version, observed_at)       -- partitioned by month
+software_history(id bigint, device_id, title_id, name, scope, user_sid, change[added|removed|version],
+                 old_version, new_version, observed_at)
+device_users(device_id, sid, username, domain, profile_path, last_logon_at, loaded, is_admin)
+devices += software_rev, users_rev, software_updated_at, software_count, inventory_truncated,
+           chassis, manufacturer, model, ram_bytes, os_build_num   -- last five are generated columns
+                                                                       over the hardware JSON
 ```
-- `version_key` is a byte-comparable encoding of the version, produced by the shared Go comparer. That makes `version_key < $1` correct in SQL, for example for "Chrome < 130".
-- Indexes: `(title_id, version_key)` and `(device_id)`. A trigram index on `software_titles.normalized_name` powers search.
+- `version_key` is a byte-comparable encoding of the version (`internal/shared/vercmp`), so `version_key < $1` is correct in SQL, for example for "Chrome < 130". Unparseable versions have a NULL key and never match a version condition.
+- **Title normalization** (`internal/server/inventory/normalize.go`): lower case, trademark marks, the version, architecture tokens ("(x64)", "64-bit") and per-user qualifiers removed; publisher legal suffixes ("Inc.", "GmbH") dropped. "7-Zip 23.01 (x64 edition)" and "7-Zip 24.08" are one title. Display names keep the original capitalization.
+- Indexes: `(title_id, version_key)`, `(device_id)`, `software_titles (org_id, normalized_name text_pattern_ops)`. Search uses `strpos` (no LIKE escaping); a trigram index is deferred until 10k-device load tests (Phase 6).
+- `software_history` is a plain table in Phase 2. Monthly partitioning and retention arrive with the load tests (Phase 6).
 
 ## Groups
 ```
-groups(id, org_id, site_id null, name, kind[static|dynamic], filter jsonb, created_by)
-group_members(group_id, device_id)                  -- static groups only
-group_membership_cache(group_id, device_id, computed_at)  -- dynamic; refreshed on inventory change
+groups(id, org_id, name, description, filter jsonb, created_by, created_at, updated_at, unique(org_id, name))
 ```
-`filter` is a typed AST, e.g. `{"and":[{"f":"software.title","op":"eq","v":"Google Chrome"},{"f":"software.version","op":"lt","v":"130"},{"f":"device.chassis","op":"in","v":["laptop","notebook"]}]}`. Field names come from an allow-list. Values are validated per field type and always bound as parameters.
+Phase 2 implements **dynamic groups only**; membership is computed on demand (nothing is cached or stored). Static groups and per-site scoping arrive with the deployment targets in Phase 3. Only `active` devices are ever members.
+
+`filter` is a typed tree, parsed strictly and compiled to parameterized SQL by `internal/server/groups`:
+```
+{"op":"and","children":[
+  {"op":"device","field":"chassis","cmp":"in","value":["laptop","notebook","portable"]},
+  {"op":"software","title":"chrome","match":"contains","version":{"cmp":"lt","value":"130"}}]}
+```
+- Nodes: `and`/`or` (≥ 1 child), `not` (exactly 1), `device` (`field`, `cmp`, `value`), `software` (`title` + optional `match` exact/prefix/contains, `publisher`, `scope`, `version{cmp,value}`). All conditions of a `software` node must hold on the **same install row**. "Not installed" is `not` around `software`.
+- Device fields (allow-list, each with its own comparators and value type): `hostname`, `os_caption`, `arch`, `agent_version`, `manufacturer`, `model`, `chassis`, `os_build`, `ram_bytes`, `online`, `pending_reboot`, `site_id`, and `disk_bitlocker` (any disk in a BitLocker state).
+- Limits: depth 6, 50 nodes, 100 values in an `in` list, 200 bytes per value, 32 KiB per filter. Evaluation runs read-only with a 10 s statement timeout.
 
 ## Catalog
 ```

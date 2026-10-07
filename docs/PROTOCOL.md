@@ -185,12 +185,25 @@ InstallBody {
 
 ## 6. Inventory deltas
 
-- Sections: `HARDWARE`, `USERS`, `SOFTWARE`, `WU`. Each section has its own revision counter.
-- An item key is the stable tuple `(source, scope, user_sid, item_key)` for software, and an equivalent tuple for the other sections.
-- **The agent** stores the last section snapshot it *sent and had acked*, together with `rev`. A delta is `base_rev = acked rev`, `new_rev = base_rev + 1`.
-- **The server** applies a delta only if `base_rev == stored rev`. Otherwise it sends `ResyncRequest{section}`, and the agent streams a full `InventoryChunk` set, which the server replaces atomically when the final chunk arrives.
-- Full inventory is sent on enrollment, on `INVENTORY_FULL` jobs, and on resync.
-- Limits: 25k software rows per device and 1 KiB per string field. Rows over the limit are truncated with a flag, and the device is marked `inventory_truncated`.
+Sections: `HARDWARE`, `USERS`, `SOFTWARE` (and `WU` in Phase 4). Each section has its own revision counter, kept by the agent and by the server (`devices.hardware_rev`, `users_rev`, `software_rev`).
+
+**Item key.** A software item is identified by the tuple `(source, scope, user_sid, item_key)`: `source` is `reg64`, `reg32`, `hku`, `hku32`, `msi`, `appx` or `portable`; `scope` is `machine` or `user`; `user_sid` is empty for machine scope. `item_key` is the Uninstall subkey name, MSI ProductCode, AppX package full name or portable directory.
+
+**What the agent stores.** Only the *acknowledged snapshot*: a map of `item key bytes → sha256(item)` plus the acknowledged revision, in its bbolt state file. That is a few hundred KB even for thousands of items, and it never holds a second full copy of the data. The persisted state advances **only when the server's `Ack{seq}` arrives**.
+
+**Delta.** `SoftwareDelta{base_rev, upserts, removes}` travels in `InventoryReport{section=SOFTWARE, rev = base_rev + 1}`. The server applies it only if `devices.software_rev == base_rev`, in one transaction that also writes history, and then acknowledges. On any other value it applies nothing, sends `ResyncRequest{SOFTWARE}` and does not acknowledge; the agent drops the unacknowledged report and sends a full snapshot.
+
+**Full snapshot.** `SoftwareChunk{index, total, items}` messages (250 items each, in order, one revision) are staged per connection and applied atomically on the last chunk; items missing from the snapshot are removed. The server checks `index` is sequential, `total ≤ 400`, the revision is constant and the running total ≤ 25,000 items. A dropped stream discards a half-received snapshot.
+
+**When a full snapshot is sent:** first report, `ResyncRequest`, a Hello whose revisions differ from the server's (`HelloAck.resync_sections`: restored backup, wiped agent state, lost acknowledgement), or a delta of more than 5,000 changes.
+
+**Partial scans are never read as removals.** If one group of sources fails (for example an offline user hive that is locked), the agent keeps the previous items of that group in its snapshot instead of reporting them removed.
+
+**Triggers.** Registry change notifications on the Uninstall keys, AppX store, ProfileList and loaded user hives are debounced (30 s quiet period) and trigger a rescan at background priority; a full reconcile runs daily (±jitter) and on resync. The `USERS` section is a small full snapshot, re-sent when its fingerprint changes.
+
+**Limits (server side, SECURITY T-DEV-2/3):** 25,000 software rows and 500 users per device, 10,000 changes per delta, string fields 512 B–2 KiB, install dates `YYYY-MM-DD`, user SIDs well-formed, NUL bytes stripped, per-device inventory message rate limit (burst 450, 120/min). The agent caps at 25,000 items and sets `truncated`; the device is then flagged `inventory_truncated` and the console says so. Invalid data ends the stream with `InvalidArgument` and a `gateway.protocol_violation` audit entry.
+
+**History.** The first snapshot of a device is a baseline and creates no history. Later installs, removals and version changes are recorded in `software_history`.
 
 ## 7. Liveness and reconnect
 - Transport: gRPC keepalive every 90 s with a 20 s timeout. The server's enforcement policy allows a minimum of 60 s.

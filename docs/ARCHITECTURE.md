@@ -2,7 +2,7 @@
 
 Status: Phase 1 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
 
-## 0. Phase 1 implementation status
+## 0. Implementation status (Phases 1–2)
 
 | Area | State | Where |
 |---|---|---|
@@ -17,7 +17,11 @@ Status: Phase 1 implemented (see §0). Sections marked *(Phase N)* are built in 
 | Agent: service, install/uninstall, CNG/TPM key, enrollment, heartbeat, hardware inventory | ✅ | `cmd/auzring-agent`, `internal/agent/*` |
 | Web console: setup, login/MFA, devices (live), enrollment tokens, audit | ✅ | `web/` |
 | docker-compose (Caddy, server, Postgres), hardened | ✅ | `deploy/` |
-| Software inventory, jobs, WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 2–5 | — |
+| **Phase 2:** software inventory (registry 64/32, per-user, offline hives, MSI, AppX, portable), delta/resync protocol, change watchers | ✅ (Windows collectors verified by the Windows CI job) | `internal/agent/inventory` |
+| **Phase 2:** BitLocker status, device users/profiles | ✅ | `internal/agent/hardware/bitlocker_windows.go`, `internal/agent/inventory/profiles.go` |
+| **Phase 2:** server ingest, title normalization, version keys, history | ✅ | `internal/server/{inventory,gateway}`, `internal/shared/vercmp` |
+| **Phase 2:** fleet software search, device detail page, dynamic groups, CSV export | ✅ | `internal/server/{api,groups}`, `web/` |
+| Jobs, WUA, self-update, MSI, API tokens, WebAuthn | ⏳ Phases 3–5 | — |
 
 Implementation notes that refine the design below:
 - **REST layer (D6, revised):** handlers are hand-written with strict JSON decoding. `api/openapi.yaml` is the contract, and `TestRoutesMatchSpec` fails the build if routes and spec drift. TypeScript types are generated from the spec.
@@ -120,7 +124,16 @@ internal/agent/
 
 The service `ImagePath` is quoted, and the service DACL denies non-admins `SERVICE_CHANGE_CONFIG`, `SERVICE_STOP` and similar rights. The agent calls `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)` at start-up. Installers always run with the staging directory as their working directory. Because nobody but SYSTEM can write there, DLL planting next to the installer is not possible.
 
-## 4. Inventory *(Phase 1: hardware; Phase 2: software)*
+## 4. Inventory *(Phase 1: hardware; Phase 2: software, implemented)*
+
+**Phase 2 as built, where it differs from the design below:**
+- AppX is read from the registry (`...\Appx\AppxAllUserStore`, per-package and per-user subkeys), best effort and undocumented. `PackageManager.FindPackagesForUser` (WinRT) is deferred to Phase 3, which needs WinRT for MSIX installs anyway (D33).
+- Portable packages are the winget `Packages` directories under each profile (`AppData\Local\Microsoft\WinGet\Packages`) and under `%ProgramFiles%\WinGet\Packages`; a directory is dropped when the same package has an Add/Remove Programs entry.
+- MSI rows are emitted only for products with no Uninstall key (no double counting).
+- `self_updating` hints belong to the catalog (Phase 3), not the inventory.
+- The agent keeps a hash snapshot instead of a copy of the data (D31); the code is in `internal/agent/inventory` (`Scanner` over `Platform`/`RegNode` interfaces, so it is unit-tested on Linux with fakes; `*_windows.go` holds the Win32 code; `Manager` runs the protocol; `Watcher` waits on `RegNotifyChangeKeyValue` handles).
+- Scans run on a low-priority thread (`THREAD_MODE_BACKGROUND_BEGIN`) and a change that arrives while a report is still unacknowledged is marked dirty and rescanned right after the acknowledgement.
+
 
 **Sources:**
 

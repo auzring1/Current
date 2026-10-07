@@ -2,7 +2,7 @@
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 
-**Status: Phase 1 (foundations) complete.** The server, internal CA, enrollment, mTLS agent channel, the Windows agent with hardware inventory, and the web console with mandatory MFA all work. Software inventory, deployments, Windows Update and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
+**Status: Phase 2 (inventory) complete, awaiting review.** On top of Phase 1 (server, internal CA, enrollment, mTLS agent channel, MFA console) the agent now reports a full software inventory (machine and per-user, MSI, AppX, portable) with delta updates, BitLocker status and user profiles; the console has fleet-wide software search, device detail pages, dynamic groups and CSV export. Deployments, Windows Update and the rest arrive in later phases; see [docs/PLAN.md](docs/PLAN.md).
 
 ## Quick start (production-style, one host)
 ```bash
@@ -16,7 +16,7 @@ Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Window
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
-- Step-by-step demo on a test VM: [docs/demos/PHASE1-DEMO.md](docs/demos/PHASE1-DEMO.md)
+- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md)
 
 ## Development
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
