@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auzring Agent MSI: a THIN WRAPPER around `auzring-agent.exe install` / `uninstall`
+  (docs/DECISIONS.md O6, D67). WiX v7, "v4+ style" schema. Build: installer/windows/build.ps1.
+
+  What the MSI does
+    * installs the (already signed) agent exe into a SETUP directory, [ProgramFiles64Folder]AuzringSetup\
+      (deliberately NOT under ...\Auzring\Agent: `auzring-agent uninstall` deletes that tree, and an
+      exe that is running from inside it can only be removed at the next reboot);
+    * a deferred, SYSTEM-context custom action runs `auzring-agent.exe install` (with its if-not-installed flag),
+      which copies the binary to slot-a, creates the service and enrolls;
+    * on uninstall a deferred custom action runs `auzring-agent.exe uninstall` (service, data, files);
+      MSI then removes the staged exe. Major upgrades do NOT run it (see UPGRADINGPRODUCTCODE).
+
+  Hard rules (checked by installer/windows/package_test.go):
+    * no cmd.exe, no PowerShell, no script custom action: the agent exe is started directly by
+      WixSilentExec64, which neither logs the command line nor the child's output;
+    * TOKEN is a secret: it is in MsiHiddenProperties, together with every property that carries it
+      (the CustomActionData of InstallAgent), and it reaches the elevated action only as CustomActionData.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?ifndef Version?>
+  <?error Define Version (numeric a.b.c.d), e.g. wix build -d Version=1.2.3.0?>
+  <?endif?>
+  <?ifndef AgentExe?>
+  <?error Define AgentExe (path to the signed auzring-agent.exe), e.g. wix build -d AgentExe=auzring-agent.exe?>
+  <?endif?>
+
+  <Package Name="Auzring Agent"
+           Manufacturer="Auzring"
+           Version="$(Version)"
+           UpgradeCode="A4744534-8AD1-4F57-B3FC-159B732BAD2A"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Language="1033"
+           Compressed="yes">
+
+    <SummaryInformation Description="Auzring endpoint management agent (installs, enrolls and starts the AuzringAgent service)" />
+
+    <!-- An MSI upgrade of an already enrolled machine keeps the service, device key and data:
+         the old product's uninstall action is skipped (UPGRADINGPRODUCTCODE) and the new install
+         action runs `install` with its if-not-installed flag, which exits 0 when the machine is enrolled. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of the Auzring Agent MSI is already installed. To go back to an older version, uninstall first (this removes the device from this machine; it must then be enrolled again)."
+                  AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ===== Public properties: the whole interface of the MSI ===== -->
+    <Property Id="SERVER" Secure="yes" />
+    <Property Id="TOKEN" Secure="yes" Hidden="yes" />
+    <Property Id="ALLOWEDJOBS" Secure="yes" />
+
+    <!-- Properties that must never be written to a verbose log. TOKEN is the enrollment secret;
+         AgentArgsToken and InstallAgent carry it into the deferred action (CustomActionData);
+         Hidden="yes" puts them in MsiHiddenProperties. -->
+    <Property Id="AgentArgsToken" Hidden="yes" />
+    <Property Id="InstallAgent" Hidden="yes" />
+
+    <!-- A literal double quote, for the validation conditions (a quote cannot be written inside an MSI string). -->
+    <Property Id="DQ" Value="&quot;" />
+
+    <!-- Is the service already registered? Evaluated before any change, so the rollback action
+         can tell a fresh install (clean up on failure) from an enrolled machine (never touch). -->
+    <Property Id="AGENTSERVICEPATH" Secure="yes">
+      <RegistrySearch Id="AgentServiceImagePath" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\AuzringAgent" Name="ImagePath" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- Add/Remove Programs -->
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPCOMMENTS" Value="Auzring endpoint management agent" />
+
+    <!-- ===== Platform conditions ===== -->
+    <Launch Condition="Installed OR VersionNT64" Message="The Auzring Agent supports 64-bit (x64) Windows only." />
+    <Launch Condition="Installed OR (VersionNT &gt;= 1000 AND WindowsBuild &gt;= 17763)" Message="The Auzring Agent requires Windows 10 version 1809 (build 17763) or later, or Windows Server 2019 or later." />
+    <Launch Condition="Installed OR Privileged" Message="The Auzring Agent must be installed by an administrator (run msiexec from an elevated prompt, or deploy it as SYSTEM)." />
+
+    <!-- ===== Required properties on a first install (not on uninstall, and not when the machine is already enrolled) ===== -->
+    <Launch Condition="Installed OR AGENTSERVICEPATH OR SERVER" Message="SERVER is required for the first installation, for example SERVER=auzring.example.com:8443." />
+    <Launch Condition="Installed OR AGENTSERVICEPATH OR TOKEN" Message="TOKEN is required for the first installation: the enrollment string from the console (it starts with AURZ1.)." />
+
+    <!-- Character checks: SERVER, TOKEN and ALLOWEDJOBS must not contain quotes, spaces or shell metacharacters. -->
+    <?include Validation.wxi?>
+
+    <!-- Shape checks (the character checks are in Validation.wxi). The agent validates everything again. -->
+    <Launch Condition="NOT SERVER OR SERVER &gt;&lt; &quot;:&quot;" Message="SERVER must be host:port, for example auzring.example.com:8443." />
+    <Launch Condition="NOT TOKEN OR TOKEN &lt;&lt; &quot;AURZ1.&quot;" Message="TOKEN is not an Auzring enrollment string (it must start with AURZ1.). Copy the whole string from the console." />
+
+    <!-- ===== Files ===== -->
+    <?ifdef LinuxLint?>
+    <!-- Source lint on Linux only (scripts/lint-wxs.sh): the WiX compiler on Linux rejects every relative
+         Directory name (WIX0389) and cannot bind an MSI (no msi.dll). Never used for a real build. -->
+    <Property Id="SetupDir" Value="C:\AuzringSetup\" />
+    <Component Id="AgentSetupExe" Guid="*" Directory="ProgramFiles64Folder" Bitness="always64">
+      <File Id="AgentExe" Name="auzring-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
+    </Component>
+    <?else?>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="SetupDir" Name="AuzringSetup">
+        <Component Id="AgentSetupExe" Guid="*" Bitness="always64">
+          <File Id="AgentExe" Name="auzring-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <?endif?>
+
+    <Feature Id="Agent" Title="Auzring Agent" Level="1">
+      <ComponentRef Id="AgentSetupExe" />
+    </Feature>
+
+    <!-- ===== Custom actions: run auzring-agent.exe directly, in SYSTEM context =====
+         WixSilentExec64 needs the command line to BEGIN with the quoted exe path. It reads the
+         command line from CustomActionData (the property named like the action). It logs neither the
+         command line nor the child's output, so the token cannot reach msi.log through it. -->
+    <CustomAction Id="InstallAgent" DllEntry="WixSilentExec64" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <!-- Undoes a fresh install that failed (bad token, server unreachable, ...): removes the service,
+         data and files. Only scheduled when no agent existed before this run. -->
+    <CustomAction Id="RollbackInstallAgent" DllEntry="WixSilentExec64" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="UninstallAgent" DllEntry="WixSilentExec64" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <!-- Command lines. Optional parts are separate properties so that nothing is passed when unset.
+         Values were validated by the launch conditions (no quotes, spaces or shell metacharacters). -->
+    <SetProperty Id="AgentArgsServer" Value=" --server [SERVER]" Sequence="execute" After="CostFinalize" Condition="NOT Installed AND SERVER" />
+    <SetProperty Id="AgentArgsToken" Value=" --token [TOKEN]" Sequence="execute" After="SetAgentArgsServer" Condition="NOT Installed AND TOKEN" />
+    <SetProperty Id="AgentArgsJobs" Value=" --allowed-jobs [ALLOWEDJOBS]" Sequence="execute" After="SetAgentArgsToken" Condition="NOT Installed AND ALLOWEDJOBS" />
+    <SetProperty Id="InstallAgent" Value="&quot;[SetupDir]auzring-agent.exe&quot; install --if-not-installed[AgentArgsServer][AgentArgsToken][AgentArgsJobs]" Sequence="execute" After="SetAgentArgsJobs" Condition="NOT Installed" />
+    <SetProperty Id="RollbackInstallAgent" Value="&quot;[SetupDir]auzring-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="NOT Installed AND NOT AGENTSERVICEPATH" />
+    <SetProperty Id="UninstallAgent" Value="&quot;[SetupDir]auzring-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+
+    <InstallExecuteSequence>
+      <!-- Rollback action first (rollback runs in reverse order, so it runs after InstallAgent failed
+           and before the staged files are removed again). -->
+      <Custom Action="RollbackInstallAgent" After="InstallFiles" Condition="NOT Installed AND NOT AGENTSERVICEPATH" />
+      <Custom Action="InstallAgent" After="RollbackInstallAgent" Condition="NOT Installed" />
+      <!-- Not on a major upgrade (UPGRADINGPRODUCTCODE is set while the OLD product is removed). -->
+      <Custom Action="UninstallAgent" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

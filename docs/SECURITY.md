@@ -270,6 +270,30 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 - Approvals and rings are organization-wide; per-site scoping is Phase 5. Ring membership is "first ring listing one of the device's groups"; a device in no ring is never updated automatically.
 - A malicious or compromised agent can lie about scan results and install outcomes (as with inventory); the effect is limited to that device's own rows and to holding or releasing a rollout through failure counts. A device that reports failures can raise a hold for its ring's threshold only if enough devices of the ring agree.
 
+## 9d.b MSI
+
+Scope: the Windows MSI that wraps `auzring-agent.exe install` / `uninstall` for GPO, Intune and RMM deployment (`installer/windows`, decision D67).
+
+| Control | Evidence |
+|---|---|
+| **Narrow interface.** The only public properties are `SERVER`, `TOKEN`, `ALLOWEDJOBS`. Launch conditions deny every printable ASCII character that is not valid in each (no quotes, spaces, ampersand, pipe, angle brackets, caret, percent, semicolon, dollar and so on); `SERVER` must contain `:`, `TOKEN` must start with `AURZ1.`. The agent validates all three again (`config.FromBundle`, `config.ParseAllowedJobs`). | `installer/windows/package_test.go` (`TestLaunchConditionsFitAndCoverTheDenyList`, `TestLaunchConditionBehaviour`: a small evaluator of the MSI condition subset checks every ASCII character) |
+| **No shell, no script.** All three custom actions are `WixSilentExec64` (util extension) starting `auzring-agent.exe` directly, `Execute` deferred or rollback, `Impersonate=no` (LocalSystem). No `cmd.exe`, PowerShell, VBScript/JScript, or extra binary. | `TestCustomActionsNeverUseShellsOrScripts` |
+| **Token handling.** `TOKEN`, the `--token` argument property and the CustomActionData property are `Hidden` (MsiHiddenProperties); the token reaches the elevated action only as CustomActionData; `WixSilentExec64` logs neither the command line nor the child's output; `auzring-agent install` does not print the token. | `TestTokenIsHiddenEverywhereItTravels`; CI job `msi` greps the verbose logs (ANSI and UTF-16) for the token and for part of it |
+| **Clean failure.** A failed fresh install (bad token, unreachable server, unknown job type) exits 1603 and a rollback action runs `uninstall`; it is scheduled only when no agent service existed before the run, so it can never wipe an enrolled machine. | CI job `msi` failure cases (six), checks service, `ProgramData\Auzring`, `Program Files\Auzring` and the staging directory are gone |
+| **No re-enrollment on upgrade.** A major upgrade skips the old package's uninstall (`UPGRADINGPRODUCTCODE`) and runs `install --if-not-installed`, which exits 0 when the service and `config.json` exist. | `internal/agent/install` `TestInstalledIn`; CI job `msi` upgrade step (same device ID, one device row, one ARP entry) |
+| **Staged binary is not user-writable.** `%ProgramFiles%\AuzringSetup\` inherits the Program Files ACL (Users: read and execute only). Per-machine, elevation required, x64 and Windows 10 1809+ / Server 2019+ enforced by launch conditions. | Package.wxs; not asserted by a test |
+| **Pinned, key-free build.** WiX 7.0.0 and its Util extension are pinned; the build scripts contain no certificate or secret; signing is a documented hook (`-SignScript`) run by the release pipeline. CI actions are pinned by SHA. | `TestToolchainIsPinnedAndConsistent`, `TestWorkflowJobMSI` |
+
+**Known gaps and residual risks:**
+- **The MSI has not been built or run on Windows by the author.** WiX v7 cannot bind an MSI on Linux (its binder loads `msi.dll`), so only the WiX compile and link phases and the XML-level Go tests ran locally. The CI job `msi` is informational (`continue-on-error`) until it has been seen passing; nothing above marked "CI job msi" is verified yet.
+- **The token is on the `msiexec` command line.** It is visible to local administrators in the process list during the install and in whatever your tool records: the Intune Management Extension log, RMM job history, GPO scripts and transforms (SYSVOL is readable by all authenticated domain users). Mitigation is operational: a multi-use token per wave, short expiry, device approval on, revoke after the wave (RUNBOOK section 4). Whether Windows Installer masks hidden properties on the "Command Line:" line of a verbose log on a first install was not confirmed; the CI job checks it.
+- **The deny lists are not a whitelist.** MSI conditions have no regular expressions, so unusual non-ASCII input and `[` / `]` are not rejected by the MSI; they are rejected by the agent. The command line is never interpreted by a shell, so this is defense in depth.
+- **An install-step failure has a generic MSI message** (1603 and the log). The reason is not in the MSI log by design (it would also log the command line); it is in the agent log until the rollback removes it, or from running the exe by hand.
+- **Uninstall is best effort.** A failure of `auzring-agent uninstall` does not block removal of the MSI entry (otherwise a broken agent could not be removed); the service may remain and must be checked.
+- **The MSI does not update the slot binaries.** After a major upgrade the staged exe is newer than `slot-a`; the agent's own update mechanism (ARCHITECTURE section 10) is what updates the running agent.
+- **MSI signing is not done in this repository.** An unsigned MSI triggers SmartScreen and may be refused by AppLocker/WDAC policies until the release pipeline signs it.
+- **WiX v7 is under the OSMF EULA.** Accepting it is a legal act of the project owner; revenue-generating users at or above US$10k a year owe the maintenance fee unless they pay for WiX support elsewhere. This repository only records the acceptance in the build scripts (D67); it is not legal advice.
+
 ## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.
