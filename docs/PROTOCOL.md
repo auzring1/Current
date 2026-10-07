@@ -203,6 +203,10 @@ UninstallBody {
 
 It names an inventory row. **The server never sends a command line**: the agent re-reads that row's `Uninstall` registry data itself and derives the command (design §7.5).
 
+`remove_older_than` (cleanup of an outdated copy, set by update deployments): the agent removes the row only if its `DisplayVersion` is strictly older than this version, treats a row that is already gone as success, and leaves an equal, newer or unparseable version alone. An empty value is an unconditional uninstall.
+
+`INVENTORY_FULL` (`InventoryBody`) is the **refresh** job: it triggers an immediate software/users sync, a hardware report if the hardware changed, and a heartbeat.
+
 ### 5.3 Job reporting
 
 ```

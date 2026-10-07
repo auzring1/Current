@@ -264,6 +264,44 @@ func (q *Queries) InsertContentBlob(ctx context.Context, arg InsertContentBlobPa
 	return err
 }
 
+const listAllOrgPackages = `-- name: ListAllOrgPackages :many
+SELECT id, org_id, source, identifier, name, publisher, homepage, license, description, verified, self_updating, imported_at, imported_by FROM catalog_packages WHERE org_id = $1 ORDER BY lower(name), id LIMIT 2000
+`
+
+func (q *Queries) ListAllOrgPackages(ctx context.Context, orgID uuid.UUID) ([]CatalogPackage, error) {
+	rows, err := q.db.Query(ctx, listAllOrgPackages, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CatalogPackage{}
+	for rows.Next() {
+		var i CatalogPackage
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Source,
+			&i.Identifier,
+			&i.Name,
+			&i.Publisher,
+			&i.Homepage,
+			&i.License,
+			&i.Description,
+			&i.Verified,
+			&i.SelfUpdating,
+			&i.ImportedAt,
+			&i.ImportedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCatalogPackages = `-- name: ListCatalogPackages :many
 SELECT p.id, p.org_id, p.source, p.identifier, p.name, p.publisher, p.homepage, p.license, p.description, p.verified, p.self_updating, p.imported_at, p.imported_by, (SELECT count(*) FROM catalog_versions v WHERE v.package_id = p.id)::int AS version_count
 FROM catalog_packages p

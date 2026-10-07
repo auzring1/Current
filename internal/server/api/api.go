@@ -113,6 +113,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}", s.getDevice)
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
 	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
+	r.With(s.require(auth.PermDevicesWrite)).Delete("/devices/{id}", s.deleteDevice)
+	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/delete", s.deleteDevices)
 
 	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
 	r.With(s.require(auth.PermDevicesRead)).Get("/devices/{id}/software/history", s.deviceSoftwareHistory)
@@ -134,6 +136,9 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/devices.csv", s.devicesCSV)
 
 	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/jobs", s.deviceJobs)
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/devices/{id}/updates", s.deviceUpdates)
+	r.With(s.require(auth.PermDeploymentsWrite)).Post("/devices/{id}/software/uninstall", s.uninstallDeviceSoftware)
+	r.With(s.require(auth.PermDevicesWrite)).Post("/devices/{id}/refresh", s.refreshDevice)
 
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages", s.listPackages)
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/search", s.searchCatalog)

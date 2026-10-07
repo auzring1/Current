@@ -224,6 +224,20 @@ func (q *Queries) ExpireJobs(ctx context.Context, finishedAt *time.Time) ([]Expi
 	return items, nil
 }
 
+const findRecentRefresh = `-- name: FindRecentRefresh :one
+SELECT id FROM jobs
+WHERE device_id = $1 AND type = 'inventory_full' AND status IN ('queued', 'sent', 'accepted', 'waiting', 'running')
+  AND created_at > now() - interval '2 minutes'
+ORDER BY created_at DESC LIMIT 1
+`
+
+func (q *Queries) FindRecentRefresh(ctx context.Context, deviceID uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, findRecentRefresh, deviceID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getDeployment = `-- name: GetDeployment :one
 SELECT d.id, d.org_id, d.name, d.action, d.package_id, d.version_id, d.scope, d.target_group_ids, d.target_device_ids, d.starts_at, d.expires_at, d.maint_window, d.unverified_confirmed, d.status, d.created_by, d.created_at, p.name AS package_name, p.identifier AS package_identifier, v.version AS version
 FROM deployments d

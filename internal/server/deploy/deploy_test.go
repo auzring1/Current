@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -660,5 +661,62 @@ func TestUpdateKeepsCopiesTheNewInstallerReplacesInPlace(t *testing.T) {
 	}
 	if j := f.jobs(plan.DeploymentID)[0]; j.Type != "software_update" || j.DependsOn != nil {
 		t.Fatalf("%+v", j)
+	}
+}
+
+func TestDeviceUpdatesListsOlderInstallsWithAvailableVersion(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(false) // Acme Tool 2.0
+	old, cur, other := f.device("old", "amd64"), f.device("cur", "amd64"), f.device("other", "amd64")
+	f.install(old, "machine", "", "reg64", "AcmeTool", "1.0")
+	f.install(cur, "machine", "", "reg64", "AcmeTool", "2.0")
+	_ = other
+	ups, err := f.svc.DeviceUpdates(context.Background(), f.org, old)
+	if err != nil || len(ups) != 1 || ups[0].InstalledVersion != "1.0" || ups[0].LatestVersion != "2.0" || !ups[0].Deployable || ups[0].PackageID != f.pkg.ID {
+		t.Fatalf("%+v %v", ups, err)
+	}
+	if ups, _ := f.svc.DeviceUpdates(context.Background(), f.org, cur); len(ups) != 0 {
+		t.Fatalf("a current install is not an update: %+v", ups)
+	}
+	// A pin below the installed version hides the update; a self-updating app is listed but not deployable.
+	f.exec("INSERT INTO package_overrides (org_id, package_id, pin) VALUES ($1,$2,'< 1.0')", f.org, f.pkg.ID)
+	if ups, _ := f.svc.DeviceUpdates(context.Background(), f.org, old); len(ups) != 0 {
+		t.Fatalf("pin ignored: %+v", ups)
+	}
+	f.exec("UPDATE package_overrides SET pin = ''")
+	f.exec("UPDATE catalog_packages SET self_updating = true WHERE id = $1", f.pkg.ID)
+	if ups, _ := f.svc.DeviceUpdates(context.Background(), f.org, old); len(ups) != 1 || ups[0].Deployable || ups[0].Reason == "" {
+		t.Fatalf("self-updating: %+v", ups)
+	}
+}
+
+func TestUninstallSoftwareRefusesSystemComponentsAndUnknownRows(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(false)
+	d := f.device("pc", "amd64")
+	f.install(d, "machine", "", "reg64", "AcmeTool", "1.0")
+	f.install(d, "machine", "", "reg64", "AcmeRuntime", "1.0")
+	f.exec("UPDATE software_installs SET system_component = true WHERE item_key = 'AcmeRuntime'")
+	f.exec("UPDATE devices SET online = true WHERE id = $1", d)
+	res, err := f.svc.UninstallSoftware(context.Background(), f.org, f.user, d, "127.0.0.1", []SoftwareRef{
+		{Source: "reg64", Scope: "machine", ItemKey: "AcmeTool"},
+		{Source: "reg64", Scope: "machine", ItemKey: "AcmeRuntime"},
+		{Source: "reg64", Scope: "machine", ItemKey: "Missing"},
+	})
+	f.svc.Wait()
+	if err != nil || len(res.JobIDs) != 1 || len(res.Skipped) != 2 {
+		t.Fatalf("%+v %v", res, err)
+	}
+	var typ, title string
+	_ = f.pool.QueryRow(context.Background(), "SELECT type, title FROM jobs WHERE id = $1", res.JobIDs[0]).Scan(&typ, &title)
+	if typ != "software_uninstall" || !strings.Contains(title, "Acme Tool") {
+		t.Fatalf("%s %s", typ, title)
+	}
+	if _, err := f.svc.UninstallSoftware(context.Background(), f.org, f.user, d, "x", nil); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("empty request: %v", err)
+	}
+	// Another organization's device is not reachable.
+	if _, err := f.svc.UninstallSoftware(context.Background(), uuid.New(), f.user, d, "x", []SoftwareRef{{Source: "reg64", Scope: "machine", ItemKey: "AcmeTool"}}); !errors.Is(err, ErrNotActive) {
+		t.Fatalf("cross-org: %v", err)
 	}
 }

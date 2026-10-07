@@ -176,6 +176,7 @@ func (s *server) deviceSoftware(w http.ResponseWriter, r *http.Request) {
 		Source          string    `json:"source"`
 		Scope           string    `json:"scope"`
 		UserSID         string    `json:"user_sid"`
+		ItemKey         string    `json:"item_key"`
 		InstallDate     string    `json:"install_date"`
 		InstallLocation string    `json:"install_location"`
 		ProductCode     string    `json:"product_code"`
@@ -185,7 +186,7 @@ func (s *server) deviceSoftware(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]view, 0, len(rows))
 	for _, x := range rows {
-		items = append(items, view{x.TitleID, x.Name, x.Version, x.Publisher, x.Source, x.Scope, x.UserSid, x.InstallDate,
+		items = append(items, view{x.TitleID, x.Name, x.Version, x.Publisher, x.Source, x.Scope, x.UserSid, x.ItemKey, x.InstallDate,
 			x.InstallLocation, x.ProductCode, x.SystemComponent, x.FirstSeenAt, x.LastSeenAt})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items), "revision": d.SoftwareRev,

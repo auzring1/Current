@@ -37,6 +37,15 @@ func (q *Queries) ApproveDevice(ctx context.Context, arg ApproveDeviceParams) (i
 	return result.RowsAffected(), nil
 }
 
+const clearReplacesDevice = `-- name: ClearReplacesDevice :exec
+UPDATE devices SET replaces_device_id = NULL WHERE replaces_device_id = $1
+`
+
+func (q *Queries) ClearReplacesDevice(ctx context.Context, replacesDeviceID *uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearReplacesDevice, replacesDeviceID)
+	return err
+}
+
 const completeDeviceEnrollment = `-- name: CompleteDeviceEnrollment :exec
 UPDATE devices SET enroll_ticket_hash = NULL, pending_csr = NULL WHERE id = $1
 `
@@ -139,6 +148,33 @@ func (q *Queries) CreateEnrollmentToken(ctx context.Context, arg CreateEnrollmen
 		arg.RequireApproval,
 		arg.CreatedBy,
 	)
+	return err
+}
+
+const deleteDevice = `-- name: DeleteDevice :execrows
+DELETE FROM devices WHERE id = $1 AND org_id = $2 AND status IN ('revoked', 'retired')
+`
+
+type DeleteDeviceParams struct {
+	ID    uuid.UUID
+	OrgID uuid.UUID
+}
+
+// Only a revoked or retired device may be removed; inventory, jobs and group membership cascade.
+func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDevice, arg.ID, arg.OrgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteDeviceCerts = `-- name: DeleteDeviceCerts :exec
+DELETE FROM device_certs WHERE device_id = $1
+`
+
+func (q *Queries) DeleteDeviceCerts(ctx context.Context, deviceID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDeviceCerts, deviceID)
 	return err
 }
 

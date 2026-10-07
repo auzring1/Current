@@ -231,6 +231,10 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 | **Tenant isolation:** every catalog, deployment and job query takes `org_id`; a device may only report on its own jobs | `internal/server/deploy` DB tests |
 | **Console:** job logs and package metadata are rendered by React (no raw HTML); CSP unchanged, zero violations in the browser test that walks the whole deploy flow | `web/e2e/console.spec.ts` |
 
+| **Update cleanup cannot remove the version it just installed:** the agent re-reads the row's version and refuses to remove anything not strictly older than the target; a failed removal never blocks the update | `TestCleanupUninstallOnlyRemovesOlderCopies`, `TestUpdateRemovesOlderCopiesBeforeInstalling`, `TestUpdateKeepsCopiesTheNewInstallerReplacesInPlace` |
+| **Device deletion** only for revoked/retired devices, audited, removes certificates so a stale agent cannot reconnect | `test/e2e` `TestEndToEnd` (delete section), audit `device.delete` |
+| **Uninstall from inventory** needs `deployments:write`, targets only rows in that device's own inventory, refuses system components, and is derived on the device from its registry (never a server-supplied command) | `TestUninstallSoftwareRefusesSystemComponentsAndUnknownRows`, `TestDeviceRefreshAndUninstallFromInventory`, audit `software.uninstall` |
+
 **Known gaps and residual risks added in Phase 3:**
 - **The Windows-only execution paths have not run on a real multi-user Windows machine**: `CreateProcessAsUser` into another user's session, `WTSQueryUserToken`, session-change wake-ups, per-SID staging ACLs under real profiles, and Job Object tree kill with real installers. They compile, pass `go vet` and are exercised by the Windows CI `deploy` job on a single-user runner (informational, not yet observed passing). Treat per-user deployment as **experimental until the VM matrix has run** [3].
 - **No package is marked verified.** The VM-matrix harness exists but `matrix_results.json` is empty, so every winget package needs the audited confirmation [3, D52].

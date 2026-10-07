@@ -256,6 +256,94 @@ func (s *server) revokeDevice(w http.ResponseWriter, r *http.Request) {
 
 var errConflict = errors.New("conflict")
 
+// removeDevice deletes one revoked device and its data, auditing it. Reports false when the device
+// is not in a deletable state (still pending or active, or not found).
+func (s *server) removeDevice(r *http.Request, p *Principal, d dbq.Device) (bool, error) {
+	now := s.now()
+	deleted := false
+	err := store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
+		if err := q.DeleteDeviceCerts(r.Context(), d.ID); err != nil {
+			return err
+		}
+		if err := q.ClearReplacesDevice(r.Context(), &d.ID); err != nil {
+			return err
+		}
+		n, err := q.DeleteDevice(r.Context(), dbq.DeleteDeviceParams{ID: d.ID, OrgID: p.OrgID})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return errConflict // rolls back the certificate delete too
+		}
+		deleted = true
+		_, err = audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(),
+			ActorIP: clientIP(r), Action: "device.delete", TargetType: "device", TargetIDs: []string{d.ID.String()},
+			Outcome: audit.Success, Details: map[string]any{"hostname": d.Hostname, "status": d.Status}}, now)
+		return err
+	})
+	if errors.Is(err, errConflict) {
+		return false, nil
+	}
+	return deleted, err
+}
+
+// deleteDevice: DELETE /devices/{id}. The device must be revoked first.
+func (s *server) deleteDevice(w http.ResponseWriter, r *http.Request) {
+	d, ok := s.deviceFromURL(w, r)
+	if !ok {
+		return
+	}
+	p := principalFrom(r)
+	done, err := s.removeDevice(r, p, d)
+	switch {
+	case err != nil:
+		s.Log.Error("delete device", "err", err)
+		internalError(w)
+	case !done:
+		writeError(w, http.StatusConflict, "not_revoked", "Revoke the device before deleting it.")
+	default:
+		s.Events.Publish(p.OrgID, events.Event{Type: events.DeviceUpdated, DeviceID: d.ID})
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// deleteDevices: POST /devices/delete {ids}. Deletes every listed device that is revoked and
+// reports how many it removed and how many it skipped (not revoked or not found).
+func (s *server) deleteDevices(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []uuid.UUID `json:"ids"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if len(req.IDs) == 0 || len(req.IDs) > 500 {
+		badRequest(w, "ids must list between 1 and 500 devices")
+		return
+	}
+	p := principalFrom(r)
+	deleted, skipped := 0, 0
+	for _, id := range req.IDs {
+		d, err := s.q().GetDeviceInOrg(r.Context(), dbq.GetDeviceInOrgParams{ID: id, OrgID: p.OrgID})
+		if err != nil {
+			skipped++
+			continue
+		}
+		done, err := s.removeDevice(r, p, d)
+		if err != nil {
+			s.Log.Error("delete device", "err", err)
+			internalError(w)
+			return
+		}
+		if done {
+			deleted++
+			s.Events.Publish(p.OrgID, events.Event{Type: events.DeviceUpdated, DeviceID: d.ID})
+		} else {
+			skipped++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"deleted": deleted, "skipped": skipped})
+}
+
 func paging(w http.ResponseWriter, r *http.Request, def, max int32) (int32, int32, bool) {
 	limit, offset := def, int32(0)
 	if v := r.URL.Query().Get("limit"); v != "" {

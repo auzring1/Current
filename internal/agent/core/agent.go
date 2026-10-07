@@ -499,7 +499,17 @@ func (a *Agent) session(ctx context.Context, id *store.Identity) (time.Duration,
 				return a.now().Sub(start), 0, err
 			}
 		case <-a.invNow:
+			// A refresh (console button, or after an install): software and users, hardware if it
+			// changed, and a heartbeat with the current uptime, reboot state and signed-in user.
 			if err := runInv(inventory.SyncOptions{}); err != nil {
+				return a.now().Sub(start), 0, err
+			}
+			if hw, err := a.sendHardware(ctx, stream, false); err != nil {
+				return a.now().Sub(start), 0, err
+			} else if hw != nil {
+				a.hwPending = hw
+			}
+			if err := a.sendHeartbeat(ctx, stream, true); err != nil {
 				return a.now().Sub(start), 0, err
 			}
 		case <-renewTick.C:
