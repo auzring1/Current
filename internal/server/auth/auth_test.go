@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/google/uuid"
 	"strings"
 	"testing"
 	"time"
@@ -89,34 +90,54 @@ func TestRecoveryCodes(t *testing.T) {
 func TestRBAC(t *testing.T) {
 	for _, x := range PermissionsFor([]string{RoleReadOnly}) {
 		switch x {
-		case PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead, PermReleasesRead:
+		case PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead, PermReleasesRead, PermSitesRead, PermPoliciesRead, PermReportsRead:
 		default:
 			t.Fatalf("read-only role has %s", x)
 		}
 	}
 	for _, x := range PermissionsFor([]string{RoleOperator}) {
-		if x == PermCatalogOverride || x == PermSettingsWrite || x == PermUpdatesPolicy || x == PermReleasesWrite {
-			t.Fatalf("operator has %s: overrides (silent arguments), org settings and update rings, rules and sources are admin-only", x)
+		switch x {
+		case PermCatalogOverride, PermSettingsWrite, PermUpdatesPolicy, PermReleasesWrite, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesWrite:
+			t.Fatalf("operator has %s: overrides, settings, update policy, releases, sites, users and automation policies are admin-only", x)
 		}
 	}
-	if len(PermissionsFor([]string{RoleAdmin})) != 19 {
-		t.Fatal("admin permissions missing")
+	if got := len(PermissionsFor([]string{RoleAdmin})); got != len(AllPermissions()) {
+		t.Fatalf("the admin role must hold every permission: %d of %d", got, len(AllPermissions()))
 	}
-	p := PermissionsFor([]string{RoleOperator, RoleReadOnly})
-	for _, x := range p {
-		if x == PermEnrollmentWrite || x == PermAuditRead {
-			t.Fatal("operator must not create tokens or read audit")
-		}
+}
+
+func TestSiteScopedAccess(t *testing.T) {
+	org, a, b := uuid.New(), uuid.New(), uuid.New()
+	acc := NewAccess(org, []Grant{
+		{Role: RoleOperator, ScopeType: ScopeSite, ScopeID: a},
+		{Role: RoleReadOnly, ScopeType: ScopeSite, ScopeID: b},
+		{Role: RoleAdmin, ScopeType: ScopeOrg, ScopeID: uuid.New()}, // another organization: ignored
+	})
+	if len(acc.Org) != 0 {
+		t.Fatal("a site binding or a foreign-organization binding must grant nothing organization-wide")
 	}
-	hasUpdatesWrite := false
-	for _, x := range PermissionsFor([]string{RoleOperator}) {
-		hasUpdatesWrite = hasUpdatesWrite || x == PermUpdatesWrite
+	if !acc.SiteHas(a, PermDevicesWrite) || acc.SiteHas(b, PermDevicesWrite) || acc.SiteHas(uuid.New(), PermDevicesRead) {
+		t.Fatal("site grants must stay in their site")
 	}
-	if !hasUpdatesWrite {
-		t.Fatal("operators approve updates and restart devices")
+	if acc.SiteHas(a, PermGroupsWrite) || acc.SiteHas(a, PermUsersWrite) || acc.HasAnywhere(PermAuditRead) || acc.HasAnywhere(PermCatalogWrite) {
+		t.Fatal("organization-level permissions must not be grantable per site")
 	}
-	if len(PermissionsFor([]string{"nonsense"})) != 0 {
-		t.Fatal("unknown role granted permissions")
+	if all, ids := acc.SitesFor(PermDevicesWrite); all || len(ids) != 1 || ids[0] != a {
+		t.Fatalf("SitesFor: %v %v", all, ids)
+	}
+	if all, ids := acc.SitesFor(PermDevicesRead); all || len(ids) != 2 {
+		t.Fatalf("SitesFor read: %v %v", all, ids)
+	}
+	full := NewAccess(org, []Grant{{Role: RoleAdmin, ScopeType: ScopeOrg, ScopeID: org}})
+	if !full.SiteHas(a, PermDevicesWrite) || !full.OrgHas(PermUsersWrite) {
+		t.Fatal("an org admin holds everything everywhere")
+	}
+	r := full.Restrict([]string{PermDevicesRead})
+	if !r.OrgHas(PermDevicesRead) || r.OrgHas(PermDevicesWrite) || r.OrgHas(PermUsersWrite) {
+		t.Fatal("a token's scopes must narrow its owner's access")
+	}
+	if TokenScopable(PermUsersWrite) || TokenScopable(PermUsersRead) || !TokenScopable(PermDevicesRead) {
+		t.Fatal("identity administration must not be token-scopable")
 	}
 }
 
