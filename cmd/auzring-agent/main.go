@@ -1,6 +1,6 @@
 // Command auzring-agent is the Auzring endpoint agent.
 //
-//	auzring-agent install --server HOST:PORT --token AURZ1.... [--allowed-jobs inventory,wu_scan]
+//	auzring-agent install --server HOST:PORT --token AURZ1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
 //	auzring-agent uninstall
 //	auzring-agent status
 //	auzring-agent run [--data-dir DIR] [--server HOST:PORT --token AURZ1....]   (foreground; development)
@@ -95,8 +95,13 @@ func cmdInstall(args []string) error {
 	token := fl.String("token", "", "enrollment string from the console (AURZ1....)")
 	allowed := fl.String("allowed-jobs", "", "optional local ceiling of allowed job types (comma-separated)")
 	wait := fl.Duration("wait", 90*time.Second, "how long to wait for enrollment to finish")
+	ifNot := fl.Bool("if-not-installed", false, "exit 0 without changes when the agent is already installed and configured (used by the MSI)")
 	if err := fl.Parse(args); err != nil {
 		return err
+	}
+	if *ifNot && install.IsInstalled() {
+		fmt.Println("The agent is already installed and configured; nothing to do.")
+		return nil
 	}
 	if *token == "" {
 		return errors.New("--token is required")
