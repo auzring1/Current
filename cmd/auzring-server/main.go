@@ -2,6 +2,9 @@
 //
 //	auzring-server [serve]            run the server (default)
 //	auzring-server migrate            apply database migrations and exit
+//	auzring-server backup --out F|-   write an age-encrypted backup (database + content files)
+//	auzring-server backup --verify F  check a backup without touching any database
+//	auzring-server restore --in F|-   restore a backup into an empty database
 //	auzring-server healthcheck        exit 0 if the local server is healthy (Docker HEALTHCHECK)
 //	auzring-server admin reset-mfa --email E   force MFA re-enrollment for a user
 //	auzring-server admin unlock --email E      clear a login lockout
@@ -27,6 +30,7 @@ import (
 	"github.com/auzring1/auzring/gen/dbq"
 	"github.com/auzring1/auzring/internal/server/app"
 	"github.com/auzring1/auzring/internal/server/audit"
+	"github.com/auzring1/auzring/internal/server/backup"
 	"github.com/auzring1/auzring/internal/server/config"
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/shared/version"
@@ -43,6 +47,10 @@ func main() {
 		err = serve()
 	case "migrate":
 		err = migrate()
+	case "backup":
+		err = backup.CommandBackup(os.Args[2:], config.Load)
+	case "restore":
+		err = backup.CommandRestore(os.Args[2:], config.Load)
 	case "healthcheck":
 		err = healthcheck()
 	case "admin":
@@ -50,7 +58,7 @@ func main() {
 	case "version", "--version", "-v":
 		fmt.Printf("auzring-server %s (%s)\n", version.Version, version.Commit)
 	default:
-		err = fmt.Errorf("unknown command %q (serve|migrate|healthcheck|admin|version)", cmd)
+		err = fmt.Errorf("unknown command %q (serve|migrate|backup|restore|healthcheck|admin|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
