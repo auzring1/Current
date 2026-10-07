@@ -228,6 +228,20 @@ RebootPolicy  { allow [NEVER|OUTSIDE_ACTIVE_HOURS|DEADLINE|NOW], active_hours{st
 
 `InventoryReport{section=WU}` is always a **full replacement** (`WuInventory{ scanned_at, scan_error, reboot_required, truncated, service, policy WuPolicyInfo, updates[] }`) as one message of at most 1,000 updates (the agent sets `truncated` beyond that and the server rejects more). Only updates that are missing, downloaded, hidden, pending a restart or failed are listed; installed updates are never reported. The agent bumps a generation counter whenever the snapshot changes (a new scan result, a reboot-state change, a policy change); the server stores the last generation it applied (`devices.wu_rev`), the agent advertises its own in `Hello.revs["wu"]`, and a mismatch makes the server ask for `ResyncRequest{WU}` (`HelloAck.resync_sections`). `WuPolicyInfo` reports WSUS (`UseWUServer`, server URL), Windows Update for Business deferrals, "configure automatic updates" options, a disabled Windows Update service and notes.
 
+### 5.2c Agent update body (Phase 5)
+
+```
+AgentUpdateBody { manifest bytes, signature bytes (64), key_id bytes, timeout_s }
+Manifest (JSON, the exact signed bytes) { format 1, product "auzring-agent", version, os, arch, sha256 (hex), size,
+  released_at?, min_version?, rollback_from[]?, authenticode_subject?, notes? }
+Signature = Ed25519( "auzring/release/v1\0" || manifest )   -- by a VENDOR release key
+```
+
+- **Two signatures, two jobs.** The customer server signs the *job* like any other. The *release* is trusted only because its manifest verifies under a vendor release public key **compiled into the agent** (`-ldflags -X .../internal/shared/release.PublicKeysHex=<hex>[,<hex>]`; a build without one rejects every update). A compromised server can pick *when* an agent updates and *which vendor release*, never supply its own binary.
+- **Agent checks, in order:** manifest signature and strict parse (unknown fields, trailing data, bad hash/size/version are refused) → `os`/`arch` match → version rules (`CheckApplicable`: not the running version; not older unless the current version is listed in `rollback_from`; not below `min_version`) → no other update in flight → download over the mTLS channel (`FetchContent`, authorized for a job whose manifest names that SHA-256) → size and SHA-256 while streaming, re-hash from a locked handle → Authenticode subject equals `authenticode_subject` when set (release builds require it: `RequireAuthenticode`) → the binary run with `version` must print `auzring-agent <version> (`.
+- **Switch (ARCHITECTURE §10):** write the binary to the inactive slot, persist `update.json`, arm the rollback task (abort if that fails), point the service at the new slot, ask the service manager to restart. The job stays `running` (`restarting_into_<version>`) and **ends after the restart**: `succeeded` when the new process completes its first handshake, `failed` ("did not become healthy…") when the safety net restored the old slot.
+- **Server side:** job type `agent_update` in `jobs.type`; per-device/release attempts in `agent_attempts`; `FetchContent` authorizes the binary when the live job's manifest names that hash.
+
 ### 5.3 Job reporting
 
 ```

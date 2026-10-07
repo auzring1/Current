@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"encoding/base32"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -77,7 +78,10 @@ func main() {
 	email := flag.String("email", "admin@example.com", "")
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "")
 	totpFile := flag.String("totp-file", "", "file written by bootstrap -totp-out")
-	scenario := flag.String("scenario", "winget-7zip", "winget-7zip | winget | unsigned-pinned")
+	scenario := flag.String("scenario", "winget-7zip", "winget-7zip | winget | unsigned-pinned | agent-update")
+	relDir := flag.String("release-dir", "", "directory with auzring-agent-<version>.exe/.azr files (scenario agent-update)")
+	goodVer := flag.String("good-version", "0.9.1", "release the agent must update to (scenario agent-update)")
+	badVer := flag.String("broken-version", "0.9.2", "release that never connects; the agent must roll back (scenario agent-update)")
 	pkgID := flag.String("package", "", "winget identifier (scenario winget)")
 	pkgScope := flag.String("scope", "machine", "machine | user (scenario winget)")
 	detect := flag.String("detect-file", "", "file that must exist after install and be gone after uninstall (scenario winget)")
@@ -135,6 +139,8 @@ func main() {
 		}
 	case "unsigned-pinned":
 		unsignedPinned(a, device)
+	case "agent-update":
+		agentUpdate(a, device, *relDir, *goodVer, *badVer)
 	default:
 		fail("unknown scenario %q", *scenario)
 	}
@@ -260,4 +266,84 @@ func unsignedPinned(a *api, device string) {
 	if _, err := os.Stat(marker); err == nil {
 		fail("the unsigned installer ran")
 	}
+}
+
+// uploadRelease sends <dir>/auzring-agent-<v>.exe with its .azr bundle and returns the release id.
+func uploadRelease(a *api, dir, v string) string {
+	bin, err := os.ReadFile(filepath.Join(dir, "auzring-agent-"+v+".exe"))
+	if err != nil {
+		fail("%v", err)
+	}
+	bundle, err := os.ReadFile(filepath.Join(dir, "auzring-agent-"+v+".azr"))
+	if err != nil {
+		fail("%v", err)
+	}
+	st, out, err := a.do("POST", "/agent-releases", nil, map[string]string{"Content-Type": "application/octet-stream", "X-Release-Bundle": base64.StdEncoding.EncodeToString(bundle)}, bin)
+	if err != nil || st != 201 {
+		fail("upload release %s: %d %v %v", v, st, out, err)
+	}
+	return out["id"].(string)
+}
+
+func deviceVersion(a *api, device string) (string, bool) {
+	d := a.must("GET", "/devices/"+device, nil, 200)
+	v, _ := d["agent_version"].(string)
+	online, _ := d["online"].(bool)
+	return v, online
+}
+
+func lastAgentJob(a *api, device string) (status, reason string) {
+	out := a.must("GET", "/devices/"+device+"/jobs", nil, 200)
+	items, _ := out["items"].([]any)
+	for _, j := range items {
+		m := j.(map[string]any)
+		if m["type"] == "agent_update" {
+			status, _ = m["status"].(string)
+			reason, _ = m["status_reason"].(string)
+			return
+		}
+	}
+	return "", ""
+}
+
+// agentUpdate moves the installed agent to a good release (it must come back healthy on the new
+// version) and then to a broken one (the safety net must put the good version back).
+func agentUpdate(a *api, device, dir, good, bad string) {
+	if dir == "" {
+		fail("-release-dir is required")
+	}
+	start, _ := deviceVersion(a, device)
+	fmt.Println("running version:", start)
+	target := func(id string) {
+		a.must("PUT", "/agent-rollout", map[string]any{"release_id": id, "soak_hours": 0, "success_threshold": 90, "batch_per_tick": 10}, 204)
+	}
+	wait := func(what string, timeout time.Duration, ok func() bool) {
+		deadline := time.Now().Add(timeout)
+		for time.Now().Before(deadline) {
+			if ok() {
+				return
+			}
+			time.Sleep(5 * time.Second)
+		}
+		st, why := lastAgentJob(a, device)
+		v, online := deviceVersion(a, device)
+		fail("timed out waiting for %s (device runs %q online=%v; last update job %s %s)", what, v, online, st, why)
+	}
+
+	target(uploadRelease(a, dir, good))
+	wait("the update to "+good, 8*time.Minute, func() bool {
+		v, online := deviceVersion(a, device)
+		st, _ := lastAgentJob(a, device)
+		return v == good && online && st == "succeeded"
+	})
+	fmt.Println("updated to", good)
+
+	target(uploadRelease(a, dir, bad))
+	wait("the rollback from "+bad, 15*time.Minute, func() bool {
+		v, online := deviceVersion(a, device)
+		st, _ := lastAgentJob(a, device)
+		return v == good && online && st == "failed"
+	})
+	fmt.Println("rolled back to", good, "after the broken release", bad)
+	a.must("PUT", "/agent-rollout", map[string]any{"release_id": nil, "soak_hours": 0, "success_threshold": 90, "batch_per_tick": 10}, 204)
 }

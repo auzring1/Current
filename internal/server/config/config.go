@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/auzring1/auzring/internal/shared/release"
 )
 
 // Config is the full server configuration.
@@ -61,6 +63,9 @@ type Config struct {
 	GitHubToken string
 	// WingetSource is "github" (default) or "off".
 	WingetSource string
+	// ReleasePublicKeys are extra vendor release public keys (hex, comma-separated) the server accepts
+	// agent releases for, in addition to the keys compiled in. Agents only trust their own compiled-in keys.
+	ReleasePublicKeys string
 }
 
 // Load reads configuration from the process environment.
@@ -107,6 +112,10 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		errs = append(errs, err)
 	}
 	c.WingetSource = get("AUZ_WINGET_SOURCE", "github")
+	c.ReleasePublicKeys = get("AUZ_RELEASE_PUBLIC_KEYS", "")
+	if _, err := release.ParseKeys(c.ReleasePublicKeys); err != nil {
+		errs = append(errs, fmt.Errorf("AUZ_RELEASE_PUBLIC_KEYS: %w", err))
+	}
 	if c.WingetSource != "github" && c.WingetSource != "off" {
 		errs = append(errs, errors.New("AUZ_WINGET_SOURCE must be github or off"))
 	}

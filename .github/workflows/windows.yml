@@ -355,3 +355,84 @@ jobs:
           name: msi-logs
           path: logs/
           retention-days: 7
+
+  # Agent self-update on a real Windows service: update to a good release, then to a deliberately
+  # broken one and check the machine goes back to the good version by itself. Informational until
+  # it has been observed passing (docs/demos/PHASE5-DEMO.md is the manual equivalent).
+  selfupdate:
+    runs-on: windows-2025
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "${{ env.GO_VERSION }}" }
+
+      - name: Start the runner's PostgreSQL
+        shell: pwsh
+        run: |
+          $svc = Get-Service -Name "postgresql*" | Select-Object -First 1
+          Set-Service -Name $svc.Name -StartupType Manual
+          Start-Service -Name $svc.Name
+
+      - name: Update, then roll back
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE auzring_selfupdate"
+          # A throw-away release key; the agents are built to trust it and the server is told to accept it.
+          go build -o auzring-release.exe ./cmd/auzring-release
+          .\auzring-release.exe keygen --out release.key | Out-Null
+          $pub = (Get-Content release.pub -Raw).Trim()
+          function Build($v, $pkg, $out) {
+            $f = "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=$v -X github.com/auzring1/auzring/internal/shared/release.PublicKeysHex=$pub"
+            go build -trimpath -ldflags $f -o $out $pkg
+            if ($LASTEXITCODE -ne 0) { throw "build $v failed" }
+          }
+          New-Item -ItemType Directory -Force rel | Out-Null
+          Build "0.9.0" ./cmd/auzring-agent auzring-agent.exe
+          Build "0.9.1" ./cmd/auzring-agent rel/auzring-agent-0.9.1.exe
+          Build "0.9.2" ./test/tools/brokenagent rel/auzring-agent-0.9.2.exe
+          foreach ($v in "0.9.1", "0.9.2") {
+            .\auzring-release.exe sign --key release.key --exe "rel/auzring-agent-$v.exe" --version $v --out "rel/auzring-agent-$v.azr" | Out-Null
+          }
+          $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+          $env:AUZ_DEV_MODE = "true"
+          $env:AUZ_PUBLIC_URL = "http://localhost:18080"
+          $env:AUZ_HTTP_ADDR = "127.0.0.1:18080"
+          $env:AUZ_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:AUZ_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_selfupdate?sslmode=disable"
+          $env:AUZ_MASTER_KEY = $key
+          $env:AUZ_CONTENT_DIR = "$env:RUNNER_TEMP\auz-content"
+          $env:AUZ_RELEASE_PUBLIC_KEYS = $pub
+          go build -o auzring-server.exe ./cmd/auzring-server
+          go build -o deploycheck.exe ./test/tools/deploycheck
+          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+            -RedirectStandardError server.err -RedirectStandardOutput server.out
+          $token = $null
+          for ($i = 0; $i -lt 60 -and -not $token; $i++) {
+            Start-Sleep -Seconds 1
+            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            if ($m) { $token = $m.Matches[0].Groups[1].Value }
+          }
+          if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
+          $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token -totp-out totp.txt
+          if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
+          .\auzring-agent.exe install --token $enroll.Trim()
+          if ($LASTEXITCODE -ne 0) { throw "install failed" }
+          # Shorten the safety net so the rollback case does not take ten minutes.
+          Stop-Service AuzringAgent
+          $cfgPath = "$env:ProgramData\Auzring\config.json"
+          $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
+          $cfg | Add-Member -NotePropertyName update_rollback_minutes -NotePropertyValue 2 -Force
+          $cfg | ConvertTo-Json | Set-Content $cfgPath
+          Start-Service AuzringAgent
+          $failed = $false
+          .\deploycheck.exe -url http://localhost:18080 -totp-file totp.txt -scenario agent-update -release-dir rel
+          if ($LASTEXITCODE -ne 0) { $failed = $true }
+          Get-Content "$env:ProgramData\Auzring\logs\agent.log" -Tail 120 -ErrorAction SilentlyContinue
+          Get-Content "$env:ProgramData\Auzring\logs\rollback-check.log" -ErrorAction SilentlyContinue
+          schtasks /Query /TN "\Auzring\rollback-check" 2>&1 | Out-Host
+          .\auzring-agent.exe uninstall
+          Stop-Process -Id $server.Id
+          if ($failed) { Get-Content server.err -Tail 60; throw "agent-update scenario failed" }

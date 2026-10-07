@@ -2,7 +2,7 @@
 
 Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are built in that phase.
 
-## 0. Implementation status (Phases 1–4)
+## 0. Implementation status (Phases 1–5)
 
 | Area | State | Where |
 |---|---|---|
@@ -31,7 +31,11 @@ Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are buil
 | **Phase 4:** reboot policy (never / outside active hours / deadline, visible countdown, persisted plan) | ⚠️ logic tested with fakes; the real `InitiateSystemShutdownEx` countdown is **unverified on a real machine** | `internal/agent/jobs`, `internal/agent/wu` |
 | **Phase 4:** update catalog, approvals, auto-approval rules, rings with soak and success thresholds, holds, retry limits, conflict report | ✅ | `internal/server/updates`, `db/migrations/00005_windows_update.sql` |
 | **Phase 4:** web console (Windows updates, Update policy, device "Windows updates" tab, restart) | ✅ | `web/` |
-| Self-update, MSI, API tokens, WebAuthn | ⏳ Phase 5 | — |
+| **Phase 5:** agent self-update (vendor-signed release manifest, A/B slots, health confirmation, automatic rollback), release store and pilot-then-everyone rollout | ✅ Linux end to end (`TestAgentSelfUpdateEndToEnd`); the Windows service/scheduled-task mechanics (`internal/agent/selfupdate/platform_windows.go`) are **unverified on a real machine** | `internal/shared/release`, `internal/agent/{selfupdate,jobs}`, `internal/server/agentrel`, `cmd/auzring-release` |
+| **Phase 5:** users, sites, roles scoped to the organization or a site, forced password change, API tokens with scopes, security keys (WebAuthn) as a second factor | ✅ (browser test drives a virtual security key); real hardware keys not tried | `internal/server/{auth,api}`, `web/` |
+| **Phase 5:** software policies (keep updated / baseline for new devices), patch-compliance reports, audit filters, chain verification and CSV export | ✅ | `internal/server/policies`, `internal/server/api/{policies,auditapi}.go` |
+| **Phase 5:** encrypted backup and restore (`auzring-server backup`/`restore`, age) | ✅ tested against PostgreSQL 16, small data | `internal/server/backup` |
+| **Phase 5:** agent MSI (WiX 7) | ⚠️ sources, tests of the sources and a CI job; **never built or run** (WiX cannot bind an MSI on Linux) | `installer/windows` |
 
 Implementation notes that refine the design below:
 - **REST layer (D6, revised):** handlers are hand-written with strict JSON decoding. `api/openapi.yaml` is the contract, and `TestRoutesMatchSpec` fails the build if routes and spec drift. TypeScript types are generated from the spec.
@@ -59,6 +63,13 @@ Implementation notes that refine the design below:
   - *Reboot:* an install job carries a `RebootPolicy`. The agent persists a reboot plan, re-evaluates it every tick, never starts a restart inside active hours (except "deadline" at the deadline), and starts it with `InitiateSystemShutdownEx` so signed-in users see a countdown and an administrator can abort with `shutdown /a`. Install jobs cannot ask for an immediate restart; the explicit `REBOOT` job needs an online device and a countdown of at least one minute (D63).
   - *Conflicts:* the agent reports WSUS (`UseWUServer`), Windows Update for Business deferrals, "configure automatic updates" and a disabled `wuauserv`; the console shows a banner on the device and a list under Update policy. Auzring never changes these policies (D64).
   - *Hiding* an update (manual "hide on devices") queues `WU_HIDE` jobs for devices that have it; hidden updates stay in the catalog with state `hidden`.
+- **Phase 5 as built (differences from §10 and the Phase 5 plan, with decision numbers in DECISIONS.md):**
+  - *Release trust* is a vendor Ed25519 key compiled into the agent; the signed manifest names the binary by SHA-256 (D68). `cmd/auzring-release` creates keys and bundles; for a KMS/HSM it can emit the bytes to sign (`manifest`) and attach the signature (`attach`).
+  - *Slots and rollback* (D69): `Program Files\Auzring\Agent\slot-a|slot-b`; the service image path is the switch. The old binary's `rollback-check`, run by a one-shot SYSTEM scheduled task at +10 minutes, restores the old slot unless `update.json` says `healthy`. A restart is a deliberate non-zero service exit, which needs the recovery option "also on non-crash failures" (set at install and re-asserted at every switch).
+  - *Rollout* (D70): one target release per organization, optional pilot groups, soak hours, success threshold, a per-minute batch limit and a maintenance window. A failing pilot pauses the rollout and writes an audit entry. Up to three attempts per device and release, a day apart.
+  - *Access model* (D71): a role binding is organization-wide or for one site. Site bindings grant only the permissions that act on a device from its own page (devices, deployments and updates on that device, catalog read); org configuration and fleet-wide views need an organization-wide role. Out-of-scope devices answer 404.
+  - *API tokens* (D72) and *security keys* (D73): see SECURITY §9d.
+  - *Software policies* (D75): the scheduler (every 5 minutes) turns a policy into an ordinary deployment for the devices that need it; nothing bypasses the deployment engine.
 - **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
 
 
@@ -387,13 +398,15 @@ SYSTEM service                                              user session (SID S,
 - Reboot handling: we check `RebootRequired` and the pending markers, then apply the reboot policy. The policy respects active hours and the maintenance window; the countdown is the system's own shutdown notice (D63) rather than a custom session notifier.
 - *As built:* see §0 "Phase 4 as built". The COM implementation is `internal/agent/wu/wua_windows.go`; non-Windows builds use a scripted dev client (`wu-dev.json` in the data directory) for tests and demos.
 
-## 10. Agent self-update *(Phase 5)*
-1. The server offers `AGENT_UPDATE` (a signed job) pointing to a release artifact plus a **release manifest signed by the vendor release key**. That key is compiled into the agent and is separate from every customer server key. A compromised customer server can't push a custom agent.
-2. The agent verifies the manifest signature, SHA-256, Authenticode (pinned vendor subject) and version monotonicity (no downgrade unless the release manifest lists a rollback version).
-3. It writes the new binary to the inactive slot and registers a one-shot SYSTEM scheduled task, `rollback-check`, for T+10 min, pointing at the *current* slot's binary.
-4. It switches the service `ImagePath` to the new slot and restarts.
-5. When the new version completes a handshake, it writes a `healthy` marker and deletes the task.
-6. If there's no marker, `rollback-check` restores `ImagePath`, restarts the old version and reports `self_update_rolled_back`.
+## 10. Agent self-update *(Phase 5, as built)*
+1. The server offers `AGENT_UPDATE` (a job signed like every other) carrying a **release manifest signed by the vendor release key**. That key is compiled into the agent and is separate from every customer server key. A compromised customer server can't push a custom agent (PROTOCOL §5.2c).
+2. The agent verifies the manifest, downloads the binary over the mTLS channel, checks SHA-256 and size twice, checks the Authenticode subject the manifest pins, and runs the binary with `version` to see it is the promised release.
+3. It copies the binary into the inactive slot, writes `update.json` (`switching`, deadline +10 min) and arms a one-shot SYSTEM task, `\Auzring\rollback-check`, that runs the *current* slot's binary at the deadline. If the task cannot be armed, nothing is switched.
+4. It points the service `ImagePath` at the new slot and exits non-zero; the service manager restarts it (recovery action) on the new binary.
+5. When the new version completes its first handshake with the server it writes `healthy`, deletes the task and the update job succeeds.
+6. If it never does (crash loop, cannot reach the server), the task restores `ImagePath`, restarts the service on the old version, writes `rolled_back`; the old agent then reports the job as failed.
+
+Everything except the Windows-specific calls (`mgr`, `schtasks`, the restart) is exercised on Linux by a development platform that implements the same interface with files (`TestAgentSelfUpdateEndToEnd`, `internal/agent/jobs/selfupdate_test.go`). A broken release (`test/tools/brokenagent`) is the Windows test for step 6.
 
 ## 11. Repository layout
 

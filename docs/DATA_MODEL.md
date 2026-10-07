@@ -166,6 +166,26 @@ wu_holds(id, org_id, update_id, ring_id, reason, created_at, released_at, releas
 ```
 Invariants: approvals are keyed by update identity (not revision), a manual decision is never overwritten by a rule, at most one open hold per (update, ring), and `device_updates` rows exist only for updates the device is *not* fully up to date on (installed updates are not stored).
 
+## Identity, releases and policies (Phase 5)
+Migrations `00006_agent_releases`, `00007_identity`, `00008_policies`.
+```
+agent_releases(id, org_id, version, os, arch, sha256, size, manifest bytea (the exact signed bytes), signature, key_id,
+               notes, status[available|withdrawn], uploaded_by, created_at, unique(org_id, version, os, arch))
+agent_rollout(org_id pk, release_id, pilot_group_ids[], soak_hours, success_threshold, batch_per_tick, maint_window jsonb,
+              paused, paused_reason, started_at, updated_by, updated_at)            -- at most one row per organization
+agent_attempts(device_id, release_id, org_id, job_id, pilot, state[queued|updated|failed], failures, last_error,
+               created_at, finished_at, pk(device_id, release_id))
+users += must_change_password, created_by            -- role_bindings(role, scope_type[org|site], scope_id) already existed
+api_tokens(id, org_id, user_id, name, prefix, token_hash (sha256, unique), scopes[], created_at, expires_at,
+           last_used_at, last_used_ip, revoked_at)                                   -- the secret is never stored
+webauthn_credentials(id, user_id, credential_id unique, record (library JSON), sign_count, name, created_at, last_used_at)
+webauthn_ceremonies(id, user_id, kind[register|login], data, expires_at)             -- single use, 5 minutes
+software_policies(id, org_id, name, kind[keep_updated|baseline], package_id, group_ids[], delay_days, only_new_devices,
+                  unverified_confirmed, maint_window jsonb, enabled, created_by, created_at, updated_at, unique(org_id, name))
+policy_attempts(policy_id, device_id, version, deployment_id, failures, created_at, pk(policy_id, device_id))
+```
+Invariants: at most one open `agent_update` job per device (the planner excludes devices with one); a release that is the rollout target cannot be deleted; the organization always keeps at least one active organization-wide administrator (enforced on disable, delete and role removal); a site cannot be deleted while it has devices or enrollment tokens.
+
 ## Audit
 ```
 audit_log(id bigint identity, ts, org_id, actor_type[user|api_token|system|device], actor_id,
