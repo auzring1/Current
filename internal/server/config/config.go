@@ -103,7 +103,9 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	c.GatewayAddr = get("AUZ_GATEWAY_ADDR", ":8443")
 	c.LogLevel = get("AUZ_LOG_LEVEL", "info")
 	c.ContentDir = get("AUZ_CONTENT_DIR", "")
-	c.GitHubToken = get("AUZ_GITHUB_TOKEN", "")
+	if c.GitHubToken, err = secret("AUZ_GITHUB_TOKEN"); err != nil {
+		errs = append(errs, err)
+	}
 	c.WingetSource = get("AUZ_WINGET_SOURCE", "github")
 	if c.WingetSource != "github" && c.WingetSource != "off" {
 		errs = append(errs, errors.New("AUZ_WINGET_SOURCE must be github or off"))
