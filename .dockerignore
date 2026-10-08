@@ -10,3 +10,6 @@ deploy/secrets
 bin
 dist
 test/integration/.artifacts
+dist-release
+dist-demo
+.claude

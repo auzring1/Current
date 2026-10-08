@@ -80,7 +80,7 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 |---|---|---|---|
 | T-LPE-1 | User swaps the installer between verification and execution (TOCTOU) | Staging is SYSTEM-write-only (user scope: SYSTEM-write, user read/execute). The file is opened deny-write, re-hashed from the handle, and the handle stays open through `CreateProcess`. | 3 ✅ |
 | T-LPE-2 | DLL planting next to an installer running as SYSTEM | Staging directory can't be written by users. Working directory is staging. The agent itself uses `SetDefaultDllDirectories`. | 3 ✅ |
-| T-LPE-3 | **User-writable `HKCU` uninstall strings run as SYSTEM** | Never. HKCU entries only run through the user's own helper. HKLM strings are parsed and the executable must lie under Program Files, the Windows directory or `ProgramData\Package Cache` (not a symbolic link). No shell is involved. **Not implemented: a DACL check on the file and its parents** (an app installed with a user-writable folder under Program Files, or anything under `Package Cache`, which is user-creatable). See 9e, R-1. | 3 ✅ / ⚠ |
+| T-LPE-3 | **User-writable `HKCU` uninstall strings run as SYSTEM** | Never. HKCU entries only run through the user's own helper. HKLM strings are parsed and the executable must lie under Program Files, the Windows directory or `ProgramData\Package Cache` (not a symbolic link). No shell is involved. **Not implemented: a DACL check on the file and its parents** (an app installed with a user-writable folder under Program Files, or anything under `Package Cache`, which is user-creatable). See 9f, R-1. | 3 ✅ / ⚠ |
 | T-LPE-4 | Command-line injection through package metadata or admin args | Argument arrays, `ComposeCommandLine` quoting, no `cmd.exe`/PowerShell, allow-listed argument token patterns, MSI GUID regex | 3 ✅ |
 | T-LPE-5 | Local IPC abuse (squatting or connecting to an agent pipe) | No named pipes or listening sockets. The helper gets an inherited anonymous pipe and takes one task. A user→service channel doesn't exist. | 3 ✅ |
 | T-LPE-6 | Tampering with agent files, config or the service | Protected DACLs (SYSTEM/Administrators). Quoted `ImagePath`. Service DACL denies non-admins stop/config. Authenticode-signed binaries. | 1 ✅ / 5 (signing) |
@@ -99,7 +99,7 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-WEB-1 | Credential stuffing or brute force | argon2id (m=64 MiB, t=3, p=2, with a concurrency semaphore against memory DoS); **mandatory MFA**; per-account backoff and lockout (10 failures → 15 min); per-IP rate limits; breached-password check with an offline list | 1 ✅ |
-| T-WEB-2 | Session theft | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; 30 min idle and 12 h absolute; ID rotated on login and privilege change; MFA re-check for sensitive actions (deploy to over N devices, root unlock, role changes, creating API tokens) is **not implemented**; these need only the signed-in session. See 9e, R-5. | 1 ✅ / ⚠ |
+| T-WEB-2 | Session theft | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; 30 min idle and 12 h absolute; ID rotated on login and privilege change; MFA re-check for sensitive actions (deploy to over N devices, root unlock, role changes, creating API tokens) is **not implemented**; these need only the signed-in session. See 9f, R-5. | 1 ✅ / ⚠ |
 | T-WEB-3 | CSRF | SameSite=Strict, plus a synchronizer token header on all state changes, plus an `Origin` check | 1 ✅ |
 | T-WEB-4 | XSS | React escaping; CSP `default-src 'self'; script-src 'self' 'nonce-…'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'`; no `dangerouslySetInnerHTML`, enforced by a lint rule | 1 ✅ |
 | T-WEB-5 | SQL injection | sqlc parameterized queries only; allow-listed dynamic-group compiler | 1 ✅ |
@@ -120,8 +120,10 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-REL-1 | Malicious agent update pushed through a customer server | Agent updates need a **vendor release-key** signature (compiled in) plus Authenticode with our pinned subject, and the version can't go down. A customer server can't create one. | 5 ✅ |
-| T-REL-2 | Compromised dependency | Pinned modules and lockfile, Dependabot pull requests (reviewed, never auto-merged), govulncheck, `npm audit`, gosec, semgrep, CodeQL, license allow-list, SBOM (Syft), reproducible builds, cosign-signed images | 1, 6 ✅ |
-| T-REL-3 | Release-key theft | Release key in an HSM or cloud KMS, used only by a protected CI environment with required reviewers | 6 🔜 (owner decision on KMS) |
+| T-REL-2 | Compromised dependency | Pinned modules and lockfile, Dependabot pull requests (reviewed, never auto-merged), govulncheck, `npm audit`, gosec, semgrep, CodeQL, license allow-list, CycloneDX SBOMs per binary and for the web bundle (`cmd/auzring-sbom`) plus a Syft SBOM of the image, reproducible builds checked by an independent rebuild, cosign-signed images and checksums (9e) | 1 ✅, 6 ✅ built and dry-run locally; the GitHub/Sigstore steps are unrun |
+| T-REL-3 | Release-key theft | Release key in an HSM or cloud KMS (never on a build machine), used only by the protected `release` CI environment through OIDC, contract `scripts/release-kms.sh`; standby key compiled in from the first release; the signer must be a compiled-in key (9e) | 6 🔜 pipeline written; custody is owner decision O7 |
+| T-REL-4 | Stolen release key used to pin an attacker's own Authenticode certificate | The allowed signer names are compiled into agent and server (D83), so a forged manifest needs our certificate as well as our key | 6 ✅ (unit-tested) |
+| T-REL-5 | Build-system or CI compromise (a malicious workflow change, a poisoned cache, a moved tag) | Real releases only from a `v*` tag on `main`, signing jobs in a protected environment with reviewers, no build caches in the release workflow, all actions pinned to SHAs, `permissions:` minimal per job, an independent second build that must match, provenance and cosign identity naming the workflow and tag, draft release published by a person | 6 🔜 unrun; depends on repository settings (RUNBOOK 9.2) |
 
 ## 6. Server compromise: blast radius and residual risk
 If an attacker gets admin GUI access, or code execution inside the server container while it's running, they can sign jobs. **No server-side design fully prevents this** for a system whose purpose is remote software installation. What we do:
@@ -177,7 +179,7 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 | Containers non-root (server), read-only rootfs, `cap_drop: ALL`, no-new-privileges; Postgres not published | `test/integration` asserts all of these via `docker inspect` |
 | X-Forwarded-For trusted only from Caddy's fixed IP; spoofed header ignored | `test/integration` |
 | Least-privilege DB role, KEK and DB credentials as Docker secrets, no default credentials (one-time setup token) | compose + `test/integration` |
-| Supply chain: digest-pinned images, SHA-pinned actions, govulncheck, npm audit, gosec, staticcheck, license allow-list, gitleaks, SPDX SBOMs | `.github/workflows/ci.yml` |
+| Supply chain: digest-pinned images, SHA-pinned actions, govulncheck, npm audit, gosec, staticcheck, license allow-list, gitleaks, SPDX SBOMs, a check that every action is SHA-pinned | `.github/workflows/ci.yml`, `scripts/check-actions-pinned.sh` |
 
 **Known gaps and residual risks after Phase 1** (planned phase in brackets):
 - Agent and server binaries are not yet code-signed or release-signed [5, needs O5/O7]. Until then, verify binaries by building from source.
@@ -350,6 +352,29 @@ Scope: the Windows MSI that wraps `auzring-agent.exe install` / `uninstall` for 
 - Partitioned tables are supported (the parent is dumped and reloaded through the parent, partitions are not listed), but a partition that does not exist in the target schema fails the load. Foreign-key cycles between tables are not supported and make the backup fail with a clear message (a test fails first if a migration introduces one).
 - Not yet verified: restore into a different PostgreSQL major version than the one that made the backup (the format is COPY text, which is portable, but only PostgreSQL 16 was tested), and backups of databases larger than the test data (the design streams, but no multi-GB run was made).
 
+## 9e. Phase 6: release pipeline (supply chain)
+
+Written in Phase 6 and exercised **locally** with throw-away keys (`scripts/release-dryrun.sh`); the GitHub workflow, the cloud signing steps and the MSI build have never run. Design: DECISIONS D79-D84; operator guide: RUNBOOK section 9; customer checks: `docs/VERIFYING_RELEASES.md`.
+
+| Control | Evidence |
+|---|---|
+| **Reproducible builds.** Same commit, different directory, time zone, locale, umask and build cache: byte-identical Go binaries (agent, server, tools), web bundle and SBOMs; `release.yml` repeats the build on a second runner and fails on any difference | `scripts/build-release.sh`, `scripts/verify-reproducible.sh` (run locally, two builds of the same commit, identical; it caught and we fixed an umask-dependent file mode in the web archive) |
+| **Pinned inputs.** Go toolchain from `go.mod` (the script refuses another), Node major, lockfile install without scripts, base images by digest (`deploy/Dockerfile.server`, which now fails if the base image's Go release is not the expected one), actions by commit SHA | `scripts/check-actions-pinned.sh` (CI `lint`), Dockerfile `EXPECT_GO_VERSION` |
+| **SBOMs.** CycloneDX 1.5 for each Go binary (the modules actually linked, with `go.sum` hashes), the web production closure (integrity hashes, licenses) and the image; deterministic; shape-checked | `internal/sbom` tests (`TestRealWebLockfile`, determinism, rejection of malformed documents), `auzring-sbom check` in `verify-release.sh` |
+| **The release key never leaves the KMS.** The pipeline obtains bytes (`auzring-release tosign`), a KMS signs them with pure Ed25519, `attach --pub` and `verify` re-check the result | `cmd/auzring-release` tests; `release-dryrun.sh` runs the same path with a throw-away key and with a fake `aws` command, and shows that a wrong key is refused at `attach` and a tampered binary at `verify` |
+| **A stolen release key is not enough.** The allowed Authenticode signer names are compiled in | `internal/shared/release` `TestAuthenticodeSubjectsCompiledIn`; `release-dryrun.sh` shows a release-built tool refusing a foreign signer |
+| **Signed, attested artifacts.** Authenticode for the agent and MSI (agent first, then the MSI built around it), cosign keyless signature of `SHA256SUMS`, cosign SBOM attestations, GitHub build provenance, image signed by digest and checked to contain the released server binary | `.github/workflows/release.yml`, `scripts/authenticode.ps1`, `scripts/verify-release.sh` (**unrun** for everything that needs GitHub, Sigstore or Windows) |
+| **Least privilege.** Workflow `permissions: {}` with per-job grants, no caches, signing only in the protected `release` environment (OIDC, no stored cloud credentials), real releases only from tags on `main`, draft release | `release.yml` |
+
+**Known gaps and residual risks added in Phase 6:**
+- **Nothing here has produced a real release.** There is no release key (O7), no code-signing certificate (O5), no `release` environment configured, and `release.yml` has never run on GitHub. The pipeline's own failure modes (a wrong action input, a missing runner tool, an Azure/AWS permission) will appear on the first dry run.
+- **Azure Key Vault is not known to support Ed25519.** The Azure hook assumes it does; if not, use AWS KMS, Google Cloud KMS or an HSM through another provider function.
+- **The signed Windows files are not reproducible** (signature and timestamp) and the repository ships no tool to compare a signed PE with its `unsigned-SHA256SUMS` entry through the Authenticode digest. The MSI is not part of the reproducibility check. Whole-image reproducibility is unverified (BuildKit `rewrite-timestamp`; BuildKit itself is not pinned by digest). The `windows/arm64` agent is not built or shipped by default.
+- **No vendor key revocation channel.** Revoking or rotating the release key needs a release signed by a still-trusted (standby) key; agents offline across a rotation need a reinstall (RUNBOOK 9.4). The compiled-in signer names have the same property.
+- **SBOM limits:** the Go dependency graph is flat, Go modules carry no license data, and the Go module hash is the `go.sum` dirhash, not an archive digest. A vulnerability scan of an SBOM is only as good as its purls.
+- **Sigstore keyless trust** rests on GitHub's OIDC issuer, Fulcio and the Rekor log being honest and available; verification needs network access to the trust root unless the customer mirrors it.
+- **Action pinning is by SHA of a tag at the time of writing**; the SHAs were resolved from the upstream repositories at authoring time and are re-reviewed when bumped. Third-party actions still run with the job's permissions, so the signing jobs keep their list short (Microsoft's signing action, `azure/login`, AWS credentials, cosign installer, GitHub's attestation action).
+
 ## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.
@@ -357,7 +382,7 @@ Scope: the Windows MSI that wraps `auzring-agent.exe install` / `uninstall` for 
 - Safe harbour for good-faith research on your own installations. Don't test against other customers' systems.
 - Supported versions: the current minor release and the previous one get security fixes.
 
-## 9e. Phase 6: security review
+## 9f. Phase 6: security review
 
 A line-by-line review of the code against every row of section 5 and every claim in 9–9d (read-only; Windows-only code was read, not run). Where a row did not match the code, the row above was corrected instead of leaving the claim standing. Fuzz targets were added for the job envelope (with a valid signature and without), the enrollment string, the release manifest and bundle, the job-body validators and the uninstall-key scanner; `make fuzz` runs them all, together with the earlier ones.
 

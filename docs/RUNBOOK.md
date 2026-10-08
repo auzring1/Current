@@ -1,6 +1,6 @@
 # Runbook
 
-Status: covers Phase 1 (server, web console, agent enrollment and connectivity). Later phases extend it.
+Status: covers Phase 1 (server, web console, agent enrollment and connectivity); later phases extend it, and section 9 is for the release manager.
 
 ## 1. Requirements
 
@@ -365,6 +365,7 @@ Take a backup, copy `deploy/secrets/` and the backup to the new host, then follo
   3. Review the audit log, after checking it with `verify-audit`.
   4. Rotate the job-signing key on the server so agents replace their stored signing certificate at the next connection. (Root-signed revocation lists, which would let agents reject a stolen key at once, are not implemented yet: SECURITY.md 9e, R-2. Until a rotated-out certificate expires, an agent that is offline during the rotation still trusts it.)
 - **Suspected endpoint compromise:** revoke the device, rebuild the machine, then enroll it with a new token.
+- **Suspected release-key or code-signing compromise (vendor side):** section 9.4, "Revocation, and its limits". Customers: leave `agent_update` out of `--allowed-jobs`, pause the rollout and withdraw the release on the Agent updates page.
 - **Leaked enrollment token:** revoke it under Enrollment, then review **Devices**, filtered to **Pending** and recent enrollments.
 
 ## 8. Troubleshooting
@@ -393,3 +394,121 @@ Take a backup, copy `deploy/secrets/` and the backup to the new host, then follo
 ### Hardening an older database (installed before Phase 6)
 
 Fresh installs create `auzring_owner` as a non-superuser and keep the bootstrap superuser (`auzring_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `auzring_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), run `./scripts/init-secrets.sh` (adds `postgres_admin_password`), `docker compose down -v` **after** copying `deploy/secrets/` and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
+
+## 9. Release manager (vendor side)
+
+This section is for the people who ship Auzring, not for operators of an installation. Customers verify releases with `docs/VERIFYING_RELEASES.md`. The design is `docs/DECISIONS.md` D79-D84. **Owner decisions O5 (code-signing certificate) and O7 (release-key custody) are still open**; this section describes the options and what the pipeline expects of whichever is chosen. Nothing below has run against real GitHub, Azure, AWS or a certificate yet: do the dry runs first and expect to fix small things.
+
+### 9.1 What the pipeline does
+
+`.github/workflows/release.yml` runs on a `v*` tag, or by hand (**Actions → release → Run workflow**, `dry_run` is on by default).
+
+| Stage | What happens | Real release | Dry run |
+|---|---|---|---|
+| prepare | Decides dry run, version, environment. A real release must come from a `vX.Y.Z` tag whose commit is on `main` | enforced | version from input |
+| gate | Calls the existing `ci` and `windows` workflows | runs | runs unless `run_gate` is off |
+| build | `scripts/build-release.sh`: Go binaries, web bundle, SBOMs, `unsigned-SHA256SUMS` | real public keys | throw-away key |
+| rebuild | The same build again on another runner in another directory; digests must match | runs | runs |
+| sign-windows | Authenticode-signs the agent, **then** builds the MSI (WiX) around it, then signs the MSI; verifies the signer name | real | skipped, unsigned MSI is still built |
+| sign-manifest | `auzring-release manifest` → `tosign` → KMS signs → `attach` → `verify` (the vendor bundle, D68) | KMS via OIDC | throw-away key |
+| image | Builds `deploy/Dockerfile.server`, pushes to `ghcr.io`, cosign-signs the digest, attaches the SBOM, build provenance; checks the binary inside equals the released binary | runs | OCI archive only |
+| publish | `SHA256SUMS`, cosign signature, GitHub build provenance, SBOM attestations, verification, **draft** GitHub release | runs | workflow artifact only |
+
+A person publishes the draft release after checking it. The signing jobs sit behind the protected `release` environment.
+
+### 9.2 One-time repository setup
+
+1. **Environments** (Settings → Environments). `release`: required reviewers (two people, not the person who pushed the tag), "prevent self-review", deployment restricted to tags matching `v*`, no bypass for administrators. `release-dryrun`: no secrets, no reviewers (it is created on first use).
+2. **Tag protection**: a ruleset so that only the release managers can create `v*` tags and nobody can move or delete them.
+3. **Repository variables** (not secrets; they are names and identifiers):
+
+| Variable | Meaning |
+|---|---|
+| `AUZ_AUTHENTICODE_PROVIDER` | `azure-artifact-signing` or `signtool` (9.5) |
+| `AUZ_AUTHENTICODE_SUBJECT` | The signer name (certificate CN) agents will see. It is pinned into every vendor manifest |
+| `AUZ_AUTHENTICODE_SUBJECTS` | Optional, separated by a vertical bar. The only signer names compiled into agent and server (D83). Default: the variable above. While rotating the certificate, list old and new |
+| `AUZ_AZURE_CLIENT_ID`, `AUZ_AZURE_TENANT_ID`, `AUZ_AZURE_SUBSCRIPTION_ID` | Azure OIDC federation (Authenticode or Key Vault) |
+| `AUZ_ARTIFACT_SIGNING_ENDPOINT`, `AUZ_ARTIFACT_SIGNING_ACCOUNT`, `AUZ_ARTIFACT_SIGNING_PROFILE` | Azure Artifact Signing account |
+| `AUZ_SIGNTOOL_ARGS` | The `signtool` provider: how to select the certificate (for example `/csp "<KSP>" /kc "<container>" /f cert.cer`) |
+| `AUZ_KMS_PROVIDER` | `aws` or `azure` (9.4) |
+| `AUZ_AWS_ROLE_ARN`, `AUZ_AWS_REGION`, `AUZ_RELEASE_KMS_KEY_ID` | AWS KMS release key |
+| `AUZ_AKV_VAULT`, `AUZ_AKV_KEY`, `AUZ_AKV_KEY_VERSION` | Azure Key Vault release key (see the caveat in `scripts/release-kms.sh`) |
+| `AUZ_RELEASE_MIN_VERSION` | Optional `min_version` for the manifest |
+
+   The only secret the pipeline can read is `AUZ_SIGNTOOL_SECRET` (a KSP credential for the `signtool` provider). With OIDC no cloud credential is stored in GitHub.
+4. **OIDC trust.** In Azure/AWS, trust the GitHub OIDC issuer for the subject `repo:auzring1/auzring:environment:release` only (not the repository as a whole, not the dry-run environment). The AWS role may do `kms:Sign` and `kms:GetPublicKey` on the one key and nothing else. The Azure identity gets the signing role on the one Artifact Signing certificate profile and nothing else.
+5. **Pinned versions.** Every third-party action is pinned to a commit SHA (`scripts/check-actions-pinned.sh`, run in CI). To bump one: list the tags with `git ls-remote --tags https://github.com/OWNER/REPO`, review the changes between releases, and replace the SHA and the version comment together. BuildKit itself is not yet pinned by digest: set `AUZ_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...` for the image job when you have chosen one.
+
+### 9.3 Cutting a release
+
+1. Merge everything to `main`; CI is green. Update `THIRD_PARTY_NOTICES.md` if dependencies changed.
+2. **Rehearse locally**: `make release-dryrun` (or `scripts/release-dryrun.sh --with-repro`). It uses throw-away keys under `dist-release/dryrun/` and prints what it exercised and what it could not.
+3. **Rehearse in CI**: run the workflow with `dry_run` on. Check the notices ("DRY RUN ...") and that every job is green, including `rebuild` (the reproducibility proof).
+4. Create a signed tag `vX.Y.Z` on the reviewed commit and push it. The `release` environment waits for the reviewers. **Reviewers check**: the tag is the commit they reviewed, `release/release-public-keys.txt` and the variables are unchanged since the last release, the `rebuild` job passed.
+5. When the run finishes there is a **draft** release. Download it and run `scripts/verify-release.sh` (VERIFYING_RELEASES.md) from a machine that is not the CI. Then publish the draft.
+6. Roll it out to your own fleet first: **Agent updates → Upload a release** (the signed exe and its `.azr`), pilot group, soak (section 5c).
+7. Announce the version, the commit, the vendor key fingerprint and the Authenticode signer name through a channel other than the release page.
+
+If something is wrong after step 5: delete the draft, leave the tag (do not move it), fix forward with the next patch version. If it was already published or uploaded to servers, **withdraw** the release on the Agent updates page (customers) and publish a corrected one.
+
+### 9.4 Release-key custody (decision O7): key ceremony outline
+
+The vendor release key is an **Ed25519** key (the agents verify Ed25519 and nothing else). It signs the small manifest of each agent release and nothing else; the license-signing key (Phase 6) is a different key with a different custodian, never the same one.
+
+**Where it lives.** In a KMS/HSM that can sign but not export. The pipeline contract is `scripts/release-kms.sh <provider> sign|pubkey` and works for any service that can do a raw Ed25519 (PureEdDSA) signature over a few hundred bytes:
+
+- **AWS KMS**: key spec `ECC_NIST_EDWARDS25519`, usage `SIGN_VERIFY`, algorithm `ED25519_SHA_512` with message type `RAW` (the manifest is far below the 4096-byte limit). Implemented in the script, tested only against a fake `aws` command here.
+- **Azure Key Vault / Managed HSM**: the hook exists (`azure`), but as far as we know Key Vault does not offer Ed25519 keys. If that is still true when you decide, use AWS KMS (or Google Cloud KMS, or an HSM behind PKCS#11, by adding one more provider function to the script). Do not pick Azure for the release key without first creating a test Ed25519 key there.
+- The Authenticode certificate and the release key are independent on purpose (9.5); using Azure for one and AWS for the other is fine.
+
+**Ceremony (once, then for every rotation).**
+
+1. Two people and a witness, with a written log. Decide the key's name, account/region and the people who may change its policy (not the people who can push tags).
+2. Create the key in the KMS with: no export, deletion protection or a long deletion window, and a key policy that lets only (a) the pipeline role `kms:Sign`/`kms:GetPublicKey` under the OIDC subject condition of 9.2 and (b) a break-glass administrator role manage it. Turn on CloudTrail (or Azure diagnostic logs) for the key and alert on any `Sign` outside a release run.
+3. Read the public key: `AUZ_RELEASE_KMS_KEY_ID=... scripts/release-kms.sh aws pubkey` (64 hex digits). Record it and its short key id (the first 8 bytes of its SHA-256, printed by `auzring-release keygen` and `verify`) in the log; both witnesses read them back from the KMS console.
+4. Add the public key to `release/release-public-keys.txt` by pull request (two reviewers). Never commit anything else there. The first build with this file non-empty produces agents that trust the key.
+5. **Make a standby key now, not later.** KMS keys cannot be backed up in a usable form: if the only key is lost or its account is closed, no agent can ever be updated again (only reinstalled). So create a second key in a different account/region/provider with a different custodian, put **both** public keys into the file from the first release, and keep the standby's access closed. This is the backup.
+6. Prove sign, `attach --pub` and `verify` work with the real key before the first release: run `scripts/release-kms.sh` by hand from a shell that has assumed the role, on a test manifest.
+
+**Rotation (planned, yearly or on staff change).** Agents learn about a new key only through an update that an already-trusted key signed, so the order matters:
+
+1. Release N: `release-public-keys.txt` contains old and new; signed with the old key. Roll it out until the whole fleet reports version N or later (Agent updates page).
+2. Release N+1: signed with the new key (point `AUZ_RELEASE_KMS_KEY_ID` at it).
+3. Release N+2, only after N+1 has reached the fleet: the file drops the old key. Disable the old KMS key after that.
+
+An agent that is offline for a whole rotation may need a reinstall.
+
+**Revocation, and its limits.** There is deliberately no revocation list that agents fetch: agents never phone home to us. What exists:
+
+- *The key is unusable the moment you disable it in the KMS or detach the pipeline role.* A KMS key cannot be exfiltrated, so "theft" really means someone could ask the KMS to sign. Cut off the role first, then read the key's audit log for signatures you did not expect.
+- A signature alone does not get a binary onto an endpoint. An attacker also needs (a) to deliver the update job through a customer's server, whose job-signing key they do not have, and (b) a binary Authenticode-signed by one of the signer names compiled into the agent (D83), that is, our certificate. Losing the release key is serious but not by itself a fleet compromise.
+- Recovery is a rotation in a hurry: ship a release signed by the **standby** key that no longer trusts the compromised one, and ask customers to roll it out first. Agents that still trust the compromised key remain exposed to a forged update until they take that release; customers can stop `agent_update` jobs (leave it out of `--allowed-jobs`) and **withdraw** releases on the Agent updates page.
+- Compromise of the Authenticode certificate is handled at the CA (revoke) plus a new certificate with a new CN added to `AUZ_AUTHENTICODE_SUBJECTS` in a release signed under the old one. If both the release key and the certificate are lost at once, the only safe fleet recovery is a manual reinstall.
+
+### 9.5 Code-signing certificate (decision O5): options
+
+The agent exe and the MSI are Authenticode-signed with a timestamp. The CN of the certificate is pinned into every manifest and, since D83, compiled into the agent. Two supported ways (`AUZ_AUTHENTICODE_PROVIDER`):
+
+| | `azure-artifact-signing` (formerly Trusted Signing) | `signtool` with a certificate in a cloud HSM |
+|---|---|---|
+| Key handling | Microsoft holds the key; short-lived certificates are issued per signature; the GitHub job uses OIDC and no secret | The CA or HSM vendor holds the key; the job reaches it through a CSP/KSP (`AUZ_SIGNTOOL_ARGS` selects it) and usually a secret (`AUZ_SIGNTOOL_SECRET`) |
+| Fit | Simplest and best for CI. The signer name is the validated legal entity | Independent of Azure; works with any CA that sells HSM-backed OV/EV certificates |
+| Costs/limits | Needs an Azure subscription and identity validation of the organization. Check current eligibility rules and regions before relying on it | Annual certificate fee; CAs require the key to be on certified hardware, so a PFX file in CI is not an option; the KSP plumbing is the work |
+| Status here | Wired to Microsoft's official action (pinned), **never run** | Wired through `scripts/authenticode.ps1`, **never run** |
+
+Either way: sign the agent **before** the MSI is built; always apply the timestamp (a signature without one dies with the certificate); keep the signer CN stable across renewals (Azure rotates certificates but keeps the subject); do not buy an EV certificate expecting automatic SmartScreen reputation, check Microsoft's current behaviour first. Whoever owns the decision should also fix the exact CN string, because it is compared exactly (ignoring case).
+
+### 9.6 Troubleshooting a release run
+
+| Symptom | Likely cause |
+|---|---|
+| `prepare`: "a real release runs only from a v* tag" | A manual run with `dry_run` off from a branch. Real releases come from tags only |
+| `build`: "release/release-public-keys.txt has no key" | The key ceremony (9.4) is not finished |
+| `build`: "set AUZ_AUTHENTICODE_SUBJECT" | The repository variable is missing |
+| `rebuild` differs from `build` | A real reproducibility bug: run `scripts/verify-reproducible.sh` locally on the tag and compare; do not release until understood |
+| `sign-windows`: "a repository variable for ... is not set" | A variable from 9.2 is missing |
+| `sign-windows`: signer is 'X', expected 'Y' | `AUZ_AUTHENTICODE_SUBJECT` does not equal the certificate's CN |
+| `sign-manifest`: "not among the compiled-in release keys" | The KMS key is not the one in `release/release-public-keys.txt` |
+| `sign-manifest`: Key Vault refuses EdDSA | Azure Key Vault has no Ed25519 here; use AWS KMS (9.4) |
+| `image`: "image binary differs from the released binary" | The pinned base image's Go release differs from the pipeline's, or the web bundle differs. Update the golang digest in `deploy/Dockerfile.server` together with `GO_VERSION` |
+| `publish`: `sha256sum -c` fails | Something other than the signed agent changed after the reproducible build |

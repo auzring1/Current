@@ -3,6 +3,7 @@ on:
   push:
     branches: [main, "phase-*"]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -30,6 +31,10 @@ jobs:
         run: make tools && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: npm ci
         run: cd web && npm ci --no-audit --no-fund
+      - name: Third-party actions are pinned to full commit SHAs
+        run: scripts/check-actions-pinned.sh
+      - name: Release scripts parse (bash -n)
+        run: for f in scripts/*.sh; do bash -n "$f"; done
       - name: Generated code is up to date
         run: make check-generated
       - name: buf lint
