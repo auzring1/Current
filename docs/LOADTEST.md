@@ -205,3 +205,7 @@ Not fixed (design or larger changes), for the owner to decide:
 * Windows Update snapshots and content downloads are not exercised, and the `wu_scan` jobs are no-ops.
 * The REST API is exercised only for tokens, job creation and the overview; the console's own load (SSE streams, device lists with 10,000 rows) is not tested.
 * The server-process and PostgreSQL samplers need the same host (`--server-pid`, `--pg-url`); the kernel counters in the script cover the whole host.
+
+## 8. Licensing and the load test
+
+An unlicensed server enrolls at most 25 devices (decision D85), so every run needs a license for the fleet size. `scripts/loadtest.sh` (local mode) generates a throw-away license key, gives the server its public half (`AUZ_LICENSE_PUBLIC_KEYS`) and installs a license for 1,000,000 devices through `test/tools/bootstrap -license-file`. For `--external` runs install a license on that server yourself. The numbers in section 7 were measured before the license check existed in the enrollment path; a 3,000-agent run after it (about 95 enrollments per second, ramp to 99% in 31.7 s, enroll p99 250 ms) shows no measurable difference.

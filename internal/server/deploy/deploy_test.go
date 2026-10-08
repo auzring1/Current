@@ -554,6 +554,7 @@ func TestCancelDeploymentAndSweepAndRetry(t *testing.T) {
 	if _, err := f.svc.Retry(ctx, f.org, f.user, nid, ""); !errors.Is(err, ErrNotRetryable) {
 		t.Fatalf("a queued job is not retryable: %v", err)
 	}
+	f.svc.Wait() // the retry's background dispatch reads the clock
 	// expiry sweep
 	f.svc.Now = func() time.Time { return time.Now().Add(100 * 24 * time.Hour) }
 	f.svc.Sweep(ctx)
