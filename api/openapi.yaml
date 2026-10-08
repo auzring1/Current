@@ -1181,6 +1181,35 @@ paths:
         "200": { $ref: "#/components/responses/SessionStarted" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+  /me/preferences:
+    get:
+      tags: [identity]
+      summary: The signed-in person's console preferences (theme, table density, saved table views); they follow the account to any device
+      responses:
+        "200":
+          description: OK (empty values until the person chooses)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+    put:
+      tags: [identity]
+      summary: Replace the signed-in person's console preferences (session only; an API token cannot)
+      description: >
+        The theme must be one the organization offers (Settings > Branding) when it restricts the list. Saved views are
+        small opaque JSON objects (at most 4 KiB each, 20 per table).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Preferences" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /me/security:
     get:
       tags: [identity]
@@ -2226,6 +2255,25 @@ components:
             code: { type: string }
             message: { type: string }
             fields: { type: object, additionalProperties: { type: string }, description: "Per-field messages (invalid_branding)" }
+    Preferences:
+      type: object
+      additionalProperties: false
+      properties:
+        theme: { type: string, description: "A theme id (lower-case letters, digits, dashes); empty = the organization's default" }
+        density: { type: string, enum: ["", comfortable, compact] }
+        views:
+          type: object
+          description: Saved table views by table id
+          additionalProperties:
+            type: array
+            maxItems: 20
+            items:
+              type: object
+              required: [id, name, state]
+              properties:
+                id: { type: string }
+                name: { type: string, maxLength: 60 }
+                state: { type: object }
     BrandingAssetKind:
       type: string
       enum: [logo_light, logo_dark, icon, favicon, report_logo]
@@ -2244,6 +2292,8 @@ components:
         support_phone: { type: string, maxLength: 40 }
         support_url: { type: string, maxLength: 300, description: "https only" }
         report_footer: { type: string, maxLength: 500 }
+        default_theme: { type: string, description: "Theme for people who have not chosen one; empty = follow the device" }
+        allowed_themes: { type: array, maxItems: 16, items: { type: string }, description: "Themes people may pick; empty = all" }
     BrandingAssetRef:
       type: object
       required: [url, width, height]
@@ -2253,7 +2303,7 @@ components:
         height: { type: integer }
     PublicBranding:
       type: object
-      required: [product_name, org_name, title, accent_color, secondary_color, login_headline, login_message, login_footer, support, assets, version]
+      required: [product_name, org_name, title, accent_color, secondary_color, login_headline, login_message, login_footer, support, default_theme, allowed_themes, assets, version]
       properties:
         product_name: { type: string }
         org_name: { type: string }
@@ -2263,6 +2313,8 @@ components:
         login_headline: { type: string }
         login_message: { type: string }
         login_footer: { type: string }
+        default_theme: { type: string }
+        allowed_themes: { type: array, items: { type: string } }
         support:
           type: object
           properties:

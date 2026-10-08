@@ -56,6 +56,25 @@ func TestBrandingMigrationIsReversible(t *testing.T) {
 		}
 	}
 
+	if _, err := c.Exec(ctx, `UPDATE branding SET default_theme = 'dark', allowed_themes = '{light,dark}' WHERE org_id = $1`, org); err != nil {
+		t.Fatalf("theme columns: %v", err)
+	}
+	if _, err := c.Exec(ctx, `UPDATE branding SET default_theme = 'Dark Mode' WHERE org_id = $1`, org); err == nil {
+		t.Error("a malformed theme id was accepted by the database")
+	}
+	// Migration 11 (appearance) rolls back on its own, leaving branding in place.
+	if err := store.MigrateDown(ctx, db.OwnerURL, 10, log); err != nil {
+		t.Fatalf("down to 10: %v", err)
+	}
+	if tableExists(t, c, "user_preferences") || !tableExists(t, c, "branding") {
+		t.Fatal("rolling back migration 11 must drop user_preferences and keep branding")
+	}
+	if err := store.Migrate(ctx, db.OwnerURL, log); err != nil {
+		t.Fatalf("up to 11 again: %v", err)
+	}
+	if !tableExists(t, c, "user_preferences") {
+		t.Fatal("user_preferences must exist after migrating up")
+	}
 	if err := store.MigrateDown(ctx, db.OwnerURL, 9, log); err != nil {
 		t.Fatalf("down: %v", err)
 	}

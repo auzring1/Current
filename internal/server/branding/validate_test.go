@@ -73,7 +73,7 @@ func TestValidateRejects(t *testing.T) {
 
 func TestValidateAllowsEmptyAsDefault(t *testing.T) {
 	got, err := Validate(Settings{})
-	if err != nil || got != (Settings{}) {
+	if err != nil || got.OrgName != "" || got.AccentColor != "" || got.DefaultTheme != "" || len(got.AllowedThemes) != 0 {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
@@ -91,5 +91,35 @@ func TestResolveDefaults(t *testing.T) {
 	b := resolve(Settings{OrgName: "B"}, nil)
 	if a.Version == b.Version || a.Version == "" {
 		t.Fatal("the version must change with the content")
+	}
+}
+
+func TestValidateThemes(t *testing.T) {
+	got, err := Validate(Settings{DefaultTheme: "dark", AllowedThemes: []string{"light", "dark", "midnight"}})
+	if err != nil || got.DefaultTheme != "dark" || len(got.AllowedThemes) != 3 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if _, err := Validate(Settings{DefaultTheme: "slate"}); err != nil {
+		t.Fatalf("a default with no restriction is fine: %v", err)
+	}
+	for name, in := range map[string]struct {
+		s     Settings
+		field string
+	}{
+		"bad default":         {Settings{DefaultTheme: "Dark Mode"}, "default_theme"},
+		"default not offered": {Settings{DefaultTheme: "slate", AllowedThemes: []string{"light"}}, "default_theme"},
+		"bad id":              {Settings{AllowedThemes: []string{"light", "../x"}}, "allowed_themes"},
+		"duplicate":           {Settings{AllowedThemes: []string{"light", "light"}}, "allowed_themes"},
+		"too many": {Settings{AllowedThemes: func() []string {
+			var l []string
+			for i := 0; i < 17; i++ {
+				l = append(l, "t"+string(rune('a'+i)))
+			}
+			return l
+		}()}, "allowed_themes"},
+	} {
+		if _, err := Validate(in.s); err == nil || fieldsOf(t, err)[in.field] == "" {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }

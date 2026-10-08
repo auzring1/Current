@@ -48,6 +48,11 @@ type Settings struct {
 	SupportPhone   string `json:"support_phone"`
 	SupportURL     string `json:"support_url"`
 	ReportFooter   string `json:"report_footer"`
+	// DefaultTheme is the console theme for people who have not chosen one ("" = follow the device). AllowedThemes
+	// limits which themes people may pick (empty = all). Theme ids are checked for shape only: the console knows
+	// which themes exist, so adding one needs no server change.
+	DefaultTheme  string   `json:"default_theme"`
+	AllowedThemes []string `json:"allowed_themes"`
 }
 
 // Defaults are the values used while a setting is empty.
@@ -152,6 +157,7 @@ func Validate(in Settings) (Settings, error) {
 			out.SupportURL = v
 		}
 	}
+	out.DefaultTheme, out.AllowedThemes = themes(f, in.DefaultTheme, in.AllowedThemes)
 	if f["accent_color"] == "" && f["secondary_color"] == "" {
 		for _, c := range Failing(Checks(out.AccentColor, out.SecondaryColor)) {
 			name := "accent_color"
@@ -165,6 +171,44 @@ func Validate(in Settings) (Settings, error) {
 		return Settings{}, &ValidationError{Fields: f}
 	}
 	return out, nil
+}
+
+var themeIDRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
+// MaxThemes bounds the list of offered themes.
+const MaxThemes = 16
+
+// ValidThemeID reports whether id is shaped like a theme id.
+func ValidThemeID(id string) bool { return themeIDRe.MatchString(id) }
+
+// themes checks the default theme and the offered list: well-formed, no duplicates, and the default is one of the
+// offered themes when the list is not empty.
+func themes(f map[string]string, def string, allowed []string) (string, []string) {
+	def = strings.TrimSpace(def)
+	if def != "" && !themeIDRe.MatchString(def) {
+		f["default_theme"] = "The default theme is not valid."
+	}
+	out := make([]string, 0, len(allowed))
+	seen := map[string]bool{}
+	for _, a := range allowed {
+		a = strings.TrimSpace(a)
+		switch {
+		case !themeIDRe.MatchString(a):
+			f["allowed_themes"] = "A theme in the list is not valid."
+		case seen[a]:
+			f["allowed_themes"] = "A theme is listed twice."
+		default:
+			seen[a] = true
+			out = append(out, a)
+		}
+	}
+	if len(out) > MaxThemes {
+		f["allowed_themes"] = fmt.Sprintf("At most %d themes can be offered.", MaxThemes)
+	}
+	if len(out) > 0 && def != "" && !seen[def] && f["default_theme"] == "" {
+		f["default_theme"] = "The default theme must be one of the offered themes."
+	}
+	return def, out
 }
 
 // AssetRef is how a stored image is referred to by pages.
@@ -201,6 +245,8 @@ type Public struct {
 	LoginMessage   string               `json:"login_message"`
 	LoginFooter    string               `json:"login_footer"`
 	Support        Support              `json:"support"`
+	DefaultTheme   string               `json:"default_theme"`
+	AllowedThemes  []string             `json:"allowed_themes"`
 	Assets         map[string]*AssetRef `json:"assets"`
 	Version        string               `json:"version"`
 }
@@ -252,7 +298,8 @@ func assetURL(kind string, sha []byte) string {
 func resolve(st Settings, assets map[string]*AssetInfo) Public {
 	p := Public{ProductName: st.ProductName, OrgName: st.OrgName, AccentColor: st.AccentColor, SecondaryColor: st.SecondaryColor,
 		LoginHeadline: st.LoginHeadline, LoginMessage: st.LoginMessage, LoginFooter: st.LoginFooter,
-		Support: Support{Email: st.SupportEmail, Phone: st.SupportPhone, URL: st.SupportURL}, Assets: map[string]*AssetRef{}}
+		Support: Support{Email: st.SupportEmail, Phone: st.SupportPhone, URL: st.SupportURL}, Assets: map[string]*AssetRef{},
+		DefaultTheme: st.DefaultTheme, AllowedThemes: append([]string{}, st.AllowedThemes...)}
 	if p.ProductName == "" {
 		p.ProductName = brand.Name
 	}
@@ -276,7 +323,8 @@ func resolve(st Settings, assets map[string]*AssetInfo) Public {
 func fromRow(r dbq.Branding) Settings {
 	return Settings{OrgName: r.OrgName, ProductName: r.ProductName, AccentColor: r.AccentColor, SecondaryColor: r.SecondaryColor,
 		LoginHeadline: r.LoginHeadline, LoginMessage: r.LoginMessage, LoginFooter: r.LoginFooter,
-		SupportEmail: r.SupportEmail, SupportPhone: r.SupportPhone, SupportURL: r.SupportUrl, ReportFooter: r.ReportFooter}
+		SupportEmail: r.SupportEmail, SupportPhone: r.SupportPhone, SupportURL: r.SupportUrl, ReportFooter: r.ReportFooter,
+		DefaultTheme: r.DefaultTheme, AllowedThemes: append([]string{}, r.AllowedThemes...)}
 }
 
 func (s *Service) load(ctx context.Context, q *dbq.Queries, org uuid.UUID) (*View, error) {
@@ -353,7 +401,8 @@ func snapshot(st Settings) map[string]any {
 	return map[string]any{"org_name": st.OrgName, "product_name": st.ProductName, "accent_color": st.AccentColor,
 		"secondary_color": st.SecondaryColor, "login_headline": st.LoginHeadline, "login_message": st.LoginMessage,
 		"login_footer": st.LoginFooter, "support_email": st.SupportEmail, "support_phone": st.SupportPhone,
-		"support_url": st.SupportURL, "report_footer": st.ReportFooter}
+		"support_url": st.SupportURL, "report_footer": st.ReportFooter,
+		"default_theme": st.DefaultTheme, "allowed_themes": strings.Join(st.AllowedThemes, ",")}
 }
 
 func diff(before, after Settings) (b, a map[string]any) {
@@ -384,6 +433,7 @@ func upsertParams(org uuid.UUID, st Settings, now time.Time, by uuid.UUID) dbq.U
 	return dbq.UpsertBrandingParams{OrgID: org, OrgName: st.OrgName, ProductName: st.ProductName, AccentColor: st.AccentColor,
 		SecondaryColor: st.SecondaryColor, LoginHeadline: st.LoginHeadline, LoginMessage: st.LoginMessage, LoginFooter: st.LoginFooter,
 		SupportEmail: st.SupportEmail, SupportPhone: st.SupportPhone, SupportUrl: st.SupportURL, ReportFooter: st.ReportFooter,
+		DefaultTheme: st.DefaultTheme, AllowedThemes: append([]string{}, st.AllowedThemes...),
 		UpdatedAt: now, UpdatedBy: &by}
 }
 

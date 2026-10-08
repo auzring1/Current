@@ -2598,6 +2598,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in person's console preferences (theme, table density, saved table views); they follow the account to any device */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK (empty values until the person chooses) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Preferences"];
+                    };
+                };
+            };
+        };
+        /**
+         * Replace the signed-in person's console preferences (session only; an API token cannot)
+         * @description The theme must be one the organization offers (Settings > Branding) when it restricts the list. Saved views are small opaque JSON objects (at most 4 KiB each, 20 per table).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Preferences"];
+                    };
+                };
+                403: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/security": {
         parameters: {
             query?: never;
@@ -5024,6 +5089,20 @@ export interface components {
                 };
             };
         };
+        Preferences: {
+            /** @description A theme id (lower-case letters, digits, dashes); empty = the organization's default */
+            theme?: string;
+            /** @enum {string} */
+            density?: "" | "comfortable" | "compact";
+            /** @description Saved table views by table id */
+            views?: {
+                [key: string]: {
+                    id: string;
+                    name: string;
+                    state: Record<string, never>;
+                }[];
+            };
+        };
         /** @enum {string} */
         BrandingAssetKind: "logo_light" | "logo_dark" | "icon" | "favicon" | "report_logo";
         BrandingSettings: {
@@ -5042,6 +5121,10 @@ export interface components {
             /** @description https only */
             support_url?: string;
             report_footer?: string;
+            /** @description Theme for people who have not chosen one; empty = follow the device */
+            default_theme?: string;
+            /** @description Themes people may pick; empty = all */
+            allowed_themes?: string[];
         };
         BrandingAssetRef: {
             url: string;
@@ -5057,6 +5140,8 @@ export interface components {
             login_headline: string;
             login_message: string;
             login_footer: string;
+            default_theme: string;
+            allowed_themes: string[];
             support: {
                 email?: string;
                 phone?: string;
