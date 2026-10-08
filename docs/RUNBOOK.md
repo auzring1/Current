@@ -62,6 +62,8 @@ These modes only affect the console. The agent channel always uses the server's 
 4. The command copies the agent to `C:\Program Files\Auzring\Agent\slot-a\`, locks down `C:\ProgramData\Auzring\`, registers and starts the **AuzringAgent** service (LocalSystem, automatic start, restart on failure), and waits for enrollment.
 5. Check the agent at any time with `"C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" status`.
 
+**Large rollouts.** The server limits enrollment attempts to 10 per minute per source address and 60 per minute per token, which protects tokens from guessing. Machines behind one NAT address therefore enroll at about 10 per minute, and a rollout of 1,000 from one site takes about 100 minutes (agents retry on their own). If you roll out many machines at once, raise the limits for the duration with `AUZ_ENROLL_RATE_PER_IP` and `AUZ_ENROLL_RATE_PER_TOKEN` (attempts per minute) and restore them afterwards. At most 8 enrollments are processed at the same time; in the load test the server enrolled about 70 devices per second at most (see [LOADTEST.md](LOADTEST.md)). Servers that will hold thousands of connections also need a raised open-file limit; LOADTEST.md lists the settings.
+
 To **remove** the agent, run `auzring-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
 
 ### Install with the MSI (GPO, Intune, RMM)

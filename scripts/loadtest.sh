@@ -136,8 +136,28 @@ fi
 } >"$OUT/summary.md"
 
 status=0
+
+# Kernel TCP counters (all processes on the host): a snapshot before and after each scenario shows
+# whether the accept queue overflowed (ListenOverflows/ListenDrops), connections were reset or timed
+# out (EstabResets, TCPAbortOn*, TCPTimeouts) and how many segments were retransmitted.
+netsnap() {
+  cat /proc/net/netstat /proc/net/snmp 2>/dev/null | awk '
+    !($1 in seen) { seen[$1] = 1; n = split($0, h, " "); next }
+    { split($0, v, " "); for (i = 2; i <= n; i++) print $1 h[i], v[i] }'
+  # Packets the loopback/NIC input queue dropped (net.core.netdev_max_backlog too small), all CPUs.
+  local d=0 sq=0 a b c
+  while read -r a b c _; do d=$((d + 16#$b)); sq=$((sq + 16#$c)); done </proc/net/softnet_stat 2>/dev/null || true
+  echo "Softnet:dropped $d"
+  echo "Softnet:time_squeeze $sq"
+}
+netdelta() { # netdelta before after -> the interesting counters that moved
+  join -j1 <(sort "$1") <(sort "$2") | awk '{ d = $3 - $2; if (d > 0) print $1, d }' |
+    grep -E "^(Softnet:(dropped|time_squeeze)|TcpExt:(ListenOverflows|ListenDrops|TCPReqQFullDrop|TCPReqQFullDoCookies|TCPAbortOn[A-Za-z]*|TCPTimeouts|TCPSynRetrans|TCPBacklogDrop|TCPRcvQDrop|TCPMemoryPressures|TCPAbortFailed)|Tcp:(RetransSegs|AttemptFails|EstabResets|ActiveOpens|PassiveOpens)) " || true
+}
+
 for sc in $SCENARIOS; do
   echo "== scenario $sc ($AGENTS agents)"
+  netsnap >"$OUT/$sc.net.before"
   args=(--api "$api" --server "$gateway" --agents "$AGENTS" --ramp-per-sec "$RAMP" --duration "$DURATION"
     --heartbeat "$HEARTBEAT" --inventory-size "$INV_SIZE" --inventory-change-every "$INV_CHANGE"
     --jobs-fraction "$JOBS_FRACTION" --scenario "$sc" --identity-cache "$OUT/identities.json"
@@ -159,7 +179,16 @@ for sc in $SCENARIOS; do
     [ "$sc" = storm ] && args+=(--storm-mode client)
     "$OUT/bin/auzring-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" || status=1
   fi
-  { cat "$OUT/$sc.md" 2>/dev/null || { echo "## $sc: no report"; tail -5 "$OUT/$sc.err"; }; echo; } >>"$OUT/summary.md"
+  netsnap >"$OUT/$sc.net.after"
+  {
+    cat "$OUT/$sc.md" 2>/dev/null || { echo "## $sc: no report"; tail -5 "$OUT/$sc.err"; }
+    echo
+    echo "Kernel TCP counters that moved during $sc (whole host):"
+    echo '```'
+    netdelta "$OUT/$sc.net.before" "$OUT/$sc.net.after"
+    echo '```'
+    echo
+  } >>"$OUT/summary.md"
   head -n 12 "$OUT/$sc.md" 2>/dev/null || true
 done
 

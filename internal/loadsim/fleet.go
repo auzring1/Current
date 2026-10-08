@@ -76,6 +76,7 @@ type fleet struct {
 	connected  atomic.Int64
 	stormEpoch atomic.Int64 // bumped when a storm begins
 	inflight   atomic.Int64 // inventory reports sent and not yet acknowledged, fleet wide
+	samples    atomic.Int64 // failures logged so far (only the first few are)
 	cur        atomic.Pointer[phase]
 	phases     []*phase
 	phMu       sync.Mutex
