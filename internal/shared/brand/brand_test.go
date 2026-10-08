@@ -80,7 +80,7 @@ var legacy = regexp.MustCompile(strings.Join([]string{
 	`Auzring-Agent-Device-`, `auzring_[a-z]+`, `auzring\.agent\.v1`, `proto/auzring/`, `auzring/agent/v1`,
 	`auzring/[a-z-]+(?:/[a-z-]+)?/v\d`, `urn:auzring:device`, `/var/lib/auzring/content`, `5432/auzring\b`,
 	`-d auzring\b`, `POSTGRES_DB: auzring`, `^name: auzring$`, `auzring-(?:backup|restore)"`,
-	`slot-[ab][\\/]auzring-agent(?:\.exe)?`, `== "auzring"`, "`auzring-agent.exe`", "`auzring-agent <version>", `auzring/license/capacity/`, `Auzring/Portable`, `auzring1`,
+	`slot-[ab][\\/]auzring-agent(?:\.exe)?`, `== "auzring"`, "`auzring-agent.exe`", "`auzring-agent <version>", `auzring/license/capacity/`, `auzring-app-test-only`, `Auzring/Portable`, `auzring1`,
 }, "|"))
 
 // companyFiles may name the company (Auzring) because the company is not the product.
