@@ -108,7 +108,7 @@ case "$provider:$action" in
   aws:sign|azure:sign|dryrun:sign)
     [ -n "$in" ] && [ -n "$out" ] || die "sign needs --in and --out"
     [ -s "$in" ] || die "$in is missing or empty"
-    head -c 19 "$in" | cmp -s - <(printf 'renovatio/release/v1\0') || die "$in does not start with the release domain prefix (make it with: renovatio-release tosign)"
+    head -c "$(printf 'renovatio/release/v1\0' | wc -c)" "$in" | cmp -s - <(printf 'renovatio/release/v1\0') || die "$in does not start with the release domain prefix (make it with: renovatio-release tosign)"
     tmp=$(mktemp)
     out_final=$out; out=$tmp
     "${provider}_sign"
