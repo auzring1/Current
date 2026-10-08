@@ -85,11 +85,11 @@ You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEM
     ```bash
     age-keygen -o auzring-backup.key        # note the public key age1...
     umask 077; set -o pipefail
-    docker compose -f deploy/docker-compose.yml exec -T server \
-      /auzring-server backup --out - --recipient age1... > auzring.age
+    docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
+      backup --out - --recipient age1... > auzring.age
     ls -l auzring.age
     ```
-    ✅ A non-trivial file. `file auzring.age` says it is age-encrypted (not readable without the key). Verify it: `docker compose -f deploy/docker-compose.yml run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro server backup --verify - --identity-file /k < auzring.age` ✅ prints the row counts.
+    ✅ A non-trivial file. `file auzring.age` says it is age-encrypted (not readable without the key). Verify it: `docker compose -f deploy/docker-compose.yml run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro maintenance backup --verify - --identity-file /k < auzring.age` ✅ prints the row counts.
 
 19. **Restore on a scratch copy** (never over the live stack): follow RUNBOOK §6.5 on another host or a second compose project with a copy of `deploy/secrets/`. ✅ `restore` ends with "audit chain intact"; you can sign in with your existing password and authenticator; devices appear and the audit log verifies.
 

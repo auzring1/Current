@@ -12,6 +12,11 @@ x-hardening: &hardening
     driver: json-file
     options: { max-size: "20m", max-file: "5" }
 
+# The server image is built once; "server" and "maintenance" both use it.
+x-server-build: &server-build
+  context: ..
+  dockerfile: deploy/Dockerfile.server
+
 services:
   caddy:
     <<: *hardening
@@ -40,12 +45,13 @@ services:
 
   server:
     <<: *hardening
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.server
+    build: *server-build
     image: auzring/server:${AUZ_VERSION:-dev}
     depends_on:
       postgres: { condition: service_healthy }
+      # Migrations run in the one-shot "maintenance" service, which alone holds the schema-owner
+      # credential (SECURITY.md T-SRV-4): the long-running server only gets the DML-only app role.
+      maintenance: { condition: service_completed_successfully }
     ports:
       # Agent gateway: mTLS terminated by the server itself (never proxied).
       - "${AUZ_GATEWAY_PORT:-8443}:8443"
@@ -55,7 +61,7 @@ services:
       AUZ_GATEWAY_SANS: ${AUZ_GATEWAY_SANS:-}
       AUZ_TRUSTED_PROXIES: ${AUZ_CADDY_IP:-172.31.250.10}/32
       AUZ_DATABASE_URL_FILE: /run/secrets/database_url
-      AUZ_MIGRATE_DATABASE_URL_FILE: /run/secrets/migrate_database_url
+      AUZ_MIGRATE_ON_START: "false"
       AUZ_MASTER_KEY_FILE: /run/secrets/master_key
       AUZ_LOG_LEVEL: ${AUZ_LOG_LEVEL:-info}
       # Uploaded (custom) installers; winget packages are never stored here.
@@ -64,7 +70,7 @@ services:
       AUZ_RELEASE_PUBLIC_KEYS: ${AUZ_RELEASE_PUBLIC_KEYS:-}
     volumes:
       - content:/var/lib/auzring/content
-    secrets: [database_url, migrate_database_url, master_key]
+    secrets: [database_url, master_key]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -77,17 +83,49 @@ services:
       retries: 12
       start_period: 20s
 
+  # One-shot job: applies database migrations, then exits. It is also the way to run the commands that
+  # need the schema-owner connection (backup, restore), which the running server cannot do:
+  #   docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance backup --out - --recipient age1...
+  maintenance:
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    build: *server-build
+    image: auzring/server:${AUZ_VERSION:-dev}
+    command: ["migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      # Same configuration file parser as the server; these two are required by it.
+      AUZ_PUBLIC_URL: https://${AUZ_HOSTNAME}${AUZ_PUBLIC_PORT_SUFFIX:-}
+      AUZ_GATEWAY_PUBLIC_ADDR: ${AUZ_GATEWAY_HOSTNAME:-${AUZ_HOSTNAME}}:${AUZ_GATEWAY_PORT:-8443}
+      AUZ_DATABASE_URL_FILE: /run/secrets/database_url
+      AUZ_MIGRATE_DATABASE_URL_FILE: /run/secrets/migrate_database_url
+      AUZ_MASTER_KEY_FILE: /run/secrets/master_key
+      AUZ_LOG_LEVEL: ${AUZ_LOG_LEVEL:-info}
+      AUZ_CONTENT_DIR: /var/lib/auzring/content
+    volumes:
+      - content:/var/lib/auzring/content
+    secrets: [database_url, migrate_database_url, master_key]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    user: "65532:65532"
+    networks: [backend]
+
   postgres:
     <<: *hardening
     image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     # No ports: reachable only from the server on the internal backend network.
     environment:
       POSTGRES_DB: auzring
-      POSTGRES_USER: auzring_owner
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_owner_password
+      # The bootstrap superuser is used only by the init script (01-roles.sh), which creates the
+      # non-superuser schema owner auzring_owner and the runtime role auzring_app.
+      POSTGRES_USER: auzring_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
       # Network logins require SCRAM; the local socket is only reachable inside the container.
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    secrets: [postgres_owner_password, postgres_app_password]
+    secrets: [postgres_admin_password, postgres_owner_password, postgres_app_password]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -98,7 +136,7 @@ services:
     shm_size: 256m
     networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U auzring_owner -d auzring"]
+      test: ["CMD-SHELL", "pg_isready -d auzring"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -121,5 +159,6 @@ secrets:
   master_key: { file: ./secrets/master_key }
   database_url: { file: ./secrets/database_url }
   migrate_database_url: { file: ./secrets/migrate_database_url }
+  postgres_admin_password: { file: ./secrets/postgres_admin_password }
   postgres_owner_password: { file: ./secrets/postgres_owner_password }
   postgres_app_password: { file: ./secrets/postgres_app_password }

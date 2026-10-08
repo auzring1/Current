@@ -4,15 +4,24 @@
 # encrypted CA keys and the database). Back up deploy/secrets/ securely.
 set -euo pipefail
 dir="$(cd "$(dirname "$0")/.." && pwd)/deploy/secrets"
+umask 077
+rand() { openssl rand -hex "$1"; }
 if [ -e "$dir/master_key" ]; then
+  # Upgrade from a release that predates the separate bootstrap-superuser password: add only that file.
+  if [ ! -e "$dir/postgres_admin_password" ]; then
+    rand 24 > "$dir/postgres_admin_password"
+    chmod 644 "$dir/postgres_admin_password"
+    echo "Added $dir/postgres_admin_password (new in Phase 6). Existing secrets were left untouched."
+    echo "An already initialized database keeps its old roles; see docs/RUNBOOK.md, 'Hardening an older database'."
+    exit 0
+  fi
   echo "Secrets already exist in $dir; refusing to overwrite." >&2
   exit 1
 fi
-umask 077
 mkdir -p "$dir"
 chmod 700 "$dir"
-rand() { openssl rand -hex "$1"; }
 rand 32 > "$dir/master_key"
+rand 24 > "$dir/postgres_admin_password"
 owner_pw=$(rand 24)
 app_pw=$(rand 24)
 printf '%s' "$owner_pw" > "$dir/postgres_owner_password"

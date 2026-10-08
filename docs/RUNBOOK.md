@@ -221,7 +221,7 @@ Configuration (all optional, set in the server's environment):
 
 ## 6. Backup and restore
 
-`auzring-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `auzring-server restore` loads it into an empty database. Both use the schema-owner connection the server already has for migrations (`AUZ_MIGRATE_DATABASE_URL_FILE`); the runtime role is not needed.
+`auzring-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `auzring-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.
 
 ### 6.1 What is and is not in a backup
 
@@ -254,8 +254,8 @@ age-keygen -o auzring-backup.key         # prints the public key (age1...); keep
 cd /srv/auzring        # the checkout with deploy/
 umask 077
 set -o pipefail
-docker compose -f deploy/docker-compose.yml exec -T server \
-  /auzring-server backup --out - --recipient age1xxxxxxxx... \
+docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
+  backup --out - --recipient age1xxxxxxxx... \
   > /var/backups/auzring/auzring-$(date +%F-%H%M).age
 ```
 
@@ -269,7 +269,7 @@ docker compose -f deploy/docker-compose.yml exec -T server \
 
 ```bash
 auzring-server backup --verify /var/backups/auzring/auzring-2026-10-07-0300.age --identity-file auzring-backup.key
-# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro server backup --verify - --identity-file /k < file.age
+# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro maintenance backup --verify - --identity-file /k < file.age
 ```
 
 A routine verification needs the secret key; if you do not want it on the backup host, verify during the restore drill (6.6) instead, and on the host only check that the file is non-trivially sized and recent.
@@ -291,8 +291,8 @@ umask 077
 dest=/var/backups/auzring
 f="$dest/auzring-$(date +%F-%H%M).age"
 cd /srv/auzring
-docker compose -f deploy/docker-compose.yml exec -T server \
-  /auzring-server backup --out - --recipient-file /etc/auzring/backup-recipients.txt > "$f.partial"
+docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
+  backup --out - --recipient-file /etc/auzring/backup-recipients.txt > "$f.partial"
 test "$(stat -c %s "$f.partial")" -gt 10000       # an empty or tiny file is a failure
 mv "$f.partial" "$f"
 find "$dest" -name 'auzring-*.age' -mtime +30 -delete     # retention, see 6.7
@@ -309,13 +309,13 @@ Or as a systemd timer: `auzring-backup.service` (`Type=oneshot`, `ExecStart=/usr
 You need: the backup file, the **age secret key** (or passphrase), the **`deploy/secrets/` directory from the same installation** (above all `master_key`), and a Docker host with this repository checked out at the same or a **newer** release.
 
 1. **Restore the secrets** into `deploy/secrets/` (mode 0700) and recreate `deploy/.env`. Do not run `init-secrets.sh`: it would create new passwords and a new master key. (If you have lost the database *volume* but kept the secrets, the Postgres passwords in the secrets are applied when the empty database is first initialized.)
-2. **Start only the database**, empty: `docker compose -f deploy/docker-compose.yml up -d postgres` and wait until it is healthy. Do **not** start the `server` yet: with `AUZ_MIGRATE_ON_START` it would migrate to the newest schema first and take the first-run setup token.
+2. **Start only the database**, empty: `docker compose -f deploy/docker-compose.yml up -d postgres` and wait until it is healthy. Do **not** start the `server` or run `up` for the whole stack yet: the `maintenance` migration would bring the empty database to the newest schema first, and the server would take the first-run setup token.
 3. **Restore.** The secret key and the backup are handed in as read-only mounts/stdin:
 
    ```bash
    docker compose -f deploy/docker-compose.yml run --rm -T --no-deps \
      -v "$PWD/auzring-backup.key:/restore.key:ro" \
-     server restore --in - --identity-file /restore.key < /var/backups/auzring/auzring-2026-10-07-0230.age
+     maintenance restore --in - --identity-file /restore.key < /var/backups/auzring/auzring-2026-10-07-0230.age
    ```
 
    (`--passphrase-file` works the same way with a mounted file or `AUZ_BACKUP_PASSPHRASE_FILE`.) With `--in <file>` instead of `-` the archive is verified completely **before** the database is touched; with standard input it cannot be read twice, so the load is done in one transaction and rolled back if any part fails to verify.
@@ -389,3 +389,7 @@ Take a backup, copy `deploy/secrets/` and the backup to the new host, then follo
 | Upload fails with 413 or a connection reset | Uploads are limited to 2 GiB. Behind your own proxy, raise its body limit for `/api/v1/catalog/content`. |
 | "Custom packages are disabled" | `AUZ_CONTENT_DIR` is not set on the server. |
 | Console says "Cross-origin request rejected" | `AUZ_PUBLIC_URL` (derived from `AUZ_HOSTNAME` and `AUZ_PUBLIC_PORT_SUFFIX`) must match exactly the URL in the browser's address bar. |
+
+### Hardening an older database (installed before Phase 6)
+
+Fresh installs create `auzring_owner` as a non-superuser and keep the bootstrap superuser (`auzring_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `auzring_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), run `./scripts/init-secrets.sh` (adds `postgres_admin_password`), `docker compose down -v` **after** copying `deploy/secrets/` and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
