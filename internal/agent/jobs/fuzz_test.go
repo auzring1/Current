@@ -1,7 +1,10 @@
 package jobs
 
 import (
+	"context"
+	"io"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -40,4 +43,17 @@ func FuzzValidateBodies(f *testing.F) {
 			_ = ValidateWindow(&w)
 		}
 	})
+}
+
+// A vendor download that goes silent must be abandoned instead of blocking the job loop.
+func TestStallReaderCancelsSilentDownload(t *testing.T) {
+	pr, pw := io.Pipe()
+	defer pw.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	r := newStallReader(pr, cancel, 50*time.Millisecond)
+	go func() { <-ctx.Done(); _ = pw.CloseWithError(ctx.Err()) }()
+	if _, err := r.Read(make([]byte, 8)); err == nil {
+		t.Fatal("a read from a silent server returned without an error")
+	}
+	_ = r.Close()
 }

@@ -365,6 +365,9 @@ func (s *server) isOrgAdmin(r *http.Request, user uuid.UUID, org uuid.UUID) bool
 }
 
 func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
+	// Serializes the check-then-act of the last-administrator guard (one server process owns the organization).
+	s.adminMu.Lock()
+	defer s.adminMu.Unlock()
 	u, ok := s.userFromURL(w, r)
 	if !ok {
 		return
@@ -430,6 +433,9 @@ func (s *server) addBinding(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) removeBinding(w http.ResponseWriter, r *http.Request) {
+	// Serializes the check-then-act of the last-administrator guard (one server process owns the organization).
+	s.adminMu.Lock()
+	defer s.adminMu.Unlock()
 	u, ok := s.userFromURL(w, r)
 	if !ok {
 		return
@@ -501,6 +507,7 @@ func (s *server) resetUserPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q().DeleteSessionsForUser(r.Context(), u.ID)
+	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())})
 	s.audit(r, p, "user.password_reset", "user", []string{u.ID.String()}, nil)
 	resp := map[string]any{}
 	if generated {
@@ -529,6 +536,9 @@ func (s *server) resetUserMFA(w http.ResponseWriter, r *http.Request) {
 		if err := q.DeleteSessionsForUser(r.Context(), u.ID); err != nil {
 			return err
 		}
+		if err := q.RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())}); err != nil {
+			return err
+		}
 		_, err := audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r), Action: "user.mfa_reset",
 			TargetType: "user", TargetIDs: []string{u.ID.String()}, Outcome: audit.Success}, s.now())
 		return err
@@ -541,6 +551,9 @@ func (s *server) resetUserMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	// Serializes the check-then-act of the last-administrator guard (one server process owns the organization).
+	s.adminMu.Lock()
+	defer s.adminMu.Unlock()
 	u, ok := s.userFromURL(w, r)
 	if !ok {
 		return

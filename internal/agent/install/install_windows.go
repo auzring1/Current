@@ -78,13 +78,14 @@ func Install(o Options) error {
 		{programDir(), sddlProgramDir},
 		{filepath.Dir(BinaryPath()), ""},
 	} {
-		if err := os.MkdirAll(d.path, 0o700); err != nil {
-			return err
-		}
 		if d.sddl != "" {
-			if err := applySDDL(d.path, d.sddl); err != nil {
+			if err := secureDir(d.path, d.sddl); err != nil {
 				return fmt.Errorf("secure %s: %w", d.path, err)
 			}
+			continue
+		}
+		if err := os.MkdirAll(d.path, 0o700); err != nil {
+			return err
 		}
 	}
 	self, err := os.Executable()
@@ -223,6 +224,52 @@ func removeProgramDir(out io.Writer) error {
 		return fmt.Errorf("remove %s: %w", dir, err)
 	}
 	return nil
+}
+
+// secureDir creates path with the protected DACL in one step, so there is no window in which it is
+// writable by users. A directory that already exists must not be a reparse point and must be owned by
+// SYSTEM or Administrators: a standard user may create a folder under %ProgramData% and would remain
+// its owner (and so could rewrite its DACL later) even after we replace the DACL (SECURITY.md T-LPE-6).
+// It is not deleted automatically; the administrator has to remove or fix it.
+func secureDir(path, sddl string) error {
+	sd, err := windows.SecurityDescriptorFromString(sddl)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	sa := &windows.SecurityAttributes{Length: uint32(unsafe.Sizeof(windows.SecurityAttributes{})), SecurityDescriptor: sd}
+	err = windows.CreateDirectory(p, sa)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
+		return err
+	}
+	attrs, err := windows.GetFileAttributes(p)
+	if err != nil {
+		return err
+	}
+	if attrs&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 || attrs&windows.FILE_ATTRIBUTE_DIRECTORY == 0 {
+		return fmt.Errorf("%s exists and is not a plain directory (symbolic link, junction or file); remove it and run install again", path)
+	}
+	osd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION)
+	if err != nil {
+		return err
+	}
+	owner, _, err := osd.Owner()
+	if err != nil {
+		return err
+	}
+	if !owner.IsWellKnown(windows.WinLocalSystemSid) && !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
+		return fmt.Errorf("%s already exists and is owned by %s, not SYSTEM or Administrators; inspect it, remove it and run install again", path, owner)
+	}
+	return applySDDL(path, sddl)
 }
 
 func applySDDL(path, sddl string) error {

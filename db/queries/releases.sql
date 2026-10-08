@@ -82,4 +82,6 @@ SELECT agent_version, count(*)::bigint AS devices, count(*) FILTER (WHERE online
 FROM devices WHERE org_id = $1 AND status = 'active' GROUP BY agent_version ORDER BY agent_version;
 
 -- name: CountReleaseBlobUses :one
-SELECT count(*) FROM agent_releases WHERE org_id = $1 AND sha256 = $2;
+-- Agent releases AND custom package uploads can share one content-addressed file.
+SELECT (SELECT count(*) FROM agent_releases r WHERE r.org_id = sqlc.arg(org_id) AND r.sha256 = sqlc.arg(sha256))
+     + (SELECT count(*) FROM content_blobs b WHERE b.org_id = sqlc.arg(org_id) AND b.sha256 = sqlc.arg(sha256)) AS uses;

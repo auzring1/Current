@@ -161,6 +161,19 @@ func (s *server) approveDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	p := principalFrom(r)
 	now := s.now()
+	// The enrolling agent chooses the hardware identity that links it to an older device. Whoever approves
+	// must also be allowed to retire that older device, or a site-limited approver could revoke another
+	// site's machine by naming it.
+	if d.ReplacesDeviceID != nil {
+		old, err := s.q().GetDeviceInOrg(r.Context(), dbq.GetDeviceInOrgParams{ID: *d.ReplacesDeviceID, OrgID: p.OrgID})
+		if err == nil && !p.Access.SiteHas(old.SiteID, auth.PermDevicesWrite) {
+			writeError(w, http.StatusForbidden, "forbidden", "This enrollment claims to replace a device at a site you cannot manage. Ask an administrator to approve it.")
+			return
+		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			internalError(w)
+			return
+		}
+	}
 	var replaced *uuid.UUID
 	err := store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		n, err := q.ApproveDevice(r.Context(), dbq.ApproveDeviceParams{ID: d.ID, OrgID: p.OrgID, ApprovedBy: &p.UserID, ApprovedAt: &now})

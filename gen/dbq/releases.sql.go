@@ -102,7 +102,8 @@ func (q *Queries) CountDevicesByAgentVersion(ctx context.Context, orgID uuid.UUI
 }
 
 const countReleaseBlobUses = `-- name: CountReleaseBlobUses :one
-SELECT count(*) FROM agent_releases WHERE org_id = $1 AND sha256 = $2
+SELECT (SELECT count(*) FROM agent_releases r WHERE r.org_id = $1 AND r.sha256 = $2)
+     + (SELECT count(*) FROM content_blobs b WHERE b.org_id = $1 AND b.sha256 = $2) AS uses
 `
 
 type CountReleaseBlobUsesParams struct {
@@ -110,11 +111,12 @@ type CountReleaseBlobUsesParams struct {
 	Sha256 []byte
 }
 
-func (q *Queries) CountReleaseBlobUses(ctx context.Context, arg CountReleaseBlobUsesParams) (int64, error) {
+// Agent releases AND custom package uploads can share one content-addressed file.
+func (q *Queries) CountReleaseBlobUses(ctx context.Context, arg CountReleaseBlobUsesParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countReleaseBlobUses, arg.OrgID, arg.Sha256)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var uses int32
+	err := row.Scan(&uses)
+	return uses, err
 }
 
 const deleteAgentRelease = `-- name: DeleteAgentRelease :execrows

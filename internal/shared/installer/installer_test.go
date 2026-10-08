@@ -19,7 +19,7 @@ func TestValidateArg(t *testing.T) {
 			t.Errorf("%q rejected: %v", a, err)
 		}
 	}
-	bad := []string{"", "calc.exe", "/S & calc", "/S|calc", "/S;calc", "a b", `/x"`, "/S\n/D", "$(whoami)", "`id`", "/i", "/x", "/uninstall",
+	bad := []string{"", "calc.exe", "/S & calc", "/S|calc", "/S;calc", "a b", `/x"`, "/S\n/D", "$(whoami)", "`id`", "/i", "/x", "/uninstall", "-i", "-x", "--x", "-uninstall", "--package", "-a", "-j:foo",
 		"TRANSFORMS=evil.mst", "PATCH=x.msp", "lowercase=1", "/D=%TEMP%", "/é", strings.Repeat("A", MaxArgLen+1), "/S>out", "/S^x"}
 	for _, a := range bad {
 		if err := ValidateArg(a); !errors.Is(err, ErrArg) {
@@ -144,7 +144,7 @@ func TestExtractZip(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(dst, "app", "setup.exe")); string(b) != "MZ" {
 		t.Fatal("content not extracted")
 	}
-	for _, name := range []string{"../evil.txt", "a/../../evil.txt", "/abs.txt", `..\evil.txt`, `C:\evil.txt`, "a:stream", "CON", "dir/NUL.txt", "x//y"} {
+	for _, name := range []string{"../evil.txt", "a/../../evil.txt", "/abs.txt", `..\evil.txt`, `C:\evil.txt`, "a:stream", "CON", "COM4", "lpt9.txt", "trail.", "sp ace /x", "dir/NUL.txt", "x//y"} {
 		if err := ExtractZip(makeZip(t, map[string]string{name: "x"}, nil), t.TempDir()); !errors.Is(err, ErrZip) {
 			t.Errorf("%q accepted: %v", name, err)
 		}

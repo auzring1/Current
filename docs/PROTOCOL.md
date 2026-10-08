@@ -102,7 +102,7 @@ AgentMessage (oneof):
   SecurityEvent  { seq, kind [BAD_SIGNATURE|WRONG_DEVICE|REPLAY|EXPIRED|POLICY_CEILING|HASH_MISMATCH|SIGNER_MISMATCH], detail }
 
 ServerMessage (oneof):
-  HelloAck       { server_time, job_signing_certs[], signing_key_revocations[] (root-signed),
+  HelloAck       { server_time, job_signing_certs[], signing_key_revocations[] (root-signed; defined, NOT yet produced or enforced, see SECURITY 9e R-2),
                    resync_sections[], config (SignedEnvelope) }
   JobOffer       { envelope: SignedEnvelope }
   JobCancel      { envelope: SignedEnvelope }      // cancel is itself a signed job of type CANCEL
@@ -149,7 +149,7 @@ The agent verifies the signature over the raw bytes **before** parsing them. Tha
 
 **Agent verification order.** A failure at any step rejects the job and emits a `SecurityEvent`.
 
-1. `key_id` maps to a known job-signing certificate that chains directly to the pinned root, has the job-signing EKU, is in its validity period, and isn't on the root-signed revocation list.
+1. `key_id` maps to a known job-signing certificate that chains directly to the pinned root, has the job-signing EKU, is in its validity period, and (once revocation statements are implemented, SECURITY 9e R-2) isn't on the root-signed revocation list. Today a compromised job-signing key is retired by rotating it on the server: agents replace their stored signing certificates at the next connection, and the old certificate expires on its own.
 2. The Ed25519 signature is valid.
 3. The payload parses, `version` is supported, and `type` matches the `body` case.
 4. `device_id` and `org_id` match this agent's certificate identity.

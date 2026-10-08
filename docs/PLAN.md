@@ -45,7 +45,7 @@ Three deliverables share one Go monorepo:
 | Live updates | **SSE** | One-directional by nature, works through Caddy, uses the cookie-auth session, easier to secure than WebSockets. |
 | Reverse proxy | **Caddy** for the GUI/API only (ACME, or `tls internal` / admin-provided certs for LAN) | The agent gateway is published directly on its own port (default 8443). We never want a proxy to authenticate client certificates or forward them in headers. |
 | Agent installer | MSI | **Decision for you:** WiX v6+ requires its [Open Source Maintenance Fee](https://docs.firegiant.com/wix/osmf/) for commercial use (from US$10/month). The alternatives are pinning WiX v5 (no fee, but no future fixes) or `msitools`/`wixl`. I'll default to WiX and flag it in Phase 5. |
-| Supply chain | Go modules pinned plus `go.sum`, npm lockfile, Renovate, govulncheck, gosec, semgrep, `npm audit`, Syft SBOM, cosign for images, Authenticode for Windows binaries | |
+| Supply chain | Go modules pinned plus `go.sum`, npm lockfile, Dependabot, govulncheck, gosec, semgrep, `npm audit`, Syft SBOM, cosign for images, Authenticode for Windows binaries | |
 
 ## 3. Assumptions made on your behalf (please confirm or override)
 

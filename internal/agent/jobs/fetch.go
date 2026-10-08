@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
 )
@@ -51,7 +52,12 @@ func (m *MultiFetcher) vendor(ctx context.Context, raw string) (io.ReadCloser, e
 	}
 	client := m.HTTP
 	if client == nil {
-		client = &http.Client{Timeout: 0, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		// No overall timeout (installers are large), but a silent server must not stall the job loop:
+		// bound connecting and the first response byte here, and the gaps between bytes below.
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.ResponseHeaderTimeout = 60 * time.Second
+		tr.TLSHandshakeTimeout = 30 * time.Second
+		client = &http.Client{Timeout: 0, Transport: tr, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return errors.New("too many redirects")
 			}
@@ -61,20 +67,54 @@ func (m *MultiFetcher) vendor(ctx context.Context, raw string) (io.ReadCloser, e
 			return nil
 		}}
 	}
+	ctx, cancel := context.WithCancel(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "Auzring-Agent")
 	resp, err := client.Do(req) // #nosec G107 G704 -- https-only URL from a signed job body, redirects constrained
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
+		cancel()
 		return nil, fmt.Errorf("vendor server answered HTTP %d", resp.StatusCode)
 	}
-	return resp.Body, nil
+	return newStallReader(resp.Body, cancel, vendorStall), nil
+}
+
+// vendorStall is how long a download may deliver no bytes before it is abandoned.
+const vendorStall = 2 * time.Minute
+
+// stallReader cancels the request when no byte arrives for the idle period.
+type stallReader struct {
+	rc     io.ReadCloser
+	cancel context.CancelFunc
+	idle   time.Duration
+	timer  *time.Timer
+}
+
+func newStallReader(rc io.ReadCloser, cancel context.CancelFunc, idle time.Duration) *stallReader {
+	return &stallReader{rc: rc, cancel: cancel, idle: idle, timer: time.AfterFunc(idle, cancel)}
+}
+
+func (r *stallReader) Read(p []byte) (int, error) {
+	n, err := r.rc.Read(p)
+	if n > 0 {
+		r.timer.Reset(r.idle)
+	}
+	return n, err
+}
+
+func (r *stallReader) Close() error {
+	r.timer.Stop()
+	err := r.rc.Close()
+	r.cancel()
+	return err
 }
 
 // download streams the first source whose bytes match sha and size into dst.
