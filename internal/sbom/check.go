@@ -103,7 +103,7 @@ func checkComponent(where string, c *Component) error {
 		return fmt.Errorf("%s: name is required", where)
 	}
 	if c.PURL != "" && !strings.HasPrefix(c.PURL, "pkg:") {
-		return fmt.Errorf("%s: purl %q does not start with pkg:", where, c.PURL)
+		return fmt.Errorf("%s: purl %q must start with the pkg: scheme", where, c.PURL)
 	}
 	for j, h := range c.Hashes {
 		n, ok := hashLen[h.Alg]

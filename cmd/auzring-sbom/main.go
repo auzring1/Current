@@ -106,7 +106,7 @@ func checkCmd(args []string) error {
 		return fmt.Errorf("check needs at least one file")
 	}
 	for _, p := range args {
-		doc, err := os.ReadFile(p) // #nosec G304 -- operator-chosen path
+		doc, err := os.ReadFile(p) // #nosec G304 G703 -- operator-chosen path
 		if err != nil {
 			return err
 		}

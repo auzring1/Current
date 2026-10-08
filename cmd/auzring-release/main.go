@@ -255,7 +255,7 @@ func toSign(args []string) error {
 		return err
 	}
 	sb := release.SignedBytes(mb)
-	if err := os.WriteFile(*out, sb, 0o644); err != nil { // #nosec G306 -- not secret
+	if err := os.WriteFile(*out, sb, 0o644); err != nil { // #nosec G306 G703 -- not secret; operator-chosen path
 		return err
 	}
 	fmt.Printf("wrote %s (%d bytes); sign it with Ed25519 as-is, then run `attach`\n", *out, len(sb))
@@ -286,7 +286,7 @@ func signBytes(args []string) error {
 	if !strings.HasPrefix(string(data), release.Domain) {
 		return errors.New("the input does not start with the release domain prefix; make it with `tosign`")
 	}
-	return os.WriteFile(*out, ed25519.Sign(priv, data), 0o644) // #nosec G306 -- a signature is public
+	return os.WriteFile(*out, ed25519.Sign(priv, data), 0o644) // #nosec G306 G703 -- a signature is public; operator-chosen path
 }
 
 func writeBundle(path string, manifest, sig []byte, keyID string) error {
