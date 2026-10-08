@@ -107,3 +107,15 @@ secrets: ## Generate Docker secrets for deploy/ (refuses to overwrite)
 .PHONY: up
 up: ## Start the production-style stack (deploy/.env must exist)
 	docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+
+.PHONY: release-dryrun
+release-dryrun: ## Rehearse the release pipeline locally with throw-away keys (dist-release/dryrun/)
+	./scripts/release-dryrun.sh --clean
+
+.PHONY: verify-reproducible
+verify-reproducible: ## Build the same commit twice in different directories and compare SHA-256s (~3 min)
+	./scripts/verify-reproducible.sh
+
+.PHONY: check-actions
+check-actions: ## Fail if a GitHub Action is not pinned to a full commit SHA
+	./scripts/check-actions-pinned.sh
