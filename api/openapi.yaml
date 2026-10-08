@@ -25,6 +25,7 @@ tags:
   - name: releases
   - name: identity
   - name: policies
+  - name: license
 paths:
   /setup/status:
     get:
@@ -237,7 +238,7 @@ paths:
   /devices/{id}/approve:
     post:
       tags: [devices]
-      summary: Approve a pending device (requires devices:write)
+      summary: Approve a pending device (requires devices:write). 409 license_device_limit when the license device cap is reached (existing devices are unaffected)
       parameters: [{ $ref: "#/components/parameters/ID" }]
       requestBody:
         content:
@@ -1268,6 +1269,55 @@ paths:
         "204": { description: Removed }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /license:
+    get:
+      tags: [license]
+      summary: The effective licensing state, the installed license and device usage (requires license:read)
+      description: >
+        Offline-verifiable license (no phone-home). State is licensed, grace (subscription ended, within 30 days),
+        evaluation (no usable license; limited to 25 devices) or invalid (an installed license cannot be used).
+        A license problem only blocks NEW enrollments and approvals.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LicenseStatus" }
+    put:
+      tags: [license]
+      summary: Install a pasted license (requires license:write; audited as license.install / license.invalid)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [license]
+              properties:
+                license: { type: string, maxLength: 16384, description: "AZL1.<document>.<signature>; whitespace is ignored" }
+      responses:
+        "200":
+          description: Installed; the new state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LicenseStatus" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /license/history:
+    get:
+      tags: [license]
+      summary: Every license that was installed, newest first (requires license:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/LicenseHistoryItem" } }
   /sites:
     get:
       tags: [identity]
@@ -2152,6 +2202,52 @@ components:
         created_at: { type: string, format: date-time }
         devices_on: { type: integer, format: int64, description: Active devices currently running this version }
         is_target: { type: boolean }
+    LicenseInfo:
+      type: object
+      required: [license_id, licensee, issued_at, not_before, expires_at, max_devices, features, updates_until, notes, key_id, installed_at]
+      properties:
+        license_id: { type: string }
+        licensee: { type: string }
+        issued_at: { type: string, format: date-time }
+        not_before: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        max_devices: { type: integer }
+        features: { type: array, items: { type: string } }
+        updates_until: { type: string, format: date-time, nullable: true }
+        notes: { type: string }
+        key_id: { type: string }
+        installed_at: { type: string, format: date-time }
+    LicenseStatus:
+      type: object
+      required: [state, message, configured, max_devices, devices, pending_devices, at_capacity, over_capacity, grace_ends_at, evaluation_max_devices, features, license, now]
+      properties:
+        state: { type: string, enum: [licensed, grace, evaluation, invalid] }
+        message: { type: string }
+        configured: { type: boolean, description: "false when this build contains no vendor license key" }
+        max_devices: { type: integer, description: "the cap that applies now" }
+        devices: { type: integer, description: "enrolled (active) devices" }
+        pending_devices: { type: integer }
+        at_capacity: { type: boolean, description: "no free slot: new enrollments and approvals are refused" }
+        over_capacity: { type: boolean }
+        grace_ends_at: { type: string, format: date-time, nullable: true }
+        evaluation_max_devices: { type: integer }
+        features: { type: array, items: { type: string } }
+        license: { allOf: [{ $ref: "#/components/schemas/LicenseInfo" }], nullable: true }
+        now: { type: string, format: date-time }
+    LicenseHistoryItem:
+      type: object
+      required: [id, license_id, licensee, max_devices, expires_at, updates_until, key_id, installed_at, installed_by, current]
+      properties:
+        id: { type: string, format: uuid }
+        license_id: { type: string }
+        licensee: { type: string }
+        max_devices: { type: integer }
+        expires_at: { type: string, format: date-time, nullable: true }
+        updates_until: { type: string, format: date-time, nullable: true }
+        key_id: { type: string }
+        installed_at: { type: string, format: date-time }
+        installed_by: { type: string }
+        current: { type: boolean }
     AgentRollout:
       type: object
       required: [release_id, pilot_group_ids, soak_hours, success_threshold, batch_per_tick, paused]

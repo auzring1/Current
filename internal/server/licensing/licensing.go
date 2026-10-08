@@ -353,7 +353,7 @@ func (s *Service) Install(ctx context.Context, a Actor, blob string) (Status, er
 		}
 		return Status{}, err
 	}
-	_ = q.AdvanceLicenseClock(ctx, now)
+	_ = s.advanceTo(ctx, now)
 	return s.Status(ctx, a.Org)
 }
 
@@ -420,23 +420,29 @@ func (s *Service) CheckRelease(ctx context.Context, org uuid.UUID, version strin
 		ErrUpdatesEnded, version, time.Unix(releasedAt, 0).UTC().Format("2006-01-02"), until.Format("2006-01-02"))
 }
 
-// Tick records the highest observed time and logs state changes. Run it about once a minute.
-func (s *Service) Tick(ctx context.Context) {
+// advanceTo moves the stored high-water mark up to now, by at most maxClockAdvance per call.
+func (s *Service) advanceTo(ctx context.Context, now time.Time) error {
 	q := dbq.New(s.Pool)
-	now := s.now()
 	hw, err := q.GetLicenseClock(ctx)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		err = q.AdvanceLicenseClock(ctx, now)
+		return q.AdvanceLicenseClock(ctx, now)
 	case err != nil:
+		return err
 	case now.After(hw):
 		next := now
 		if now.Sub(hw) > maxClockAdvance {
 			next = hw.Add(maxClockAdvance)
 		}
-		err = q.AdvanceLicenseClock(ctx, next)
+		return q.AdvanceLicenseClock(ctx, next)
 	}
-	if err != nil {
+	return nil
+}
+
+// Tick records the highest observed time and logs state changes. Run it about once a minute.
+func (s *Service) Tick(ctx context.Context) {
+	q := dbq.New(s.Pool)
+	if err := s.advanceTo(ctx, s.now()); err != nil {
 		s.log().Error("license clock", "err", err)
 		return
 	}
