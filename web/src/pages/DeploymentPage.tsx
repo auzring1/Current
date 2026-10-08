@@ -1,20 +1,41 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, ScrollArea, Stack, Table, Text, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { useParams } from "react-router-dom";
+import { Alert, Button, Code, Group, Modal, ScrollArea, Stack, Table, Text } from "@mantine/core";
 import { api, errorMessage, type DeploymentDetail, type DeploymentJob, type JobDetail } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
-import { JobBadge, deploymentColor, jobColor } from "./DeploymentsPage";
+import { Card, DataTable, Icons, Page, PageHeader, Skel, StatusPill, toast, useConfirm, type Column } from "../ui";
+import { DeploymentStatus, JobBadge } from "./DeploymentsPage";
 
 const order = ["queued", "sent", "accepted", "waiting", "running", "succeeded", "succeeded_reboot", "failed", "rejected", "expired", "cancelled"];
 const retryable = new Set(["failed", "expired", "rejected", "cancelled"]);
+const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// A stable empty list: a new [] on every render makes the table reset its page again and again while loading.
+const NONE: DeploymentJob[] = [];
+const when = (j: DeploymentJob) => j.finished_at ?? j.started_at ?? j.sent_at ?? j.created_at;
+
+function Facts({ items }: { items: [string, React.ReactNode][] }) {
+  return (
+    <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "var(--rnv-space-4)", margin: 0 }}>
+      {items.map(([k, v]) => (
+        <div key={k} style={{ minWidth: 0 }}>
+          <dt className="rnv-muted" style={{ fontSize: "var(--rnv-text-sm)" }}>
+            {k}
+          </dt>
+          <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 export function DeploymentPage() {
   const { id = "" } = useParams();
   const { can } = useSession();
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [open, setOpen] = useState<string | null>(null);
   const d = useQuery({ queryKey: ["deployment", id], queryFn: () => api<DeploymentDetail>("GET", `/deployments/${id}`), enabled: !!id, refetchInterval: 30_000 });
   const jobs = useQuery({
@@ -25,124 +46,203 @@ export function DeploymentPage() {
   });
   const cancel = useMutation({
     mutationFn: () => api("POST", `/deployments/${id}/cancel`, {}),
-    onSuccess: () => (notifications.show({ color: "green", message: "Deployment cancelled." }), qc.invalidateQueries({ queryKey: ["deployment", id] })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Deployment cancelled."), qc.invalidateQueries({ queryKey: ["deployment", id] })),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const retry = useMutation({
     mutationFn: (jobId: string) => api("POST", `/jobs/${jobId}/retry`, {}),
-    onSuccess: () => (notifications.show({ color: "green", message: "Retry queued." }), qc.invalidateQueries({ queryKey: ["deployment", id] })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Retry queued."), qc.invalidateQueries({ queryKey: ["deployment", id] })),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const x = d.data;
+  const canWrite = can("deployments:write");
+
+  const columns = useMemo<Column<DeploymentJob>[]>(
+    () => [
+      {
+        id: "device",
+        header: "Device",
+        value: (j) => j.hostname,
+        primary: true,
+        required: true,
+        sortable: true,
+        width: 180,
+        cell: (j) => (
+          <>
+            {j.hostname}
+            {j.user_sid && <span className="rnv-dt__cell-sub">user {j.user_sid}</span>}
+          </>
+        ),
+      },
+      {
+        id: "job",
+        header: "Job",
+        value: (j) => j.title,
+        sortable: true,
+        width: 210,
+        cell: (j) => (
+          <>
+            {j.title}
+            {(j.attempt ?? 1) > 1 && <span className="rnv-dt__cell-sub">attempt {j.attempt}</span>}
+          </>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        value: (j) => j.status,
+        sortable: true,
+        width: 190,
+        wrap: true,
+        cell: (j) => (
+          <>
+            <JobBadge status={j.status} />
+            {j.status_reason && <span className="rnv-dt__cell-sub">{j.status_reason}</span>}
+          </>
+        ),
+        csv: (j) => (j.status_reason ? `${j.status} (${j.status_reason})` : j.status),
+        filter: { type: "select", options: order.map((s) => ({ value: s, label: s.replace(/_/g, " ") })) },
+      },
+      {
+        id: "updated",
+        header: "Updated",
+        value: (j) => {
+          const t = when(j);
+          return t ? new Date(t).getTime() : 0;
+        },
+        sortable: true,
+        width: 175,
+        cell: (j) => dateTime(when(j)),
+        csv: (j) => when(j) ?? "",
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        width: 200,
+        csv: false,
+        align: "right",
+        cell: (j) => (
+          <Group gap="xs" justify="flex-end" wrap="nowrap">
+            <Button size="compact-sm" variant="default" onClick={() => setOpen(j.id)} aria-label={`Details for ${j.hostname}`}>
+              Details
+            </Button>
+            {canWrite && retryable.has(j.status) && (
+              <Button size="compact-sm" variant="light" leftSection={<Icons.Restore size={14} aria-hidden />} onClick={() => retry.mutate(j.id)} loading={retry.isPending && retry.variables === j.id}>
+                Retry
+              </Button>
+            )}
+          </Group>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canWrite, retry.isPending, retry.variables],
+  );
+
+  const counts = x ? order.filter((s) => (x.job_counts ?? {})[s]) : [];
+  const title = x?.name ?? "Deployment";
+
   return (
-    <>
-      <Anchor component={Link} to="/deployments" size="sm">
-        ← Deployments
-      </Anchor>
-      {d.isLoading && <Loader />}
-      {d.error && <Alert color="red">{errorMessage(d.error)}</Alert>}
+    <Page>
+      <PageHeader
+        title={title}
+        breadcrumbs={[{ label: "Deployments", to: "/deployments" }, { label: title }]}
+        description={x ? `${x.action} ${x.package_name ?? ""} ${x.version ?? "(newest)"} · ${x.scope}` : undefined}
+        actions={
+          canWrite && x?.status === "active" ? (
+            <Button
+              variant="light"
+              color="red"
+              leftSection={<Icons.Close size={16} aria-hidden />}
+              loading={cancel.isPending}
+              onClick={async () => {
+                const ok = await confirm({ title: "Cancel this deployment?", message: "Everything that has not finished is cancelled. Jobs already running on devices finish on their own.", confirmLabel: "Cancel deployment", cancelLabel: "Keep it running", danger: true });
+                if (ok) cancel.mutate();
+              }}
+            >
+              Cancel deployment
+            </Button>
+          ) : undefined
+        }
+      />
+      {d.isLoading && (
+        <Card title="Summary">
+          <Stack gap="xs" role="status" aria-label="Loading">
+            <Skel w="40%" h={16} />
+            <Skel w="60%" h={16} />
+          </Stack>
+        </Card>
+      )}
+      {d.error && (
+        <Alert color="red" title="Could not load the deployment" icon={<Icons.Danger size={18} aria-hidden />}>
+          {errorMessage(d.error)}
+        </Alert>
+      )}
       {x && (
-        <Stack mt="xs">
-          <Group justify="space-between">
-            <div>
-              <Title order={2}>{x.name}</Title>
-              <Text size="sm" c="dimmed">
-                {x.action} {x.package_name} {x.version ?? "(newest)"} · {x.scope} · created {dateTime(x.created_at)}
-              </Text>
-            </div>
-            <Group>
-              <Badge size="lg" color={deploymentColor[x.status] ?? "gray"} variant="light" data-testid="deployment-status">
-                {x.status}
-              </Badge>
-              {can("deployments:write") && x.status === "active" && (
-                <Button variant="light" color="red" onClick={() => window.confirm("Cancel everything that has not finished?") && cancel.mutate()} loading={cancel.isPending}>
-                  Cancel deployment
-                </Button>
-              )}
-            </Group>
-          </Group>
-          <Group gap="xs">
-            {order
-              .filter((s) => (x.job_counts ?? {})[s])
-              .map((s) => (
-                <Badge key={s} color={jobColor[s]} variant="light" size="lg">
-                  {(x.job_counts ?? {})[s]} {s.replace("_", " ")}
-                </Badge>
-              ))}
-          </Group>
-          {x.window && (
-            <Text size="sm">
-              Maintenance window: {(x.window.days ?? []).map((n) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][n]).join(", ") || "every day"} from{" "}
-              {String(Math.floor(x.window.start_minute / 60)).padStart(2, "0")}:{String(x.window.start_minute % 60).padStart(2, "0")} for {x.window.duration_minutes} minutes
-              {x.window.tz ? ` (${x.window.tz})` : ", device-local time"}
-            </Text>
-          )}
-          {x.unverified_confirmed && <Badge color="yellow" variant="light">deployed with unverified-package confirmation</Badge>}
-          {jobs.isLoading && <Loader />}
-          {jobs.data && (
-            <Table.ScrollContainer minWidth={800}>
-              <Table highlightOnHover verticalSpacing="xs" aria-label="Jobs">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Device</Table.Th>
-                    <Table.Th>Job</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Updated</Table.Th>
-                    <Table.Th />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {(jobs.data.items ?? []).map((j) => (
-                    <Table.Tr key={j.id} data-testid="job-row">
-                      <Table.Td>
-                        <Anchor component={Link} to={`/devices/${j.device_id}`} size="sm">
-                          {j.hostname}
-                        </Anchor>
-                        {j.user_sid && (
-                          <Text size="xs" c="dimmed">
-                            user {j.user_sid}
-                          </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{j.title}</Text>
-                        {(j.attempt ?? 1) > 1 && (
-                          <Text size="xs" c="dimmed">
-                            attempt {j.attempt}
-                          </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <JobBadge status={j.status} />
-                        {j.status_reason && (
-                          <Text size="xs" c="dimmed">
-                            {j.status_reason}
-                          </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>{dateTime(j.finished_at ?? j.started_at ?? j.sent_at ?? j.created_at)}</Table.Td>
-                      <Table.Td ta="right">
-                        <Group gap="xs" justify="flex-end" wrap="nowrap">
-                          <Button size="compact-xs" variant="default" onClick={() => setOpen(j.id)}>
-                            Details
-                          </Button>
-                          {can("deployments:write") && retryable.has(j.status) && (
-                            <Button size="compact-xs" variant="light" onClick={() => retry.mutate(j.id)} loading={retry.isPending && retry.variables === j.id}>
-                              Retry
-                            </Button>
-                          )}
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
+        <Card title="Summary">
+          <Stack gap="md">
+            <Facts
+              items={[
+                ["Status", <span key="s" data-testid="deployment-status"><DeploymentStatus status={x.status} lowercase /></span>],
+                ["Package", `${x.package_name ?? "—"} ${x.version ?? "(newest)"}`],
+                ["Action and scope", `${x.action} · ${x.scope}`],
+                ["Created", dateTime(x.created_at)],
+                ["Not before", dateTime(x.starts_at)],
+                ["Gives up", dateTime(x.expires_at)],
+              ]}
+            />
+            {counts.length > 0 && (
+              <div>
+                <Text size="sm" className="rnv-muted" mb={6}>
+                  Jobs by state
+                </Text>
+                <Group gap="md">
+                  {counts.map((s) => (
+                    <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <b className="rnv-num">{(x.job_counts ?? {})[s]}</b>
+                      <JobBadge status={s} />
+                    </span>
                   ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          )}
-        </Stack>
+                </Group>
+              </div>
+            )}
+            {x.window && (
+              <Text size="sm">
+                <Icons.Clock size={14} aria-hidden style={{ verticalAlign: "-2px", marginRight: 6 }} />
+                Maintenance window: {(x.window.days ?? []).map((n) => days[n]).join(", ") || "every day"} from {String(Math.floor(x.window.start_minute / 60)).padStart(2, "0")}:{String(x.window.start_minute % 60).padStart(2, "0")} for{" "}
+                {x.window.duration_minutes} minutes
+                {x.window.tz ? ` (${x.window.tz})` : ", device-local time"}
+              </Text>
+            )}
+            {x.unverified_confirmed && (
+              <div>
+                <StatusPill kind="warning">Deployed with unverified-package confirmation</StatusPill>
+              </div>
+            )}
+          </Stack>
+        </Card>
+      )}
+      {x && <h2 className="rnv-card__title">Jobs per device</h2>}
+      {x && (
+        <DataTable<DeploymentJob>
+          id="deployment-jobs"
+          label="Jobs"
+          data={jobs.data?.items ?? NONE}
+          loading={jobs.isLoading}
+          error={jobs.error}
+          columns={columns}
+          rowId={(j) => j.id}
+          rowHref={(j) => `/devices/${j.device_id}`}
+          onRowClick={(j) => setOpen(j.id)}
+          rowTestId="job-row"
+          rowLabel={(j) => j.hostname}
+          searchPlaceholder="Search devices and jobs…"
+          exportName="deployment-jobs"
+          pageSize={50}
+        />
       )}
       {open && <JobModal id={open} onClose={() => setOpen(null)} />}
-    </>
+    </Page>
   );
 }
 
@@ -151,15 +251,32 @@ export function JobModal({ id, onClose }: { id: string; onClose: () => void }) {
   const j = q.data;
   return (
     <Modal opened onClose={onClose} title={j?.title ?? "Job"} size="xl">
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
+      {q.isLoading && (
+        <Stack gap="xs" role="status" aria-label="Loading">
+          <Skel w="50%" h={16} />
+          <Skel w="80%" h={16} />
+        </Stack>
+      )}
+      {q.error && (
+        <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+          {errorMessage(q.error)}
+        </Alert>
+      )}
       {j && (
         <Stack>
           <Group>
             <JobBadge status={j.status} />
             <Text size="sm">{j.hostname}</Text>
-            {j.status_reason && <Text size="sm" c="dimmed">{j.status_reason}</Text>}
-            {j.reboot_required && <Badge color="orange" variant="light">reboot required</Badge>}
+            {j.status_reason && (
+              <Text size="sm" c="dimmed">
+                {j.status_reason}
+              </Text>
+            )}
+            {j.reboot_required && (
+              <StatusPill kind="warning" icon={Icons.Restart}>
+                Restart required
+              </StatusPill>
+            )}
           </Group>
           <Text size="sm">
             Attempt {j.attempt} · created {dateTime(j.created_at)} · not before {dateTime(j.not_before)} · expires {dateTime(j.expires_at)}
