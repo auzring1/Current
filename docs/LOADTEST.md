@@ -91,11 +91,11 @@ The in-process test `test/e2e/loadsim_test.go` runs 50 agents through the steady
 
 * **Open files.** Each connection is one descriptor in the server and one in the load generator, plus database and log descriptors. Allow at least `agents + 1000` per process, in the shell that starts it: `ulimit -n 65536` (the hard limit must allow it: `/etc/security/limits.conf`, or `LimitNOFILE=65536` in a systemd unit). The sandbox allowed 20,000, which is why 10,000 agents is about the most it can hold per process. In docker compose set `ulimits: nofile: {soft: 65536, hard: 65536}` on the server service; `deploy/docker-compose.yml` does not set one today, and the default depends on the Docker installation. Go raises its own soft limit to the hard limit at start-up.
 * **Ephemeral ports.** A load generator on one address can hold at most about 28,000 connections to one server address and port (`net.ipv4.ip_local_port_range`, default 32768-60999). A storm closes and reopens every connection, and closed sockets stay in TIME_WAIT for a minute, so 10,000 agents is the practical limit for one source address. Widen the range (`net.ipv4.ip_local_port_range="1024 65535"`), or generate load from several hosts or addresses.
-* **Input queue.** If you run the load generator and the server on one host, set `net.core.netdev_max_backlog` well above its default of 1000 (the sandbox test used 65536). With the default, the loopback input queue overflowed during a 10,000-agent storm, and the kernel then reset about 1,000 to 1,700 established connections 30 to 70 seconds later (section 7.3). Across a real network, check the same counter on the server (`/proc/net/softnet_stat`).
+* **Input queue.** If you run the load generator and the server on one host, set `net.core.netdev_max_backlog` well above its default of 1000 (the sandbox storm used 65536). With the default, the loopback input queue overflowed during a 10,000-agent storm, and the kernel then reset 250 to 1,700 established connections 30 to 70 seconds later (section 7.3). Across a real network, check the same counter on the server (`/proc/net/softnet_stat`).
 * **Accept queue.** `net.core.somaxconn` (4096 in the sandbox) and `net.ipv4.tcp_max_syn_backlog` bound the connections waiting to be accepted; the script's `ListenOverflows`/`ListenDrops` lines tell you if they were exceeded (they were not).
 * **Connection tracking.** A firewall or NAT between the fleet and the server needs a connection table for every agent (`net.netfilter.nf_conntrack_max`) and an idle timeout above the 90-second gRPC keepalive.
 * **PostgreSQL.** The server's pool is fixed at 32 connections (`internal/server/store`); keep `max_connections` comfortably above that (and above any other users). The database in the sandbox ran with default settings (128 MB shared buffers, WAL on the same disk).
-* **CPU and memory.** Expect roughly 215 KB of server memory per connected agent in this build (section 7.1) plus the base process, and about the same in the load generator. Give the two processes separate cores; `GOMAXPROCS` defaults to all of them.
+* **CPU and memory.** Expect roughly 200 KB of server memory per connected agent in this build (section 7.1) plus the base process, and about the same in the load generator. Give the two processes separate cores; `GOMAXPROCS` defaults to all of them.
 * **Load generator placement.** For a capacity number, run the generator on one or more other hosts, with the server on the hardware you will use, and PostgreSQL where you will run it.
 
 ## 6. How to fill in a result table for your environment
@@ -117,74 +117,75 @@ Record the environment first (CPUs, RAM, kernel, PostgreSQL version and settings
 | | 1,000 agents | 10,000 agents |
 |---|---:|---:|
 | Result | pass | pass |
-| Ramp: 99% connected / first inventory acknowledged | 11.9 s / 12.0 s | 147 s / 149 s |
-| Enrollments per second during the ramp | about 84 | about 68 |
-| connect p50 / p99 (ms) | 17 / 49 | 22 / 70 |
-| handshake (Hello to HelloAck) p50 / p99 (ms) | 12 / 33 | 17 / 61 |
-| ack of the first software snapshot p50 / p99 (ms) | 36 / 79 | 49 / 133 |
-| ack of a delta, hold phase p50 / p99 (ms) | 6.5 / 14.8 | 7.0 / 22.8 |
-| heartbeat `Send` p50 / p99 (ms) | 0.06 / 0.32 | 0.04 / 0.33 |
-| Jobs: created / completed / lost | 42 / 42 / 0 | 417 / 417 / 0 |
-| Job dispatch p50 / p95 (ms) | 30 / 136 | 10 / 81 |
-| Job result RTT p50 / p95 (ms) | 3.0 / 4.9 | 4.4 / 9.0 |
-| Job end to end p50 / p95 / p99 (ms) | 93 / 199 / 203 | 72 / 131 / 157 |
-| Server CPU, ramp avg (% of one core) | 150 | 154 |
-| Server CPU, hold avg / peak (%) | 4 / 31 | 41 / 76 |
-| Server resident memory | 239 MB | 2.17 GB |
+| Ramp: 99% connected / first inventory acknowledged | 10.6 s / 10.8 s | 106 s / 108 s |
+| Enrollments per second during the ramp | about 94 | about 94 (68 to 94 over five runs) |
+| connect p50 / p99 (ms) | 15 / 45 | 14 / 49 |
+| handshake (Hello to HelloAck) p50 / p99 (ms) | 10 / 35 | 10 / 39 |
+| ack of the first software snapshot p50 / p99 (ms) | 31 / 74 | 30 / 87 |
+| ack of a delta, hold phase p50 / p99 (ms) | 4.1 / 11.4 | 3.8 / 9.3 |
+| heartbeat `Send` p50 / p99 (ms) | 0.05 / 0.15 | 0.03 / 0.11 |
+| Jobs: created / completed / lost | 43 / 43 / 0 | 417 / 417 / 0 |
+| Job dispatch p50 / p95 (ms) | 21 / 42 | 5.8 / 44 |
+| Job result RTT p50 / p95 (ms) | 2.5 / 4.1 | 2.2 / 4.2 |
+| Job end to end p50 / p95 / p99 (ms) | 77 / 104 / 110 | 62 / 104 / 121 |
+| Server CPU, ramp avg / peak (% of one core) | 159 / 170 | 151 / 173 |
+| Server CPU, hold avg / peak (%) | 4 / 55 | 28 / 115 |
+| Server resident memory (hold) | 229 MB | 2.0 GB |
 | Server descriptors | 1,039 | 10,057 |
-| Load generator resident memory / goroutines | 225 MB / 9,028 | 2.1 GB / 90,039 |
-| PostgreSQL commits per second, ramp avg / peak | 1,117 / 1,286 | 1,031 / 1,271 |
-| PostgreSQL rows inserted per second, ramp | 9,694 | 8,449 |
-| PostgreSQL commits per second, hold avg / peak | 74 / 468 | 343 / 862 |
+| Load generator resident memory / goroutines | 200 MB / 9,028 | 2.1 GB / 90,039 |
+| PostgreSQL commits per second, ramp avg / peak | 1,164 / 1,236 | 1,367 / 1,557 |
+| PostgreSQL rows inserted per second, ramp | 10,251 | 11,630 |
+| PostgreSQL commits per second, hold avg / peak | 71 / 372 | 341 / 814 |
 | Server's own count at the end | 1,000 online of 1,000 | 10,000 online of 10,000 |
 
-The 10,000-agent ramp is limited by enrollment (section 7.4), not by connections: the same fleet reconnecting from a cached identity was fully connected and synchronized in 107 to 123 s at the same 100 per second ramp. Server memory grows by about 214 KB per connected agent (239 MB to 2.17 GB over 9,000 agents), and the simulated agents cost about the same.
+The 10,000-agent ramp is limited by enrollment (section 7.4), not by connections: it is about 10 times the 1,000-agent ramp, at the same 100 per second request rate. Server memory grows by about 200 KB per connected agent (229 MB to 2.0 GB over 9,000 agents) and the simulated agents cost about the same. The 10,000-agent steady and storm runs in this table were made with `net.core.netdev_max_backlog` raised to 65536 (section 7.3); the 1,000-agent runs used the default.
 
 ### 7.2 Reconnect storm (every connection dropped at once, real backoff)
 
 | | 1,000 agents | 10,000 agents |
 |---|---:|---:|
-| Time until 50% / 90% / 99% / 100% connected | 4.1 / 4.4 / 4.5 / 4.5 s | 23.4 / 25.0 / 25.7 / 25.8 s |
-| Lowest connected count after the drop | 0 | 240 |
-| Reconnect attempts / failed attempts | 1,000 / 0 | 13,238 / 3,238 |
-| Failed attempts by class | none | TLS handshake 2,768, EOF 377, unavailable 72, reset 21 |
-| connect p50 / p99 (ms) | 1,527 / 3,121 | 8,523 / 14,361 |
-| handshake p50 / p99 (ms) | 1,963 / 2,584 | 9,529 / 22,280 |
-| Server CPU during the storm, avg | 141% | see note |
-| PostgreSQL commits per second during the storm, avg / peak | 848 / 848 | 2,524 / 6,210 |
+| Time until 50% / 90% / 99% / 100% connected | 2.5 / 2.7 / 2.7 / 2.7 s | 24.4 / 25.8 / 26.0 / 26.3 s |
+| Lowest connected count after the drop | 0 | 82 |
+| Reconnect attempts / failed attempts | 1,000 / 0 | 13,104 / 3,104 |
+| Failed attempts by class | none | TLS handshake 2,976, EOF 114, reset 14 |
+| connect p50 / p99 (ms) | 981 / 1,762 | 7,583 / 11,945 |
+| handshake p50 / p99 (ms) | 747 / 1,359 | 7,852 / 21,206 |
+| Server CPU during the storm, avg / peak (% of one core) | 136 / 136 | 171 / 230 |
+| PostgreSQL commits per second during the storm, avg / peak | (phase shorter than the 5 s sample) | 1,969 / 4,813 |
 | Rejections or rate limiting by the server | none | none logged (see below) |
-| After the storm | stable | **951 sessions reset by the kernel 30 to 48 s after being re-established, then reconnected** (section 7.3) |
-| Result | pass | recovered; the tool reports a failure because of the 951 resets |
+| Jobs created just before the drop, dispatch p50 / p95 | 24 ms / 2.6 s | 6 ms / 4.9 s (p99 30 s) |
+| After the storm | stable | stable |
+| Result | pass | pass |
 
-* "Failed attempts" are connections that did not complete: the agent backed off and tried again, and all of them eventually did. The server logged no warning or error for them and no rate limiter is involved in a reconnect: the cause is that the server cannot finish thousands of TLS handshakes, each of which needs several database lookups, within its 15-second connection timeout when they all arrive within one or two seconds (the agent's first retry delay is a random time up to 1 s). Handshake latency in the storm was 9.5 s at the median and 22 s at p99.
-* Time to recover is dominated by the server's handshake throughput on shared CPUs: about 400 reconnects per second at 10,000 agents (the 1,000-agent storm managed about 250 per second with less contention at the start). It scales roughly linearly with fleet size: 4.5 s for 1,000, 26 s for 10,000.
-* Five 10,000-agent storms were run during development with slightly different builds; time to 99% was 25.7 to 31.8 s in all of them, and failed attempts were 1,200 to 5,300.
-* The CPU peak of the storm phase in the 10,000-agent run was mis-measured by the sampler in this particular run (fixed afterwards: samples closer than 0.5 s are skipped). The storm used between two and four of the four cores for the server and the generator together; the averages in `summary.md` are reliable, the peaks of runs before that fix are not.
+* The fleet reconnected at about **380 connections per second in both runs** (1,000 in 2.7 s, 10,000 in 26 s), so recovery time grows linearly with fleet size on this hardware.
+* "Failed attempts" are connections that did not complete: the agent backed off and tried again, and all of them eventually did. The server logged no warning or error for them and no rate limiter is involved in a reconnect (the gateway has none for established devices): thousands of TLS handshakes, each followed by several database lookups, cannot finish within the server's 15-second connection timeout when they all arrive within one or two seconds (the agent's first retry delay is a random time up to 1 s). Handshake latency in the storm was 7.9 s at the median and 21 s at p99 (section 7.4, item 6).
+* Eight 10,000-agent storms were run during development, with slightly different builds. Time to 99% was 23.1 to 32.2 s in all of them; failed attempts were 1,000 to 5,500. The 1,000-agent storm recovered in 2.7 to 5.2 s in the four runs.
+* A storm after a **server restart** (`--storm-mode server-restart`) was implemented but not run for this table.
 
 ### 7.3 Kernel resets in the 10,000-agent storm (environment artifact, explained)
 
-In four of five 10,000-agent storms, between 290 and 1,700 sessions that had been re-established during the storm were reset ("connection reset by peer") 30 to 70 seconds later, in groups, with nothing logged by the server. The kernel counter `TCPAbortOnTimeout` was exactly equal to the number of resets (951 in the run above), `/proc/net/softnet_stat` showed packets dropped by the loopback input queue (`netdev_max_backlog` = 1000), and gRPC sets `TCP_USER_TIMEOUT` to its 20-second keepalive timeout, so a connection whose data stays unacknowledged for 20 s is aborted. After raising `net.core.netdev_max_backlog` to 65536 the same storm showed **no** `TCPAbortOnTimeout`, no softnet drops and no resets (recovery to 99% in 23.1 s; 2,171 failed attempts of 12,172, all retried successfully). It did not happen with 1,000 or 3,000 agents. So this is a property of running both ends on one host under CPU saturation, not of the server. On a real network the equivalent is a saturated NIC queue or middlebox; check the same counters on the server before concluding anything.
+With the default `net.core.netdev_max_backlog` of 1000, all six 10,000-agent storms showed between 250 and 1,700 sessions that had been re-established during the storm being reset ("connection reset by peer") 30 to 70 seconds later, in groups, with nothing logged by the server (the last such run: 951 resets, recovery to 99% in 25.7 s). The kernel counter `TCPAbortOnTimeout` was exactly equal to the number of resets, `/proc/net/softnet_stat` showed packets dropped by the loopback input queue, and gRPC sets `TCP_USER_TIMEOUT` to its 20-second keepalive timeout, so a connection whose data stays unacknowledged for 20 s is aborted. With `net.core.netdev_max_backlog` raised to 65536 the two storms that were run (the table above, and one more) showed **no** `TCPAbortOnTimeout`, no resets and recovered in 26.0 and 23.1 s. It did not happen with 1,000 or 3,000 agents. So this is a property of running both ends on one host under CPU saturation, not of the server. On a real network the equivalent is a saturated NIC queue or middlebox; check the same counters on the server before concluding anything (`scripts/loadtest.sh` prints them).
 
 ### 7.4 Bottlenecks and defects found
 
 Fixed, with a test each:
 
 1. **Deadlocks in concurrent inventory ingest (server bug).** Every software snapshot upserted the device's titles with `INSERT ... ON CONFLICT DO UPDATE` in map-iteration (random) order, which locks every title the device has until commit. Devices with common software (every Windows machine has the same few hundred titles) that sent inventory at the same time deadlocked ("deadlock detected", SQLSTATE 40P01) and, when the lock waits were long, hit the statement timeout; the stream was closed with an error and the agent reconnected and resent. It appeared with only 50 agents. Titles are now created with `ON CONFLICT DO NOTHING` in sorted order and read back by a second statement, so a device that only references existing titles takes no lock on them. Test: `TestConcurrentSnapshotsOfCommonSoftwareDoNotDeadlock` (24 devices, 60 shared titles). Files: `db/queries/software.sql`, `internal/server/inventory/ingest.go`.
-2. **An enrollment burst starved the mTLS handshakes of database connections (server bug).** Enrollment holds a transaction that waits for the enrollment-token row lock and for the audit-chain lock, so enrollments run one at a time anyway, but each one held one of the pool's 32 database connections while waiting. With 10,000 devices enrolling at 100 per second the pool was fully occupied by enrollments, every mTLS handshake (which looks the device up in the database, with a 5 s timeout) failed, and all agents retried. Before the fix the 10,000-agent steady run could not finish its ramp in 6 minutes (9,797 connected; 73,134 connection attempts, 63,336 of them failed TLS handshakes). At most 8 enrollment transactions now run at the same time (`gate` in `internal/server/gateway/gate.go`, test `TestGate*`); the others wait for a slot. After the fix the ramp finished in 106 to 147 s with no failed attempts, at the cost of long `enroll` latencies for the queued devices (p50 16 s at 10,000; an agent waits up to its 60 s call timeout and retries).
+2. **An enrollment burst starved the mTLS handshakes of database connections (server bug).** Enrollment holds a transaction that waits for the enrollment-token row lock and for the audit-chain lock, so enrollments run one at a time anyway, but each one held one of the pool's 32 database connections while waiting. With 10,000 devices enrolling at 100 per second the pool was fully occupied by enrollments, every mTLS handshake (which looks the device up in the database, with a 5 s timeout) failed, and all agents retried. Before the fix the 10,000-agent steady run could not finish its ramp in 6 minutes (9,797 connected; 73,134 connection attempts, 63,336 of them failed TLS handshakes). At most 8 enrollment transactions now run at the same time (`gate` in `internal/server/gateway/gate.go`, test `TestGate*`); the others wait for a slot. After the fix the ramp finished in 106 to 147 s with no failed attempts, at the cost of long `enroll` latencies for the queued devices (p50 up to 22 s and p99 up to 39 s at 10,000 in some runs; an agent waits up to its 60 s call timeout and retries).
 3. **Enrollment rate limits could not be changed although the protocol document said they could.** 10 enrollments per minute per source address and 60 per token (burst the same) were hard-coded, so enrolling a fleet from one NAT address takes `devices / 10` minutes (100 minutes for 1,000). They are now `AUZ_ENROLL_RATE_PER_IP` and `AUZ_ENROLL_RATE_PER_TOKEN` (attempts per minute, defaults unchanged at 10 and 60, test in `internal/server/config`). This is an operator setting, not a test backdoor; the test server raises it, nothing else is relaxed. The runbook says when to raise it.
 
 Not fixed (design or larger changes), for the owner to decide:
 
-4. **Enrollment throughput is about 70 to 95 devices per second at most**, with the 8-slot gate and any number of tokens' worth of load. Each enrollment locks the token row (`FOR UPDATE`, held to commit) and takes the global audit-chain advisory lock twice (`device.enroll`, certificate issue), so they serialize. Splitting a rollout over several tokens avoids only the first. Not isolated which of the two dominates.
-5. **Database work per connection.** One connect costs at least seven round trips and three writes: the device-certificate and device lookups run in the TLS handshake and again for the stream (four reads), then `GetDevice`, `SetDeviceOnline`, `RevokeSupersededCerts`, the job dispatcher's queries, and `SetDeviceOffline` on disconnect. The storm drove PostgreSQL to 2,500 commits per second on average and 6,200 at peak. Reusing the handshake's lookup for the stream of the same connection, or not revoking superseded certificates on every connect, would remove about half of it; but the "no cache" rule for revocation (PROTOCOL §7) is deliberate, so this is a design decision.
-6. **The 15-second connection timeout turns a slow storm into a retry storm.** `grpc.ConnectionTimeout(15 s)` closes connections whose TLS handshake and HTTP/2 setup have not finished in 15 s; with 10,000 handshakes arriving at once, handshake latency is 10 to 20 s, so 20 to 25% of the attempts are cut off and come back, which is extra work at the worst moment. A bounded number of concurrent handshakes (queueing instead of everyone being slow together) or a longer timeout would help; a naive limiter around the handshake would let idle connections hold all the slots, so it needs care. The agent's first retry delay (a random time up to 1 s) also puts a whole fleet's reconnects into about one second after a network blip; after a server restart the agents are spread over 15 to 45 s by the `GoAway` hint.
+4. **Enrollment throughput is about 70 to 95 devices per second at most**, with the 8-slot gate. Each enrollment locks the token row (`FOR UPDATE`, held to commit) and takes the global audit-chain advisory lock (for the `device.enroll` entry), so they serialize. Splitting a rollout over several tokens avoids only the first. Not isolated which of the two dominates.
+5. **Database work per connection.** One connect costs at least nine round trips, three of them writes: the device-certificate and device lookups run in the TLS handshake and again for the stream (four reads), then `GetDevice`, `SetDeviceOnline`, `RevokeSupersededCerts`, the job dispatcher's queries, and `SetDeviceOffline` on disconnect. The storm drove PostgreSQL to about 2,000 commits per second on average and 4,800 at peak. Reusing the handshake's lookup for the stream of the same connection, or not revoking superseded certificates on every connect, would remove about half of it; but the "no cache" rule for revocation (PROTOCOL §7) is deliberate, so this is a design decision.
+6. **The 15-second connection timeout turns a slow storm into a retry storm.** `grpc.ConnectionTimeout(15 s)` closes connections whose TLS handshake and HTTP/2 setup have not finished in 15 s; with 10,000 handshakes arriving at once, handshake latency is 10 to 20 s, so about 25% of the attempts are cut off and come back, which is extra work at the worst moment. A bounded number of concurrent handshakes (queueing instead of everyone being slow together) or a longer timeout would help; a naive limiter around the handshake would let idle connections hold all the slots, so it needs care. The agent's first retry delay (a random time up to 1 s) also puts a whole fleet's reconnects into about one second after a network blip; after a server restart the agents are spread over 15 to 45 s by the `GoAway` hint.
 7. **Database pool of 32 connections is fixed.** At 10,000 agents with 60-second heartbeats the pool was never the limit after fix 2 (lock waiters at most 7 in the ramp, none in the hold), but it caps parallelism during storms.
-8. **Heartbeats cost one autocommit `UPDATE` plus an event publication each.** At the real cadence (a heartbeat only when something changed or every 30 minutes) 10,000 agents produce about 6 per second; the test's 60-second cadence produced 167 per second and was easily absorbed (hold phase: server CPU 41% of one core on average, 343 commits per second including inventory deltas and jobs).
-9. **Memory is about 215 KB per connected agent** in the server, mostly per-connection buffers and goroutines (two goroutines plus the transport's own). 10,000 agents need about 2.2 GB; 50,000 would need about 11 GB on this build.
+8. **Heartbeats cost one autocommit `UPDATE` plus an event publication each.** At the real cadence (a heartbeat only when something changed or every 30 minutes) 10,000 agents produce about 6 per second; the test's 60-second cadence produced 167 per second and was easily absorbed (hold phase: server CPU 28% of one core on average, 341 commits per second including inventory deltas and jobs).
+9. **Memory is about 200 KB per connected agent** in the server, mostly per-connection buffers and goroutines (two goroutines plus the transport's own). 10,000 agents need about 2 GB; 50,000 would need about 10 GB on this build.
 
 ### 7.5 What 10,000 meant here, and what was not reached
 
-10,000 simulated agents did run, from one process, on one host: steady (pass) and storm (recovered; see 7.3). Limits met: the open-file limit of 20,000 per process (about 10,000 agents), the ephemeral port range (about 28,000 per source address; a storm needs the old sockets in TIME_WAIT as well) and the shared four CPUs. More than 10,000 agents was not tried. Nothing was run against docker compose, over a real network, with a separate load-generator host, with a least-privilege database role (the sandbox server used the superuser, as `scripts/gui-e2e.sh` does) or with TLS in front of the REST API.
+10,000 simulated agents did run, from one process, on one host: steady (pass) and storm (pass, with the kernel setting of 7.3). Limits met: the open-file limit of 20,000 per process (about 10,000 agents), the ephemeral port range (about 28,000 per source address; a storm needs the old sockets in TIME_WAIT as well) and the shared four CPUs. More than 10,000 agents was not tried. Nothing was run against docker compose, over a real network, with a separate load-generator host, with a least-privilege database role (the sandbox server used the superuser, as `scripts/gui-e2e.sh` does) or with TLS in front of the REST API.
 
 ## 8. Changes made to the product by this work
 
