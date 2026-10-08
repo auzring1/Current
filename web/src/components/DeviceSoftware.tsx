@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Anchor, Badge, Button, Checkbox, Group, Loader, Menu, Modal, Stack, Table, Text, TextInput, Title, Tooltip } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Anchor, Button, Checkbox, Group, Menu, Modal, Stack, Switch, Table, Text, Tooltip } from "@mantine/core";
 import { Link } from "react-router-dom";
 import {
   api,
@@ -15,6 +14,7 @@ import {
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { PRODUCT_NAME } from "../brand.generated";
+import { Card, DataTable, EmptyState, Icons, IconButton, StatusPill, toast, type Column } from "../ui";
 
 const rowKey = (s: { source: string; scope: string; user_sid?: string; item_key?: string }) => `${s.source}|${s.scope}|${s.user_sid ?? ""}|${s.item_key ?? ""}`;
 const ref = (s: { source: string; scope: string; user_sid?: string; item_key?: string }) => ({ source: s.source, scope: s.scope, user_sid: s.user_sid ?? "", item_key: s.item_key ?? "" });
@@ -55,8 +55,8 @@ function useDeployUpdates(deviceId: string, hostname: string) {
     },
     onSuccess: (results) => {
       for (const r of results) {
-        if (r.error) notifications.show({ color: "red", title: r.name, message: r.error, autoClose: 10000 });
-        else notifications.show({ color: "green", message: `${r.name}: update queued (${r.plan?.jobs ?? 0} job${r.plan?.jobs === 1 ? "" : "s"}). Follow it on the Jobs tab.` });
+        if (r.error) toast.error(r.error, r.name);
+        else toast.success( `${r.name}: update queued (${r.plan?.jobs ?? 0} job${r.plan?.jobs === 1 ? "" : "s"}). Follow it on the Jobs tab.`);
       }
       void qc.invalidateQueries({ queryKey: ["device-jobs", deviceId] });
       void qc.invalidateQueries({ queryKey: ["deployments"] });
@@ -86,7 +86,7 @@ function UpdateConfirm({ items, onCancel, onConfirm, busy }: { items: AvailableU
           Older copies the new installer does not replace by itself are removed first. Each update becomes a signed job on this device.
         </Text>
         {unverified.length > 0 && (
-          <Alert color="yellow" title="Unverified packages">
+          <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Unverified packages">
             <Checkbox
               label={`${unverified.map((u) => u.package_name).join(", ")} ${unverified.length === 1 ? "has" : "have"} not been tested by ${PRODUCT_NAME}. I accept deploying ${unverified.length === 1 ? "it" : "them"}; this is recorded in the audit log.`}
               checked={ok}
@@ -137,15 +137,27 @@ function UninstallConfirm({ rows, hostname, onCancel, onConfirm, busy }: { rows:
   );
 }
 
+const updatePill = (u: AvailableUpdate | undefined) =>
+  u ? (
+    <Tooltip label={u.deployable ? `${u.package_name} ${u.latest_version} is in the catalog` : (u.reason ?? "")}>
+      <span>
+        <StatusPill kind={u.deployable ? "warning" : "neutral"} size="sm" icon={u.deployable ? Icons.ArrowUp : Icons.Info}>
+          {u.deployable ? `Update to ${u.latest_version}` : "Vendor updates"}
+        </StatusPill>
+      </span>
+    </Tooltip>
+  ) : (
+    <span className="rnv-muted">—</span>
+  );
+
 export function SoftwareTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
   const { can } = useSession();
   const qc = useQueryClient();
   const [system, setSystem] = useState(false);
-  const [filter, setFilter] = useState("");
   const [history, setHistory] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmUninstall, setConfirmUninstall] = useState<DeviceSoftware[] | null>(null);
   const [confirmUpdate, setConfirmUpdate] = useState<AvailableUpdate[] | null>(null);
+  const [clear, setClear] = useState<(() => void) | null>(null);
   const q = useQuery({
     queryKey: ["device", id, "software", system],
     queryFn: () =>
@@ -167,13 +179,13 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
     mutationFn: (rows: DeviceSoftware[]) =>
       api<{ job_ids: string[]; skipped: { device: string; reason: string }[] }>("POST", `/devices/${id}/software/uninstall`, { items: rows.map(ref) }),
     onSuccess: (r) => {
-      if (r.job_ids.length) notifications.show({ color: "green", message: `Uninstall queued for ${r.job_ids.length} program${r.job_ids.length === 1 ? "" : "s"}. Follow it on the Jobs tab.` });
-      for (const s of r.skipped) notifications.show({ color: "yellow", title: s.device, message: s.reason, autoClose: 10000 });
+      if (r.job_ids.length) toast.success(`Uninstall queued for ${r.job_ids.length} program${r.job_ids.length === 1 ? "" : "s"}. Follow it on the Jobs tab.`);
+      for (const s of r.skipped) toast.warning(s.reason, s.device);
       setConfirmUninstall(null);
-      setSelected(new Set());
+      clear?.();
       void qc.invalidateQueries({ queryKey: ["device-jobs", id] });
     },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const who = (sid: string) => {
@@ -181,134 +193,95 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
     const u = users.data?.items.find((x) => x.sid === sid);
     return u ? (u.domain ? `${u.domain}\\${u.username}` : u.username) : sid;
   };
-  const f = filter.trim().toLowerCase();
-  const rows = (q.data?.items ?? []).filter((s) => !f || s.name.toLowerCase().includes(f) || (s.publisher ?? "").toLowerCase().includes(f));
   const canAct = active && can("deployments:write");
-  const chosen = rows.filter((s) => selected.has(rowKey(s)));
-  const chosenUpdates = chosen.map((s) => updateByRow.get(rowKey(s))).filter((u): u is AvailableUpdate => !!u && u.deployable);
-  const allSelected = rows.length > 0 && rows.every((s) => selected.has(rowKey(s)));
-  const toggle = (k: string) =>
-    setSelected((cur) => {
-      const n = new Set(cur);
-      if (n.has(k)) n.delete(k);
-      else n.add(k);
-      return n;
-    });
+
+  const columns = useMemo<Column<DeviceSoftware>[]>(
+    () => [
+      { id: "name", header: "Name", value: (s) => s.name, required: true, width: 260 },
+      { id: "version", header: "Version", value: (s) => s.version ?? "", width: 130, cell: (s) => <span className="rnv-mono">{s.version || "—"}</span> },
+      { id: "publisher", header: "Publisher", value: (s) => s.publisher ?? "", width: 190 },
+      { id: "for", header: "Installed for", value: (s) => who(s.user_sid ?? ""), width: 150 },
+      { id: "type", header: "Type", value: (s) => s.source, width: 110, cell: (s) => <StatusPill kind="neutral" size="sm" icon={null}>{s.source}</StatusPill>, filter: { type: "text" } },
+      {
+        id: "update",
+        header: "Update status",
+        value: (s) => (updateByRow.get(rowKey(s))?.deployable ? "update available" : updateByRow.has(rowKey(s)) ? "vendor updates" : ""),
+        width: 190,
+        cell: (s) => updatePill(updateByRow.get(rowKey(s))),
+        filter: { type: "select", options: [{ value: "update available", label: "Update available" }, { value: "vendor updates", label: "Vendor updates" }] },
+      },
+      { id: "installed", header: "Installed", value: (s) => s.install_date || s.first_seen_at || "", width: 150, cell: (s) => s.install_date || dateTime(s.first_seen_at) },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [updateByRow, users.data],
+  );
 
   return (
     <Stack>
-      {q.data?.truncated && <Alert color="yellow">The agent reported only part of this device's software (item limit reached).</Alert>}
-      <Group justify="space-between">
-        <TextInput placeholder="Filter by name or publisher" value={filter} onChange={(e) => setFilter(e.currentTarget.value)} w={280} aria-label="Filter software" />
-        <Group>
-          <Checkbox label="Show system components" checked={system} onChange={(e) => setSystem(e.currentTarget.checked)} />
-          <Checkbox label="Change history" checked={history} onChange={(e) => setHistory(e.currentTarget.checked)} />
-        </Group>
-      </Group>
-      {canAct && (
-        <Group>
-          <Button disabled={chosenUpdates.length === 0} onClick={() => setConfirmUpdate(chosenUpdates)}>
-            Deploy Updates
-          </Button>
-          <Button color="red" variant="light" disabled={chosen.length === 0} onClick={() => setConfirmUninstall(chosen)}>
-            Uninstall Software
-          </Button>
-          <Text size="sm" c="dimmed">
-            {chosen.length} item{chosen.length === 1 ? "" : "s"} selected
-          </Text>
-        </Group>
+      {q.data?.truncated && (
+        <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />}>
+          The agent reported only part of this device's software (item limit reached).
+        </Alert>
       )}
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && rows.length === 0 && <Text c="dimmed">No software reported yet.</Text>}
-      {rows.length > 0 && (
-        <Table.ScrollContainer minWidth={820}>
-          <Table aria-label="Installed software" verticalSpacing={4} fz="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                {canAct && (
-                  <Table.Th w={36}>
-                    <Checkbox
-                      aria-label="Select all"
-                      checked={allSelected}
-                      indeterminate={!allSelected && chosen.length > 0}
-                      onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map(rowKey)))}
-                    />
-                  </Table.Th>
-                )}
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Version</Table.Th>
-                <Table.Th>Publisher</Table.Th>
-                <Table.Th>Installed for</Table.Th>
-                <Table.Th>Type</Table.Th>
-                <Table.Th>Update status</Table.Th>
-                <Table.Th>Installed</Table.Th>
-                {canAct && <Table.Th ta="right">Actions</Table.Th>}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((s) => {
-                const k = rowKey(s);
-                const u = updateByRow.get(k);
+      <DataTable<DeviceSoftware>
+        id="device-software"
+        label="Installed software"
+        data={q.data?.items}
+        loading={q.isLoading}
+        error={q.error}
+        columns={columns}
+        rowId={rowKey}
+        rowTestId="software-row"
+        rowLabel={(s) => s.name}
+        searchPlaceholder="Filter by name or publisher"
+        exportName={`${hostname}-software`}
+        initialSort={{ id: "name" }}
+        selectable={canAct}
+        empty={<EmptyState icon={<Icons.NavSoftware size={26} />} title="No software reported yet" description="The device sends its inventory a few minutes after it first connects." />}
+        toolbar={
+          <Group gap="lg">
+            <Switch label="Show system components" checked={system} onChange={(e) => setSystem(e.currentTarget.checked)} />
+            <Switch label="Change history" checked={history} onChange={(e) => setHistory(e.currentTarget.checked)} />
+          </Group>
+        }
+        bulkActions={(rows, clr) => {
+          const ups = rows.map((s) => updateByRow.get(rowKey(s))).filter((u): u is AvailableUpdate => !!u && u.deployable);
+          return (
+            <>
+              <Button size="compact-sm" disabled={ups.length === 0} onClick={() => (setClear(() => clr), setConfirmUpdate(ups))}>
+                Deploy Updates
+              </Button>
+              <Button size="compact-sm" color="red" variant="light" onClick={() => (setClear(() => clr), setConfirmUninstall(rows))}>
+                Uninstall Software
+              </Button>
+            </>
+          );
+        }}
+        rowActions={
+          canAct
+            ? (s) => {
+                const u = updateByRow.get(rowKey(s));
                 return (
-                  <Table.Tr key={k} data-testid="software-row" bg={selected.has(k) ? "var(--mantine-primary-color-light)" : undefined}>
-                    {canAct && (
-                      <Table.Td>
-                        <Checkbox aria-label={`Select ${s.name}`} checked={selected.has(k)} onChange={() => toggle(k)} />
-                      </Table.Td>
-                    )}
-                    <Table.Td>{s.name}</Table.Td>
-                    <Table.Td ff="monospace">{s.version || "—"}</Table.Td>
-                    <Table.Td>{s.publisher || "—"}</Table.Td>
-                    <Table.Td>{who(s.user_sid ?? "")}</Table.Td>
-                    <Table.Td>
-                      <Badge variant="light" color="gray" size="sm">
-                        {s.source}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      {u ? (
-                        <Tooltip label={u.deployable ? `${u.package_name} ${u.latest_version} is in the catalog` : (u.reason ?? "")}>
-                          <Badge variant="light" color={u.deployable ? "orange" : "gray"} size="sm">
-                            {u.deployable ? `update to ${u.latest_version}` : "vendor updates"}
-                          </Badge>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>{s.install_date || dateTime(s.first_seen_at)}</Table.Td>
-                    {canAct && (
-                      <Table.Td ta="right">
-                        <Menu position="bottom-end" withinPortal>
-                          <Menu.Target>
-                            <Button size="compact-xs" variant="subtle" aria-label={`Actions for ${s.name}`}>
-                              ⋮
-                            </Button>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            {u?.deployable && <Menu.Item onClick={() => setConfirmUpdate([u])}>Deploy update to {u.latest_version}</Menu.Item>}
-                            <Menu.Item color="red" onClick={() => setConfirmUninstall([s])}>
-                              Uninstall Software
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Table.Td>
-                    )}
-                  </Table.Tr>
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <IconButton label={`Actions for ${s.name}`} icon={<Icons.More size={16} aria-hidden />} size="sm" />
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      {u?.deployable && <Menu.Item onClick={() => setConfirmUpdate([u])}>Deploy update to {u.latest_version}</Menu.Item>}
+                      <Menu.Item color="red" onClick={() => setConfirmUninstall([s])}>
+                        Uninstall Software
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
                 );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
+              }
+            : undefined
+        }
+      />
       {history && (
-        <>
-          <Title order={5}>Recent changes</Title>
-          {hist.isLoading && <Loader />}
-          {hist.data && hist.data.items.length === 0 && <Text c="dimmed">No changes recorded since the first report.</Text>}
+        <Card title="Recent changes" flush>
+          {hist.isLoading && <Text p="md" c="dimmed">Loading…</Text>}
+          {hist.data && hist.data.items.length === 0 && <EmptyState title="No changes recorded" description="Changes appear after the first report." />}
           {!!hist.data?.items.length && (
             <Table aria-label="Software changes" verticalSpacing={4} fz="sm">
               <Table.Tbody>
@@ -316,18 +289,18 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
                   <Table.Tr key={h.id}>
                     <Table.Td>{dateTime(h.observed_at)}</Table.Td>
                     <Table.Td>
-                      <Badge variant="light" color={h.change === "added" ? "green" : h.change === "removed" ? "red" : "blue"} size="sm">
-                        {h.change}
-                      </Badge>
+                      <StatusPill kind={h.change === "added" ? "success" : h.change === "removed" ? "danger" : "info"} size="sm">
+                        {h.change[0]!.toUpperCase() + h.change.slice(1)}
+                      </StatusPill>
                     </Table.Td>
                     <Table.Td>{h.name}</Table.Td>
-                    <Table.Td ff="monospace">{h.change === "version" ? `${h.old_version} → ${h.new_version}` : h.change === "added" ? h.new_version : h.old_version}</Table.Td>
+                    <Table.Td className="rnv-mono">{h.change === "version" ? `${h.old_version} → ${h.new_version}` : h.change === "added" ? h.new_version : h.old_version}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
             </Table>
           )}
-        </>
+        </Card>
       )}
       {confirmUninstall && <UninstallConfirm rows={confirmUninstall} hostname={hostname} onCancel={() => setConfirmUninstall(null)} onConfirm={() => uninstall.mutate(confirmUninstall)} busy={uninstall.isPending} />}
       {confirmUpdate && (
@@ -335,7 +308,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
           items={confirmUpdate}
           onCancel={() => setConfirmUpdate(null)}
           busy={deploy.isPending}
-          onConfirm={(c) => deploy.mutate({ items: confirmUpdate, confirm: c }, { onSettled: () => (setConfirmUpdate(null), setSelected(new Set())) })}
+          onConfirm={(c) => deploy.mutate({ items: confirmUpdate, confirm: c }, { onSettled: () => (setConfirmUpdate(null), clear?.()) })}
         />
       )}
     </Stack>
@@ -345,127 +318,91 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
 export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
   const { can } = useSession();
   const q = useUpdates(id);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<AvailableUpdate[] | null>(null);
-  const [filter, setFilter] = useState("");
+  const [clear, setClear] = useState<(() => void) | null>(null);
   const deploy = useDeployUpdates(id, hostname);
-  const f = filter.trim().toLowerCase();
-  const rows = (q.data?.items ?? []).filter((u) => !f || u.name.toLowerCase().includes(f) || u.package_name.toLowerCase().includes(f));
   const canAct = active && can("deployments:write");
-  const chosen = rows.filter((u) => selected.has(rowKey(u)) && u.deployable);
-  const deployable = rows.filter((u) => u.deployable);
-  const allSelected = deployable.length > 0 && deployable.every((u) => selected.has(rowKey(u)));
-  const toggle = (k: string) =>
-    setSelected((cur) => {
-      const n = new Set(cur);
-      if (n.has(k)) n.delete(k);
-      else n.add(k);
-      return n;
-    });
+  const columns = useMemo<Column<AvailableUpdate>[]>(
+    () => [
+      { id: "name", header: "Name", value: (u) => u.name, required: true, width: 240 },
+      { id: "installed", header: "Installed version", value: (u) => u.installed_version, width: 150, cell: (u) => <span className="rnv-mono">{u.installed_version}</span> },
+      { id: "latest", header: "Latest version", value: (u) => u.latest_version, width: 150, cell: (u) => <span className="rnv-mono">{u.latest_version}</span> },
+      {
+        id: "package",
+        header: "Package",
+        value: (u) => u.package_name,
+        width: 230,
+        cell: (u) => (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Anchor component={Link} to={`/catalog/${u.package_id}`} size="sm">
+              {u.package_name}
+            </Anchor>
+            {!u.verified && (
+              <StatusPill kind="warning" size="sm">
+                Unverified
+              </StatusPill>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        value: (u) => (u.deployable ? "update available" : "vendor updates"),
+        width: 180,
+        cell: (u) => updatePill(u),
+        filter: { type: "select", options: [{ value: "update available", label: "Update available" }, { value: "vendor updates", label: "Vendor updates" }] },
+      },
+    ],
+    [],
+  );
   return (
     <Stack>
-      <Group justify="space-between">
-        <TextInput placeholder="Search" value={filter} onChange={(e) => setFilter(e.currentTarget.value)} w={280} aria-label="Search updates" />
-        <Text size="sm" c="dimmed">
-          Updates come from packages you imported in the <Anchor component={Link} to="/catalog">Catalog</Anchor>.
-        </Text>
-      </Group>
-      {canAct && (
-        <Group>
-          <Button disabled={chosen.length === 0} onClick={() => setConfirm(chosen)}>
+      <Text size="sm" c="dimmed">
+        Updates come from packages you imported in the <Anchor component={Link} to="/catalog">Catalog</Anchor>.
+      </Text>
+      <DataTable<AvailableUpdate>
+        id="device-missing-updates"
+        label="Missing updates"
+        data={q.data?.items}
+        loading={q.isLoading}
+        error={q.error}
+        columns={columns}
+        rowId={rowKey}
+        rowTestId="update-row"
+        rowLabel={(u) => u.name}
+        searchPlaceholder="Search updates"
+        exportName={`${hostname}-missing-updates`}
+        selectable={canAct ? (u) => u.deployable : false}
+        empty={<EmptyState icon={<Icons.Success size={26} />} title="No missing updates" description="Every installed program that is in your catalog is at its newest allowed version." />}
+        bulkActions={(rows, clr) => (
+          <Button size="compact-sm" onClick={() => (setClear(() => clr), setConfirm(rows.filter((u) => u.deployable)))}>
             Deploy Updates
           </Button>
-          <Text size="sm" c="dimmed">
-            {chosen.length} update{chosen.length === 1 ? "" : "s"} selected
-          </Text>
-        </Group>
-      )}
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && rows.length === 0 && <Alert color="green">No missing updates: every installed program that is in your catalog is at its newest allowed version.</Alert>}
-      {rows.length > 0 && (
-        <Table.ScrollContainer minWidth={760}>
-          <Table aria-label="Missing updates" verticalSpacing={4} fz="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                {canAct && (
-                  <Table.Th w={36}>
-                    <Checkbox aria-label="Select all updates" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(deployable.map(rowKey)))} />
-                  </Table.Th>
-                )}
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Installed version</Table.Th>
-                <Table.Th>Latest version</Table.Th>
-                <Table.Th>Package</Table.Th>
-                <Table.Th>Status</Table.Th>
-                {canAct && <Table.Th ta="right">Actions</Table.Th>}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((u) => {
-                const k = rowKey(u);
-                return (
-                  <Table.Tr key={k} data-testid="update-row">
-                    {canAct && (
-                      <Table.Td>
-                        <Checkbox aria-label={`Select ${u.name}`} checked={selected.has(k)} disabled={!u.deployable} onChange={() => toggle(k)} />
-                      </Table.Td>
-                    )}
-                    <Table.Td>{u.name}</Table.Td>
-                    <Table.Td ff="monospace">{u.installed_version}</Table.Td>
-                    <Table.Td ff="monospace">{u.latest_version}</Table.Td>
-                    <Table.Td>
-                      <Anchor component={Link} to={`/catalog/${u.package_id}`} size="sm">
-                        {u.package_name}
-                      </Anchor>
-                      {!u.verified && (
-                        <Badge ml={6} size="xs" variant="light" color="yellow">
-                          unverified
-                        </Badge>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      {u.deployable ? (
-                        <Badge variant="light" color="orange">
-                          update available
-                        </Badge>
-                      ) : (
-                        <Tooltip label={u.reason}>
-                          <Badge variant="light" color="gray">
-                            vendor updates
-                          </Badge>
-                        </Tooltip>
-                      )}
-                    </Table.Td>
-                    {canAct && (
-                      <Table.Td ta="right">
-                        <Menu position="bottom-end" withinPortal>
-                          <Menu.Target>
-                            <Button size="compact-xs" variant="subtle" aria-label={`Actions for ${u.name}`}>
-                              ⋮
-                            </Button>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item disabled={!u.deployable} onClick={() => setConfirm([u])}>
-                              Deploy update to {u.latest_version}
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Table.Td>
-                    )}
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
+        )}
+        rowActions={
+          canAct
+            ? (u) => (
+                <Menu position="bottom-end" withinPortal>
+                  <Menu.Target>
+                    <IconButton label={`Actions for ${u.name}`} icon={<Icons.More size={16} aria-hidden />} size="sm" />
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item disabled={!u.deployable} onClick={() => setConfirm([u])}>
+                      Deploy update to {u.latest_version}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              )
+            : undefined
+        }
+      />
       {confirm && (
         <UpdateConfirm
           items={confirm}
           onCancel={() => setConfirm(null)}
           busy={deploy.isPending}
-          onConfirm={(c) => deploy.mutate({ items: confirm, confirm: c }, { onSettled: () => (setConfirm(null), setSelected(new Set())) })}
+          onConfirm={(c) => deploy.mutate({ items: confirm, confirm: c }, { onSettled: () => (setConfirm(null), clear?.()) })}
         />
       )}
     </Stack>

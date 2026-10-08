@@ -135,9 +135,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.getByRole("tab", { name: /^Software/ }).click();
       await expect(page.getByTestId("software-row").first()).toBeVisible({ timeout: 30_000 });
       await shot(page, "05-device-software");
-      await page.getByLabel("Filter software").fill("zzz-no-such-package");
-      await expect(page.getByText("No software reported yet.")).toBeVisible();
-      await page.getByLabel("Filter software").fill("");
+      await page.getByLabel("Search Installed software").fill("zzz-no-such-package");
+      await expect(page.getByText("No matching rows")).toBeVisible();
+      await page.getByLabel("Search Installed software").fill("");
       await page.getByRole("tab", { name: "Users" }).click();
       await page.getByRole("tab", { name: "Client certificates" }).click();
       await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
@@ -296,9 +296,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(page.getByText(/No missing updates/)).toBeVisible();
       await page.getByRole("tab", { name: /^Software/ }).click();
       await expect(page.getByTestId("software-row").first()).toBeVisible();
-      await expect(page.getByRole("button", { name: "Uninstall Software" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Uninstall Software" })).toHaveCount(0); // the bulk bar appears with a selection
       await page.getByTestId("software-row").first().getByRole("checkbox").check();
-      await expect(page.getByText("1 item selected")).toBeVisible();
+      await expect(page.getByText("1 selected")).toBeVisible();
       await shot(page, "14-device-software-selected");
       await page.getByRole("button", { name: "Uninstall Software" }).click();
       await expect(page.getByRole("table", { name: "Programs to uninstall" })).toBeVisible();

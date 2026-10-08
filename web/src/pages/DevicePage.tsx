@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Group, Loader, Modal, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Anchor, Button, Modal, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Tooltip } from "@mantine/core";
 import {
   api,
   errorMessage,
@@ -12,26 +11,26 @@ import {
 } from "../api/client";
 import { ago, bytes, dateTime, duration } from "../api/format";
 import { useSession } from "../api/session";
-import { OnlineDot, StatusBadge } from "../components/common";
 import { JobBadge } from "./DeploymentsPage";
 import { MissingUpdatesTab, SoftwareTab } from "../components/DeviceSoftware";
 import { WindowsUpdatesTab } from "../components/DeviceWindowsUpdates";
 import { JobModal } from "./DeploymentPage";
+import { Card, EmptyState, Icons, Page, PageHeader, StatGrid, StatTile, Status, StatusPill, TableSkeleton, toast, useConfirm } from "../ui";
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div>
-      <Text size="xs" c="dimmed">
+      <div className="rnv-muted" style={{ fontSize: "var(--rnv-text-xs)", fontWeight: 500 }}>
         {label}
-      </Text>
-      <Text size="sm" style={{ wordBreak: "break-word" }}>
+      </div>
+      <div className={mono ? "rnv-mono" : undefined} style={{ wordBreak: "break-word" }}>
         {value || "—"}
-      </Text>
+      </div>
     </div>
   );
 }
 
-const bitlockerColor: Record<string, string> = { protected: "green", unprotected: "red", encrypting: "yellow", decrypting: "yellow" };
+const bitlockerKind: Record<string, "success" | "danger" | "warning"> = { protected: "success", unprotected: "danger", encrypting: "warning", decrypting: "warning" };
 
 export function DevicePage() {
   const { id = "" } = useParams();
@@ -43,13 +42,13 @@ export function DevicePage() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["devices"] }).then(() => qc.invalidateQueries({ queryKey: ["device", id] }));
   const approve = useMutation({
     mutationFn: () => api("POST", `/devices/${id}/approve`, {}),
-    onSuccess: () => (notifications.show({ color: "green", message: "Device approved." }), refresh()),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Device approved."), refresh()),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const revoke = useMutation({
     mutationFn: () => api("POST", `/devices/${id}/revoke`, { reason }),
-    onSuccess: () => (setRevokeOpen(false), setReason(""), notifications.show({ color: "green", message: "Device revoked and disconnected." }), refresh()),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (setRevokeOpen(false), setReason(""), toast.success("Device revoked and disconnected."), refresh()),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const refreshDevice = useMutation({
     mutationFn: async () => {
@@ -66,78 +65,96 @@ export function DevicePage() {
       void qc.invalidateQueries({ queryKey: ["devices"] });
       void qc.invalidateQueries({ queryKey: ["device", id] });
       void qc.invalidateQueries({ queryKey: ["device-jobs", id] });
-      notifications.show(
-        status === "succeeded"
-          ? { color: "green", message: "Device information refreshed." }
-          : { color: "yellow", message: "The device did not confirm the refresh in time. It will update when the device reports." },
-      );
+      if (status === "succeeded") toast.success("Device information refreshed.");
+      else toast.warning("The device did not confirm the refresh in time. It will update when the device reports.");
     },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onError: (e) => toast.error(errorMessage(e)),
   });
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const confirm = useConfirm();
   const nav = useNavigate();
   const del = useMutation({
     mutationFn: () => api("DELETE", `/devices/${id}`),
     onSuccess: () => {
-      notifications.show({ color: "green", message: "Device deleted." });
+      toast.success("Device deleted.");
       void qc.invalidateQueries({ queryKey: ["devices"] });
       nav("/");
     },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const d = q.data;
   const hw = d?.hardware;
 
   return (
-    <>
-      <Anchor component={Link} to="/" size="sm">
-        ← Devices
-      </Anchor>
-      <Title order={2} mb="sm">
-        {d?.hostname ?? "Device"}
-      </Title>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {d && (
-        <Stack>
-          <Group>
-            <StatusBadge status={d.status} />
-            {d.status === "active" && <OnlineDot online={d.online} />}
-            {d.pending_reboot && <Text c="orange">Reboot pending</Text>}
-          </Group>
-          {d.status === "pending" && d.replaces_device_id && (
-            <Alert color="yellow" title="Re-enrollment of known hardware">
-              This device has the same hardware identity as an existing device. Approving it revokes the old identity ({d.replaces_device_id}).
-            </Alert>
-          )}
-          {d.status === "revoked" && d.status_reason && <Alert color="red">Revoked: {d.status_reason}</Alert>}
-          {can("devices:write") && (
-            <Group>
+    <Page>
+      <PageHeader
+        title={d?.hostname ?? "Device"}
+        breadcrumbs={[{ label: "Devices", to: "/" }, { label: d?.hostname ?? "Device" }]}
+        description={d ? [d.os_caption, d.os_build].filter(Boolean).join(" · ") || undefined : undefined}
+        actions={
+          d && can("devices:write") ? (
+            <>
               {d.status === "pending" && (
-                <Button onClick={() => approve.mutate()} loading={approve.isPending}>
+                <Button onClick={() => approve.mutate()} loading={approve.isPending} leftSection={<Icons.Check size={16} aria-hidden />}>
                   Approve
                 </Button>
               )}
               {d.status === "active" && (
                 <Tooltip label={d.online ? "Ask the device to send its hardware, software and user information now" : "The device is offline"}>
-                  <Button variant="default" onClick={() => refreshDevice.mutate()} loading={refreshDevice.isPending} disabled={!d.online}>
-                    ↻ Refresh
+                  <Button variant="default" onClick={() => refreshDevice.mutate()} loading={refreshDevice.isPending} disabled={!d.online} leftSection={<Icons.NavAgentUpdates size={16} aria-hidden />}>
+                    Refresh
                   </Button>
                 </Tooltip>
               )}
               {(d.status === "pending" || d.status === "active") && (
-                <Button color="red" variant="light" onClick={() => setRevokeOpen(true)}>
+                <Button color="red" variant="light" onClick={() => setRevokeOpen(true)} leftSection={<Icons.Danger size={16} aria-hidden />}>
                   {d.status === "pending" ? "Reject" : "Revoke"}
                 </Button>
               )}
               {(d.status === "revoked" || d.status === "retired") && (
-                <Button color="red" variant="light" onClick={() => setDeleteOpen(true)}>
+                <Button
+                  color="red"
+                  variant="light"
+                  leftSection={<Icons.Trash size={16} aria-hidden />}
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: "Delete device",
+                      message: `This removes ${d.hostname} and everything stored about it: hardware, software inventory, user profiles, jobs and client certificates. The audit log keeps the record that it existed. This cannot be undone. If the machine still has the agent, uninstall it first or it will need a new enrollment token.`,
+                      confirmLabel: "Delete permanently",
+                      danger: true,
+                    });
+                    if (ok) del.mutate();
+                  }}
+                >
                   Delete device
                 </Button>
               )}
-            </Group>
+            </>
+          ) : undefined
+        }
+      />
+      {q.isLoading && <TableSkeleton rows={4} cols={3} />}
+      {q.error && <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>{errorMessage(q.error)}</Alert>}
+      {d && (
+        <>
+          <StatGrid label="Device summary">
+            <StatTile label="Status" value={<Status value={d.status} />} kind={d.status === "active" ? "success" : d.status === "pending" ? "warning" : d.status === "revoked" ? "danger" : "neutral"} />
+            {d.status === "active" && <StatTile label="Connection" value={<Status value={d.online ? "online" : "offline"} />} kind={d.online ? "success" : "neutral"} hint={d.online ? "connected now" : `last seen ${ago(d.last_seen_at)}`} />}
+            <StatTile label="Restart" value={d.pending_reboot ? <StatusPill kind="warning" icon={Icons.Restart}>Pending</StatusPill> : <StatusPill kind="success">Not needed</StatusPill>} kind={d.pending_reboot ? "warning" : "success"} />
+            <StatTile label="Software" value={<span className="rnv-num">{d.software_count || "—"}</span>} kind="accent" hint={d.software_updated_at ? `updated ${ago(d.software_updated_at)}` : "not reported yet"} />
+            <StatTile label="Uptime" value={<span style={{ fontSize: "var(--rnv-text-2xl)" }}>{duration(d.uptime_s)}</span>} kind="info" hint={d.agent_version ? `agent ${d.agent_version}` : undefined} />
+          </StatGrid>
+          {d.status === "pending" && d.replaces_device_id && (
+            <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Re-enrollment of known hardware">
+              This device has the same hardware identity as an existing device. Approving it revokes the old identity ({d.replaces_device_id}).
+            </Alert>
           )}
-          <Tabs defaultValue="overview" keepMounted={false}>
+          {d.status === "revoked" && d.status_reason && (
+            <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+              Revoked: {d.status_reason}
+            </Alert>
+          )}
+          <Card flush>
+          <Tabs defaultValue="overview" keepMounted={false} style={{ padding: "var(--rnv-space-2) var(--rnv-space-4) var(--rnv-space-4)" }}>
             <Tabs.List>
               <Tabs.Tab value="overview">Overview</Tabs.Tab>
               <Tabs.Tab value="hardware">Hardware</Tabs.Tab>
@@ -166,7 +183,7 @@ export function DevicePage() {
             </Tabs.Panel>
 
             <Tabs.Panel value="hardware" pt="md">
-              {!hw && <Text c="dimmed">No hardware inventory reported yet.</Text>}
+              {!hw && <EmptyState icon={<Icons.Server size={26} />} title="No hardware inventory yet" description="The device reports its hardware a few minutes after it first connects." />}
               {hw && (
                 <Stack>
                   <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -201,9 +218,9 @@ export function DevicePage() {
                             <Table.Td>{bytes(k.free_bytes)}</Table.Td>
                             <Table.Td>
                               {k.bitlocker ? (
-                                <Badge color={bitlockerColor[k.bitlocker] ?? "gray"} variant="light">
-                                  {k.bitlocker}
-                                </Badge>
+                                <StatusPill kind={bitlockerKind[k.bitlocker] ?? "neutral"} size="sm" icon={k.bitlocker === "protected" ? Icons.Lock : undefined}>
+                                  {k.bitlocker[0]!.toUpperCase() + k.bitlocker.slice(1)}
+                                </StatusPill>
                               ) : (
                                 "—"
                               )}
@@ -264,7 +281,7 @@ export function DevicePage() {
             )}
 
             <Tabs.Panel value="certificates" pt="md">
-              {!d.certificates?.length && <Text c="dimmed">No certificates.</Text>}
+              {!d.certificates?.length && <EmptyState icon={<Icons.Lock size={26} />} title="No certificates" />}
               {!!d.certificates?.length && (
                 <Table aria-label="Certificates">
                   <Table.Thead>
@@ -281,7 +298,7 @@ export function DevicePage() {
                           {c.serial.slice(0, 16)}…
                         </Table.Td>
                         <Table.Td>{dateTime(c.not_after)}</Table.Td>
-                        <Table.Td>{c.revoked_at ? "revoked" : "valid"}</Table.Td>
+                        <Table.Td>{c.revoked_at ? <StatusPill kind="danger" size="sm">Revoked</StatusPill> : <StatusPill kind="success" size="sm">Valid</StatusPill>}</Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
@@ -289,7 +306,8 @@ export function DevicePage() {
               )}
             </Tabs.Panel>
           </Tabs>
-        </Stack>
+          </Card>
+        </>
       )}
       <Modal opened={revokeOpen} onClose={() => setRevokeOpen(false)} title="Revoke device">
         <Stack>
@@ -303,31 +321,15 @@ export function DevicePage() {
           </Button>
         </Stack>
       </Modal>
-      <Modal opened={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete device">
-        <Stack>
-          <Text size="sm">
-            This removes {d?.hostname} and everything stored about it: hardware, software inventory, user profiles, jobs and client certificates. The audit log keeps
-            the record that it existed. This cannot be undone. If the machine still has the agent, uninstall it first or it will need a new enrollment token.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={() => del.mutate()} loading={del.isPending}>
-              Delete permanently
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
+    </Page>
   );
 }
 
 function UsersTab({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["device", id, "users"], queryFn: () => api<{ items: DeviceUser[] }>("GET", `/devices/${id}/users`) });
-  if (q.isLoading) return <Loader />;
-  if (q.error) return <Alert color="red">{errorMessage(q.error)}</Alert>;
-  if (!q.data?.items.length) return <Text c="dimmed">No user profiles reported yet.</Text>;
+  if (q.isLoading) return <TableSkeleton rows={3} cols={4} />;
+  if (q.error) return <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>{errorMessage(q.error)}</Alert>;
+  if (!q.data?.items.length) return <EmptyState icon={<Icons.NavUsers size={26} />} title="No user profiles reported yet" />;
   return (
     <Table.ScrollContainer minWidth={600}>
       <Table aria-label="Users" verticalSpacing={4} fz="sm">
@@ -345,16 +347,18 @@ function UsersTab({ id }: { id: string }) {
               <Table.Td>
                 {u.domain ? `${u.domain}\\${u.username}` : u.username}
                 {u.is_admin && (
-                  <Badge ml="xs" size="xs" color="orange" variant="light">
-                    admin
-                  </Badge>
+                  <span style={{ marginLeft: 8 }}>
+                    <StatusPill kind="warning" size="sm" icon={Icons.Shield}>
+                      Admin
+                    </StatusPill>
+                  </span>
                 )}
                 <Text size="xs" c="dimmed" ff="monospace">
                   {u.sid}
                 </Text>
               </Table.Td>
               <Table.Td>{u.last_logon_at ? dateTime(u.last_logon_at) : "—"}</Table.Td>
-              <Table.Td>{u.loaded ? "signed in" : "—"}</Table.Td>
+              <Table.Td>{u.loaded ? <StatusPill kind="success" size="sm" icon={Icons.Online}>Signed in</StatusPill> : "—"}</Table.Td>
               <Table.Td ff="monospace" fz="xs">
                 {u.profile_path || "—"}
               </Table.Td>
@@ -371,9 +375,9 @@ function JobsTab({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["device-jobs", id], queryFn: () => api<{ items: DeviceJob[] }>("GET", `/devices/${id}/jobs`), refetchInterval: 30_000 });
   return (
     <>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <Alert color="blue">No jobs have been sent to this device.</Alert>}
+      {q.isLoading && <TableSkeleton rows={3} cols={4} />}
+      {q.error && <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>{errorMessage(q.error)}</Alert>}
+      {q.data && q.data.items.length === 0 && <EmptyState icon={<Icons.NavDeployments size={26} />} title="No jobs yet" description="Jobs sent to this device by deployments and update rules appear here." />}
       {!!q.data?.items.length && (
         <Table verticalSpacing="xs" fz="sm" aria-label="Device jobs">
           <Table.Thead>
