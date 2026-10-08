@@ -98,6 +98,82 @@ func (q *Queries) GetSoftwareTitle(ctx context.Context, arg GetSoftwareTitlePara
 	return i, err
 }
 
+const getSoftwareTitleIDs = `-- name: GetSoftwareTitleIDs :many
+SELECT id, normalized_name, normalized_publisher
+FROM software_titles
+WHERE org_id = $1::uuid
+  AND (normalized_name, normalized_publisher) IN (
+      SELECT t.nn, t.np FROM unnest($2::text[], $3::text[]) AS t(nn, np))
+`
+
+type GetSoftwareTitleIDsParams struct {
+	OrgID                uuid.UUID
+	NormalizedNames      []string
+	NormalizedPublishers []string
+}
+
+type GetSoftwareTitleIDsRow struct {
+	ID                  uuid.UUID
+	NormalizedName      string
+	NormalizedPublisher string
+}
+
+// Run as a separate statement after InsertSoftwareTitles, so it also sees titles another transaction
+// created and committed while ours waited.
+func (q *Queries) GetSoftwareTitleIDs(ctx context.Context, arg GetSoftwareTitleIDsParams) ([]GetSoftwareTitleIDsRow, error) {
+	rows, err := q.db.Query(ctx, getSoftwareTitleIDs, arg.OrgID, arg.NormalizedNames, arg.NormalizedPublishers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSoftwareTitleIDsRow{}
+	for rows.Next() {
+		var i GetSoftwareTitleIDsRow
+		if err := rows.Scan(&i.ID, &i.NormalizedName, &i.NormalizedPublisher); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertSoftwareTitles = `-- name: InsertSoftwareTitles :exec
+INSERT INTO software_titles (id, org_id, normalized_name, normalized_publisher, display_name, display_publisher)
+SELECT t.id, $1::uuid, t.nn, t.np, t.dn, t.dp
+FROM unnest($2::uuid[], $3::text[], $4::text[],
+            $5::text[], $6::text[])
+     AS t(id, nn, np, dn, dp)
+ON CONFLICT (org_id, normalized_name, normalized_publisher) DO NOTHING
+`
+
+type InsertSoftwareTitlesParams struct {
+	OrgID                uuid.UUID
+	Ids                  []uuid.UUID
+	NormalizedNames      []string
+	NormalizedPublishers []string
+	DisplayNames         []string
+	DisplayPublishers    []string
+}
+
+// Creates the titles that do not exist yet. DO NOTHING (not DO UPDATE) takes no lock on a title that
+// already exists, so thousands of devices ingesting the same common software do not queue behind each
+// other's open transactions. Callers pass the rows in a fixed (sorted) order so that two transactions
+// creating the same new titles cannot deadlock.
+func (q *Queries) InsertSoftwareTitles(ctx context.Context, arg InsertSoftwareTitlesParams) error {
+	_, err := q.db.Exec(ctx, insertSoftwareTitles,
+		arg.OrgID,
+		arg.Ids,
+		arg.NormalizedNames,
+		arg.NormalizedPublishers,
+		arg.DisplayNames,
+		arg.DisplayPublishers,
+	)
+	return err
+}
+
 const listDeviceInstallRows = `-- name: ListDeviceInstallRows :many
 SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
 FROM software_installs si JOIN software_titles st ON st.id = si.title_id
@@ -744,57 +820,4 @@ func (q *Queries) UpsertSoftwareInstalls(ctx context.Context, arg UpsertSoftware
 		arg.SystemComponents,
 	)
 	return err
-}
-
-const upsertSoftwareTitles = `-- name: UpsertSoftwareTitles :many
-INSERT INTO software_titles (id, org_id, normalized_name, normalized_publisher, display_name, display_publisher)
-SELECT t.id, $1::uuid, t.nn, t.np, t.dn, t.dp
-FROM unnest($2::uuid[], $3::text[], $4::text[],
-            $5::text[], $6::text[])
-     AS t(id, nn, np, dn, dp)
-ON CONFLICT (org_id, normalized_name, normalized_publisher)
-DO UPDATE SET normalized_name = software_titles.normalized_name
-RETURNING id, normalized_name, normalized_publisher
-`
-
-type UpsertSoftwareTitlesParams struct {
-	OrgID                uuid.UUID
-	Ids                  []uuid.UUID
-	NormalizedNames      []string
-	NormalizedPublishers []string
-	DisplayNames         []string
-	DisplayPublishers    []string
-}
-
-type UpsertSoftwareTitlesRow struct {
-	ID                  uuid.UUID
-	NormalizedName      string
-	NormalizedPublisher string
-}
-
-func (q *Queries) UpsertSoftwareTitles(ctx context.Context, arg UpsertSoftwareTitlesParams) ([]UpsertSoftwareTitlesRow, error) {
-	rows, err := q.db.Query(ctx, upsertSoftwareTitles,
-		arg.OrgID,
-		arg.Ids,
-		arg.NormalizedNames,
-		arg.NormalizedPublishers,
-		arg.DisplayNames,
-		arg.DisplayPublishers,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []UpsertSoftwareTitlesRow{}
-	for rows.Next() {
-		var i UpsertSoftwareTitlesRow
-		if err := rows.Scan(&i.ID, &i.NormalizedName, &i.NormalizedPublisher); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
