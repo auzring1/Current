@@ -19,7 +19,7 @@ FROM devices WHERE org_id = $1;
 -- name: LockLicenseCapacity :exec
 -- Serializes enrollments and approvals of one organization for the rest of the transaction, so two
 -- concurrent requests cannot both take the last free slot.
-SELECT pg_advisory_xact_lock(hashtextextended('auzring/license/capacity/' || @org::text, 0));
+SELECT pg_advisory_xact_lock(hashtextextended('renovatio/license/capacity/' || @org::text, 0));
 
 -- name: GetLicenseClock :one
 SELECT high_water FROM license_clock WHERE singleton;

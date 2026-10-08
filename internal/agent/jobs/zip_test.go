@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 )
 
 func zipBytes(t *testing.T, files map[string]string) []byte {
@@ -74,11 +74,11 @@ func TestPortableCopy(t *testing.T) {
 	se, env := r.installEnv("p1", func(e *agentv1.JobEnvelope, b *agentv1.InstallBody) {
 		b.Installer.Type = agentv1.InstallerType_INSTALLER_TYPE_PORTABLE
 		b.Installer.FileName = "tool.exe"
-		b.Detection = []*agentv1.Detection{{Kind: agentv1.DetectionKind_DETECTION_KIND_FILE, Key: "%ProgramFiles%/Auzring/Portable/Acme.Tool/tool.exe"}}
+		b.Detection = []*agentv1.Detection{{Kind: agentv1.DetectionKind_DETECTION_KIND_FILE, Key: "%ProgramFiles%/Renovatio/Portable/Acme.Tool/tool.exe"}}
 	})
 	// the fake reports a file as present once the engine copied it
 	r.e.Accept(se, env)
-	target := filepath.Join(r.p.Env("", "", "PROGRAMFILES"), "Auzring", "Portable", "Acme.Tool", "tool.exe")
+	target := filepath.Join(r.p.Env("", "", "PROGRAMFILES"), "Renovatio", "Portable", "Acme.Tool", "tool.exe")
 	r.tick()
 	if _, err := os.Stat(target); err != nil {
 		t.Fatalf("portable file not copied: %v (%v)", err, r.rec.last("p1").Result)

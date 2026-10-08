@@ -138,7 +138,7 @@ type Service struct {
 }
 
 // New returns a service trusting the compiled-in keys plus any extra keys (hex, comma-separated) from
-// AUZ_LICENSE_PUBLIC_KEYS (test and demo keys).
+// RENOVATIO_LICENSE_PUBLIC_KEYS (test and demo keys).
 func New(pool *pgxpool.Pool, extraKeysHex string, log *slog.Logger) (*Service, error) {
 	extra, err := license.ParseKeys(extraKeysHex)
 	if err != nil {

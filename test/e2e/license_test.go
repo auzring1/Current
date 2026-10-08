@@ -119,7 +119,7 @@ func TestLicenseDeviceCap(t *testing.T) {
 	}
 
 	// Installing licenses: garbage and wrong-key licenses are refused and audited; the real one lifts the cap.
-	if st, _ := h.do("PUT", "/api/v1/license", map[string]any{"license": "AZL1.garbage.garbage"}, nil); st != 422 {
+	if st, _ := h.do("PUT", "/api/v1/license", map[string]any{"license": "RNL1.garbage.garbage"}, nil); st != 422 {
 		t.Fatalf("garbage license: %d", st)
 	}
 	_, otherPriv, _ := ed25519.GenerateKey(rand.Reader)

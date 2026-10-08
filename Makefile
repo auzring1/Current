@@ -57,10 +57,10 @@ winres: ## Regenerate the agent's Windows version resource (needs: go install gi
 .PHONY: dev-db
 dev-db: ## Start a throwaway PostgreSQL for tests on 127.0.0.1:55432
 	docker run -d --rm --name renovatio-dev-pg -e POSTGRES_PASSWORD=devpostgres -p 127.0.0.1:55432:5432 postgres:16-alpine
-	@until docker exec renovatio-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export AUZ_TEST_PG_URL='$(TEST_PG)'"
+	@until docker exec renovatio-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export RENOVATIO_TEST_PG_URL='$(TEST_PG)'"
 
 .PHONY: test
-test: ## Unit + DB + in-process end-to-end tests (needs AUZ_TEST_PG_URL, see dev-db)
+test: ## Unit + DB + in-process end-to-end tests (needs RENOVATIO_TEST_PG_URL, see dev-db)
 	go test -race -count=1 ./...
 	cd web && npm test
 

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 )
 
 // Reporter delivers job updates to the server. The agent core implements it on

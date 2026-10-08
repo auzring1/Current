@@ -18,7 +18,7 @@ a release is cut) is in `docs/RUNBOOK.md`, section 9; the design is `docs/DECISI
 |---|---|
 | `renovatio-agent_<v>_windows_amd64.exe` | The agent. Authenticode-signed. |
 | `renovatio-agent_<v>_windows_x64.msi` | The agent MSI (GPO, Intune, RMM). Carries the signed exe; itself Authenticode-signed. |
-| `renovatio-agent_<v>_windows_amd64.azr` | The **vendor release bundle**: manifest (hash, size, version, signer) + Ed25519 signature. This is what agents check when they update themselves. |
+| `renovatio-agent_<v>_windows_amd64.rnr` | The **vendor release bundle**: manifest (hash, size, version, signer) + Ed25519 signature. This is what agents check when they update themselves. |
 | `renovatio-server_<v>_linux_amd64` | The server binary (also inside the container image). |
 | `renovatio-release_<v>_linux_amd64`, `renovatio-license_<v>_linux_amd64` | Vendor tools (the license tool only exists from the release that introduced it). |
 | `renovatio-web_<v>.tar.gz` | The web console bundle that is embedded in the server. |
@@ -117,7 +117,7 @@ gh attestation verify "oci://$IMG" --repo auzring1/renovatio
 ```
 
 Always run the image **by digest**, never by tag (a tag can be moved; the signature belongs to the digest).
-`deploy/docker-compose.yml` uses `renovatio/server:${AUZ_VERSION}` for local builds; for a verified deployment, pull the
+`deploy/docker-compose.yml` uses `renovatio/server:${RENOVATIO_VERSION}` for local builds; for a verified deployment, pull the
 digest above and point `image:` at it. The base images in `deploy/Dockerfile.server` are pinned by digest.
 
 ## 6. Authenticode (the Windows files)
@@ -141,9 +141,9 @@ to the file, so the signed file's SHA-256 differs from the one in `unsigned-SHA2
 You do not have to trust the Renovatio server you run for agent updates to be safe. The agent installs a new version
 only if **all** of these hold (docs/DECISIONS.md D68, D83; `internal/shared/release`, `internal/agent/jobs/selfupdate.go`):
 
-1. The **vendor release bundle** (`.azr`) carries an Ed25519 signature that verifies under a vendor public key compiled
+1. The **vendor release bundle** (`.rnr`) carries an Ed25519 signature that verifies under a vendor public key compiled
    into the agent. A build with no key refuses every update. The signature is domain-separated
-   (`auzring/release/v1\0`) and the manifest is parsed strictly.
+   (`renovatio/release/v1\0`) and the manifest is parsed strictly.
 2. The manifest names this platform, a version that is newer (or an explicitly allowed rollback), and the binary's
    SHA-256 and size; the downloaded file is hashed while downloading and again from a locked handle.
 3. The binary has a valid **Authenticode** signature whose signer CN equals the manifest's pinned subject, **and** that
@@ -155,7 +155,7 @@ only if **all** of these hold (docs/DECISIONS.md D68, D83; `internal/shared/rele
 To check a bundle yourself with a key you trust:
 
 ```sh
-renovatio-release verify --bundle renovatio-agent_1.2.3_windows_amd64.azr \
+renovatio-release verify --bundle renovatio-agent_1.2.3_windows_amd64.rnr \
     --exe renovatio-agent_1.2.3_windows_amd64.exe --pub vendor.pub    # vendor.pub holds <VENDOR_PUBKEY_HEX>
 ```
 

@@ -62,8 +62,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      AUZ_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/postgres?sslmode=disable
-      AUZ_REQUIRE_DB: "1"
+      RENOVATIO_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/postgres?sslmode=disable
+      RENOVATIO_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

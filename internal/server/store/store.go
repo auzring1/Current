@@ -74,7 +74,7 @@ func CheckLeastPrivilege(ctx context.Context, pool *pgxpool.Pool, log *slog.Logg
 		return
 	}
 	if current == owner {
-		log.Warn("runtime database user owns the schema; use a separate least-privilege role (auzring_app) in production",
+		log.Warn("runtime database user owns the schema; use a separate least-privilege role (renovatio_app) in production",
 			"user", current)
 	}
 }

@@ -9,11 +9,11 @@ Self-hosted patch and software management for Windows endpoints. It has three pa
 ## Quick start (production-style, one host)
 ```bash
 ./scripts/init-secrets.sh                       # Docker secrets in deploy/secrets/ (back them up!)
-cp deploy/.env.example deploy/.env              # set AUZ_HOSTNAME (and AUZ_CADDY_TLS)
+cp deploy/.env.example deploy/.env              # set RENOVATIO_HOSTNAME (and RENOVATIO_CADDY_TLS)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
-Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
+Then open `https://<RENOVATIO_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
 `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent`
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
@@ -24,7 +24,7 @@ and install it on an endpoint with the command the console shows under **Enrollm
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
 ```bash
 make tools                 # pinned generators and linters
-make dev-db                # throwaway Postgres; prints AUZ_TEST_PG_URL to export
+make dev-db                # throwaway Postgres; prints RENOVATIO_TEST_PG_URL to export
 make web build             # console bundle, server, agent (windows + linux test build)
 make test                  # unit, database and in-process end-to-end tests (race detector)
 make test-gui              # Playwright: setup → MFA login → enroll a real agent → deploy a package → revoke, CSP-strict
@@ -32,7 +32,7 @@ make fuzz                  # 20 s per fuzz target over the untrusted-input parse
 make test-compose          # full docker-compose stack + real agent process
 make lint vuln licenses    # vet, staticcheck, gosec, semgrep; govulncheck, npm audit; license allow-list
 ```
-Run the web console against a local server: start the server with `AUZ_DEV_MODE=true AUZ_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
+Run the web console against a local server: start the server with `RENOVATIO_DEV_MODE=true RENOVATIO_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
 
 ## Repository layout
 | Path | |

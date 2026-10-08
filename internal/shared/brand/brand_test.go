@@ -72,35 +72,17 @@ func utf8Text(b []byte) bool {
 	return true
 }
 
-// legacy matches the identifiers that keep the previous name on purpose, because installed machines,
-// databases and signed data depend on them (RENAME-PLAN.md, group B). Anything else that contains the
-// previous name is a missed rename.
-var legacy = regexp.MustCompile(strings.Join([]string{
-	`AuzringAgent`, `AuzringStage`, `AuzringSetup`, `(?:\\\\|\\|%ProgramFiles%\\|%ProgramData%\\|Files\\|pf\\)Auzring\b`,
-	`Auzring-Agent-Device-`, `auzring_[a-z]+`, `auzring\.agent\.v1`, `proto/auzring/`, `auzring/agent/v1`,
-	`auzring/[a-z-]+(?:/[a-z-]+)?/v\d`, `urn:auzring:device`, `/var/lib/auzring/content`, `5432/auzring\b`,
-	`-d auzring\b`, `POSTGRES_DB: auzring`, `^name: auzring$`, `auzring-(?:backup|restore)"`,
-	`slot-[ab][\\/]auzring-agent(?:\.exe)?`, `== "auzring"`, "`auzring-agent.exe`", "`auzring-agent <version>", `auzring/license/capacity/`, `auzring-app-test-only`, `Auzring/Portable`, `auzring1`,
-}, "|"))
-
 // companyFiles may name the company (Auzring) because the company is not the product.
 var companyFiles = map[string]bool{
 	"LICENSE": true, "internal/shared/brand/brand.go": true, "internal/shared/brand/brand_test.go": true,
 	"web/src/brand.generated.ts": true, "cmd/renovatio-agent/winres/winres.json": true,
 }
 
-// pathFiles keep the legacy folder name "Auzring" as a quoted path element.
-var pathFiles = map[string]bool{
-	"internal/agent/install/paths_windows.go": true, "internal/agent/inventory/platform_windows.go": true,
-	"internal/agent/selfupdate/platform_windows.go": true, "internal/agent/jobs/install.go": true,
-	"internal/agent/jobs/zip_test.go": true,
-}
+// githubOrg is the GitHub organisation, which is named after the company.
+var githubOrg = regexp.MustCompile(`auzring1`)
 
-// compatFiles hold the few lower-case compatibility identifiers (agent exe name, version banner, manifest product).
-var compatFiles = map[string]bool{"internal/shared/brand/brand.go": true}
-
-// TestPreviousNameIsGone fails when "Auzring" (in any spelling) appears anywhere in the repository except in
-// the documented legacy identifiers and the company name.
+// TestPreviousNameIsGone fails when "Auzring" (in any spelling) appears anywhere in the repository except as the
+// company name or as the GitHub organisation (auzring1) in a repository path.
 func TestPreviousNameIsGone(t *testing.T) {
 	var bad []string
 	walk(t, func(rel string, data []byte) {
@@ -108,23 +90,20 @@ func TestPreviousNameIsGone(t *testing.T) {
 			return
 		}
 		for i, line := range strings.Split(string(data), "\n") {
-			l := legacy.ReplaceAllString(line, "")
 			if strings.HasSuffix(rel, ".md") && strings.Contains(strings.ToLower(line), "company") {
 				continue // prose that names the company (Auzring) next to the word "company"
 			}
-			if pathFiles[rel] {
-				l = strings.ReplaceAll(l, `"Auzring"`, "")
+			if strings.HasSuffix(rel, ".md") && strings.Contains(line, "<!-- old-name -->") {
+				continue // clean-up instructions that must name the old files
 			}
-			if compatFiles[rel] {
-				l = strings.ReplaceAll(l, "auzring-agent", "")
-			}
+			l := githubOrg.ReplaceAllString(line, "")
 			if strings.Contains(strings.ToLower(l), "auzring") {
 				bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
 			}
 		}
 	})
 	if len(bad) > 0 {
-		t.Fatalf("the previous product name is still spelled in %d places (use the brand package, the generated web constants or the WiX defines; legacy identifiers are listed in brand_test.go):\n%s",
+		t.Fatalf("the previous product name is still spelled in %d places (use the brand package, the generated web constants or the WiX defines):\n%s",
 			len(bad), strings.Join(bad, "\n"))
 	}
 }

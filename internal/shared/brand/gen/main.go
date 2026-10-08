@@ -54,6 +54,6 @@ func main() {
 		}
 	}
 	if *wix {
-		fmt.Printf("ProductName=%s\nAgentName=%s\nCompany=%s\nSlug=%s\n", brand.Name, brand.AgentName, brand.Company, brand.Slug)
+		fmt.Printf("ProductName=%s\nAgentName=%s\nCompany=%s\nSlug=%s\nServiceName=%s\nSetupFolder=%s\nFolderName=%s\n", brand.Name, brand.AgentName, brand.Company, brand.Slug, brand.ServiceName, brand.SetupFolderName, brand.FolderName)
 	}
 }

@@ -17,13 +17,13 @@ for v in 0.9.0 0.9.1; do
 done
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(flags 0.9.2)" -o "$out/renovatio-agent-0.9.2.exe" ./test/tools/brokenagent
 for v in 0.9.1 0.9.2; do
-  "$out/renovatio-release" sign --key "$out/release.key" --exe "$out/renovatio-agent-$v.exe" --version "$v" --notes "demo build $v" --out "$out/renovatio-agent-$v.azr" >/dev/null
+  "$out/renovatio-release" sign --key "$out/release.key" --exe "$out/renovatio-agent-$v.exe" --version "$v" --notes "demo build $v" --out "$out/renovatio-agent-$v.rnr" >/dev/null
 done
 cat <<EOF
 Built in $out/:
   renovatio-agent-0.9.0.exe  install this on the Windows machine
-  renovatio-agent-0.9.1.exe + .azr  good release (upload both on the Agent updates page)
-  renovatio-agent-0.9.2.exe + .azr  broken release (rollback test)
+  renovatio-agent-0.9.1.exe + .rnr  good release (upload both on the Agent updates page)
+  renovatio-agent-0.9.2.exe + .rnr  broken release (rollback test)
 The server must accept the demo key. Add this to deploy/.env and recreate the server container:
-  AUZ_RELEASE_PUBLIC_KEYS=$pub
+  RENOVATIO_RELEASE_PUBLIC_KEYS=$pub
 EOF

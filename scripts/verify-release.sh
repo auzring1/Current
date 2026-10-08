@@ -8,7 +8,7 @@
 #   2. cosign: SHA256SUMS.sigstore.json is a keyless signature by this repository's release workflow at the tag
 #   3. cosign: each <artifact>.sbom.sigstore.json is a CycloneDX attestation for that artifact by the same workflow
 #   4. GitHub build provenance (SLSA) of the main artifacts: `gh attestation verify`
-#   5. The vendor release bundle (.azr): Ed25519 signature under the vendor key you supply, and it matches the agent exe
+#   5. The vendor release bundle (.rnr): Ed25519 signature under the vendor key you supply, and it matches the agent exe
 #   6. Every *.cdx.json is a CycloneDX 1.5 document (shape only)
 #   7. Authenticode of the agent and the MSI, when --authenticode-subject is given and Windows tooling is present
 #
@@ -21,13 +21,13 @@
 #   --release-tool PATH         renovatio-release binary to use (default: the one in DIR on linux/amd64)
 #   --authenticode-subject CN   expected Authenticode signer (the CN pinned in the vendor manifest)
 #   --skip-cosign, --skip-attestations   skip 2-3 / 4 (used by the pipeline before anything is signed)
-#   --skip-azr                  skip 5 (no vendor key at hand)
+#   --skip-rnr                  skip 5 (no vendor key at hand)
 #
 # Requires: sha256sum, jq; cosign for 2-3; gh (logged in) for 4. Nothing is installed or downloaded by this script.
 set -uo pipefail
 
 dir=. repo="" tag="" pubs="" pubfile="" tool="" subject=""
-skip_cosign=0 skip_att=0 skip_azr=0
+skip_cosign=0 skip_att=0 skip_rnr=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir) dir=${2:?}; shift 2 ;;
@@ -39,7 +39,7 @@ while [ $# -gt 0 ]; do
     --authenticode-subject) subject=${2:?}; shift 2 ;;
     --skip-cosign) skip_cosign=1; shift ;;
     --skip-attestations) skip_att=1; shift ;;
-    --skip-azr) skip_azr=1; shift ;;
+    --skip-rnr) skip_rnr=1; shift ;;
     -h|--help) sed -n '2,/^set -uo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
@@ -121,12 +121,12 @@ fi
 
 # ---- 5. vendor release bundle ---------------------------------------------------------------------
 shopt -s nullglob
-azrs=(renovatio-agent_*.azr)
+rnrs=(renovatio-agent_*.rnr)
 shopt -u nullglob
-if [ "$skip_azr" = 1 ]; then
+if [ "$skip_rnr" = 1 ]; then
   warn "vendor bundle check skipped"
-elif [ ${#azrs[@]} -eq 0 ]; then
-  fail "no renovatio-agent_*.azr vendor release bundle in the directory"
+elif [ ${#rnrs[@]} -eq 0 ]; then
+  fail "no renovatio-agent_*.rnr vendor release bundle in the directory"
 else
   keyfile=$(mktemp)
   trap 'rm -f "$keyfile"' EXIT
@@ -141,9 +141,9 @@ else
       fail "no renovatio-release tool (build it from source with go build ./cmd/renovatio-release, or pass --release-tool)"
     else
       [ -x "$tool" ] || chmod +x "$tool" 2>/dev/null || true
-      for azr in "${azrs[@]}"; do
-        exe=${azr%.azr}.exe
-        if out=$("$tool" verify --bundle "$azr" --exe "$exe" --pub "$keyfile" 2>&1); then ok "vendor bundle: $out"; else fail "vendor bundle $azr: $out"; fi
+      for rnr in "${rnrs[@]}"; do
+        exe=${rnr%.rnr}.exe
+        if out=$("$tool" verify --bundle "$rnr" --exe "$exe" --pub "$keyfile" 2>&1); then ok "vendor bundle: $out"; else fail "vendor bundle $rnr: $out"; fi
       done
     fi
   fi

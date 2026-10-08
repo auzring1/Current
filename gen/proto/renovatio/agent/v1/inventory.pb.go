@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: auzring/agent/v1/inventory.proto
+// source: renovatio/agent/v1/inventory.proto
 
 package agentv1
 
@@ -60,11 +60,11 @@ func (x InventorySection) String() string {
 }
 
 func (InventorySection) Descriptor() protoreflect.EnumDescriptor {
-	return file_auzring_agent_v1_inventory_proto_enumTypes[0].Descriptor()
+	return file_renovatio_agent_v1_inventory_proto_enumTypes[0].Descriptor()
 }
 
 func (InventorySection) Type() protoreflect.EnumType {
-	return &file_auzring_agent_v1_inventory_proto_enumTypes[0]
+	return &file_renovatio_agent_v1_inventory_proto_enumTypes[0]
 }
 
 func (x InventorySection) Number() protoreflect.EnumNumber {
@@ -73,7 +73,7 @@ func (x InventorySection) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use InventorySection.Descriptor instead.
 func (InventorySection) EnumDescriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{0}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{0}
 }
 
 type SoftwareScope int32
@@ -109,11 +109,11 @@ func (x SoftwareScope) String() string {
 }
 
 func (SoftwareScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_auzring_agent_v1_inventory_proto_enumTypes[1].Descriptor()
+	return file_renovatio_agent_v1_inventory_proto_enumTypes[1].Descriptor()
 }
 
 func (SoftwareScope) Type() protoreflect.EnumType {
-	return &file_auzring_agent_v1_inventory_proto_enumTypes[1]
+	return &file_renovatio_agent_v1_inventory_proto_enumTypes[1]
 }
 
 func (x SoftwareScope) Number() protoreflect.EnumNumber {
@@ -122,7 +122,7 @@ func (x SoftwareScope) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SoftwareScope.Descriptor instead.
 func (SoftwareScope) EnumDescriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
 }
 
 type SoftwareSource int32
@@ -173,11 +173,11 @@ func (x SoftwareSource) String() string {
 }
 
 func (SoftwareSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_auzring_agent_v1_inventory_proto_enumTypes[2].Descriptor()
+	return file_renovatio_agent_v1_inventory_proto_enumTypes[2].Descriptor()
 }
 
 func (SoftwareSource) Type() protoreflect.EnumType {
-	return &file_auzring_agent_v1_inventory_proto_enumTypes[2]
+	return &file_renovatio_agent_v1_inventory_proto_enumTypes[2]
 }
 
 func (x SoftwareSource) Number() protoreflect.EnumNumber {
@@ -186,7 +186,7 @@ func (x SoftwareSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SoftwareSource.Descriptor instead.
 func (SoftwareSource) EnumDescriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
 }
 
 type WuUpdateState int32
@@ -231,11 +231,11 @@ func (x WuUpdateState) String() string {
 }
 
 func (WuUpdateState) Descriptor() protoreflect.EnumDescriptor {
-	return file_auzring_agent_v1_inventory_proto_enumTypes[3].Descriptor()
+	return file_renovatio_agent_v1_inventory_proto_enumTypes[3].Descriptor()
 }
 
 func (WuUpdateState) Type() protoreflect.EnumType {
-	return &file_auzring_agent_v1_inventory_proto_enumTypes[3]
+	return &file_renovatio_agent_v1_inventory_proto_enumTypes[3]
 }
 
 func (x WuUpdateState) Number() protoreflect.EnumNumber {
@@ -244,7 +244,7 @@ func (x WuUpdateState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WuUpdateState.Descriptor instead.
 func (WuUpdateState) EnumDescriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
 }
 
 // InventoryReport carries one section. Phase 1 sends HARDWARE as a full
@@ -252,7 +252,7 @@ func (WuUpdateState) EnumDescriptor() ([]byte, []int) {
 type InventoryReport struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Seq     uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
-	Section InventorySection       `protobuf:"varint,2,opt,name=section,proto3,enum=auzring.agent.v1.InventorySection" json:"section,omitempty"`
+	Section InventorySection       `protobuf:"varint,2,opt,name=section,proto3,enum=renovatio.agent.v1.InventorySection" json:"section,omitempty"`
 	// New revision of the section after the server applies this report.
 	Rev uint64 `protobuf:"varint,3,opt,name=rev,proto3" json:"rev,omitempty"`
 	// Types that are valid to be assigned to Body:
@@ -271,7 +271,7 @@ type InventoryReport struct {
 
 func (x *InventoryReport) Reset() {
 	*x = InventoryReport{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[0]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -283,7 +283,7 @@ func (x *InventoryReport) String() string {
 func (*InventoryReport) ProtoMessage() {}
 
 func (x *InventoryReport) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[0]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -296,7 +296,7 @@ func (x *InventoryReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventoryReport.ProtoReflect.Descriptor instead.
 func (*InventoryReport) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{0}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *InventoryReport) GetSeq() uint64 {
@@ -417,8 +417,8 @@ func (*InventoryReport_Wu) isInventoryReport_Body() {}
 // (source, scope, user_sid, item_key). user_sid is empty for machine scope.
 type SoftwareItemKey struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        SoftwareSource         `protobuf:"varint,1,opt,name=source,proto3,enum=auzring.agent.v1.SoftwareSource" json:"source,omitempty"`
-	Scope         SoftwareScope          `protobuf:"varint,2,opt,name=scope,proto3,enum=auzring.agent.v1.SoftwareScope" json:"scope,omitempty"`
+	Source        SoftwareSource         `protobuf:"varint,1,opt,name=source,proto3,enum=renovatio.agent.v1.SoftwareSource" json:"source,omitempty"`
+	Scope         SoftwareScope          `protobuf:"varint,2,opt,name=scope,proto3,enum=renovatio.agent.v1.SoftwareScope" json:"scope,omitempty"`
 	UserSid       string                 `protobuf:"bytes,3,opt,name=user_sid,json=userSid,proto3" json:"user_sid,omitempty"`
 	ItemKey       string                 `protobuf:"bytes,4,opt,name=item_key,json=itemKey,proto3" json:"item_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -427,7 +427,7 @@ type SoftwareItemKey struct {
 
 func (x *SoftwareItemKey) Reset() {
 	*x = SoftwareItemKey{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -439,7 +439,7 @@ func (x *SoftwareItemKey) String() string {
 func (*SoftwareItemKey) ProtoMessage() {}
 
 func (x *SoftwareItemKey) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[1]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -452,7 +452,7 @@ func (x *SoftwareItemKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SoftwareItemKey.ProtoReflect.Descriptor instead.
 func (*SoftwareItemKey) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SoftwareItemKey) GetSource() SoftwareSource {
@@ -501,7 +501,7 @@ type SoftwareItem struct {
 
 func (x *SoftwareItem) Reset() {
 	*x = SoftwareItem{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +513,7 @@ func (x *SoftwareItem) String() string {
 func (*SoftwareItem) ProtoMessage() {}
 
 func (x *SoftwareItem) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[2]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,7 +526,7 @@ func (x *SoftwareItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SoftwareItem.ProtoReflect.Descriptor instead.
 func (*SoftwareItem) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SoftwareItem) GetKey() *SoftwareItemKey {
@@ -613,7 +613,7 @@ type SoftwareDelta struct {
 
 func (x *SoftwareDelta) Reset() {
 	*x = SoftwareDelta{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -625,7 +625,7 @@ func (x *SoftwareDelta) String() string {
 func (*SoftwareDelta) ProtoMessage() {}
 
 func (x *SoftwareDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[3]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +638,7 @@ func (x *SoftwareDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SoftwareDelta.ProtoReflect.Descriptor instead.
 func (*SoftwareDelta) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SoftwareDelta) GetBaseRev() uint64 {
@@ -676,7 +676,7 @@ type SoftwareChunk struct {
 
 func (x *SoftwareChunk) Reset() {
 	*x = SoftwareChunk{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[4]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +688,7 @@ func (x *SoftwareChunk) String() string {
 func (*SoftwareChunk) ProtoMessage() {}
 
 func (x *SoftwareChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[4]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +701,7 @@ func (x *SoftwareChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SoftwareChunk.ProtoReflect.Descriptor instead.
 func (*SoftwareChunk) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{4}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SoftwareChunk) GetIndex() uint32 {
@@ -740,7 +740,7 @@ type DeviceUser struct {
 
 func (x *DeviceUser) Reset() {
 	*x = DeviceUser{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[5]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +752,7 @@ func (x *DeviceUser) String() string {
 func (*DeviceUser) ProtoMessage() {}
 
 func (x *DeviceUser) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[5]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -765,7 +765,7 @@ func (x *DeviceUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceUser.ProtoReflect.Descriptor instead.
 func (*DeviceUser) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{5}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeviceUser) GetSid() string {
@@ -826,7 +826,7 @@ type UsersInventory struct {
 
 func (x *UsersInventory) Reset() {
 	*x = UsersInventory{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[6]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -838,7 +838,7 @@ func (x *UsersInventory) String() string {
 func (*UsersInventory) ProtoMessage() {}
 
 func (x *UsersInventory) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[6]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -851,7 +851,7 @@ func (x *UsersInventory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsersInventory.ProtoReflect.Descriptor instead.
 func (*UsersInventory) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{6}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UsersInventory) GetUsers() []*DeviceUser {
@@ -895,7 +895,7 @@ type HardwareInventory struct {
 
 func (x *HardwareInventory) Reset() {
 	*x = HardwareInventory{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[7]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +907,7 @@ func (x *HardwareInventory) String() string {
 func (*HardwareInventory) ProtoMessage() {}
 
 func (x *HardwareInventory) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[7]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +920,7 @@ func (x *HardwareInventory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HardwareInventory.ProtoReflect.Descriptor instead.
 func (*HardwareInventory) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{7}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HardwareInventory) GetHostname() string {
@@ -1119,7 +1119,7 @@ type Disk struct {
 
 func (x *Disk) Reset() {
 	*x = Disk{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[8]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1131,7 +1131,7 @@ func (x *Disk) String() string {
 func (*Disk) ProtoMessage() {}
 
 func (x *Disk) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[8]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1144,7 +1144,7 @@ func (x *Disk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Disk.ProtoReflect.Descriptor instead.
 func (*Disk) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{8}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Disk) GetMount() string {
@@ -1193,7 +1193,7 @@ type NetInterface struct {
 
 func (x *NetInterface) Reset() {
 	*x = NetInterface{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[9]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1205,7 +1205,7 @@ func (x *NetInterface) String() string {
 func (*NetInterface) ProtoMessage() {}
 
 func (x *NetInterface) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[9]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1218,7 +1218,7 @@ func (x *NetInterface) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetInterface.ProtoReflect.Descriptor instead.
 func (*NetInterface) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{9}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *NetInterface) GetName() string {
@@ -1259,7 +1259,7 @@ type WuUpdate struct {
 	SupportUrl     string                 `protobuf:"bytes,13,opt,name=support_url,json=supportUrl,proto3" json:"support_url,omitempty"`
 	SizeBytes      uint64                 `protobuf:"varint,14,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	RebootRequired bool                   `protobuf:"varint,15,opt,name=reboot_required,json=rebootRequired,proto3" json:"reboot_required,omitempty"` // installing it needs a restart
-	State          WuUpdateState          `protobuf:"varint,16,opt,name=state,proto3,enum=auzring.agent.v1.WuUpdateState" json:"state,omitempty"`
+	State          WuUpdateState          `protobuf:"varint,16,opt,name=state,proto3,enum=renovatio.agent.v1.WuUpdateState" json:"state,omitempty"`
 	LastError      string                 `protobuf:"bytes,17,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"` // e.g. "0x80070643" for FAILED
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1267,7 +1267,7 @@ type WuUpdate struct {
 
 func (x *WuUpdate) Reset() {
 	*x = WuUpdate{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[10]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1279,7 @@ func (x *WuUpdate) String() string {
 func (*WuUpdate) ProtoMessage() {}
 
 func (x *WuUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[10]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1292,7 @@ func (x *WuUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuUpdate.ProtoReflect.Descriptor instead.
 func (*WuUpdate) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{10}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WuUpdate) GetUpdateId() string {
@@ -1433,7 +1433,7 @@ type WuPolicyInfo struct {
 
 func (x *WuPolicyInfo) Reset() {
 	*x = WuPolicyInfo{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[11]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1445,7 +1445,7 @@ func (x *WuPolicyInfo) String() string {
 func (*WuPolicyInfo) ProtoMessage() {}
 
 func (x *WuPolicyInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[11]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1458,7 +1458,7 @@ func (x *WuPolicyInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuPolicyInfo.ProtoReflect.Descriptor instead.
 func (*WuPolicyInfo) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{11}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WuPolicyInfo) GetWsusConfigured() bool {
@@ -1540,7 +1540,7 @@ type WuInventory struct {
 
 func (x *WuInventory) Reset() {
 	*x = WuInventory{}
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[12]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1552,7 +1552,7 @@ func (x *WuInventory) String() string {
 func (*WuInventory) ProtoMessage() {}
 
 func (x *WuInventory) ProtoReflect() protoreflect.Message {
-	mi := &file_auzring_agent_v1_inventory_proto_msgTypes[12]
+	mi := &file_renovatio_agent_v1_inventory_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1565,7 +1565,7 @@ func (x *WuInventory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuInventory.ProtoReflect.Descriptor instead.
 func (*WuInventory) Descriptor() ([]byte, []int) {
-	return file_auzring_agent_v1_inventory_proto_rawDescGZIP(), []int{12}
+	return file_renovatio_agent_v1_inventory_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WuInventory) GetUpdates() []*WuUpdate {
@@ -1617,30 +1617,30 @@ func (x *WuInventory) GetScanError() string {
 	return ""
 }
 
-var File_auzring_agent_v1_inventory_proto protoreflect.FileDescriptor
+var File_renovatio_agent_v1_inventory_proto protoreflect.FileDescriptor
 
-const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
+const file_renovatio_agent_v1_inventory_proto_rawDesc = "" +
 	"\n" +
-	" auzring/agent/v1/inventory.proto\x12\x10auzring.agent.v1\"\xdb\x03\n" +
+	"\"renovatio/agent/v1/inventory.proto\x12\x12renovatio.agent.v1\"\xe7\x03\n" +
 	"\x0fInventoryReport\x12\x10\n" +
-	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12<\n" +
-	"\asection\x18\x02 \x01(\x0e2\".auzring.agent.v1.InventorySectionR\asection\x12\x10\n" +
-	"\x03rev\x18\x03 \x01(\x04R\x03rev\x12A\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12>\n" +
+	"\asection\x18\x02 \x01(\x0e2$.renovatio.agent.v1.InventorySectionR\asection\x12\x10\n" +
+	"\x03rev\x18\x03 \x01(\x04R\x03rev\x12C\n" +
 	"\bhardware\x18\n" +
-	" \x01(\v2#.auzring.agent.v1.HardwareInventoryH\x00R\bhardware\x128\n" +
-	"\x05users\x18\v \x01(\v2 .auzring.agent.v1.UsersInventoryH\x00R\x05users\x12H\n" +
-	"\x0esoftware_delta\x18\f \x01(\v2\x1f.auzring.agent.v1.SoftwareDeltaH\x00R\rsoftwareDelta\x12H\n" +
-	"\x0esoftware_chunk\x18\r \x01(\v2\x1f.auzring.agent.v1.SoftwareChunkH\x00R\rsoftwareChunk\x12/\n" +
-	"\x02wu\x18\x0e \x01(\v2\x1d.auzring.agent.v1.WuInventoryH\x00R\x02wu\x12\x1c\n" +
+	" \x01(\v2%.renovatio.agent.v1.HardwareInventoryH\x00R\bhardware\x12:\n" +
+	"\x05users\x18\v \x01(\v2\".renovatio.agent.v1.UsersInventoryH\x00R\x05users\x12J\n" +
+	"\x0esoftware_delta\x18\f \x01(\v2!.renovatio.agent.v1.SoftwareDeltaH\x00R\rsoftwareDelta\x12J\n" +
+	"\x0esoftware_chunk\x18\r \x01(\v2!.renovatio.agent.v1.SoftwareChunkH\x00R\rsoftwareChunk\x121\n" +
+	"\x02wu\x18\x0e \x01(\v2\x1f.renovatio.agent.v1.WuInventoryH\x00R\x02wu\x12\x1c\n" +
 	"\ttruncated\x18\x14 \x01(\bR\ttruncatedB\x06\n" +
-	"\x04body\"\xb8\x01\n" +
-	"\x0fSoftwareItemKey\x128\n" +
-	"\x06source\x18\x01 \x01(\x0e2 .auzring.agent.v1.SoftwareSourceR\x06source\x125\n" +
-	"\x05scope\x18\x02 \x01(\x0e2\x1f.auzring.agent.v1.SoftwareScopeR\x05scope\x12\x19\n" +
+	"\x04body\"\xbc\x01\n" +
+	"\x0fSoftwareItemKey\x12:\n" +
+	"\x06source\x18\x01 \x01(\x0e2\".renovatio.agent.v1.SoftwareSourceR\x06source\x127\n" +
+	"\x05scope\x18\x02 \x01(\x0e2!.renovatio.agent.v1.SoftwareScopeR\x05scope\x12\x19\n" +
 	"\buser_sid\x18\x03 \x01(\tR\auserSid\x12\x19\n" +
-	"\bitem_key\x18\x04 \x01(\tR\aitemKey\"\x8c\x03\n" +
-	"\fSoftwareItem\x123\n" +
-	"\x03key\x18\x01 \x01(\v2!.auzring.agent.v1.SoftwareItemKeyR\x03key\x12\x12\n" +
+	"\bitem_key\x18\x04 \x01(\tR\aitemKey\"\x8e\x03\n" +
+	"\fSoftwareItem\x125\n" +
+	"\x03key\x18\x01 \x01(\v2#.renovatio.agent.v1.SoftwareItemKeyR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12\x1c\n" +
 	"\tpublisher\x18\x04 \x01(\tR\tpublisher\x12!\n" +
@@ -1650,15 +1650,15 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x16quiet_uninstall_string\x18\b \x01(\tR\x14quietUninstallString\x12!\n" +
 	"\fproduct_code\x18\t \x01(\tR\vproductCode\x12)\n" +
 	"\x10system_component\x18\n" +
-	" \x01(\bR\x0fsystemComponent\"\xa1\x01\n" +
+	" \x01(\bR\x0fsystemComponent\"\xa5\x01\n" +
 	"\rSoftwareDelta\x12\x19\n" +
-	"\bbase_rev\x18\x01 \x01(\x04R\abaseRev\x128\n" +
-	"\aupserts\x18\x02 \x03(\v2\x1e.auzring.agent.v1.SoftwareItemR\aupserts\x12;\n" +
-	"\aremoves\x18\x03 \x03(\v2!.auzring.agent.v1.SoftwareItemKeyR\aremoves\"q\n" +
+	"\bbase_rev\x18\x01 \x01(\x04R\abaseRev\x12:\n" +
+	"\aupserts\x18\x02 \x03(\v2 .renovatio.agent.v1.SoftwareItemR\aupserts\x12=\n" +
+	"\aremoves\x18\x03 \x03(\v2#.renovatio.agent.v1.SoftwareItemKeyR\aremoves\"s\n" +
 	"\rSoftwareChunk\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\rR\x05total\x124\n" +
-	"\x05items\x18\x03 \x03(\v2\x1e.auzring.agent.v1.SoftwareItemR\x05items\"\xc7\x01\n" +
+	"\x05total\x18\x02 \x01(\rR\x05total\x126\n" +
+	"\x05items\x18\x03 \x03(\v2 .renovatio.agent.v1.SoftwareItemR\x05items\"\xc7\x01\n" +
 	"\n" +
 	"DeviceUser\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\tR\x03sid\x12\x1a\n" +
@@ -1668,9 +1668,9 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\n" +
 	"last_logon\x18\x05 \x01(\x03R\tlastLogon\x12\x16\n" +
 	"\x06loaded\x18\x06 \x01(\bR\x06loaded\x12\x19\n" +
-	"\bis_admin\x18\a \x01(\bR\aisAdmin\"D\n" +
-	"\x0eUsersInventory\x122\n" +
-	"\x05users\x18\x01 \x03(\v2\x1c.auzring.agent.v1.DeviceUserR\x05users\"\xf5\x06\n" +
+	"\bis_admin\x18\a \x01(\bR\aisAdmin\"F\n" +
+	"\x0eUsersInventory\x124\n" +
+	"\x05users\x18\x01 \x03(\v2\x1e.renovatio.agent.v1.DeviceUserR\x05users\"\xf9\x06\n" +
 	"\x11HardwareInventory\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x12\n" +
 	"\x04fqdn\x18\x02 \x01(\tR\x04fqdn\x12\x16\n" +
@@ -1695,10 +1695,10 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\fbios_version\x18\x10 \x01(\tR\vbiosVersion\x12\x1b\n" +
 	"\tcpu_model\x18\x11 \x01(\tR\bcpuModel\x12*\n" +
 	"\x11cpu_logical_cores\x18\x12 \x01(\rR\x0fcpuLogicalCores\x12\x1b\n" +
-	"\tram_bytes\x18\x13 \x01(\x04R\bramBytes\x12,\n" +
-	"\x05disks\x18\x14 \x03(\v2\x16.auzring.agent.v1.DiskR\x05disks\x12>\n" +
+	"\tram_bytes\x18\x13 \x01(\x04R\bramBytes\x12.\n" +
+	"\x05disks\x18\x14 \x03(\v2\x18.renovatio.agent.v1.DiskR\x05disks\x12@\n" +
 	"\n" +
-	"interfaces\x18\x15 \x03(\v2\x1e.auzring.agent.v1.NetInterfaceR\n" +
+	"interfaces\x18\x15 \x03(\v2 .renovatio.agent.v1.NetInterfaceR\n" +
 	"interfaces\x12-\n" +
 	"\x13last_logged_on_user\x18\x16 \x01(\tR\x10lastLoggedOnUser\x12%\n" +
 	"\x0epending_reboot\x18\x17 \x01(\bR\rpendingReboot\x124\n" +
@@ -1718,7 +1718,7 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\fNetInterface\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x1c\n" +
-	"\taddresses\x18\x03 \x03(\tR\taddresses\"\xb3\x04\n" +
+	"\taddresses\x18\x03 \x03(\tR\taddresses\"\xb5\x04\n" +
 	"\bWuUpdate\x12\x1b\n" +
 	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\x05R\brevision\x12\x14\n" +
@@ -1738,8 +1738,8 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"supportUrl\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x0e \x01(\x04R\tsizeBytes\x12'\n" +
-	"\x0freboot_required\x18\x0f \x01(\bR\x0erebootRequired\x125\n" +
-	"\x05state\x18\x10 \x01(\x0e2\x1f.auzring.agent.v1.WuUpdateStateR\x05state\x12\x1d\n" +
+	"\x0freboot_required\x18\x0f \x01(\bR\x0erebootRequired\x127\n" +
+	"\x05state\x18\x10 \x01(\x0e2!.renovatio.agent.v1.WuUpdateStateR\x05state\x12\x1d\n" +
 	"\n" +
 	"last_error\x18\x11 \x01(\tR\tlastError\"\xe5\x02\n" +
 	"\fWuPolicyInfo\x12'\n" +
@@ -1753,10 +1753,10 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x13active_hours_policy\x18\x06 \x01(\bR\x11activeHoursPolicy\x12.\n" +
 	"\x13wu_service_disabled\x18\a \x01(\bR\x11wuServiceDisabled\x12)\n" +
 	"\x10effective_source\x18\b \x01(\tR\x0feffectiveSource\x12\x14\n" +
-	"\x05notes\x18\t \x03(\tR\x05notes\"\x9a\x02\n" +
-	"\vWuInventory\x124\n" +
-	"\aupdates\x18\x01 \x03(\v2\x1a.auzring.agent.v1.WuUpdateR\aupdates\x126\n" +
-	"\x06policy\x18\x02 \x01(\v2\x1e.auzring.agent.v1.WuPolicyInfoR\x06policy\x12'\n" +
+	"\x05notes\x18\t \x03(\tR\x05notes\"\x9e\x02\n" +
+	"\vWuInventory\x126\n" +
+	"\aupdates\x18\x01 \x03(\v2\x1c.renovatio.agent.v1.WuUpdateR\aupdates\x128\n" +
+	"\x06policy\x18\x02 \x01(\v2 .renovatio.agent.v1.WuPolicyInfoR\x06policy\x12'\n" +
 	"\x0freboot_required\x18\x03 \x01(\bR\x0erebootRequired\x12\x1d\n" +
 	"\n" +
 	"scanned_at\x18\x04 \x01(\x03R\tscannedAt\x12\x18\n" +
@@ -1789,60 +1789,60 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x1aWU_UPDATE_STATE_DOWNLOADED\x10\x02\x12\x1a\n" +
 	"\x16WU_UPDATE_STATE_HIDDEN\x10\x03\x12\"\n" +
 	"\x1eWU_UPDATE_STATE_PENDING_REBOOT\x10\x04\x12\x1a\n" +
-	"\x16WU_UPDATE_STATE_FAILED\x10\x05BBZ@github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x16WU_UPDATE_STATE_FAILED\x10\x05BDZBgithub.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_auzring_agent_v1_inventory_proto_rawDescOnce sync.Once
-	file_auzring_agent_v1_inventory_proto_rawDescData []byte
+	file_renovatio_agent_v1_inventory_proto_rawDescOnce sync.Once
+	file_renovatio_agent_v1_inventory_proto_rawDescData []byte
 )
 
-func file_auzring_agent_v1_inventory_proto_rawDescGZIP() []byte {
-	file_auzring_agent_v1_inventory_proto_rawDescOnce.Do(func() {
-		file_auzring_agent_v1_inventory_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_inventory_proto_rawDesc), len(file_auzring_agent_v1_inventory_proto_rawDesc)))
+func file_renovatio_agent_v1_inventory_proto_rawDescGZIP() []byte {
+	file_renovatio_agent_v1_inventory_proto_rawDescOnce.Do(func() {
+		file_renovatio_agent_v1_inventory_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_inventory_proto_rawDesc), len(file_renovatio_agent_v1_inventory_proto_rawDesc)))
 	})
-	return file_auzring_agent_v1_inventory_proto_rawDescData
+	return file_renovatio_agent_v1_inventory_proto_rawDescData
 }
 
-var file_auzring_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_auzring_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
-var file_auzring_agent_v1_inventory_proto_goTypes = []any{
-	(InventorySection)(0),     // 0: auzring.agent.v1.InventorySection
-	(SoftwareScope)(0),        // 1: auzring.agent.v1.SoftwareScope
-	(SoftwareSource)(0),       // 2: auzring.agent.v1.SoftwareSource
-	(WuUpdateState)(0),        // 3: auzring.agent.v1.WuUpdateState
-	(*InventoryReport)(nil),   // 4: auzring.agent.v1.InventoryReport
-	(*SoftwareItemKey)(nil),   // 5: auzring.agent.v1.SoftwareItemKey
-	(*SoftwareItem)(nil),      // 6: auzring.agent.v1.SoftwareItem
-	(*SoftwareDelta)(nil),     // 7: auzring.agent.v1.SoftwareDelta
-	(*SoftwareChunk)(nil),     // 8: auzring.agent.v1.SoftwareChunk
-	(*DeviceUser)(nil),        // 9: auzring.agent.v1.DeviceUser
-	(*UsersInventory)(nil),    // 10: auzring.agent.v1.UsersInventory
-	(*HardwareInventory)(nil), // 11: auzring.agent.v1.HardwareInventory
-	(*Disk)(nil),              // 12: auzring.agent.v1.Disk
-	(*NetInterface)(nil),      // 13: auzring.agent.v1.NetInterface
-	(*WuUpdate)(nil),          // 14: auzring.agent.v1.WuUpdate
-	(*WuPolicyInfo)(nil),      // 15: auzring.agent.v1.WuPolicyInfo
-	(*WuInventory)(nil),       // 16: auzring.agent.v1.WuInventory
+var file_renovatio_agent_v1_inventory_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_renovatio_agent_v1_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_renovatio_agent_v1_inventory_proto_goTypes = []any{
+	(InventorySection)(0),     // 0: renovatio.agent.v1.InventorySection
+	(SoftwareScope)(0),        // 1: renovatio.agent.v1.SoftwareScope
+	(SoftwareSource)(0),       // 2: renovatio.agent.v1.SoftwareSource
+	(WuUpdateState)(0),        // 3: renovatio.agent.v1.WuUpdateState
+	(*InventoryReport)(nil),   // 4: renovatio.agent.v1.InventoryReport
+	(*SoftwareItemKey)(nil),   // 5: renovatio.agent.v1.SoftwareItemKey
+	(*SoftwareItem)(nil),      // 6: renovatio.agent.v1.SoftwareItem
+	(*SoftwareDelta)(nil),     // 7: renovatio.agent.v1.SoftwareDelta
+	(*SoftwareChunk)(nil),     // 8: renovatio.agent.v1.SoftwareChunk
+	(*DeviceUser)(nil),        // 9: renovatio.agent.v1.DeviceUser
+	(*UsersInventory)(nil),    // 10: renovatio.agent.v1.UsersInventory
+	(*HardwareInventory)(nil), // 11: renovatio.agent.v1.HardwareInventory
+	(*Disk)(nil),              // 12: renovatio.agent.v1.Disk
+	(*NetInterface)(nil),      // 13: renovatio.agent.v1.NetInterface
+	(*WuUpdate)(nil),          // 14: renovatio.agent.v1.WuUpdate
+	(*WuPolicyInfo)(nil),      // 15: renovatio.agent.v1.WuPolicyInfo
+	(*WuInventory)(nil),       // 16: renovatio.agent.v1.WuInventory
 }
-var file_auzring_agent_v1_inventory_proto_depIdxs = []int32{
-	0,  // 0: auzring.agent.v1.InventoryReport.section:type_name -> auzring.agent.v1.InventorySection
-	11, // 1: auzring.agent.v1.InventoryReport.hardware:type_name -> auzring.agent.v1.HardwareInventory
-	10, // 2: auzring.agent.v1.InventoryReport.users:type_name -> auzring.agent.v1.UsersInventory
-	7,  // 3: auzring.agent.v1.InventoryReport.software_delta:type_name -> auzring.agent.v1.SoftwareDelta
-	8,  // 4: auzring.agent.v1.InventoryReport.software_chunk:type_name -> auzring.agent.v1.SoftwareChunk
-	16, // 5: auzring.agent.v1.InventoryReport.wu:type_name -> auzring.agent.v1.WuInventory
-	2,  // 6: auzring.agent.v1.SoftwareItemKey.source:type_name -> auzring.agent.v1.SoftwareSource
-	1,  // 7: auzring.agent.v1.SoftwareItemKey.scope:type_name -> auzring.agent.v1.SoftwareScope
-	5,  // 8: auzring.agent.v1.SoftwareItem.key:type_name -> auzring.agent.v1.SoftwareItemKey
-	6,  // 9: auzring.agent.v1.SoftwareDelta.upserts:type_name -> auzring.agent.v1.SoftwareItem
-	5,  // 10: auzring.agent.v1.SoftwareDelta.removes:type_name -> auzring.agent.v1.SoftwareItemKey
-	6,  // 11: auzring.agent.v1.SoftwareChunk.items:type_name -> auzring.agent.v1.SoftwareItem
-	9,  // 12: auzring.agent.v1.UsersInventory.users:type_name -> auzring.agent.v1.DeviceUser
-	12, // 13: auzring.agent.v1.HardwareInventory.disks:type_name -> auzring.agent.v1.Disk
-	13, // 14: auzring.agent.v1.HardwareInventory.interfaces:type_name -> auzring.agent.v1.NetInterface
-	3,  // 15: auzring.agent.v1.WuUpdate.state:type_name -> auzring.agent.v1.WuUpdateState
-	14, // 16: auzring.agent.v1.WuInventory.updates:type_name -> auzring.agent.v1.WuUpdate
-	15, // 17: auzring.agent.v1.WuInventory.policy:type_name -> auzring.agent.v1.WuPolicyInfo
+var file_renovatio_agent_v1_inventory_proto_depIdxs = []int32{
+	0,  // 0: renovatio.agent.v1.InventoryReport.section:type_name -> renovatio.agent.v1.InventorySection
+	11, // 1: renovatio.agent.v1.InventoryReport.hardware:type_name -> renovatio.agent.v1.HardwareInventory
+	10, // 2: renovatio.agent.v1.InventoryReport.users:type_name -> renovatio.agent.v1.UsersInventory
+	7,  // 3: renovatio.agent.v1.InventoryReport.software_delta:type_name -> renovatio.agent.v1.SoftwareDelta
+	8,  // 4: renovatio.agent.v1.InventoryReport.software_chunk:type_name -> renovatio.agent.v1.SoftwareChunk
+	16, // 5: renovatio.agent.v1.InventoryReport.wu:type_name -> renovatio.agent.v1.WuInventory
+	2,  // 6: renovatio.agent.v1.SoftwareItemKey.source:type_name -> renovatio.agent.v1.SoftwareSource
+	1,  // 7: renovatio.agent.v1.SoftwareItemKey.scope:type_name -> renovatio.agent.v1.SoftwareScope
+	5,  // 8: renovatio.agent.v1.SoftwareItem.key:type_name -> renovatio.agent.v1.SoftwareItemKey
+	6,  // 9: renovatio.agent.v1.SoftwareDelta.upserts:type_name -> renovatio.agent.v1.SoftwareItem
+	5,  // 10: renovatio.agent.v1.SoftwareDelta.removes:type_name -> renovatio.agent.v1.SoftwareItemKey
+	6,  // 11: renovatio.agent.v1.SoftwareChunk.items:type_name -> renovatio.agent.v1.SoftwareItem
+	9,  // 12: renovatio.agent.v1.UsersInventory.users:type_name -> renovatio.agent.v1.DeviceUser
+	12, // 13: renovatio.agent.v1.HardwareInventory.disks:type_name -> renovatio.agent.v1.Disk
+	13, // 14: renovatio.agent.v1.HardwareInventory.interfaces:type_name -> renovatio.agent.v1.NetInterface
+	3,  // 15: renovatio.agent.v1.WuUpdate.state:type_name -> renovatio.agent.v1.WuUpdateState
+	14, // 16: renovatio.agent.v1.WuInventory.updates:type_name -> renovatio.agent.v1.WuUpdate
+	15, // 17: renovatio.agent.v1.WuInventory.policy:type_name -> renovatio.agent.v1.WuPolicyInfo
 	18, // [18:18] is the sub-list for method output_type
 	18, // [18:18] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name
@@ -1850,12 +1850,12 @@ var file_auzring_agent_v1_inventory_proto_depIdxs = []int32{
 	0,  // [0:18] is the sub-list for field type_name
 }
 
-func init() { file_auzring_agent_v1_inventory_proto_init() }
-func file_auzring_agent_v1_inventory_proto_init() {
-	if File_auzring_agent_v1_inventory_proto != nil {
+func init() { file_renovatio_agent_v1_inventory_proto_init() }
+func file_renovatio_agent_v1_inventory_proto_init() {
+	if File_renovatio_agent_v1_inventory_proto != nil {
 		return
 	}
-	file_auzring_agent_v1_inventory_proto_msgTypes[0].OneofWrappers = []any{
+	file_renovatio_agent_v1_inventory_proto_msgTypes[0].OneofWrappers = []any{
 		(*InventoryReport_Hardware)(nil),
 		(*InventoryReport_Users)(nil),
 		(*InventoryReport_SoftwareDelta)(nil),
@@ -1866,18 +1866,18 @@ func file_auzring_agent_v1_inventory_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auzring_agent_v1_inventory_proto_rawDesc), len(file_auzring_agent_v1_inventory_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_inventory_proto_rawDesc), len(file_renovatio_agent_v1_inventory_proto_rawDesc)),
 			NumEnums:      4,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_auzring_agent_v1_inventory_proto_goTypes,
-		DependencyIndexes: file_auzring_agent_v1_inventory_proto_depIdxs,
-		EnumInfos:         file_auzring_agent_v1_inventory_proto_enumTypes,
-		MessageInfos:      file_auzring_agent_v1_inventory_proto_msgTypes,
+		GoTypes:           file_renovatio_agent_v1_inventory_proto_goTypes,
+		DependencyIndexes: file_renovatio_agent_v1_inventory_proto_depIdxs,
+		EnumInfos:         file_renovatio_agent_v1_inventory_proto_enumTypes,
+		MessageInfos:      file_renovatio_agent_v1_inventory_proto_msgTypes,
 	}.Build()
-	File_auzring_agent_v1_inventory_proto = out.File
-	file_auzring_agent_v1_inventory_proto_goTypes = nil
-	file_auzring_agent_v1_inventory_proto_depIdxs = nil
+	File_renovatio_agent_v1_inventory_proto = out.File
+	file_renovatio_agent_v1_inventory_proto_goTypes = nil
+	file_renovatio_agent_v1_inventory_proto_depIdxs = nil
 }

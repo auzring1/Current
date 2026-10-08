@@ -7,9 +7,9 @@
 	skip_install_trust
 }
 
-{$AUZ_HOSTNAME} {
+{$RENOVATIO_HOSTNAME} {
 	# "internal" = Caddy's own CA (LAN installs); an email address = Let's Encrypt (ACME).
-	tls {$AUZ_CADDY_TLS}
+	tls {$RENOVATIO_CADDY_TLS}
 	encode zstd gzip
 	# Installer and agent-release uploads are the only large request bodies.
 	@upload path /api/v1/catalog/content /api/v1/agent-releases
@@ -22,7 +22,7 @@
 	}
 	reverse_proxy server:8080 {
 		# Caddy appends the client IP to X-Forwarded-For; the server trusts it
-		# only from the frontend network (AUZ_TRUSTED_PROXIES).
+		# only from the frontend network (RENOVATIO_TRUSTED_PROXIES).
 		header_down -Server
 	}
 	header -Server

@@ -29,7 +29,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 	"github.com/auzring1/renovatio/internal/server/audit"
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/deploy"
@@ -165,7 +165,7 @@ const MaxBinary = release.MaxBinaryBytes
 // AddRelease verifies a vendor bundle, stores the binary content-addressed and registers the release.
 func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, binary io.Reader) (Release, error) {
 	if s.Content == nil {
-		return Release{}, invalid("storage is not configured (AUZ_CONTENT_DIR)")
+		return Release{}, invalid("storage is not configured (RENOVATIO_CONTENT_DIR)")
 	}
 	b, err := release.DecodeBundle(bundleJSON)
 	if err != nil {

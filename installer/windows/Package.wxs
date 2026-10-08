@@ -4,8 +4,8 @@
   (docs/DECISIONS.md O6, D67). WiX v7, "v4+ style" schema. Build: installer/windows/build.ps1.
 
   What the MSI does
-    * installs the (already signed) agent exe into a SETUP directory, [ProgramFiles64Folder]AuzringSetup\
-      (deliberately NOT under ...\Auzring\Agent: `renovatio-agent uninstall` deletes that tree, and an
+    * installs the (already signed) agent exe into a SETUP directory, [ProgramFiles64Folder]RenovatioSetup\
+      (deliberately NOT under ...\Renovatio\Agent: `renovatio-agent uninstall` deletes that tree, and an
       exe that is running from inside it can only be removed at the next reboot);
     * a deferred, SYSTEM-context custom action runs `renovatio-agent.exe install` (with its if-not-installed flag),
       which copies the binary to slot-a, creates the service and enrolls;
@@ -23,7 +23,7 @@
   <?error Define Version (numeric a.b.c.d), e.g. wix build -d Version=1.2.3.0?>
   <?endif?>
   <?ifndef AgentName?>
-  <?error Define ProductName, AgentName and Company (installer/windows/build.ps1 and scripts/build-msi.sh pass them from internal/shared/brand)?>
+  <?error Define ProductName, AgentName, Company, ServiceName and SetupFolder (installer/windows/build.ps1 and scripts/build-msi.sh pass them from internal/shared/brand)?>
   <?endif?>
   <?ifndef AgentExe?>
   <?error Define AgentExe (path to the signed renovatio-agent.exe), e.g. wix build -d AgentExe=renovatio-agent.exe?>
@@ -38,7 +38,7 @@
            Language="1033"
            Compressed="yes">
 
-    <SummaryInformation Description="$(ProductName) endpoint management agent (installs, enrolls and starts the AuzringAgent service)" />
+    <SummaryInformation Description="$(ProductName) endpoint management agent (installs, enrolls and starts the $(ServiceName) service)" />
 
     <!-- An MSI upgrade of an already enrolled machine keeps the service, device key and data:
          the old product's uninstall action is skipped (UPGRADINGPRODUCTCODE) and the new install
@@ -64,7 +64,7 @@
     <!-- Is the service already registered? Evaluated before any change, so the rollback action
          can tell a fresh install (clean up on failure) from an enrolled machine (never touch). -->
     <Property Id="AGENTSERVICEPATH" Secure="yes">
-      <RegistrySearch Id="AgentServiceImagePath" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\AuzringAgent" Name="ImagePath" Type="raw" Bitness="always64" />
+      <RegistrySearch Id="AgentServiceImagePath" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\$(ServiceName)" Name="ImagePath" Type="raw" Bitness="always64" />
     </Property>
 
     <!-- The real Windows build number. VersionNT and WindowsBuild cannot be used for the version check: Windows Installer
@@ -85,26 +85,26 @@
 
     <!-- ===== Required properties on a first install (not on uninstall, and not when the machine is already enrolled) ===== -->
     <Launch Condition="Installed OR AGENTSERVICEPATH OR SERVER" Message="SERVER is required for the first installation, for example SERVER=renovatio.example.com:8443." />
-    <Launch Condition="Installed OR AGENTSERVICEPATH OR TOKEN" Message="TOKEN is required for the first installation: the enrollment string from the console (it starts with AURZ1.)." />
+    <Launch Condition="Installed OR AGENTSERVICEPATH OR TOKEN" Message="TOKEN is required for the first installation: the enrollment string from the console (it starts with RNV1.)." />
 
     <!-- Character checks: SERVER, TOKEN and ALLOWEDJOBS must not contain quotes, spaces or shell metacharacters. -->
     <?include Validation.wxi?>
 
     <!-- Shape checks (the character checks are in Validation.wxi). The agent validates everything again. -->
     <Launch Condition="NOT SERVER OR SERVER &gt;&lt; &quot;:&quot;" Message="SERVER must be host:port, for example renovatio.example.com:8443." />
-    <Launch Condition="NOT TOKEN OR TOKEN &lt;&lt; &quot;AURZ1.&quot;" Message="TOKEN is not a $(ProductName) enrollment string (it must start with AURZ1.). Copy the whole string from the console." />
+    <Launch Condition="NOT TOKEN OR TOKEN &lt;&lt; &quot;RNV1.&quot;" Message="TOKEN is not a $(ProductName) enrollment string (it must start with RNV1.). Copy the whole string from the console." />
 
     <!-- ===== Files ===== -->
     <?ifdef LinuxLint?>
     <!-- Source lint on Linux only (scripts/lint-wxs.sh): the WiX compiler on Linux rejects every relative
          Directory name (WIX0389) and cannot bind an MSI (no msi.dll). Never used for a real build. -->
-    <Property Id="SetupDir" Value="C:\AuzringSetup\" />
+    <Property Id="SetupDir" Value="C:\$(SetupFolder)\" />
     <Component Id="AgentSetupExe" Guid="*" Directory="ProgramFiles64Folder" Bitness="always64">
       <File Id="AgentExe" Name="renovatio-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
     </Component>
     <?else?>
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="SetupDir" Name="AuzringSetup">
+      <Directory Id="SetupDir" Name="$(SetupFolder)">
         <Component Id="AgentSetupExe" Guid="*" Bitness="always64">
           <File Id="AgentExe" Name="renovatio-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
         </Component>

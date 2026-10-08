@@ -9,7 +9,7 @@
                   self-hosted runner). The Azure Artifact Signing (formerly Trusted Signing) provider does not use
                   this: the workflow calls Azure's own action for it.
                   Everything provider-specific is passed in the environment, never in the repository:
-                    AUZ_SIGNTOOL_ARGS   certificate selection arguments, e.g.
+                    RENOVATIO_SIGNTOOL_ARGS   certificate selection arguments, e.g.
                                         /csp "<KSP name>" /kc "<key container>" /f "<public cert .cer>"
                                         (a repository variable; it holds names, not secrets)
                     plus whatever the KSP reads from the environment (secrets, set by the workflow step)
@@ -55,10 +55,10 @@ foreach ($f in $Files) {
 
 switch ($Action) {
   'Sign' {
-    if (-not $env:AUZ_SIGNTOOL_ARGS) { throw 'AUZ_SIGNTOOL_ARGS is not set (certificate selection arguments for signtool)' }
+    if (-not $env:RENOVATIO_SIGNTOOL_ARGS) { throw 'RENOVATIO_SIGNTOOL_ARGS is not set (certificate selection arguments for signtool)' }
     $signtool = Find-SignTool
     # Split the variable like a command line; it contains names and paths, not secrets.
-    $selection = [System.Management.Automation.PSParser]::Tokenize($env:AUZ_SIGNTOOL_ARGS, [ref]$null) |
+    $selection = [System.Management.Automation.PSParser]::Tokenize($env:RENOVATIO_SIGNTOOL_ARGS, [ref]$null) |
       Where-Object { $_.Type -in 'CommandArgument', 'String', 'CommandParameter' } | ForEach-Object { $_.Content }
     foreach ($f in $Files) {
       Write-Host "signing $f"

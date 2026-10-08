@@ -146,7 +146,7 @@ func (q *Queries) ListLicenses(ctx context.Context, orgID uuid.UUID) ([]ListLice
 }
 
 const lockLicenseCapacity = `-- name: LockLicenseCapacity :exec
-SELECT pg_advisory_xact_lock(hashtextextended('auzring/license/capacity/' || $1::text, 0))
+SELECT pg_advisory_xact_lock(hashtextextended('renovatio/license/capacity/' || $1::text, 0))
 `
 
 // Serializes enrollments and approvals of one organization for the rest of the transaction, so two

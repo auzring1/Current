@@ -32,9 +32,9 @@ type devPlatform struct {
 }
 
 // NewPlatform returns the development platform rooted at dataDir. The fake
-// "Program Files" is AUZ_DEV_PROGRAMFILES or <dataDir>/pf.
+// "Program Files" is RENOVATIO_DEV_PROGRAMFILES or <dataDir>/pf.
 func NewPlatform(dataDir string) Platform {
-	pf := os.Getenv("AUZ_DEV_PROGRAMFILES")
+	pf := os.Getenv("RENOVATIO_DEV_PROGRAMFILES")
 	if pf == "" {
 		pf = filepath.Join(dataDir, "pf")
 	}

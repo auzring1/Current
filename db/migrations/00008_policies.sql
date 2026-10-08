@@ -34,8 +34,8 @@ CREATE TABLE policy_attempts (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'auzring_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON software_policies, policy_attempts TO auzring_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON software_policies, policy_attempts TO renovatio_app;
     END IF;
 END
 $$;

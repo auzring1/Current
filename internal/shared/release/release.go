@@ -23,7 +23,7 @@ import (
 )
 
 // Domain separates release signatures from every other Ed25519 signature in the product.
-const Domain = "auzring/release/v1\x00"
+const Domain = "renovatio/release/v1\x00"
 
 // Product is the only product name a manifest may carry.
 const Product = brand.ManifestProduct
@@ -75,7 +75,7 @@ type Manifest struct {
 	Notes               string `json:"notes,omitempty"`
 }
 
-// Bundle is the file the vendor publishes next to the binary (.azr).
+// Bundle is the file the vendor publishes next to the binary (.rnr).
 type Bundle struct {
 	Manifest  []byte `json:"manifest"`
 	Signature []byte `json:"signature"`

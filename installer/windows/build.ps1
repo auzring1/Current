@@ -90,7 +90,8 @@ try {
   $brand = @{}
   Push-Location (Join-Path $PSScriptRoot '..\..')
   try { go run ./internal/shared/brand/gen -wix | ForEach-Object { $k, $v = $_ -split '=', 2; $brand[$k] = $v } } finally { Pop-Location }
-  foreach ($k in 'ProductName', 'AgentName', 'Company', 'Slug') { if (-not $brand[$k]) { throw "internal/shared/brand did not provide $k" } }
+  foreach ($k in 'ProductName', 'AgentName', 'Company', 'Slug', 'ServiceName', 'SetupFolder') { if (-not $brand[$k]) { throw "internal/shared/brand did not provide $k" } }
+  $brandDefines = foreach ($k in $brand.Keys) { '-d'; "$k=$($brand[$k])" }
 
   # --- build -----------------------------------------------------------------------------------
   Invoke-Tool 'wix build' {
@@ -99,9 +100,7 @@ try {
       -ext ($UtilExtension.Split('/')[0]) `
       -d "Version=$msiVersion" `
       -d "AgentExe=$AgentExe" `
-      -d "ProductName=$($brand.ProductName)" `
-      -d "AgentName=$($brand.AgentName)" `
-      -d "Company=$($brand.Company)" `
+      @brandDefines `
       -o $Output `
       (Join-Path $PSScriptRoot 'Package.wxs')
   }

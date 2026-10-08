@@ -323,7 +323,7 @@ func (s *server) withPrincipal(r *http.Request, p *Principal) *http.Request {
 	return r.WithContext(ctx)
 }
 
-const apiTokenPrefix = "azt_"
+const apiTokenPrefix = "rnt_"
 
 // principal resolves the caller: a fully MFA-verified session, or an API token.
 func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {

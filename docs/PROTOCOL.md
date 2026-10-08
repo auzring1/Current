@@ -1,6 +1,6 @@
 # Agent ↔ Server Protocol (v1)
 
-Status: **v1 implemented in Phase 1.** The normative source is `proto/auzring/agent/v1/*.proto` (`buf lint` runs in CI). This document explains intent, ordering and validation rules that protobuf can't express.
+Status: **v1 implemented in Phase 1.** The normative source is `proto/renovatio/agent/v1/*.proto` (`buf lint` runs in CI). This document explains intent, ordering and validation rules that protobuf can't express.
 
 **Phase 3 additions** (§5, §5.1–5.3, §8): job envelopes are issued (`SOFTWARE_INSTALL`, `SOFTWARE_UPDATE`, `SOFTWARE_UNINSTALL`, `INVENTORY_FULL`, `CANCEL`), the agent reports through `JobUpdate`, and uploaded installers are fetched with the `FetchContent` stream.
 
@@ -31,7 +31,7 @@ Both `EnrollResponse` and `EnrollStatusResponse` wrap a shared `EnrollResult`.
 Root CA (ECDSA P-384, 20y)  — key encrypted with an owner passphrase; unlocked only for root operations
  ├── Issuing CA (P-384, 5y, pathlen 0, EKU serverAuth+clientAuth)   — key encrypted with server KEK
  │    ├── Gateway server cert (P-256, 90d, auto-renewed, SAN = configured gateway hostnames/IPs)
- │    └── Device client certs (P-256, 90d; CN = device UUID; URI SAN urn:auzring:device:<uuid>; EKU clientAuth)
+ │    └── Device client certs (P-256, 90d; CN = device UUID; URI SAN urn:renovatio:device:<uuid>; EKU clientAuth)
  └── Job-signing cert (Ed25519, 2y, EKU = 1.3.6.1.4.1.32473.7231.1.1 "renovatio job signing" (placeholder PEN, see DECISIONS D25), issued *directly* by root)
 ```
 
@@ -45,13 +45,13 @@ Root CA (ECDSA P-384, 20y)  — key encrypted with an owner passphrase; unlocked
 The MSI or command line takes one opaque string:
 
 ```
-AURZ1.<base64url(JSON)>
+RNV1.<base64url(JSON)>
 {"v":1,"gw":"agents.example.com:8443","root":"sha256/<b64 SPKI hash>","tok":"<32-byte random b64url>","org":"<uuid>"}
 ```
 
-The token is shown to the admin once. The server stores only `SHA-256("auzring/enroll-token/v1\0" || token)`, because the token is 256-bit random and a slow hash isn't needed. After the server accepts the enrollment (approved *or* pending), the agent erases the token from `config.json`.
+The token is shown to the admin once. The server stores only `SHA-256("renovatio/enroll-token/v1\0" || token)`, because the token is 256-bit random and a slow hash isn't needed. After the server accepts the enrollment (approved *or* pending), the agent erases the token from `config.json`.
 
-**Install command:** `renovatio-agent.exe install --server host:port --token AURZ1....`. `--server` overrides the gateway address inside the bundle; the root pin always comes from the bundle.
+**Install command:** `renovatio-agent.exe install --server host:port --token RNV1....`. `--server` overrides the gateway address inside the bundle; the root pin always comes from the bundle.
 
 ## 4. RPCs
 
@@ -79,7 +79,7 @@ EnrollResponse { status [APPROVED|PENDING|REJECTED], device_id, ticket (if pendi
 
 - the token hash exists, isn't expired or revoked, and `used_count < max_uses` (incremented in the same transaction);
 - the CSR is well-formed and self-signed with a P-256 key;
-- rate limits: per source IP 10/min and per token 60/min by default (burst equal). `AUZ_ENROLL_RATE_PER_IP` and `AUZ_ENROLL_RATE_PER_TOKEN` change them; raise them only for a rollout of many machines behind one NAT address, or enrolling 1,000 devices from one address takes 100 minutes (see LOADTEST.md).
+- rate limits: per source IP 10/min and per token 60/min by default (burst equal). `RENOVATIO_ENROLL_RATE_PER_IP` and `RENOVATIO_ENROLL_RATE_PER_TOKEN` change them; raise them only for a rollout of many machines behind one NAT address, or enrolling 1,000 devices from one address takes 100 minutes (see LOADTEST.md).
 
 Failures return one generic error. The detailed reason goes to the audit log only.
 
@@ -87,7 +87,7 @@ Failures return one generic error. The detailed reason goes to the audit log onl
 
 **Duplicate devices.** If `smbios_uuid`+`serial` matches an active device, the request becomes a **re-enrollment** that needs approval, regardless of the token setting. This stops one token from silently taking over an existing device's identity.
 
-**Pending approval.** `EnrollStatus(ticket)` is called at the server-suggested interval (`retry_after_s`; 60 s by default, configurable with `AUZ_ENROLL_POLL_INTERVAL`) plus up to 1/3 jitter. This is the only polling in the protocol, and it only happens while pending. The ticket is stored hashed; when the device is approved, the next poll returns the client certificate and the ticket is invalidated.
+**Pending approval.** `EnrollStatus(ticket)` is called at the server-suggested interval (`retry_after_s`; 60 s by default, configurable with `RENOVATIO_ENROLL_POLL_INTERVAL`) plus up to 1/3 jitter. This is the only polling in the protocol, and it only happens while pending. The ticket is stored hashed; when the device is approved, the next poll returns the client certificate and the ticket is invalidated.
 
 ### 4.2 Connect: stream messages
 ```
@@ -123,7 +123,7 @@ ServerMessage (oneof):
 ```proto
 message SignedEnvelope {
   bytes  payload   = 1;  // serialized JobEnvelope; signature covers exactly these bytes
-  bytes  signature = 2;  // Ed25519( "auzring/job/v1\x00" || payload )
+  bytes  signature = 2;  // Ed25519( "renovatio/job/v1\x00" || payload )
   bytes  key_id    = 3;  // SHA-256 of signing cert SPKI
 }
 message JobEnvelope {
@@ -169,7 +169,7 @@ The agent verifies the signature over the raw bytes **before** parsing them. Tha
 3. `HelloAck` delivers it.
 4. The agent accepts both certificates until the old one expires or is revoked.
 
-**Revocation** statements are signed by the **root** (`"auzring/revoke/v1\x00" || key_id || revoked_at`). A stolen job-signing key can therefore never be used to sign itself back into validity.
+**Revocation** statements are signed by the **root** (`"renovatio/revoke/v1\x00" || key_id || revoked_at`). A stolen job-signing key can therefore never be used to sign itself back into validity.
 
 ### 5.1 Install body (as built)
 
@@ -236,7 +236,7 @@ RebootPolicy  { allow [NEVER|OUTSIDE_ACTIVE_HOURS|DEADLINE|NOW], active_hours{st
 AgentUpdateBody { manifest bytes, signature bytes (64), key_id bytes, timeout_s }
 Manifest (JSON, the exact signed bytes) { format 1, product "renovatio-agent", version, os, arch, sha256 (hex), size,
   released_at?, min_version?, rollback_from[]?, authenticode_subject?, notes? }
-Signature = Ed25519( "auzring/release/v1\0" || manifest )   -- by a VENDOR release key
+Signature = Ed25519( "renovatio/release/v1\0" || manifest )   -- by a VENDOR release key
 ```
 
 - **Two signatures, two jobs.** The customer server signs the *job* like any other. The *release* is trusted only because its manifest verifies under a vendor release public key **compiled into the agent** (`-ldflags -X .../internal/shared/release.PublicKeysHex=<hex>[,<hex>]`; a build without one rejects every update). A compromised server can pick *when* an agent updates and *which vendor release*, never supply its own binary.
@@ -291,9 +291,9 @@ Sections: `HARDWARE`, `USERS`, `SOFTWARE` and `WU` (§5.2b). Each section has it
   4. Revocation is enforced at three points: **every TLS handshake** (`VerifyConnection` looks up the certificate and device state in the database, with no cache), **every new gRPC stream or call** (so an already-open HTTP/2 connection cannot be reused), and the live stream itself, which the hub ends with `GoAway{reason:"revoked"}`. An agent that receives `revoked` marks itself rejected and stops reconnecting.
 - **Certificate renewal.**
   - The agent renews when less than 1/3 of the lifetime (excluding the backdate) remains, measured on **server-corrected time**. It checks on a timer of lifetime/10, clamped to 1 s–1 h. `HelloAck.renew_certificate` also triggers renewal.
-  - The agent sends `RenewCertificate` with a CSR from a **new** key (CNG name `Auzring-Agent-Device-<generation>`), stores the new certificate, deletes the old key, and reconnects.
+  - The agent sends `RenewCertificate` with a CSR from a **new** key (CNG name `Renovatio-Agent-Device-<generation>`), stores the new certificate, deletes the old key, and reconnects.
   - When the device first connects with the new certificate, the server revokes the older ones (`revoke_reason='superseded'`).
-  - An expired certificate can still call `RenewCertificate`, and only that RPC, for up to 180 days (`AUZ_DEVICE_RENEW_GRACE`) if the device is active. After that the device must re-enroll.
+  - An expired certificate can still call `RenewCertificate`, and only that RPC, for up to 180 days (`RENOVATIO_DEVICE_RENEW_GRACE`) if the device is active. After that the device must re-enroll.
   - Renewals are rate-limited to 5 per device per hour.
 
 ## 8. Content download
@@ -306,9 +306,9 @@ Sections: `HARDWARE`, `USERS`, `SOFTWARE` and `WU` (§5.2b). Each section has it
 - **Transport (as built):** two anonymous pipes created by the service, one for the task and one for the result. Only the helper's two ends are inherited (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and their numeric handle values are passed on the helper's command line (`renovatio-agent.exe helper <taskHandle> <resultHandle>`). There is no named pipe and no listening endpoint. The helper process is created suspended in a kill-on-close Job Object with the user's primary token (`WTSQueryUserToken`, never the linked elevated token).
 - **Framing:** one JSON `HelperTask` (≤ 1 MiB) in, one JSON `HelperResult` (≤ 64 KiB) out. The helper takes exactly one task and exits.
 - **`HelperTask`:** the `SignedEnvelope` bytes, the pinned root and signing certificates (DER), device and org IDs, the server-corrected time, the target SID, the staging directory, the staged file (install jobs), and the already-built command (`exe`, `args`, working directory, log path, timeout).
-- **The helper re-verifies** the envelope signature and chain, device and org, expiry (§5 steps 1 to 5), that `target_user_sid` equals the SID of its own token, that every path it is given lies under its staging directory (`%ProgramData%\AuzringStage\<SID>`), and the SHA-256 of the staged file, before it starts the command in its own Job Object.
+- **The helper re-verifies** the envelope signature and chain, device and org, expiry (§5 steps 1 to 5), that `target_user_sid` equals the SID of its own token, that every path it is given lies under its staging directory (`%ProgramData%\RenovatioStage\<SID>`), and the SHA-256 of the staged file, before it starts the command in its own Job Object.
 - **`HelperResult`:** `exit_code`, `timed_out`, `log_tail`, `error`. The service treats every field as untrusted data and performs post-detection itself.
 
 ## 10. Versioning
-- Package `auzring.agent.v1`. Changes within v1 only add fields or messages. `Hello.capabilities` advertises optional features, such as `wu`, `userctx` and `appx`.
+- Package `renovatio.agent.v1`. Changes within v1 only add fields or messages. `Hello.capabilities` advertises optional features, such as `wu`, `userctx` and `appx`.
 - The server supports the current and previous agent minor versions at the same time. A breaking change becomes a `v2` service on the same listener.

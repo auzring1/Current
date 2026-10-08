@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 	"github.com/auzring1/renovatio/internal/server/audit"
 	"github.com/auzring1/renovatio/internal/server/auth"
 	"github.com/auzring1/renovatio/internal/server/events"
@@ -30,7 +30,7 @@ import (
 var errRejected = status.Error(codes.PermissionDenied, "enrollment rejected")
 
 func ticketHash(t string) []byte {
-	h := sha256.Sum256([]byte("auzring/enroll-ticket/v1\x00" + t))
+	h := sha256.Sum256([]byte("renovatio/enroll-ticket/v1\x00" + t))
 	return h[:]
 }
 

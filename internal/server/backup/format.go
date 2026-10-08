@@ -106,7 +106,7 @@ type Manifest struct {
 }
 
 // NotMasterKey is recorded in every archive so nobody has to guess.
-const NotMasterKey = "The master key (AUZ_MASTER_KEY_FILE) and the rest of deploy/secrets are NOT part of this backup; " +
+const NotMasterKey = "The master key (RENOVATIO_MASTER_KEY_FILE) and the rest of deploy/secrets are NOT part of this backup; " +
 	"the database only holds keys sealed with them. Back up the secrets directory separately."
 
 // ErrUnknownFormat is returned for an archive whose format version this binary does not understand.

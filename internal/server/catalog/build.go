@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 

@@ -17,8 +17,8 @@ import (
 
 // Session cookie names. The __Host- prefix forces Secure, Path=/ and no Domain.
 const (
-	cookieSecure   = "__Host-auz_session"
-	cookieInsecure = "auz_session" // dev mode over plain http only
+	cookieSecure   = "__Host-rnv_session"
+	cookieInsecure = "rnv_session" // dev mode over plain http only
 	// PreMFALifetime bounds how long a password-verified, MFA-pending session lives.
 	PreMFALifetime = 5 * time.Minute
 )
@@ -137,7 +137,7 @@ func (m *Sessions) Lookup(ctx context.Context, tok string) (*Session, error) {
 
 // SetCookie writes the session cookie.
 func (m *Sessions) SetCookie(w http.ResponseWriter, s *Session) {
-	// Secure is false only in AUZ_DEV_MODE over plain http (config rejects http otherwise).
+	// Secure is false only in RENOVATIO_DEV_MODE over plain http (config rejects http otherwise).
 	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- see above
 		Name: m.CookieName(), Value: s.Token, Path: "/", HttpOnly: true, Secure: m.Secure,
 		SameSite: http.SameSiteStrictMode, Expires: s.AbsExpiresAt,

@@ -2,7 +2,7 @@
 # Runs the Renovatio load scenarios (docs/LOADTEST.md) with cmd/renovatio-loadsim.
 #
 # Local mode (default): builds the server, the load generator and the bootstrap tool, creates a
-# fresh database on the PostgreSQL named by AUZ_TEST_PG_URL (a superuser URL), starts the server
+# fresh database on the PostgreSQL named by RENOVATIO_TEST_PG_URL (a superuser URL), starts the server
 # binary, completes first-run setup through the REST API, runs the scenarios and writes
 #   <out>/<scenario>.json, <out>/<scenario>.md, <out>/summary.md, <out>/server.log
 # Nothing from <out> is ever committed (loadtest-results/ is git-ignored); it holds device
@@ -14,8 +14,8 @@
 #   LOADTEST_API_TOKEN=...                     API token with enrollment:write, devices:read,
 #                                              devices:write, updates:write, reports:read
 #   LOADTEST_GATEWAY=agents.example.com:8443   gateway address as in its certificate
-# The enrollment rate limits of that server must allow the fleet (AUZ_ENROLL_RATE_PER_IP and
-# AUZ_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes, and it must have a license
+# The enrollment rate limits of that server must allow the fleet (RENOVATIO_ENROLL_RATE_PER_IP and
+# RENOVATIO_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes, and it must have a license
 # for at least that many devices installed (an unlicensed server enrolls at most 25).
 #
 # Usage: scripts/loadtest.sh [--agents N] [--scenarios "steady storm churn"] [--duration 2m]
@@ -78,20 +78,20 @@ CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-loadsim" ./cmd/renovatio
 server_pid=""
 cleanup() {
   [ -n "${server_pid:-}" ] && kill "$server_pid" 2>/dev/null || true
-  [ -n "${dbname:-}" ] && [ -n "${AUZ_TEST_PG_URL:-}" ] && psql "$AUZ_TEST_PG_URL" -qc "DROP DATABASE IF EXISTS $dbname WITH (FORCE)" >/dev/null 2>&1 || true
+  [ -n "${dbname:-}" ] && [ -n "${RENOVATIO_TEST_PG_URL:-}" ] && psql "$RENOVATIO_TEST_PG_URL" -qc "DROP DATABASE IF EXISTS $dbname WITH (FORCE)" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 start_server() {
   (
-    export AUZ_DEV_MODE=true AUZ_PUBLIC_URL="http://localhost:$HTTP_PORT" AUZ_HTTP_ADDR="127.0.0.1:$HTTP_PORT"
-    export AUZ_GATEWAY_ADDR="127.0.0.1:$GW_PORT" AUZ_GATEWAY_PUBLIC_ADDR="localhost:$GW_PORT" AUZ_GATEWAY_SANS=127.0.0.1
-    export AUZ_CONTENT_DIR="$OUT/content" AUZ_DATABASE_URL="$dburl" AUZ_MASTER_KEY="$(cat "$OUT/master_key")"
-    export AUZ_WINGET_SOURCE=off AUZ_LOG_LEVEL="$LOG_LEVEL"
+    export RENOVATIO_DEV_MODE=true RENOVATIO_PUBLIC_URL="http://localhost:$HTTP_PORT" RENOVATIO_HTTP_ADDR="127.0.0.1:$HTTP_PORT"
+    export RENOVATIO_GATEWAY_ADDR="127.0.0.1:$GW_PORT" RENOVATIO_GATEWAY_PUBLIC_ADDR="localhost:$GW_PORT" RENOVATIO_GATEWAY_SANS=127.0.0.1
+    export RENOVATIO_CONTENT_DIR="$OUT/content" RENOVATIO_DATABASE_URL="$dburl" RENOVATIO_MASTER_KEY="$(cat "$OUT/master_key")"
+    export RENOVATIO_WINGET_SOURCE=off RENOVATIO_LOG_LEVEL="$LOG_LEVEL"
     # Enrollment limits are raised for the test: one machine enrolls the whole fleet from one address.
-    export AUZ_ENROLL_RATE_PER_IP=1000000 AUZ_ENROLL_RATE_PER_TOKEN=1000000
+    export RENOVATIO_ENROLL_RATE_PER_IP=1000000 RENOVATIO_ENROLL_RATE_PER_TOKEN=1000000
     # Without a license the server enrolls at most 25 devices: this run signs itself a throw-away one.
-    export AUZ_LICENSE_PUBLIC_KEYS="$(tr -d '[:space:]' <"$OUT/license.pub")"
+    export RENOVATIO_LICENSE_PUBLIC_KEYS="$(tr -d '[:space:]' <"$OUT/license.pub")"
     exec "$OUT/bin/renovatio-server" serve >>"$OUT/server.log" 2>&1
   ) &
   server_pid=$!
@@ -100,16 +100,16 @@ start_server() {
 if [ "$EXTERNAL" = 1 ]; then
   : "${LOADTEST_API:?set LOADTEST_API}" "${LOADTEST_API_TOKEN:?set LOADTEST_API_TOKEN}" "${LOADTEST_GATEWAY:?set LOADTEST_GATEWAY}"
   api=$LOADTEST_API; gateway=$LOADTEST_GATEWAY
-  export AUZ_LOADSIM_API_TOKEN=$LOADTEST_API_TOKEN
+  export RENOVATIO_LOADSIM_API_TOKEN=$LOADTEST_API_TOKEN
   [ "$STORM_MODE" = client ] || { echo "server-restart storms need local mode" >&2; exit 2; }
   pgflag=(); pidflag=()
 else
-  : "${AUZ_TEST_PG_URL:?set AUZ_TEST_PG_URL to a PostgreSQL superuser URL}"
+  : "${RENOVATIO_TEST_PG_URL:?set RENOVATIO_TEST_PG_URL to a PostgreSQL superuser URL}"
   CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-server" ./cmd/renovatio-server
   CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/bootstrap" ./test/tools/bootstrap
-  dbname="auz_load_$(date +%s)"
-  psql "$AUZ_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
-  dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$AUZ_TEST_PG_URL" "$dbname")
+  dbname="rnv_load_$(date +%s)"
+  psql "$RENOVATIO_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
+  dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$RENOVATIO_TEST_PG_URL" "$dbname")
   (umask 077; openssl rand -hex 32 >"$OUT/master_key")
   CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-license" ./cmd/renovatio-license
   (umask 077; "$OUT/bin/renovatio-license" keygen --out "$OUT/license.key" >/dev/null
@@ -124,7 +124,7 @@ else
     -license-file "$OUT/load.lic" -api-token-out "$OUT/api_token" >"$OUT/enrollment_string" 2>"$OUT/bootstrap.log" || { cat "$OUT/bootstrap.log"; exit 1; }
   chmod 600 "$OUT/api_token" "$OUT/enrollment_string"
   api="http://localhost:$HTTP_PORT"; gateway="127.0.0.1:$GW_PORT"
-  AUZ_LOADSIM_API_TOKEN=$(cat "$OUT/api_token"); export AUZ_LOADSIM_API_TOKEN
+  RENOVATIO_LOADSIM_API_TOKEN=$(cat "$OUT/api_token"); export RENOVATIO_LOADSIM_API_TOKEN
   pgflag=(--pg-url "$dburl")
   pidflag=(--server-pid "$server_pid")
   [ "$STORM_MODE" = server-restart ] && pidflag=()

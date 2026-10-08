@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: auzring/agent/v1/enrollment.proto
+// source: renovatio/agent/v1/enrollment.proto
 
 package agentv1
 
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	EnrollmentService_Enroll_FullMethodName       = "/auzring.agent.v1.EnrollmentService/Enroll"
-	EnrollmentService_EnrollStatus_FullMethodName = "/auzring.agent.v1.EnrollmentService/EnrollStatus"
+	EnrollmentService_Enroll_FullMethodName       = "/renovatio.agent.v1.EnrollmentService/Enroll"
+	EnrollmentService_EnrollStatus_FullMethodName = "/renovatio.agent.v1.EnrollmentService/EnrollStatus"
 )
 
 // EnrollmentServiceClient is the client API for EnrollmentService service.
@@ -150,7 +150,7 @@ func _EnrollmentService_EnrollStatus_Handler(srv interface{}, ctx context.Contex
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EnrollmentService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "auzring.agent.v1.EnrollmentService",
+	ServiceName: "renovatio.agent.v1.EnrollmentService",
 	HandlerType: (*EnrollmentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -163,5 +163,5 @@ var EnrollmentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "auzring/agent/v1/enrollment.proto",
+	Metadata: "renovatio/agent/v1/enrollment.proto",
 }

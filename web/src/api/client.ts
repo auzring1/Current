@@ -97,7 +97,7 @@ export async function uploadContent(file: File): Promise<{ sha256: string; size:
   return data as { sha256: string; size: number; file_name: string };
 }
 
-/** Uploads an agent binary with its vendor-signed bundle (.azr) in a header. */
+/** Uploads an agent binary with its vendor-signed bundle (.rnr) in a header. */
 export async function uploadAgentRelease(binary: File, bundle: File): Promise<AgentRelease> {
   const bytes = new Uint8Array(await bundle.arrayBuffer());
   let bin = "";

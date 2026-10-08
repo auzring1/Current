@@ -41,7 +41,7 @@ func (d *Dev) active() string {
 }
 
 func (d *Dev) exe(slot string) string {
-	return filepath.Join(d.Dir, "slots", "slot-"+slot, strings.TrimSuffix(brand.InstalledAgentExe, ".exe"))
+	return filepath.Join(d.Dir, "slots", "slot-"+slot, strings.TrimSuffix(brand.AgentExe, ".exe"))
 }
 
 // Current implements Platform.

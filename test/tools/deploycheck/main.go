@@ -79,7 +79,7 @@ func main() {
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "")
 	totpFile := flag.String("totp-file", "", "file written by bootstrap -totp-out")
 	scenario := flag.String("scenario", "winget-7zip", "winget-7zip | winget | unsigned-pinned | agent-update")
-	relDir := flag.String("release-dir", "", "directory with renovatio-agent-<version>.exe/.azr files (scenario agent-update)")
+	relDir := flag.String("release-dir", "", "directory with renovatio-agent-<version>.exe/.rnr files (scenario agent-update)")
 	goodVer := flag.String("good-version", "0.9.1", "release the agent must update to (scenario agent-update)")
 	badVer := flag.String("broken-version", "0.9.2", "release that never connects; the agent must roll back (scenario agent-update)")
 	pkgID := flag.String("package", "", "winget identifier (scenario winget)")
@@ -248,10 +248,10 @@ func unsignedPinned(a *api, device string) {
 	if err != nil || st != 201 {
 		fail("upload: %d %v %v", st, up, err)
 	}
-	marker := filepath.Join(os.Getenv("ProgramFiles"), "AuzCheck", "never.txt")
-	pkg := a.must("POST", "/catalog/custom", map[string]any{"identifier": "AuzCheck.Unsigned", "name": "Unsigned check", "version": "1.0.0",
+	marker := filepath.Join(os.Getenv("ProgramFiles"), "RnvCheck", "never.txt")
+	pkg := a.must("POST", "/catalog/custom", map[string]any{"identifier": "RnvCheck.Unsigned", "name": "Unsigned check", "version": "1.0.0",
 		"sha256": up["sha256"], "file_name": "unsigned.exe", "type": "exe", "arch": "x64", "scope": "machine",
-		"signer_subject": "CN=Nobody Inc", "detection": []map[string]any{{"kind": "file", "key": `%ProgramFiles%\AuzCheck\never.txt`}}}, 201)["package_id"].(string)
+		"signer_subject": "CN=Nobody Inc", "detection": []map[string]any{{"kind": "file", "key": `%ProgramFiles%\RnvCheck\never.txt`}}}, 201)["package_id"].(string)
 	dep := a.must("POST", "/deployments", map[string]any{"name": "ci unsigned", "action": "install", "package_id": pkg,
 		"scope": "machine", "device_ids": []string{device}}, 201)["deployment_id"].(string)
 	jobs := waitJob(a, dep, 3*time.Minute)
@@ -268,13 +268,13 @@ func unsignedPinned(a *api, device string) {
 	}
 }
 
-// uploadRelease sends <dir>/renovatio-agent-<v>.exe with its .azr bundle and returns the release id.
+// uploadRelease sends <dir>/renovatio-agent-<v>.exe with its .rnr bundle and returns the release id.
 func uploadRelease(a *api, dir, v string) string {
 	bin, err := os.ReadFile(filepath.Join(dir, "renovatio-agent-"+v+".exe"))
 	if err != nil {
 		fail("%v", err)
 	}
-	bundle, err := os.ReadFile(filepath.Join(dir, "renovatio-agent-"+v+".azr"))
+	bundle, err := os.ReadFile(filepath.Join(dir, "renovatio-agent-"+v+".rnr"))
 	if err != nil {
 		fail("%v", err)
 	}

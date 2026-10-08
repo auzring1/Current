@@ -90,7 +90,7 @@ export function LicensePage() {
           <Title order={4}>Install or renew a license</Title>
           <Textarea
             label="License text"
-            description="Paste the whole text, starting with AZL1."
+            description="Paste the whole text, starting with RNL1."
             value={text}
             onChange={(e) => setText(e.currentTarget.value)}
             minRows={4}

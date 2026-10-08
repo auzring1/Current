@@ -133,7 +133,7 @@ function TokensCard({ data, onChange }: { data: MySecurity; onChange: () => void
     <Stack gap="xs">
       <Title order={4}>API tokens</Title>
       <Text size="sm" c="dimmed">
-        For scripts and integrations: send <code>Authorization: Bearer azt_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.
+        For scripts and integrations: send <code>Authorization: Bearer rnt_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.
       </Text>
       {secret && (
         <Alert color="yellow" title="Copy the token now">

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	serviceName = "AuzringAgent"
-	taskName    = `\Auzring\rollback-check`
+	serviceName = brand.ServiceName
+	taskName    = brand.RollbackTask
 	slotA       = "a"
 	slotB       = "b"
 )
@@ -38,11 +38,11 @@ func programDir() string {
 	if pf == "" {
 		pf = `C:\Program Files`
 	}
-	return filepath.Join(pf, "Auzring", "Agent")
+	return filepath.Join(pf, brand.FolderName, "Agent")
 }
 
 func slotExe(slot string) string {
-	return filepath.Join(programDir(), "slot-"+slot, brand.InstalledAgentExe)
+	return filepath.Join(programDir(), "slot-"+slot, brand.AgentExe)
 }
 
 // Default returns the platform for this operating system.

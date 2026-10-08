@@ -29,11 +29,11 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 3. On the Windows machine, in **PowerShell as Administrator**:
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall      # skip if the agent was never installed
+   & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall      # skip if the agent was never installed
    ```
    In the console create a new enrollment token (**Enrollment → New token**, approval **off** is fine), then:
    ```powershell
-   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.....
    ```
    If the old device is still listed, it is now **revoked** or **pending** (same hardware re-enrolls and needs approval; approving it retires the old identity). Approve the new one.
 
@@ -44,9 +44,9 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 
 5. **Check the agent's cost.** In PowerShell:
    ```powershell
-   $p = (Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'").ProcessId
+   $p = (Get-CimInstance Win32_Service -Filter "Name='RenovatioAgent'").ProcessId
    Get-Process -Id $p | Select WS, CPU
-   Get-Content C:\ProgramData\Auzring\logs\agent.log -Tail 20     # "full software inventory sent", items=N
+   Get-Content C:\ProgramData\Renovatio\logs\agent.log -Tail 20     # "full software inventory sent", items=N
    ```
    ✅ Working set stays well under 30 MB after the scan; the log shows a single full snapshot and then nothing while idle.
 
@@ -79,9 +79,9 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
      reg add "HKU\demo2\Software\Microsoft\Windows\CurrentVersion\Uninstall\Demo2Tool" /v DisplayVersion /d "2.0" /f
      reg unload HKU\demo2
      ```
-   - Make the agent rescan: `Restart-Service AuzringAgent` (the daily reconcile does this on its own).
+   - Make the agent rescan: `Restart-Service RenovatioAgent` (the daily reconcile does this on its own).
    ✅ **Demo2 Tool 2.0** appears with **Installed for = the demo2 user**, `source hku`. No sign-in as demo2 was needed.
-   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent loads a temporary copy from `C:\ProgramData\Auzring\tmp`, which is deleted again).
+   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent loads a temporary copy from `C:\ProgramData\Renovatio\tmp`, which is deleted again).
 
 9. **Real installers** (optional): install any MSI or Store app (for example 7-Zip, VLC or a Store app such as Windows Terminal) and uninstall it. ✅ Both changes appear within about a minute, with the right source (`reg64`/`msi`/`appx`).
 
@@ -113,11 +113,11 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 
 ## Part E: Resilience (about 5 minutes)
 
-14. **Lost connection.** On the Windows machine run `Stop-Service AuzringAgent`, change a registry entry (for example set Demo Browser to 131.0), `Start-Service AuzringAgent`. ✅ After reconnecting, the console shows 131.0 (the agent sends what changed since the last acknowledged state).
+14. **Lost connection.** On the Windows machine run `Stop-Service RenovatioAgent`, change a registry entry (for example set Demo Browser to 131.0), `Start-Service RenovatioAgent`. ✅ After reconnecting, the console shows 131.0 (the agent sends what changed since the last acknowledged state).
 
 15. **Server restored from an older backup (simulated).** On the server:
     ```bash
-    docker compose -f deploy/docker-compose.yml exec postgres psql -U auzring_owner -d auzring -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
+    docker compose -f deploy/docker-compose.yml exec postgres psql -U renovatio_owner -d renovatio -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
     docker compose -f deploy/docker-compose.yml restart server
     ```
     ✅ The software list is empty for a moment, then **repopulates by itself**: the agent's Hello revision no longer matches, so the server asks for a full snapshot. The agent log shows `full software inventory sent`.

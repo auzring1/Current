@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"log/slog"
 	"strconv"
@@ -26,7 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 	"github.com/auzring1/renovatio/internal/agent/config"
 	"github.com/auzring1/renovatio/internal/agent/hardware"
 	"github.com/auzring1/renovatio/internal/agent/inventory"
@@ -39,7 +40,7 @@ import (
 
 const (
 	// KeyPrefix is the default CNG key-name prefix; generation N is KeyPrefix+N.
-	KeyPrefix          = "Auzring-Agent-Device-"
+	KeyPrefix          = brand.KeyPrefix
 	maxMsg             = 4 << 20
 	fullHeartbeatEvery = 30 * time.Minute
 	hardwareEvery      = 6 * time.Hour

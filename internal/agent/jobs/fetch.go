@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 )
 
 // Fetcher opens the bytes of one content source. Every source is untrusted:

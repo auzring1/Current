@@ -4,7 +4,7 @@ Goal: see what Windows Update offers a real Windows machine from the console, ap
 
 You need the Phase 1 to 3 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE3-DEMO.md](PHASE3-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine. **Use a VM you can revert, and prefer one that is a few months behind on patches** (an old snapshot, or a freshly installed ISO that has never run Windows Update). A fully patched machine has nothing to install, and you will only see the empty state. The examples assume the server name `renovatio.lab`. For Part G you want a second enrolled machine (optional but it is the only way to see a ring wait for another ring).
 
-**Be honest about what is new:** this is the first time the Windows Update Agent (WUA, driven through COM) and the restart countdown run on a real machine. They have only been compiled for Windows, covered by tests against a scripted stand-in, and run read-only on a CI runner. If a scan or an install fails here, that is useful information: keep `C:\ProgramData\Auzring\logs\agent.log` and the job's log tail from the console.
+**Be honest about what is new:** this is the first time the Windows Update Agent (WUA, driven through COM) and the restart countdown run on a real machine. They have only been compiled for Windows, covered by tests against a scripted stand-in, and run read-only on a CI runner. If a scan or an install fails here, that is useful information: keep `C:\ProgramData\Renovatio\logs\agent.log` and the job's log tail from the console.
 
 The Windows machine needs internet access to Windows Update (or to your WSUS server if it uses one; see Part H).
 
@@ -27,11 +27,11 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
    Older agents cannot run Windows Update jobs and there is no agent self-update until Phase 5, so reinstall: in PowerShell as Administrator
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall      # skip if never installed
+   & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall      # skip if never installed
    ```
    then **Enrollment → New token** in the console and
    ```powershell
-   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.....
    ```
    Approve the device if asked. ✅ It is **online**.
 
@@ -40,7 +40,7 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
 3. Open the device and click the **Windows updates** tab. Within a minute or two of enrolling, the agent scans on its own; to ask right away click **Scan now** (it can take several minutes the first time, and the button shows a spinner).
    ✅ "Last scan <time>", and a table of updates with state (*missing*, *downloaded*, *hidden*, *needs restart*, *failed*), classification, severity and an approval column that says **pending** for everything.
    ✅ No yellow policy banner on a plain test VM. If you see one, read Part H first.
-   🔍 *Check on the machine:* `Get-Content C:\ProgramData\Auzring\logs\agent.log -Tail 40` shows the scan; `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` should be close to the number in the console (drivers are excluded by default).
+   🔍 *Check on the machine:* `Get-Content C:\ProgramData\Renovatio\logs\agent.log -Tail 40` shows the scan; `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` should be close to the number in the console (drivers are excluded by default).
 
 4. Open **Windows updates** (left menu). ✅ The same updates appear fleet-wide with "1 missing". Click one: the detail shows which device misses it.
 
@@ -104,7 +104,7 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
 
 ## What to send back
 
-- Pass or fail for each ✅ above, with the agent log (`C:\ProgramData\Auzring\logs\agent.log`) and the job log for anything that failed.
+- Pass or fail for each ✅ above, with the agent log (`C:\ProgramData\Renovatio\logs\agent.log`) and the job log for anything that failed.
 - Especially: did the first scan (step 3) and the first install (step 6) work on a real machine, did the restart countdown appear (step 12), and did the policy banner appear (step 18)? Those are the parts that could not be tested without a real Windows installation.
 
 ## Known gaps to keep in mind

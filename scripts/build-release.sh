@@ -24,12 +24,12 @@
 #   --version V              release version, 1.2.3 or v1.2.3 or 1.2.3-rc.1 (required; "v" is stripped for embedding)
 #   --commit REV             must resolve to HEAD (default HEAD); the tree must be clean unless --allow-dirty
 #   --out DIR                output directory (default dist-release/<version>; must be empty or absent)
-#   --release-pubkeys LIST   comma-separated vendor release public keys (hex). Default: $AUZ_RELEASE_PUBKEYS, else the
+#   --release-pubkeys LIST   comma-separated vendor release public keys (hex). Default: $RENOVATIO_RELEASE_PUBKEYS, else the
 #                            non-comment lines of release/release-public-keys.txt. No key = refuse (see --allow-no-release-key)
 #   --allow-no-release-key   build without any compiled-in release key (agents then refuse all updates; development only)
 #   --require-authenticode B true (default, release) or false: sets release.RequireAuthenticode
 #   --authenticode-subjects L "|"-separated signer CNs compiled into agent and server as the only subjects a release
-#                            may pin (default: $AUZ_AUTHENTICODE_SUBJECTS). Required when --require-authenticode is true,
+#                            may pin (default: $RENOVATIO_AUTHENTICODE_SUBJECTS). Required when --require-authenticode is true,
 #                            unless --allow-no-subject-pin: otherwise a stolen release key could pin any certificate (D83)
 #   --allow-no-subject-pin   development/rehearsal builds only
 #   --with-arm64             also build the windows/arm64 agent (builds, but is unsupported and untested; MSI is x64 only)
@@ -47,8 +47,8 @@ AGENT_MAX_BYTES=15728640
 
 die() { echo "build-release: $*" >&2; exit 1; }
 
-version="" commit="HEAD" out="" pubkeys="${AUZ_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
-subjects="${AUZ_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
+version="" commit="HEAD" out="" pubkeys="${RENOVATIO_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
+subjects="${RENOVATIO_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
 with_arm64=0 skip_web=0 skip_sbom=0 want_image=0 allow_dirty=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -96,13 +96,13 @@ if [ -n "$pubkeys" ]; then
     [[ $k =~ ^[0-9a-f]{64}$ ]] || die "release public key '${k:0:16}...' is not 64 lowercase hex characters"
   done
 elif [ "$allow_no_key" = 0 ]; then
-  die "no vendor release public key: pass --release-pubkeys, set AUZ_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
+  die "no vendor release public key: pass --release-pubkeys, set RENOVATIO_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
 fi
 
 if [ -n "$subjects" ]; then
   case "$subjects" in *\'*|*\"*|*\\*|*$'\n'*) die "--authenticode-subjects must not contain quotes, backslashes or newlines" ;; esac
 elif [ "$req_auth" = true ] && [ "$allow_no_pin" = 0 ]; then
-  die "no compiled-in Authenticode subject: pass --authenticode-subjects \"<signer CN>\" (or AUZ_AUTHENTICODE_SUBJECTS); see docs/DECISIONS.md D83"
+  die "no compiled-in Authenticode subject: pass --authenticode-subjects \"<signer CN>\" (or RENOVATIO_AUTHENTICODE_SUBJECTS); see docs/DECISIONS.md D83"
 fi
 
 # --- toolchains ------------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ fi
 image_digest=""
 if [ "$want_image" = 1 ]; then
   echo "== container image"
-  AUZ_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
+  RENOVATIO_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
       --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --authenticode-subjects "$subjects" --go-version "${want_go#go}" \
       --oci-out "$out/renovatio-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
   image_digest=$(cat "$out/image-digest.txt")

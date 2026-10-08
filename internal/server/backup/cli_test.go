@@ -79,7 +79,7 @@ func TestCLIPassphraseMode(t *testing.T) {
 	}
 
 	// verify, using the environment variable for the passphrase file
-	v := newCLIEnv(src.OwnerURL, "", key, nil, map[string]string{"AUZ_BACKUP_PASSPHRASE_FILE": pf})
+	v := newCLIEnv(src.OwnerURL, "", key, nil, map[string]string{"RENOVATIO_BACKUP_PASSPHRASE_FILE": pf})
 	if err := RunBackup(ctx, []string{"--verify", out}, v.Env); err != nil {
 		t.Fatalf("verify: %v", err)
 	}

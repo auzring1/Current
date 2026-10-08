@@ -167,7 +167,7 @@ func Backup(ctx context.Context, o BackupOptions) (*Manifest, error) {
 	}
 	created := now().UTC().Truncate(time.Second)
 
-	conn, err := connect(ctx, o.DatabaseURL, "auzring-backup")
+	conn, err := connect(ctx, o.DatabaseURL, "renovatio-backup")
 	if err != nil {
 		return nil, err
 	}
