@@ -22,7 +22,7 @@ import (
 )
 
 // AppPassword is the password of the test-only auzring_app role.
-const AppPassword = "renovatio-app-test-only"
+const AppPassword = "auzring-app-test-only"
 
 // DB is a migrated test database.
 type DB struct {

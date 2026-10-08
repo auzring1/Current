@@ -65,11 +65,11 @@ func TestVerifyRefuses(t *testing.T) {
 	}
 	// Valid signature but a bad manifest (unknown field, bad hash, wrong product).
 	for name, body := range map[string]string{
-		"unknown field": `{"format":1,"product":"renovatio-agent","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":5,"evil":true}`,
-		"bad hash":      `{"format":1,"product":"renovatio-agent","version":"1.0.0","os":"windows","arch":"amd64","sha256":"zz","size":5}`,
+		"unknown field": `{"format":1,"product":"` + Product + `","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":5,"evil":true}`,
+		"bad hash":      `{"format":1,"product":"` + Product + `","version":"1.0.0","os":"windows","arch":"amd64","sha256":"zz","size":5}`,
 		"product":       `{"format":1,"product":"other","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":5}`,
-		"trailing":      `{"format":1,"product":"renovatio-agent","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":5} {}`,
-		"huge":          `{"format":1,"product":"renovatio-agent","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":999999999999}`,
+		"trailing":      `{"format":1,"product":"` + Product + `","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":5} {}`,
+		"huge":          `{"format":1,"product":"` + Product + `","version":"1.0.0","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":999999999999}`,
 	} {
 		b := []byte(body)
 		if _, err := Verify([]ed25519.PublicKey{other}, b, Sign(otherPriv, b), KeyID(other)); err == nil {
@@ -191,7 +191,7 @@ func FuzzVerify(f *testing.F) {
 // Marshal accepts too (the signer and the verifier agree on what is valid).
 func FuzzBundle(f *testing.F) {
 	f.Add([]byte(`{"manifest":"e30=","signature":"AA==","key_id":"00"}`))
-	f.Add([]byte(`{"format":1,"product":"renovatio-agent","version":"1.2.3","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":10}`))
+	f.Add([]byte(`{"format":1,"product":"` + Product + `","version":"1.2.3","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":10}`))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		_, _ = DecodeBundle(data)
 		m, err := ParseUnverified(data)

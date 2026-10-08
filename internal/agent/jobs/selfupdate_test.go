@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"runtime"
 	"strings"
 	"sync"
@@ -87,7 +88,7 @@ func newSURig(t *testing.T) *suRig {
 	r.f.data[""] = s.bin
 	r.p.runFn = func(spec RunSpec, _ string) (RunResult, error) {
 		if len(spec.Args) == 1 && spec.Args[0] == "version" {
-			return RunResult{LogTail: "renovatio-agent 1.1.0 (abc)\\n"}, nil
+			return RunResult{LogTail: brand.VersionBanner + " 1.1.0 (abc)\\n"}, nil
 		}
 		return RunResult{}, nil
 	}

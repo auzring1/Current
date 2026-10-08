@@ -10,9 +10,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,7 +62,9 @@ func TestAgentSelfUpdateEndToEnd(t *testing.T) {
 	h.app.Releases.Keys = []ed25519.PublicKey{pub}
 
 	// The "agent binary" is a script that reports its version, which is all the engine runs.
-	script := func(v string) []byte { return []byte("#!/bin/sh\necho 'renovatio-agent " + v + " (e2e)'\n") }
+	script := func(v string) []byte {
+		return []byte("#!/bin/sh\necho '" + brand.VersionBanner + " " + v + " (e2e)'\n")
+	}
 
 	var ta *testAgent
 	restarted := make(chan *testAgent, 1)
@@ -138,7 +142,7 @@ func TestAgentSelfUpdateEndToEnd(t *testing.T) {
 	if _, err := selfupdate.Load(dir); err == nil {
 		t.Fatal("update state not cleared")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", "renovatio-agent")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", strings.TrimSuffix(brand.InstalledAgentExe, ".exe"))); err != nil {
 		t.Fatalf("new binary not staged: %v", err)
 	}
 
