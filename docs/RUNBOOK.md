@@ -30,7 +30,7 @@ docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 | Secret | Purpose |
 |---|---|
 | `master_key` | 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret. **Back it up securely and separately from database backups.** Without it, those keys cannot be decrypted. |
-| `postgres_owner_password` | Schema owner. Used only for migrations at server start. |
+| `postgres_owner_password` | Schema owner. Used only by the one-shot `maintenance` service (migrations, backup, restore); the running server never holds it. |
 | `postgres_app_password` | Least-privilege runtime role `renovatio_app`. It has DML only and is insert-only on `audit_log`. |
 | `database_url`, `migrate_database_url` | Connection strings the server reads as Docker secrets. |
 
