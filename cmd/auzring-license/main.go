@@ -222,7 +222,7 @@ func writeOut(path, text string, mode os.FileMode) error {
 		fmt.Println(text)
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(text+"\n"), mode); err != nil { // #nosec G306 -- a license is not secret (mode chosen by caller)
+	if err := os.WriteFile(path, []byte(text+"\n"), mode); err != nil { // #nosec G306 G703 -- operator-chosen output path; a license is not secret
 		return err
 	}
 	fmt.Fprintln(os.Stderr, "wrote", path)
