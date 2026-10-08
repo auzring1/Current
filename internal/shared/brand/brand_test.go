@@ -89,7 +89,19 @@ func TestPreviousNameIsGone(t *testing.T) {
 		if companyFiles[rel] {
 			return
 		}
+		inOldNames := false // between <!-- old-names:begin --> and <!-- old-names:end --> a document may name the old files it tells you to delete
 		for i, line := range strings.Split(string(data), "\n") {
+			if strings.HasSuffix(rel, ".md") {
+				if strings.Contains(line, "<!-- old-names:begin -->") {
+					inOldNames = true
+				}
+				if inOldNames {
+					if strings.Contains(line, "<!-- old-names:end -->") {
+						inOldNames = false
+					}
+					continue
+				}
+			}
 			if strings.HasSuffix(rel, ".md") && strings.Contains(strings.ToLower(line), "company") {
 				continue // prose that names the company (Auzring) next to the word "company"
 			}
