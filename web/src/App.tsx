@@ -1,34 +1,38 @@
+import { lazy, Suspense } from "react";
 import { Center, Loader } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api/client";
 import { useSession } from "./api/session";
 import { Layout } from "./components/Layout";
-import { AuditPage } from "./pages/AuditPage";
-import { CatalogPage } from "./pages/CatalogPage";
-import { DeploymentPage } from "./pages/DeploymentPage";
-import { DeploymentsPage } from "./pages/DeploymentsPage";
-import { NewDeploymentPage } from "./pages/NewDeploymentPage";
-import { PackagePage } from "./pages/PackagePage";
 import { SettingsLayout, SettingsPage } from "./pages/SettingsPage";
-import { BrandingPage } from "./pages/BrandingPage";
-import { StyleGuidePage } from "./pages/StyleGuidePage";
-import { DevicePage } from "./pages/DevicePage";
 import { DevicesPage } from "./pages/DevicesPage";
-import { GroupsPage } from "./pages/GroupsPage";
-import { SoftwarePage } from "./pages/SoftwarePage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
-import { TokensPage } from "./pages/TokensPage";
-import { PoliciesPage } from "./pages/PoliciesPage";
-import { ReportsPage } from "./pages/ReportsPage";
-import { AgentUpdatesPage } from "./pages/AgentUpdatesPage";
-import { LicensePage } from "./pages/LicensePage";
-import { AccountPage } from "./pages/AccountPage";
-import { SitesPage } from "./pages/SitesPage";
-import { UsersPage } from "./pages/UsersPage";
-import { UpdatePolicyPage } from "./pages/UpdatePolicyPage";
-import { UpdatesPage } from "./pages/UpdatesPage";
+
+// Pages other than the first screens load on demand, which keeps the first download small.
+const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
+const AuditPage = page(() => import("./pages/AuditPage"), "AuditPage");
+const CatalogPage = page(() => import("./pages/CatalogPage"), "CatalogPage");
+const DeploymentPage = page(() => import("./pages/DeploymentPage"), "DeploymentPage");
+const DeploymentsPage = page(() => import("./pages/DeploymentsPage"), "DeploymentsPage");
+const NewDeploymentPage = page(() => import("./pages/NewDeploymentPage"), "NewDeploymentPage");
+const PackagePage = page(() => import("./pages/PackagePage"), "PackagePage");
+const BrandingPage = page(() => import("./pages/BrandingPage"), "BrandingPage");
+const StyleGuidePage = page(() => import("./pages/StyleGuidePage"), "StyleGuidePage");
+const DevicePage = page(() => import("./pages/DevicePage"), "DevicePage");
+const GroupsPage = page(() => import("./pages/GroupsPage"), "GroupsPage");
+const SoftwarePage = page(() => import("./pages/SoftwarePage"), "SoftwarePage");
+const TokensPage = page(() => import("./pages/TokensPage"), "TokensPage");
+const PoliciesPage = page(() => import("./pages/PoliciesPage"), "PoliciesPage");
+const ReportsPage = page(() => import("./pages/ReportsPage"), "ReportsPage");
+const AgentUpdatesPage = page(() => import("./pages/AgentUpdatesPage"), "AgentUpdatesPage");
+const LicensePage = page(() => import("./pages/LicensePage"), "LicensePage");
+const AccountPage = page(() => import("./pages/AccountPage"), "AccountPage");
+const SitesPage = page(() => import("./pages/SitesPage"), "SitesPage");
+const UsersPage = page(() => import("./pages/UsersPage"), "UsersPage");
+const UpdatePolicyPage = page(() => import("./pages/UpdatePolicyPage"), "UpdatePolicyPage");
+const UpdatesPage = page(() => import("./pages/UpdatesPage"), "UpdatesPage");
 
 export function App() {
   const loc = useLocation();
@@ -52,6 +56,13 @@ export function App() {
     );
   }
   return (
+    <Suspense
+      fallback={
+        <Center mih="40vh">
+          <Loader />
+        </Center>
+      }
+    >
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={session ? <Layout /> : <Navigate to="/login" replace />}>
@@ -83,5 +94,6 @@ export function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }
