@@ -483,6 +483,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
                                 className="rnv-dt__resize"
                                 role="separator"
                                 aria-orientation="vertical"
+                                aria-valuenow={h.getSize()}
+                                aria-valuemin={meta?.minWidth ?? 70}
+                                aria-valuemax={800}
                                 aria-label={`Resize ${meta?.header ?? h.id} column (arrow keys)`}
                                 data-active={h.column.getIsResizing() ? "true" : "false"}
                                 onMouseDown={h.getResizeHandler()}

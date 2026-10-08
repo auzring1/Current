@@ -73,7 +73,7 @@ a.rnv-tile:hover, button.rnv-tile:hover { border-color: var(--rnv-border-strong)
 .rnv-empty__actions { margin-top: var(--rnv-space-3); display: flex; gap: var(--rnv-space-2); flex-wrap: wrap; justify-content: center; }
 
 /* ---------- Skeleton ---------- */
-.rnv-skel { display: block; border-radius: var(--rnv-radius-sm); background: linear-gradient(90deg, var(--rnv-surface-sunken) 25%, var(--rnv-surface-hover) 50%, var(--rnv-surface-sunken) 75%); background-size: 200% 100%; animation: rnv-shimmer 1.4s linear infinite; }
+.rnv-skel { display: block; border-radius: var(--rnv-radius-sm); background: linear-gradient(90deg, var(--rnv-border) 25%, var(--rnv-surface-hover) 50%, var(--rnv-border) 75%); background-size: 200% 100%; animation: rnv-shimmer 1.4s linear infinite; }
 @keyframes rnv-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ---------- Application shell ---------- */
@@ -237,3 +237,9 @@ tr:hover .rnv-dt__actions, tr:focus-within .rnv-dt__actions, .rnv-dt__actions:fo
 .mantine-Anchor-root { color: var(--rnv-accent-text); }
 .mantine-Divider-root { border-color: var(--rnv-border); }
 .mantine-Loader-root { color: var(--rnv-accent); --loader-color: var(--rnv-accent); }
+
+/* Text on a filled color: the accent has its own readable text color; status colors (red, green...) use the theme's
+   on-solid color (white on light themes, near-black on dark ones). Mantine sets --button-color inline, hence !important. */
+:is(.mantine-Button-root, .mantine-ActionIcon-root):is([data-variant="filled"], :not([data-variant])) { --button-color: var(--rnv-on-accent) !important; --ai-color: var(--rnv-on-accent) !important; }
+:is(.mantine-Button-root, .mantine-ActionIcon-root):is([data-variant="filled"], :not([data-variant])):is([style*="--button-bg"], [style*="--ai-bg"]):not([style*="brand"], [style*="primary"]) { --button-color: var(--rnv-on-solid) !important; --ai-color: var(--rnv-on-solid) !important; }
+.mantine-Badge-root[data-variant="filled"] { color: var(--rnv-on-solid); }
