@@ -1,5 +1,7 @@
-import { ActionIcon, Button, Checkbox, Group, MultiSelect, NumberInput, Paper, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Checkbox, MultiSelect, NumberInput, SegmentedControl, Select, TextInput } from "@mantine/core";
 import type { Filter } from "../api/client";
+import { Icons, IconButton } from "../ui";
+import "../ui/pageBits.css";
 
 type Kind = "text" | "gb" | "int" | "bool" | "chassis" | "bitlocker";
 
@@ -84,27 +86,25 @@ function DeviceRow({ node, onChange }: { node: Filter; onChange: (n: Filter) => 
       input = <TextInput value={String(v ?? "")} onChange={(e) => onChange({ ...node, value: e.currentTarget.value })} maxLength={200} w={240} aria-label="Value" />;
   }
   return (
-    <Group gap="xs" align="flex-start">
+    <div className="rnv-filter__cond">
       <Select data={Object.entries(FIELDS).map(([value, m]) => ({ value, label: m.label }))} value={node.field} onChange={(x) => x && setField(x)} w={210} aria-label="Field" allowDeselect={false} />
       <Select data={options(meta.cmps)} value={node.cmp} onChange={(x) => x && onChange({ ...node, cmp: x })} w={130} aria-label="Comparison" allowDeselect={false} disabled={meta.cmps.length === 1} />
       {input}
-    </Group>
+    </div>
   );
 }
 
 function SoftwareRow({ node, onChange }: { node: Filter; onChange: (n: Filter) => void }) {
   const ver = node.version;
   return (
-    <Stack gap={6}>
-      <Group gap="xs" align="flex-start">
-        <Text size="sm" pt={6}>
-          Has software
-        </Text>
+    <div>
+      <div className="rnv-filter__cond">
+        <span className="rnv-filter__label">Has software</span>
         <TextInput placeholder="Product name, e.g. chrome" value={node.title ?? ""} onChange={(e) => onChange({ ...node, title: e.currentTarget.value })} maxLength={200} w={240} aria-label="Product name" />
         <Select data={[{ value: "contains", label: "name contains" }, { value: "exact", label: "name is exactly" }, { value: "prefix", label: "name starts with" }]} value={node.match ?? "contains"} onChange={(x) => onChange({ ...node, match: (x ?? "contains") as Filter["match"] })} w={160} aria-label="Name match" allowDeselect={false} />
         <TextInput placeholder="Publisher (optional)" value={node.publisher ?? ""} onChange={(e) => onChange({ ...node, publisher: e.currentTarget.value || undefined })} maxLength={200} w={190} aria-label="Publisher" />
-      </Group>
-      <Group gap="xs" pl={86}>
+      </div>
+      <div className="rnv-filter__cond">
         <Select
           data={[{ value: "", label: "any version" }, ...VERSION_CMPS.map((c) => ({ value: c, label: `version ${CMP_LABEL[c]}` }))]}
           value={ver?.cmp ?? ""}
@@ -115,8 +115,8 @@ function SoftwareRow({ node, onChange }: { node: Filter; onChange: (n: Filter) =
         />
         {ver && <TextInput placeholder="e.g. 130" value={ver.value} onChange={(e) => onChange({ ...node, version: { ...ver, value: e.currentTarget.value } })} maxLength={100} w={140} aria-label="Version" />}
         <Select data={[{ value: "", label: "any install type" }, { value: "machine", label: "machine-wide" }, { value: "user", label: "per-user" }]} value={node.scope ?? ""} onChange={(x) => onChange({ ...node, scope: (x || undefined) as Filter["scope"] })} w={160} aria-label="Install type" allowDeselect={false} />
-      </Group>
-    </Stack>
+      </div>
+    </div>
   );
 }
 
@@ -133,19 +133,17 @@ function Row({ node, onChange, onRemove, depth }: RowProps) {
   const inner = negated ? node.children![0]! : node;
   const setInner = (n: Filter) => onChange(negated ? { op: "not", children: [n] } : n);
   return (
-    <Group align="flex-start" gap="xs" wrap="nowrap">
+    <div className="rnv-filter__row">
       <Checkbox label="NOT" checked={negated} onChange={(e) => onChange(e.currentTarget.checked ? { op: "not", children: [inner] } : inner)} mt={6} aria-label="Negate this condition" />
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="rnv-filter__body">
         {inner.op === "device" && <DeviceRow node={inner} onChange={setInner} />}
         {inner.op === "software" && <SoftwareRow node={inner} onChange={setInner} />}
         {(inner.op === "and" || inner.op === "or") && <FilterEditor node={inner} onChange={setInner} depth={depth + 1} />}
       </div>
       {onRemove && (
-        <ActionIcon variant="subtle" color="red" onClick={onRemove} aria-label="Remove condition" mt={4}>
-          ✕
-        </ActionIcon>
+        <IconButton label="Remove condition" icon={<Icons.Close size={16} aria-hidden />} color="red" onClick={onRemove} mt={2} />
       )}
-    </Group>
+    </div>
   );
 }
 
@@ -155,31 +153,27 @@ export function FilterEditor({ node, onChange, depth = 0 }: { node: Filter; onCh
   const setChild = (i: number, c: Filter) => onChange({ ...node, children: children.map((x, j) => (j === i ? c : x)) });
   const remove = (i: number) => onChange({ ...node, children: children.filter((_, j) => j !== i) });
   return (
-    <Paper withBorder p="sm" radius="sm">
-      <Stack gap="sm">
-        <Group>
-          <SegmentedControl size="xs" value={node.op} onChange={(v) => onChange({ ...node, op: v as "and" | "or" })} data={[{ value: "and", label: "All of" }, { value: "or", label: "Any of" }]} aria-label="Combine conditions" />
-          <Text size="xs" c="dimmed">
-            these conditions match
-          </Text>
-        </Group>
-        {children.map((c, i) => (
-          <Row key={i} node={c} depth={depth} onChange={(n) => setChild(i, n)} onRemove={children.length > 1 || depth > 0 ? () => remove(i) : undefined} />
-        ))}
-        <Group gap="xs">
-          <Button size="xs" variant="light" onClick={() => onChange({ ...node, children: [...children, newDeviceCondition()] })}>
-            + Device condition
+    <div className={depth === 0 ? "rnv-filter rnv-filter--root" : "rnv-filter"}>
+      <div className="rnv-row">
+        <SegmentedControl size="xs" value={node.op} onChange={(v) => onChange({ ...node, op: v as "and" | "or" })} data={[{ value: "and", label: "All of" }, { value: "or", label: "Any of" }]} aria-label="Combine conditions" />
+        <span className="rnv-hint">these conditions match</span>
+      </div>
+      {children.map((c, i) => (
+        <Row key={i} node={c} depth={depth} onChange={(n) => setChild(i, n)} onRemove={children.length > 1 || depth > 0 ? () => remove(i) : undefined} />
+      ))}
+      <div className="rnv-row">
+        <Button size="xs" variant="light" leftSection={<Icons.Plus size={14} aria-hidden />} onClick={() => onChange({ ...node, children: [...children, newDeviceCondition()] })}>
+          Device condition
+        </Button>
+        <Button size="xs" variant="light" leftSection={<Icons.Plus size={14} aria-hidden />} onClick={() => onChange({ ...node, children: [...children, newSoftwareCondition()] })}>
+          Software condition
+        </Button>
+        {depth < 2 && (
+          <Button size="xs" variant="subtle" leftSection={<Icons.Plus size={14} aria-hidden />} onClick={() => onChange({ ...node, children: [...children, newGroup(node.op === "and" ? "or" : "and")] })}>
+            Nested group
           </Button>
-          <Button size="xs" variant="light" onClick={() => onChange({ ...node, children: [...children, newSoftwareCondition()] })}>
-            + Software condition
-          </Button>
-          {depth < 2 && (
-            <Button size="xs" variant="subtle" onClick={() => onChange({ ...node, children: [...children, newGroup(node.op === "and" ? "or" : "and")] })}>
-              + Nested group
-            </Button>
-          )}
-        </Group>
-      </Stack>
-    </Paper>
+        )}
+      </div>
+    </div>
   );
 }

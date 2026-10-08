@@ -1,0 +1,38 @@
+/* Small building blocks shared by the software, groups, catalog, package and policy pages. Semantic tokens only. */
+
+/* A button that looks like the table's primary link (opens a drawer or a dialog instead of navigating). */
+.rnv-linkbtn { appearance: none; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: var(--rnv-text); font-weight: var(--rnv-weight-semibold); text-align: left; cursor: pointer; }
+.rnv-linkbtn:hover { color: var(--rnv-accent-text); text-decoration: underline; }
+.rnv-linkbtn:focus-visible { outline: 2px solid var(--rnv-focus); outline-offset: 2px; border-radius: var(--rnv-radius-sm); }
+
+/* A page whose list is searched on the server: the table's own client-side search box is replaced by the server one. */
+.rnv-serversearch .rnv-dt__searchbox:not(.rnv-serversearch__box) { display: none; }
+.rnv-serversearch__box { min-width: 260px; }
+
+/* Label/value pairs. */
+.rnv-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--rnv-space-4); margin: 0; }
+.rnv-fields dt { color: var(--rnv-text-muted); font-size: var(--rnv-text-xs); font-weight: var(--rnv-weight-medium); }
+.rnv-fields dd { margin: 2px 0 0; word-break: break-word; }
+
+/* Vertical rhythm and section headings inside drawers, dialogs and cards. */
+.rnv-subhead { margin: 0; font-size: var(--rnv-text-md); font-weight: var(--rnv-weight-semibold); }
+.rnv-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--rnv-space-2); }
+.rnv-hint { margin: 0; color: var(--rnv-text-muted); font-size: var(--rnv-text-sm); }
+.rnv-block { display: flex; flex-direction: column; gap: var(--rnv-space-3); }
+
+/* A compact table for short lists inside drawers and cards. */
+.rnv-mini { width: 100%; border-collapse: collapse; font-size: var(--rnv-text-sm); }
+.rnv-mini th { text-align: left; padding: var(--rnv-space-2) var(--rnv-space-3); color: var(--rnv-text-muted); font-weight: var(--rnv-weight-semibold); font-size: var(--rnv-text-xs); border-bottom: 1px solid var(--rnv-border-strong); }
+.rnv-mini td { padding: var(--rnv-space-2) var(--rnv-space-3); border-bottom: 1px solid var(--rnv-border); }
+.rnv-mini tr:last-child td { border-bottom: 0; }
+.rnv-mini [data-align="right"] { text-align: right; }
+.rnv-mini__scroll { overflow-x: auto; }
+
+/* The filter-rule editor. */
+.rnv-filter { display: flex; flex-direction: column; gap: var(--rnv-space-3); padding: var(--rnv-space-3); border: 1px solid var(--rnv-border); border-radius: var(--rnv-radius-md); background: var(--rnv-surface-sunken); }
+.rnv-filter--root { background: var(--rnv-surface); border-radius: var(--rnv-radius-lg); box-shadow: var(--rnv-shadow-1); }
+.rnv-filter__row { display: flex; align-items: flex-start; gap: var(--rnv-space-2); }
+.rnv-filter__body { flex: 1; min-width: 0; }
+.rnv-filter__cond { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--rnv-space-2); }
+.rnv-filter__label { padding-top: 6px; font-size: var(--rnv-text-sm); font-weight: var(--rnv-weight-medium); }
+.rnv-filter__cond + .rnv-filter__cond { margin-top: var(--rnv-space-2); }
