@@ -39,6 +39,9 @@ async function shot(page: Page, name: string) {
   await a11y(page, name);
 }
 
+/** The main navigation (left column or drawer). */
+const mainNav = (page: Page) => page.getByRole("navigation", { name: "Main" });
+
 /** The account menu (top right) holds the account page, theme choice and sign out. */
 async function openAccountMenu(page: Page) {
   await page.getByTestId("user-menu").click();
@@ -111,7 +114,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page).toHaveTitle("Devices · Acme Corp · Renovatio");
 
   // --- Enrollment token ---
-  await page.getByRole("link", { name: "Enrollment" }).click();
+  await mainNav(page).getByRole("link", { name: "Enrollment", exact: true }).click();
   await page.getByRole("button", { name: "New token" }).click();
   await page.getByLabel(/^Name/).fill("GUI test");
   await page.getByRole("button", { name: "Create" }).click();
@@ -130,7 +133,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
     agent = spawn(agentBin, ["run", "--data-dir", dir, "--server", gateway, "--token", enrollment], { stdio: "ignore" });
   }
   try {
-    await page.getByRole("link", { name: "Devices" }).click();
+    await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
     if (agentBin) {
       const row = page.getByTestId("device-row").first();
       await expect(row).toBeVisible({ timeout: 30_000 });
@@ -155,7 +158,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
 
       // Fleet-wide software search.
-      await page.getByRole("link", { name: "Software", exact: true }).click();
+      await mainNav(page).getByRole("link", { name: "Software", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Software", exact: true })).toBeVisible();
       await expect(page.getByTestId("title-row").first()).toBeVisible({ timeout: 15_000 });
       await page.getByLabel("Search software").fill("lib");
@@ -169,7 +172,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       expect((await download).suggestedFilename()).toMatch(/^renovatio-software-.*\.csv$/);
 
       // Dynamic group: preview, save, list.
-      await page.getByRole("link", { name: "Groups" }).click();
+      await mainNav(page).getByRole("link", { name: "Groups", exact: true }).click();
       await page.getByRole("button", { name: "New group" }).click();
       await page.getByRole("textbox", { name: "Name", exact: true }).fill("Has lib packages");
       await page.getByLabel("Product name").fill("lib");
@@ -184,7 +187,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
 
       // Custom package -> deployment -> live job result (the Linux dev agent runs the uploaded script).
       const agentDir = agentDirs[0]!;
-      await page.getByRole("link", { name: "Catalog" }).click();
+      await mainNav(page).getByRole("link", { name: "Catalog", exact: true }).click();
       await page.getByRole("button", { name: "Upload custom installer" }).click();
       const script = '#!/bin/sh\nmkdir -p "$(dirname "$0")/../../pf/Acme"\necho ok > "$(dirname "$0")/../../pf/Acme/tool.txt"\nexit 0\n';
       await page.getByLabel("Installer file").setInputFiles({ name: "install.sh", mimeType: "application/octet-stream", buffer: Buffer.from(script) });
@@ -219,7 +222,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       expect(existsSync(join(agentDir, "pf", "Acme", "tool.txt"))).toBe(true);
 
       // Static group.
-      await page.getByRole("link", { name: "Groups" }).click();
+      await mainNav(page).getByRole("link", { name: "Groups", exact: true }).click();
       await page.getByRole("button", { name: "New group" }).click();
       await page.getByText("Static (hand-picked)").click();
       await page.getByRole("textbox", { name: "Name", exact: true }).fill("Pilot ring");
@@ -233,7 +236,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.keyboard.press("Escape");
 
       // Settings (admin).
-      await page.getByRole("link", { name: "Settings" }).click();
+      await mainNav(page).getByRole("link", { name: "Settings", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
 
       // Windows updates: the dev agent reads scripted updates from wu-dev.json in its data directory.
@@ -249,7 +252,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
           ],
         }),
       );
-      await page.getByRole("link", { name: "Devices" }).click();
+      await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
       await page.getByTestId("device-row").first().click();
       await page.getByRole("tab", { name: "Windows updates" }).click();
       await page.getByRole("button", { name: "Scan now" }).click();
@@ -258,7 +261,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "15-device-windows-updates");
 
       // Catalog: approve the security update, leave the other one pending.
-      await page.getByRole("link", { name: "Windows updates" }).click();
+      await mainNav(page).getByRole("link", { name: "Windows updates", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Windows updates", exact: true })).toBeVisible();
       const secRow = page.getByRole("row", { name: /KB5099999/ });
       await expect(secRow).toBeVisible({ timeout: 15_000 });
@@ -269,7 +272,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "16-updates-catalog");
 
       // Policy: a ring over the saved group, a rule, and the update source.
-      await page.getByRole("link", { name: "Update policy" }).click();
+      await mainNav(page).getByRole("link", { name: "Update policy", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Update policy", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Add ring" }).click();
       await page.getByRole("dialog").getByLabel("Name").fill("Pilot");
@@ -288,7 +291,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "17-update-policy");
 
       // Install the other update by hand on the device; after a rescan it is no longer missing.
-      await page.getByRole("link", { name: "Devices" }).click();
+      await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
       await page.getByTestId("device-row").first().click();
       await page.getByRole("tab", { name: "Windows updates" }).click();
       await devUpdates.getByRole("row", { name: /Acme Corp/ }).getByRole("checkbox").check();
@@ -335,14 +338,14 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
 
   // --- Identity: a site, a site-limited technician, a security key and an API token ---
   const origin = new URL(page.url()).origin;
-  await page.getByRole("link", { name: "Sites" }).click();
+  await mainNav(page).getByRole("link", { name: "Sites", exact: true }).click();
   await page.getByRole("button", { name: "Add site" }).click();
   await page.getByRole("dialog").getByLabel(/^Name/).fill("Branch office");
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("table", { name: "Sites" }).getByText("Branch office")).toBeVisible();
   await shot(page, "18-sites");
 
-  await page.getByRole("link", { name: "Users" }).click();
+  await mainNav(page).getByRole("link", { name: "Users", exact: true }).click();
   await page.getByRole("button", { name: "Add user" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel(/^Email/).fill("tech@example.com");
@@ -413,7 +416,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
 
   // --- Automation: a software policy, the reports page, and the audit chain check ---
-  await page.getByRole("link", { name: "Software policies" }).click();
+  await mainNav(page).getByRole("link", { name: "Software policies", exact: true }).click();
   await page.getByRole("button", { name: "Add policy" }).click();
   const pd = page.getByRole("dialog");
   await pd.getByLabel(/^Name/).fill("Keep Acme Tool current");
@@ -426,13 +429,13 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByRole("table", { name: "Software policies" }).getByText("Keep Acme Tool current")).toBeVisible();
   await shot(page, "22-policies");
 
-  await page.getByRole("link", { name: "Reports" }).click();
+  await mainNav(page).getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
   await expect(page.getByText("Patch compliant")).toBeVisible();
   await shot(page, "23-reports");
 
   // --- Branding: administrators only, live contrast check, preview, images, reset ---
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await mainNav(page).getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Branding" }).click();
   await expect(page).toHaveURL(/\/settings\/branding$/);
   await expect(page).toHaveTitle("Settings · Acme Corp · Renovatio");
@@ -510,7 +513,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(slot("logo_light").getByRole("img", { name: /current/ })).toBeVisible();
 
   // --- Themes: each one applies, is readable (axe, WCAG AA), is applied before the first paint and follows the account ---
-  await page.getByRole("link", { name: "Style guide" }).click();
+  await mainNav(page).getByRole("link", { name: "Style guide", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Style guide", exact: true })).toBeVisible();
   const themeList: [string, string][] = [["light", "Light"], ["slate", "Slate"], ["dark", "Dark"], ["midnight", "Midnight"], ["contrast", "High contrast"]];
   for (const [id, name] of themeList) {
@@ -544,7 +547,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
 
   // --- License: unlicensed evaluation, a forged license is refused, a real one is installed, expiry warning ---
   if (licenseTool && licenseKey) {
-    await page.getByRole("link", { name: "License", exact: true }).click();
+    await mainNav(page).getByRole("link", { name: "License", exact: true }).click();
     await expect(page.getByRole("heading", { name: "License", exact: true })).toBeVisible();
     await expect(page.getByTestId("license-state")).toHaveText("Unlicensed (evaluation)");
     await expect(page.getByTestId("license-usage")).toContainText("of 25 devices enrolled");
@@ -577,13 +580,13 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
     await page.getByTestId("license-input").fill(lic2);
     await page.getByTestId("license-install").click();
     await expect(page.getByRole("table", { name: "License history" }).getByRole("row")).toHaveCount(3, { timeout: 15_000 }); // header + 2
-    await page.getByRole("link", { name: "Devices", exact: true }).click();
+    await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
     await expect(page.getByTestId("license-banner")).toContainText("The license expires soon");
     await shot(page, "26-license-banner");
   }
 
   // --- Audit log ---
-  await page.getByRole("link", { name: "Audit log" }).click();
+  await mainNav(page).getByRole("link", { name: "Audit log", exact: true }).click();
   await expect(page.getByRole("cell", { name: "setup.complete" })).toBeVisible();
   if (licenseTool && licenseKey) {
     await expect(page.getByRole("cell", { name: "license.install" }).first()).toBeVisible();
