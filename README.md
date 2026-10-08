@@ -1,4 +1,4 @@
-# Renovatio (codename)
+# Renovatio
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 

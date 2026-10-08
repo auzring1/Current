@@ -1,6 +1,6 @@
 # Phase 6 demo script: hardening, licensing, load test, release pipeline
 
-Goal: see what Phase 6 changed. The database-credential split and a backup through the new `maintenance` service, license keys and the device cap, the install-directory protection and the MSI retest on a real Windows machine, a load test with thousands of simulated agents, a dry run of the release pipeline, and the fuzzers. Allow about 2 hours; Parts A to D are the core.
+Goal: see what Phase 6 changed. The database-credential split and a backup through the new `maintenance` service, license keys and the device cap, the install-directory protection and the MSI retest on a real Windows machine, a load test with thousands of simulated agents, a dry run of the release pipeline, and the fuzzers. Allow about 2.5 hours; Parts A to D are the core.
 
 You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): a running server stack on Docker, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine **that you can revert**. The examples use the server name `renovatio.lab`. Parts E and F run on any Linux or macOS machine with Go 1.27.1 and Docker (the repository's dev setup); they do not need Windows.
 
@@ -108,6 +108,18 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
     How customers verify real releases: [../VERIFYING_RELEASES.md](../VERIFYING_RELEASES.md).
 
 16. **Fuzzers.** `make fuzz` runs 20 seconds on each of 19 fuzz targets (about 7 minutes) (job envelopes, enrollment strings, release manifests and bundles, license documents, job-body validators, the uninstall-key scanner, installer arguments, archives, backups and others). ✅ No crash. (A crash would leave a failing input under `testdata/fuzz/` to commit as a regression test.)
+
+## Part G: The rename to Renovatio (about 20 minutes, Windows)
+
+The product is now called **Renovatio** (the company stays Auzring; DECISIONS D89 and D90). These checks are about what you can see on a machine and what must **not** have changed.
+
+18. **Names you can see.** Build the agent from this branch and install it (step 3 of [PHASE5-DEMO.md](PHASE5-DEMO.md), with `renovatio-agent.exe`). ✅ `services.msc` shows **Renovatio Agent**; right-click `renovatio-agent.exe` → Properties → Details shows product name *Renovatio*, description *Renovatio Agent*, company *Auzring* (the version fields say 0.0.0.0 for now; the release pipeline does not yet stamp the real version into them). The console title, sign-in page and authenticator entry say Renovatio.
+
+19. **Names that must not have changed.** ✅ The service is still called `AuzringAgent` (`Get-Service AuzringAgent`), the folders are still `C:\Program Files\Auzring\Agent` and `C:\ProgramData\Auzring`, and the installed file is still `...\slot-a\auzring-agent.exe`. That is deliberate: agents that are already installed depend on those names.
+
+20. **An older agent updates to a renamed one.** On a machine with an agent installed from the **Phase 6** build, roll out a release built from this branch (the "good" release in [PHASE5-DEMO.md](PHASE5-DEMO.md) Part B, built with `scripts/release-demo.sh`). ✅ The job succeeds and the device reports the new version. (This is the compatibility that the unchanged `version` output and manifest product value protect; it is the one rename risk I could not test on Windows.)
+
+21. **MSI upgrade.** If you installed with the Phase 6 MSI, install the one built from this branch over it. ✅ One entry **Renovatio Agent** (the company, Auzring, as publisher) in Apps & features, no duplicate, device identity unchanged (the MSI's UpgradeCode did not change).
 
 ## What to send back
 
