@@ -2,6 +2,7 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, request, test, type Page } from "@playwright/test";
 import { totp } from "./totp";
 
@@ -23,8 +24,19 @@ const password = "Granite-Lantern-Pickle-42";
 // Small PNGs made for these tests (a 220x64 logo, a 128x128 icon, a 32x32 favicon).
 const fixture = (name: string) => join(process.cwd(), "e2e", "fixtures", name);
 
+// Accessibility: every page that gets a screenshot is also scanned with axe (WCAG 2.0/2.1 A and AA). The run fails at the
+// end with the full list, so one run shows everything.
+const a11yIssues: string[] = [];
+async function a11y(page: Page, name: string) {
+  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  for (const v of r.violations) {
+    a11yIssues.push(`${name}: ${v.id} (${v.impact}) x${v.nodes.length}: ${v.help} :: ${v.nodes.slice(0, 2).map((n) => n.target.join(" ")).join(" | ")}`);
+  }
+}
+
 async function shot(page: Page, name: string) {
   if (shots) await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
+  await a11y(page, name);
 }
 
 /** The account menu (top right) holds the account page, theme choice and sign out. */
@@ -497,6 +509,39 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await slot("logo_light").locator('input[type="file"]').setInputFiles(fixture("logo.png"));
   await expect(slot("logo_light").getByRole("img", { name: /current/ })).toBeVisible();
 
+  // --- Themes: each one applies, is readable (axe, WCAG AA), is applied before the first paint and follows the account ---
+  await page.getByRole("link", { name: "Style guide" }).click();
+  await expect(page.getByRole("heading", { name: "Style guide" })).toBeVisible();
+  const themeList: [string, string][] = [["light", "Light"], ["slate", "Slate"], ["dark", "Dark"], ["midnight", "Midnight"], ["contrast", "High contrast"]];
+  for (const [id, name] of themeList) {
+    await openAccountMenu(page);
+    await page.getByRole("menuitem", { name, exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", id);
+    await page.mouse.move(0, 0);
+    if (shots) await page.screenshot({ path: join(shots, `29-styleguide-${id}.png`), fullPage: true });
+    await a11y(page, `styleguide-${id}`);
+  }
+  // The choice (Midnight) is saved on the account: no copy on this device, and still applied after a reload.
+  await openAccountMenu(page);
+  await page.getByRole("menuitem", { name: "Midnight", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
+  await page.evaluate(() => window.localStorage.removeItem("rnv-theme"));
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight"); // read back from the account
+  // Before first paint: with the app bundle blocked, the theme is already on the page (public/theme-init.js).
+  await page.route("**/assets/*.js", (r) => r.abort());
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
+  await page.unroute("**/assets/*.js");
+  await page.reload();
+  await expect(page.getByTestId("user-menu")).toBeVisible();
+  await openAccountMenu(page);
+  await page.getByRole("menuitem", { name: "Light", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
   // --- License: unlicensed evaluation, a forged license is refused, a real one is installed, expiry warning ---
   if (licenseTool && licenseKey) {
     await page.getByRole("link", { name: "License", exact: true }).click();
@@ -572,4 +617,5 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   expect(shell).toContain('id="branding-data"');
 
   expect(violations, "CSP violations").toEqual([]);
+  expect(a11yIssues, "accessibility violations (axe, WCAG 2.1 AA)").toEqual([]);
 });
