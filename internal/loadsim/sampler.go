@@ -90,12 +90,18 @@ func (p *procSampler) run(ctx context.Context, f *fleet, every time.Duration) {
 		select {
 		case <-ctx.Done():
 			return
-		case now := <-t.C:
+		case <-t.C:
+			// Time the reading itself: a tick can be delivered late when the host is saturated.
 			ticks, rss, th, fds, ok := procInfo(p.pid)
+			now := time.Now()
 			if !ok {
 				continue
 			}
-			cpu := float64(ticks-lastTicks) / clockTicks / now.Sub(last).Seconds() * 100
+			dt := now.Sub(last).Seconds()
+			if dt < 0.5 {
+				continue // a late tick delivered right behind the previous one; CPU ticks are 10 ms quanta
+			}
+			cpu := float64(ticks-lastTicks) / clockTicks / dt * 100
 			lastTicks, last = ticks, now
 			name := f.cur.Load().name
 			p.mu.Lock()
@@ -185,12 +191,16 @@ func (d *dbSampler) run(ctx context.Context, f *fleet, every time.Duration) {
 		select {
 		case <-ctx.Done():
 			return
-		case now := <-t.C:
+		case <-t.C:
 			cur, be, act, lw, itx, err := read()
+			now := time.Now()
 			if err != nil {
 				continue
 			}
 			dt := now.Sub(last).Seconds()
+			if dt < 0.5 {
+				continue // a late tick delivered right behind the previous one: too short to divide by
+			}
 			last = now
 			tps, ins, upd := float64(cur.commits-prev.commits)/dt, float64(cur.ins-prev.ins)/dt, float64(cur.upd-prev.upd)/dt
 			prev = cur

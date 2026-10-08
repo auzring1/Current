@@ -36,6 +36,7 @@ Run the web console against a local server: start the server with `AUZ_DEV_MODE=
 | Path | |
 |---|---|
 | `cmd/auzring-server`, `cmd/auzring-agent`, `cmd/auzring-release` | Binaries (`auzring-release` is the vendor-side release signing tool, not shipped to customers) |
+| `cmd/auzring-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |

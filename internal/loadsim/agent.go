@@ -133,6 +133,10 @@ func (a *simAgent) run(ctx context.Context) {
 		if healthy >= healthyResetAfter {
 			a.bo.Reset()
 		}
+		if c := classify(err); err != nil && healthy > 0 && c != "dropped" && c != "canceled" {
+			// How old a stream was when it failed on its own: a cluster of equal ages points at a timer.
+			a.f.hist("failed_session_age").Record(healthy)
+		}
 		if ctx.Err() != nil {
 			return
 		}
@@ -438,6 +442,9 @@ func sanitize(s string) string {
 func (a *simAgent) streamErr(sctx context.Context, stage string, err error) error {
 	if c := context.Cause(sctx); c != nil && (errors.Is(c, errDropped) || errors.Is(c, context.DeadlineExceeded)) {
 		err = c
+	}
+	if c := classify(err); stage == "recv" && c != "dropped" && c != "canceled" && a.f.samples.Add(1) <= 8 {
+		a.f.log.Warn("sample of a failed session", "agent", a.idx, "stage", stage, "class", c, "err", err)
 	}
 	a.f.count("fail." + stage + "." + classify(err))
 	return err
