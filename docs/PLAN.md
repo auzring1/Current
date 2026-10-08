@@ -134,7 +134,7 @@ I stop for review after each phase.
 - `auzring-server backup` / `restore`: encrypted with age, version-checked.
 - Agent MSI with silent-install properties for GPO, Intune or an RMM.
 
-### Phase 6: Hardening and release
+### Phase 6: Hardening and release *(implemented; see docs/SECURITY.md §9e–§9g, docs/LOADTEST.md and docs/demos/PHASE6-DEMO.md. The release workflow, Authenticode/KMS/Sigstore steps and the Windows-side fixes are unverified)*
 - Security review against SECURITY.md, plus fuzzing of the protocol, manifest and uninstall-string parsers.
 - Load test with 10k simulated agents (`cmd/auzring-loadsim`), including a reconnect-storm scenario.
 - Release pipeline: reproducible builds, SBOMs, cosign and Authenticode signing. *(Written: `.github/workflows/release.yml`, `scripts/build-release.sh`, `scripts/verify-reproducible.sh`, `cmd/auzring-sbom`, `docs/VERIFYING_RELEASES.md`, RUNBOOK 9, DECISIONS D79-D84, SECURITY 9e. Local dry run and reproducibility check pass; the GitHub, Azure/AWS, cosign and MSI steps have never run, and nothing can ship until the owner settles O5 and O7.)*
