@@ -266,6 +266,14 @@ Settings > Branding (administrators only) makes the console yours: organization 
 - **Reports:** Reports > "Printable patch compliance report" opens a standalone page with the report logo (else the light logo), organization name and footer; use the browser's print dialog for PDF. The product has no email sender yet; the report footer is stored for when it has one.
 - **Roll back:** `renovatio-server migrate --down-to 9` removes the branding tables (and their data). Take a backup first.
 
+### 5h. Themes, density and saved views (Phase 8)
+
+Everyone chooses their own theme from the account menu (top right): **Light, Slate, Dark, Midnight, High contrast** or **Follow my device**. The choice is saved on the account and applies on any device you sign in from. The same menu sets table density (comfortable or compact). Tables have a column picker, filter chips, sortable and resizable columns, a saved-views menu (views are saved on the account too) and CSV export of what you see.
+
+Administrators can set the **default theme** and limit **which themes people may choose** under Settings > Branding > Appearance (for example, only Light and High contrast). A person whose saved choice is no longer offered sees the organization default. The branding accent color from the same page is applied on top of every theme and adapted per theme so it stays readable. Every theme meets WCAG AA contrast; High contrast is white on black with strong borders.
+
+`/styleguide` (administrators) shows every component in the theme you are using.
+
 ## 6. Backup and restore
 
 `renovatio-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `renovatio-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.

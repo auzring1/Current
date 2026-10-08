@@ -419,6 +419,21 @@ Per-deployment branding (`internal/server/branding`, `internal/server/api/brandi
 
 **Known gaps and residual risks:** an administrator can still make a convincing look-alike sign-in page for their own deployment (that is the feature); the public support contact and legal text are visible to anyone who can reach the server; images are not scanned beyond decoding; the report is a printable HTML page, not a PDF, so its signature of origin is the server's TLS identity only.
 
+## 9i. Phase 8: console appearance
+
+Themes, preferences and the redesigned console (decision D93). New attack surface is small: one blocking script, one per-user JSON document, and an administrator-set theme list.
+
+| Threat | Control | Evidence |
+|---|---|---|
+| **Inline script for the no-flash theme** would force `script-src 'unsafe-inline'` | The theme is applied by a same-origin file (`/theme-init.js`, covered by `script-src 'self'`); the CSP stays free of `unsafe-inline` for scripts. Inline `style` attributes set by script go through the CSSOM, which `style-src` with a nonce allows | GUI end-to-end test fails on any CSP violation; `theme-init.test.ts` |
+| **Stored XSS / injection through preferences** (theme id, view names, view state) | The theme id must match `^[a-z][a-z0-9-]{0,31}$` and is used only as an attribute value and a lookup key, never as HTML or CSS; view names are plain text (no control characters, 60 characters); view state must be a JSON object of at most 4 KiB, 20 views per table, 32 tables, 64 KiB per account (also a database CHECK) | `TestPreferencesAndThemePolicy`, `TestBrandingMigrationIsReversible` |
+| **One person reading or changing another's preferences** | `/me/preferences` acts only on the signed-in person; a bearer API token cannot change it | `TestPreferencesAndThemePolicy` |
+| **Bypassing the administrator's theme limits** | The server refuses a theme the organization does not offer; the console falls back to the organization default when a saved theme is no longer offered | `TestPreferencesAndThemePolicy`, `themes.test.ts` |
+| **Unreadable interface (a11y as a safety property for clinicians)** | Every theme token pair is checked against WCAG AA; the branding accent is adapted per theme; axe scans every page the end-to-end test visits | `themes.test.ts`, GUI end-to-end test |
+| **Fonts or icons fetched from a third party** | Inter and the icons are bundled; there are no runtime network requests (CSP `font-src 'self'`, `connect-src 'self'`) | build output, CSP |
+
+**Known gaps:** a person's own theme is cached in the browser's local storage until they sign out (cleared on sign-out); saved views are opaque to the server beyond their size and shape.
+
 ## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.
