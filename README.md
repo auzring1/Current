@@ -1,4 +1,4 @@
-# Auzring (codename)
+# Renovatio (codename)
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a lightweight Go agent, a Go server with a REST API and web GUI, and a hardened docker-compose deployment.
 
