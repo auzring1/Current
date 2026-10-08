@@ -1,7 +1,7 @@
 // Command renovatio-server is the Renovatio management server.
 //
 //	renovatio-server [serve]            run the server (default)
-//	renovatio-server migrate            apply database migrations and exit
+//	renovatio-server migrate [--down-to N]  apply database migrations and exit (or roll back to version N)
 //	renovatio-server backup --out F|-   write an age-encrypted backup (database + content files)
 //	renovatio-server backup --verify F  check a backup without touching any database
 //	renovatio-server restore --in F|-   restore a backup into an empty database
@@ -46,7 +46,7 @@ func main() {
 	case "serve":
 		err = serve()
 	case "migrate":
-		err = migrate()
+		err = migrate(os.Args[2:])
 	case "backup":
 		err = backup.CommandBackup(os.Args[2:], config.Load)
 	case "restore":
@@ -89,7 +89,14 @@ func serve() error {
 	return a.Run(ctx)
 }
 
-func migrate() error {
+// migrate applies pending migrations; "--down-to N" instead rolls the schema back to
+// version N (destructive for the rolled-back tables; take a backup first).
+func migrate(args []string) error {
+	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	downTo := fs.Int64("down-to", -1, "roll the schema back to this migration version (0 = empty); destructive")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -97,6 +104,9 @@ func migrate() error {
 	url := cfg.MigrateDatabaseURL
 	if url == "" {
 		url = cfg.DatabaseURL
+	}
+	if *downTo >= 0 {
+		return store.MigrateDown(context.Background(), url, *downTo, logger(cfg.LogLevel))
 	}
 	return store.Migrate(context.Background(), url, logger(cfg.LogLevel))
 }

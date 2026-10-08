@@ -18,6 +18,7 @@ import (
 	"github.com/auzring1/renovatio/gen/dbq"
 	"github.com/auzring1/renovatio/internal/server/agentrel"
 	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/branding"
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/config"
 	"github.com/auzring1/renovatio/internal/server/deploy"
@@ -60,6 +61,7 @@ type Deps struct {
 	Releases  *agentrel.Service
 	Policies  *policies.Service
 	Licensing *licensing.Service
+	Branding  *branding.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -120,6 +122,8 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 
 // routes registers every API route. Keep in sync with api/openapi.yaml.
 func (s *server) routes(r chi.Router) {
+	r.Get("/branding", s.getPublicBranding)
+	r.Get("/branding/assets/{kind}", s.getBrandingAsset)
 	r.Get("/setup/status", s.setupStatus)
 	r.Post("/setup/begin", s.setupBegin)
 	r.Post("/setup/complete", s.setupComplete)
@@ -229,7 +233,13 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermReportsRead)).Get("/reports/overview", s.reportOverview)
 	r.With(s.require(auth.PermReportsRead)).Get("/reports/compliance", s.reportCompliance)
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/compliance.csv", s.complianceCSV)
+	r.With(s.require(auth.PermInventoryExport)).Get("/reports/compliance.html", s.complianceHTML)
 
+	r.With(s.require(auth.PermBrandingWrite)).Get("/settings/branding", s.getBranding)
+	r.With(s.require(auth.PermBrandingWrite)).Put("/settings/branding", s.putBranding)
+	r.With(s.require(auth.PermBrandingWrite)).Put("/settings/branding/assets/{kind}", s.putBrandingAsset)
+	r.With(s.require(auth.PermBrandingWrite)).Delete("/settings/branding/assets/{kind}", s.deleteBrandingAsset)
+	r.With(s.require(auth.PermBrandingWrite)).Post("/settings/branding/reset", s.resetBranding)
 	r.With(s.require(auth.PermLicenseRead)).Get("/license", s.getLicense)
 	r.With(s.require(auth.PermLicenseWrite)).Put("/license", s.putLicense)
 	r.With(s.require(auth.PermLicenseRead)).Get("/license/history", s.licenseHistory)

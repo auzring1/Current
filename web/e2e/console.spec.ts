@@ -20,6 +20,8 @@ function signLicense(key: string, args: string[]): string {
 const ymd = (daysFromNow: number) => new Date(Date.now() + daysFromNow * 86_400_000).toISOString().slice(0, 10);
 const email = "admin@example.com";
 const password = "Granite-Lantern-Pickle-42";
+// Small PNGs made for these tests (a 220x64 logo, a 128x128 icon, a 32x32 favicon).
+const fixture = (name: string) => join(process.cwd(), "e2e", "fixtures", name);
 
 async function shot(page: Page, name: string) {
   if (shots) await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
@@ -59,6 +61,11 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await pw.nth(1).fill(password);
   await pw.nth(2).fill("correct horse battery staple root");
   await pw.nth(3).fill("correct horse battery staple root");
+  // The wizard takes an optional logo; it is validated in the browser first (SVG is refused).
+  await page.locator('input[type="file"]').setInputFiles({ name: "evil.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>') });
+  await expect(page.getByText(/SVG images are not accepted/)).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles(fixture("logo.png"));
+  await expect(page.getByTestId("setup-logo-preview")).toBeVisible();
   await shot(page, "01-setup");
   await typeCode(page, totp(secret, 0));
   await page.getByRole("button", { name: "Create organization" }).click();
@@ -76,6 +83,11 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
   await expect(page.getByText("No devices yet")).toBeVisible();
+  // The organization name and logo from the wizard are in the top bar; the product keeps its default name.
+  await expect(page.getByTestId("org-name")).toHaveText("Acme Corp");
+  await expect(page.getByTestId("product-name")).toHaveText("Renovatio");
+  await expect(page.getByRole("img", { name: "Acme Corp logo" })).toBeVisible();
+  await expect(page).toHaveTitle("Devices · Acme Corp · Renovatio");
 
   // --- Enrollment token ---
   await page.getByRole("link", { name: "Enrollment" }).click();
@@ -397,6 +409,84 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByText("Patch compliant")).toBeVisible();
   await shot(page, "23-reports");
 
+  // --- Branding: administrators only, live contrast check, preview, images, reset ---
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Branding" }).click();
+  await expect(page).toHaveURL(/\/settings\/branding$/);
+  await expect(page).toHaveTitle("Settings · Acme Corp · Renovatio");
+  await expect(page.getByLabel("Organization name")).toHaveValue("Acme Corp");
+  await expect(page.getByLabel("Product name")).toHaveValue("");
+  await page.getByLabel("Organization name").fill("Example Clinic");
+  await page.getByLabel("Product name").fill("PatchBoard");
+  await expect(page.getByTestId("preview-org")).toHaveText("Example Clinic");
+  await expect(page.getByTestId("preview-product")).toHaveText("PatchBoard");
+  // A yellow accent fails WCAG AA (white text on it): the table says so and Save is blocked.
+  await page.getByLabel("Accent color").fill("#ffd43b");
+  await expect(page.getByTestId("contrast-accent_text_light")).toContainText("Fail");
+  await expect(page.getByText(/cannot be saved until they pass the contrast checks/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await shot(page, "27-branding-contrast-blocked");
+  await page.getByLabel("Accent color").fill("#c92a2a");
+  await expect(page.getByTestId("contrast-accent_text_light")).toContainText("Pass");
+  await expect(page.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  await page.getByLabel("Secondary color (optional)").fill("#e8590c");
+  await expect(page.getByTestId("contrast-secondary_ui_dark")).toContainText("Pass");
+  await page.getByLabel("Headline").fill("Welcome to Example Clinic IT");
+  await page.getByLabel("Welcome message").fill("Sign in with your work account.");
+  await page.getByLabel(/^Footer or legal text/).fill("Authorized use only.");
+  await page.getByLabel("Support email").fill("help@example.org");
+  await page.getByLabel("Support link").fill("javascript:alert(1)");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("The support link must be an https:// address")).toBeVisible(); // the server refuses it too
+  await page.getByLabel("Support link").fill("https://example.org/help");
+  await expect(page.getByTestId("preview-headline")).toHaveText("Welcome to Example Clinic IT");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Branding saved.")).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId("product-name")).toHaveText("PatchBoard");
+  await expect(page.getByTestId("org-name")).toHaveText("Example Clinic");
+  await expect(page).toHaveTitle("Settings · Example Clinic · PatchBoard");
+  // Images: the browser refuses SVG and mismatched shapes; valid ones are applied at once.
+  const slot = (k: string) => page.getByTestId(`slot-${k}`);
+  await slot("icon").locator('input[type="file"]').setInputFiles({ name: "x.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
+  await expect(slot("icon").getByRole("alert")).toContainText("SVG images are not accepted");
+  await slot("icon").locator('input[type="file"]').setInputFiles(fixture("logo.png")); // 220x64 is not square
+  await expect(slot("icon").getByRole("alert")).toContainText("needs a square image");
+  await slot("icon").locator('input[type="file"]').setInputFiles(fixture("icon.png"));
+  await expect(slot("icon").getByRole("img", { name: /current/ })).toBeVisible();
+  await slot("favicon").locator('input[type="file"]').setInputFiles(fixture("favicon.png"));
+  await expect(slot("favicon").getByRole("img", { name: /current/ })).toBeVisible();
+  await slot("logo_light").locator('input[type="file"]').setInputFiles(fixture("logo.png"));
+  await page.mouse.move(0, 0);
+  await shot(page, "27-branding");
+  // The printable report carries the organization name and logo.
+  const report = await page.request.get("/api/v1/reports/compliance.html");
+  expect(report.status()).toBe(200);
+  expect(report.headers()["content-security-policy"]).toContain("default-src 'none'");
+  const html = await report.text();
+  expect(html).toContain("Example Clinic");
+  expect(html).toContain("data:image/png;base64,");
+  expect(html).not.toContain("<script");
+  // Reset to defaults asks first, then clears everything.
+  await page.getByRole("button", { name: "Reset to defaults" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reset to defaults" }).click();
+  await expect(page.getByText("Branding reset to the defaults.")).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(page.getByLabel("Organization name")).toHaveValue("");
+  await expect(page.getByTestId("product-name")).toHaveText("Renovatio");
+  await expect(page.getByRole("img", { name: /logo$/ })).toHaveCount(0);
+  // What the signed-out sign-in page shows (checked after sign-out below).
+  await page.getByLabel("Organization name").fill("Example Clinic");
+  await page.getByLabel("Headline").fill("Welcome to Example Clinic IT");
+  await page.getByLabel("Welcome message").fill("Sign in with your work account.");
+  await page.getByLabel(/^Footer or legal text/).fill("Authorized use only.");
+  await page.getByLabel("Support email").fill("help@example.org");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Branding saved.")).toBeVisible();
+  await page.mouse.move(0, 0);
+  await slot("logo_light").locator('input[type="file"]').setInputFiles(fixture("logo.png"));
+  await expect(slot("logo_light").getByRole("img", { name: /current/ })).toBeVisible();
+
   // --- License: unlicensed evaluation, a forged license is refused, a real one is installed, expiry warning ---
   if (licenseTool && licenseKey) {
     await page.getByRole("link", { name: "License", exact: true }).click();
@@ -445,6 +535,8 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
     await expect(page.getByRole("cell", { name: "license.invalid" }).first()).toBeVisible();
   }
   if (agentBin) await expect(page.getByRole("cell", { name: "device.revoke" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "branding.update" }).first()).toBeVisible();
+  await expect(page.getByRole("cell", { name: "branding.reset" })).toBeVisible();
   await page.getByRole("button", { name: "Verify the chain" }).click();
   await expect(page.getByText(/The chain is intact/)).toBeVisible({ timeout: 20_000 });
   await page.getByLabel("Action starts with").fill("user.");
@@ -456,6 +548,18 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   // --- Sign out ---
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
+  // The signed-out sign-in page carries the deployment's branding.
+  await expect(page.getByTestId("login-headline")).toHaveText("Welcome to Example Clinic IT");
+  await expect(page.getByTestId("login-message")).toHaveText("Sign in with your work account.");
+  await expect(page.getByTestId("login-footer")).toContainText("Authorized use only.");
+  await expect(page.getByRole("link", { name: "help@example.org" })).toHaveAttribute("href", "mailto:help@example.org");
+  await expect(page.getByRole("img", { name: "Example Clinic logo" })).toBeVisible();
+  await expect(page).toHaveTitle("Sign in · Example Clinic · Renovatio");
+  await shot(page, "28-branded-login");
+  // The server also puts the title and favicon in the page itself, before any script runs.
+  const shell = await (await page.request.get("/login")).text();
+  expect(shell).toContain("<title>Example Clinic · Renovatio</title>");
+  expect(shell).toContain('id="branding-data"');
 
   expect(violations, "CSP violations").toEqual([]);
 });

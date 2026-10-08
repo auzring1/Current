@@ -3,7 +3,6 @@ package api
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"time"
 
@@ -124,7 +123,7 @@ func (s *server) mfaChallenge(w http.ResponseWriter, r *http.Request, sess *auth
 			return
 		}
 		resp = map[string]any{"mfa": "enroll", "csrf_token": sess.CSRFToken,
-			"totp_secret": auth.TOTPSecretString(secret), "otpauth_uri": auth.TOTPURI(brand.Name, u.Email, secret)}
+			"totp_secret": auth.TOTPSecretString(secret), "otpauth_uri": auth.TOTPURI(s.productName(r), u.Email, secret)}
 	case totpErr != nil && !errors.Is(totpErr, pgx.ErrNoRows):
 		internalError(w)
 		return

@@ -15,8 +15,9 @@ type apiError struct {
 }
 
 type errorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"` // per-field messages of a validation error
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -39,12 +40,17 @@ func internalError(w http.ResponseWriter) {
 
 // decode strictly parses a JSON body into dst.
 func decode(w http.ResponseWriter, r *http.Request, dst any) bool {
+	return decodeMax(w, r, dst, maxBody)
+}
+
+// decodeMax is decode with a larger body limit, for the few requests that carry an image.
+func decodeMax(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
 	ct := r.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "application/json") {
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
 		return false
 	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBody))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		var mbe *http.MaxBytesError

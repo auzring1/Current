@@ -1,8 +1,8 @@
 package api
 
 import (
+	"encoding/base64"
 	"errors"
-	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -14,9 +14,11 @@ import (
 	"github.com/auzring1/renovatio/gen/dbq"
 	"github.com/auzring1/renovatio/internal/server/audit"
 	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/branding"
 	"github.com/auzring1/renovatio/internal/server/kek"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 )
 
 func (s *server) setupStatus(w http.ResponseWriter, r *http.Request) {
@@ -96,11 +98,16 @@ type setupCompleteReq struct {
 	Password       string `json:"password"`
 	RootPassphrase string `json:"root_passphrase"`
 	TOTPCode       string `json:"totp_code"`
+	// LogoBase64 is an optional PNG or JPEG (base64, at most branding.MaxUploadBytes decoded).
+	LogoBase64 string `json:"logo_base64,omitempty"`
 }
+
+// setupBodyLimit leaves room for a base64-encoded logo (4/3 of the decoded size) plus the form fields.
+const setupBodyLimit = branding.MaxUploadBytes*4/3 + 16<<10
 
 func (s *server) setupComplete(w http.ResponseWriter, r *http.Request) {
 	var req setupCompleteReq
-	if !decode(w, r, &req) || !s.guardSetup(w, r, req.SetupToken) {
+	if !decodeMax(w, r, &req, setupBodyLimit) || !s.guardSetup(w, r, req.SetupToken) {
 		return
 	}
 	email, ok := normEmail(req.Email)
@@ -110,8 +117,8 @@ func (s *server) setupComplete(w http.ResponseWriter, r *http.Request) {
 	case !ok:
 		badRequest(w, "A valid email address is required.")
 		return
-	case org == "" || utf8.RuneCountInString(org) > 200:
-		badRequest(w, "Organization name is required (max 200 characters).")
+	case org == "" || utf8.RuneCountInString(org) > 120:
+		badRequest(w, "Organization name is required (max 120 characters).")
 		return
 	case name == "" || utf8.RuneCountInString(name) > 200:
 		badRequest(w, "Your name is required (max 200 characters).")
@@ -119,6 +126,29 @@ func (s *server) setupComplete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := auth.ValidatePassword(req.Password, email); err != nil {
 		badRequest(w, err.Error())
+		return
+	}
+	var logo *branding.Processed
+	if req.LogoBase64 != "" {
+		raw, err := base64.StdEncoding.DecodeString(req.LogoBase64)
+		if err != nil || len(raw) > branding.MaxUploadBytes {
+			badRequest(w, "The logo must be a PNG or JPEG image of at most 512 KB.")
+			return
+		}
+		p, err := branding.Process(branding.KindLogoLight, raw)
+		if err != nil {
+			var ie *branding.ImageError
+			if errors.As(err, &ie) {
+				badRequest(w, ie.Error())
+				return
+			}
+			internalError(w)
+			return
+		}
+		logo = &p
+	}
+	if _, err := branding.Validate(branding.Settings{OrgName: org}); err != nil {
+		badRequest(w, "Organization name contains characters that are not allowed.")
 		return
 	}
 	if utf8.RuneCountInString(req.RootPassphrase) < pki.MinRootPassphraseLen || utf8.RuneCountInString(req.RootPassphrase) > 1024 {
@@ -188,6 +218,9 @@ func (s *server) setupComplete(w http.ResponseWriter, r *http.Request) {
 				return q.CreateUser(r.Context(), dbq.CreateUserParams{ID: userID, OrgID: orgID, Email: email, DisplayName: name, PasswordHash: pwHash})
 			},
 			func() error {
+				return branding.SetInitial(r.Context(), q, orgID, userID, org, logo, now)
+			},
+			func() error {
 				return q.CreateUserIdentity(r.Context(), dbq.CreateUserIdentityParams{ID: uuid.New(), UserID: userID, Provider: "local", Subject: userID.String()})
 			},
 			func() error {
@@ -207,7 +240,7 @@ func (s *server) setupComplete(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err = audit.Write(r.Context(), tx, audit.Entry{OrgID: &orgID, ActorType: audit.ActorUser, ActorID: userID.String(),
 			ActorIP: clientIP(r), Action: "setup.complete", TargetType: "organization", TargetIDs: []string{orgID.String()},
-			Outcome: audit.Success, Details: map[string]any{"admin_email": email, "root_ca_pin": rootPin(hier)}}, now)
+			Outcome: audit.Success, Details: map[string]any{"admin_email": email, "root_ca_pin": rootPin(hier), "org_name": org, "logo": logo != nil}}, now)
 		return err
 	})
 	switch {

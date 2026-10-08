@@ -203,3 +203,15 @@ licenses(id, org_id, license_id, key_id, blob text (the signed RNL1 text), insta
 license_clock(singleton, high_water timestamptz)   -- highest server time seen; guards against clock rollback
 ```
 The signed text is the single source of truth: its fields (licensee, `max_devices`, term, features, `updates_until`) are parsed from it and its signature is verified again each time it is used. `renovatio_app` has only SELECT/INSERT on `licenses`. Device usage is derived: `count(devices WHERE status = 'active')` per organization.
+
+Migration `00010_branding` (decision D92). The Down section drops both tables.
+
+```
+branding(org_id PK -> organizations, org_name <=120, product_name <=60, accent_color '' | #rrggbb, secondary_color '' | #rrggbb,
+         login_headline <=120, login_message <=1000, login_footer <=1000, support_email <=254, support_phone <=40,
+         support_url <=300, report_footer <=500, updated_at, updated_by -> users (SET NULL))
+branding_assets(org_id, kind IN logo_light|logo_dark|icon|favicon|report_logo, content bytea 1..512 KiB (PNG written by the server),
+                content_type = 'image/png', width, height, sha256 (32 bytes), updated_at, updated_by)   -- PK (org_id, kind)
+```
+
+An organization without a `branding` row shows the defaults (product "Renovatio", no organization name). The first-run wizard writes the organization name (and logo) into these tables.

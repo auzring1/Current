@@ -10,7 +10,8 @@ import { DeploymentPage } from "./pages/DeploymentPage";
 import { DeploymentsPage } from "./pages/DeploymentsPage";
 import { NewDeploymentPage } from "./pages/NewDeploymentPage";
 import { PackagePage } from "./pages/PackagePage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsLayout, SettingsPage } from "./pages/SettingsPage";
+import { BrandingPage } from "./pages/BrandingPage";
 import { DevicePage } from "./pages/DevicePage";
 import { DevicesPage } from "./pages/DevicesPage";
 import { GroupsPage } from "./pages/GroupsPage";
@@ -70,7 +71,10 @@ export function App() {
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/new" element={<NewDeploymentPage />} />
         <Route path="/deployments/:id" element={<DeploymentPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<SettingsPage />} />
+          <Route path="branding" element={<BrandingPage />} />
+        </Route>
         <Route path="/license" element={<LicensePage />} />
         <Route path="/enrollment" element={<TokensPage />} />
         <Route path="/audit" element={<AuditPage />} />

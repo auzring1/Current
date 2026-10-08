@@ -65,6 +65,31 @@ func Migrate(ctx context.Context, url string, log *slog.Logger) error {
 	return nil
 }
 
+// MigrateDown rolls the schema back to version (0 removes everything), running each
+// migration's Down section newest first. It is an operator escape hatch: it drops data
+// held by the rolled-back migrations, so take a backup first.
+func MigrateDown(ctx context.Context, url string, version int64, log *slog.Logger) error {
+	cfg, err := pgx.ParseConfig(url)
+	if err != nil {
+		return fmt.Errorf("parse migration URL: %w", err)
+	}
+	sqldb := stdlib.OpenDB(*cfg)
+	defer func() { _ = sqldb.Close() }()
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqldb, migrationsFS(),
+		goose.WithSessionLocker(mustLocker()))
+	if err != nil {
+		return err
+	}
+	results, err := provider.DownTo(ctx, version)
+	for _, r := range results {
+		log.Info("migration rolled back", "version", r.Source.Version, "file", r.Source.Path, "duration", r.Duration)
+	}
+	if err != nil {
+		return fmt.Errorf("migrate down: %w", err)
+	}
+	return nil
+}
+
 // CheckLeastPrivilege warns when the runtime connection owns the schema.
 func CheckLeastPrivilege(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) {
 	var current, owner string

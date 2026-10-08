@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Center, Checkbox, Paper, PasswordInput, Stack, Stepper, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Center, Checkbox, FileInput, Paper, PasswordInput, Stack, Stepper, Text, TextInput, Title } from "@mantine/core";
 import { api, errorMessage } from "../api/client";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
-import { PRODUCT_NAME } from "../brand.generated";
+import { useBranding, useDocumentTitle } from "../branding/BrandingProvider";
+import { base64Of, checkImageFile, type LocalImage } from "../branding/images";
 
 export function SetupPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { product_name: productName } = useBranding();
+  useDocumentTitle("Set up");
+  const [logo, setLogo] = useState<LocalImage | null>(null);
+  const [logoErr, setLogoErr] = useState("");
   const [step, setStep] = useState(0);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,10 +50,12 @@ export function SetupPage() {
         password: f.password,
         root_passphrase: f.root,
         totp_code: f.code,
+        ...(logo ? { logo_base64: base64Of(logo.dataUrl) } : {}),
       });
       setCodes(r.recovery_codes);
       setStep(2);
       await qc.invalidateQueries({ queryKey: ["setup"] });
+      await qc.invalidateQueries({ queryKey: ["branding"] }); // the organization name and logo now exist
     } catch (e) {
       setErr(errorMessage(e));
     } finally {
@@ -60,7 +67,7 @@ export function SetupPage() {
     <Center mih="100vh" p="md">
       <Paper withBorder p="xl" radius="md" w={620} maw="100%">
         <Stack>
-          <Title order={2}>Set up {PRODUCT_NAME}</Title>
+          <Title order={2}>Set up {productName}</Title>
           <Stepper active={step} size="sm">
             <Stepper.Step label="Verify" description="Setup token">
               <Stack mt="md">
@@ -77,7 +84,30 @@ export function SetupPage() {
             </Stepper.Step>
             <Stepper.Step label="Administrator" description="Account, MFA and CA">
               <Stack mt="md">
-                <TextInput label="Organization name" value={f.org} onChange={set("org")} required />
+                <TextInput
+                  label="Organization name"
+                  description="Shown in the top bar, on the sign-in page and on reports. You can change it later under Settings > Branding."
+                  value={f.org}
+                  onChange={set("org")}
+                  maxLength={120}
+                  required
+                />
+                <FileInput
+                  label="Logo (optional)"
+                  description="PNG or JPEG, up to 512 KB. You can add more images later under Settings > Branding."
+                  placeholder="Choose a logo"
+                  accept="image/png,image/jpeg"
+                  clearable
+                  onChange={(file) => {
+                    setLogoErr("");
+                    if (!file) return setLogo(null);
+                    checkImageFile(file, "logo_light").then(setLogo, (e: Error) => (setLogo(null), setLogoErr(e.message)));
+                  }}
+                  error={logoErr || undefined}
+                />
+                {logo && (
+                  <img src={logo.dataUrl} alt="Logo preview" data-testid="setup-logo-preview" style={{ maxHeight: 64, maxWidth: 240, objectFit: "contain", alignSelf: "flex-start" }} />
+                )}
                 <TextInput label="Your name" value={f.name} onChange={set("name")} autoComplete="name" required />
                 <PasswordInput
                   label="Password"

@@ -5,7 +5,7 @@ import { api, errorMessage, setCsrf } from "../api/client";
 import { useSession } from "../api/session";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
 import { getAssertion, webauthnSupported } from "../api/webauthn";
-import { PRODUCT_NAME } from "../brand.generated";
+import { BrandMark, useBranding, useDocumentTitle } from "../branding/BrandingProvider";
 
 type Stage =
   | { kind: "password" }
@@ -17,6 +17,8 @@ type Stage =
 export function LoginPage() {
   const nav = useNavigate();
   const { refresh } = useSession();
+  const brand = useBranding();
+  useDocumentTitle("Sign in");
   const [stage, setStage] = useState<Stage>({ kind: "password" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -93,9 +95,23 @@ export function LoginPage() {
 
   return (
     <Center mih="100vh" p="md">
+      <Stack align="center" gap="md" maw="100%">
       <Paper withBorder p="xl" radius="md" w={440} maw="100%">
         <Stack>
-          <Title order={2}>Sign in to {PRODUCT_NAME}</Title>
+          <BrandMark height={48} />
+          <Title order={2} data-testid="login-headline">
+            {brand.login_headline || `Sign in to ${brand.product_name}`}
+          </Title>
+          {brand.org_name && (
+            <Text c="dimmed" size="sm" data-testid="login-org">
+              {brand.org_name}
+            </Text>
+          )}
+          {brand.login_message && (
+            <Text size="sm" style={{ whiteSpace: "pre-line" }} data-testid="login-message">
+              {brand.login_message}
+            </Text>
+          )}
           {stage.kind === "password" && (
             <form onSubmit={(e) => (e.preventDefault(), void login())}>
               <Stack>
@@ -167,6 +183,45 @@ export function LoginPage() {
           )}
         </Stack>
       </Paper>
+      <LoginFooter />
+      </Stack>
     </Center>
+  );
+}
+
+/** The optional legal text and support contact under the sign-in card. Everything here is plain text or a checked link. */
+function LoginFooter() {
+  const { login_footer: footer, support } = useBranding();
+  if (!footer && !support.email && !support.phone && !support.url) return null;
+  return (
+    <Stack gap={4} align="center" w={440} maw="100%" data-testid="login-footer">
+      {footer && (
+        <Text size="xs" c="dimmed" ta="center" style={{ whiteSpace: "pre-line" }}>
+          {footer}
+        </Text>
+      )}
+      {(support.email || support.phone || support.url) && (
+        <Text size="xs" ta="center">
+          Need help?{" "}
+          {support.email && (
+            <Anchor href={`mailto:${support.email}`} size="xs">
+              {support.email}
+            </Anchor>
+          )}
+          {support.email && (support.phone || support.url) && " · "}
+          {support.phone && (
+            <Anchor href={`tel:${support.phone.replace(/[^0-9+]/g, "")}`} size="xs">
+              {support.phone}
+            </Anchor>
+          )}
+          {support.phone && support.url && " · "}
+          {support.url && (
+            <Anchor href={support.url} size="xs" target="_blank" rel="noopener noreferrer">
+              Support site
+            </Anchor>
+          )}
+        </Text>
+      )}
+    </Stack>
   );
 }

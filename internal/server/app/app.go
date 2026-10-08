@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/auzring1/renovatio/internal/shared/brand"
@@ -24,6 +25,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/agentrel"
 	"github.com/auzring1/renovatio/internal/server/api"
 	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/branding"
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/config"
 	"github.com/auzring1/renovatio/internal/server/deploy"
@@ -54,6 +56,8 @@ type App struct {
 	Catalog  *catalog.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
+	// Branding holds the per-deployment names, colors, login texts and images.
+	Branding *branding.Service
 
 	authority atomic.Pointer[pki.Authority]
 
@@ -104,6 +108,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		return nil, err
 	}
 	a.Licensing = lic
+	a.Branding = &branding.Service{Pool: pool, Log: log.With("component", "branding")}
 	a.Releases.Licensing = lic
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
@@ -211,8 +216,8 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing,
-	}, webui.Handler())
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding,
+	}, webui.Handler(a.pageHead))
 }
 
 // Run serves HTTP and (once the CA exists) the agent gateway until ctx ends.
@@ -352,4 +357,21 @@ func newCatalog(cfg *config.Config, pool *pgxpool.Pool) *catalog.Service {
 		s.Content = &catalog.Store{Dir: cfg.ContentDir}
 	}
 	return s
+}
+
+// pageHead supplies the per-deployment <title>, favicon and branding data for
+// the console's HTML shell. Errors fall back to the product defaults.
+func (a *App) pageHead(ctx context.Context) webui.Head {
+	p, err := a.Branding.Public(ctx)
+	if err != nil {
+		return webui.Head{}
+	}
+	h := webui.Head{Title: p.Title}
+	if f := p.Assets[branding.KindFavicon]; f != nil {
+		h.Favicon = f.URL
+	}
+	if j, err := json.Marshal(p); err == nil {
+		h.JSON = string(j)
+	}
+	return h
 }

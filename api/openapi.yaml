@@ -26,6 +26,7 @@ tags:
   - name: identity
   - name: policies
   - name: license
+  - name: branding
 paths:
   /setup/status:
     get:
@@ -82,12 +83,13 @@ paths:
               required: [setup_token, org_name, display_name, email, password, root_passphrase, totp_code]
               properties:
                 setup_token: { type: string, maxLength: 128 }
-                org_name: { type: string, minLength: 1, maxLength: 200 }
+                org_name: { type: string, minLength: 1, maxLength: 120, description: "Also becomes the branding organization name" }
                 display_name: { type: string, minLength: 1, maxLength: 200 }
                 email: { type: string, format: email, maxLength: 254 }
                 password: { type: string, minLength: 12, maxLength: 256 }
                 root_passphrase: { type: string, minLength: 16, maxLength: 1024 }
                 totp_code: { type: string, pattern: "^[0-9]{6}$" }
+                logo_base64: { type: string, description: "Optional logo, a PNG or JPEG of at most 512 KiB, base64-encoded; stored re-encoded as the light-background logo" }
       responses:
         "200":
           description: Setup complete; recovery codes are shown once
@@ -1269,6 +1271,114 @@ paths:
         "204": { description: Removed }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /branding:
+    get:
+      tags: [branding]
+      summary: What the signed-out pages show - names, colors, login texts, support contact and image links
+      description: >
+        Public on purpose (the login page needs it) and cacheable by ETag. Before first-run setup it is the stock
+        branding. Contains only display values; nothing that identifies users or devices.
+      security: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicBranding" }
+        "304": { description: Not modified }
+  /branding/assets/{kind}:
+    get:
+      tags: [branding]
+      summary: One branding image (always image/png, re-encoded by the server)
+      description: >
+        Served with X-Content-Type-Options nosniff, Content-Security-Policy "default-src 'none'; sandbox" and
+        Cross-Origin-Resource-Policy same-origin. A ?v=<version> query makes the response immutable-cacheable.
+      security: []
+      parameters:
+        - { name: kind, in: path, required: true, schema: { $ref: "#/components/schemas/BrandingAssetKind" } }
+      responses:
+        "200":
+          description: PNG image
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "304": { description: Not modified }
+        "404": { description: No image in that slot }
+  /settings/branding:
+    get:
+      tags: [branding]
+      summary: Branding settings, resolved values, images and the live contrast checks (requires branding:write, administrators only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandingView" }
+    put:
+      tags: [branding]
+      summary: Replace the branding texts and colors (requires branding:write; audited as branding.update with before and after)
+      description: >
+        Empty strings mean the default (product name, accent) or nothing (everything else). A color combination that
+        fails WCAG AA contrast is refused with 422 invalid_branding and a message per field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrandingSettings" }
+      responses:
+        "200":
+          description: Saved; the new view
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandingView" }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/branding/assets/{kind}:
+    put:
+      tags: [branding]
+      summary: Upload an image as the raw request body (requires branding:write; audited as branding.asset_set)
+      description: >
+        Only image/png and image/jpeg, at most 512 KiB, with per-slot dimension limits. SVG is refused (415). The
+        file is decoded and re-encoded as a clean PNG: metadata, comments and trailing bytes are dropped.
+      parameters:
+        - { name: kind, in: path, required: true, schema: { $ref: "#/components/schemas/BrandingAssetKind" } }
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Stored; the new view
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandingView" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [branding]
+      summary: Remove an image (requires branding:write; audited as branding.asset_delete)
+      parameters:
+        - { name: kind, in: path, required: true, schema: { $ref: "#/components/schemas/BrandingAssetKind" } }
+      responses:
+        "200":
+          description: Removed; the new view
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandingView" }
+        "404": { $ref: "#/components/responses/Error" }
+  /settings/branding/reset:
+    post:
+      tags: [branding]
+      summary: Reset branding to the defaults - texts, colors and images (requires branding:write; audited as branding.reset)
+      responses:
+        "200":
+          description: Reset; the new view
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrandingView" }
   /license:
     get:
       tags: [license]
@@ -1613,6 +1723,16 @@ paths:
           description: CSV
           content:
             text/csv:
+              schema: { type: string }
+  /reports/compliance.html:
+    get:
+      tags: [reports]
+      summary: Patch compliance per device as a printable page with the deployment's report logo, organization name and footer (requires inventory:export; audited)
+      responses:
+        "200":
+          description: A standalone HTML page (no scripts; strict CSP)
+          content:
+            text/html:
               schema: { type: string }
   /update-conflicts:
     get:
@@ -2105,6 +2225,88 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+            fields: { type: object, additionalProperties: { type: string }, description: "Per-field messages (invalid_branding)" }
+    BrandingAssetKind:
+      type: string
+      enum: [logo_light, logo_dark, icon, favicon, report_logo]
+    BrandingSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        org_name: { type: string, maxLength: 120 }
+        product_name: { type: string, maxLength: 60, description: "Empty = Renovatio" }
+        accent_color: { type: string, description: "#rrggbb; empty = default. Must reach 4.5:1 against white and 3:1 against the dark theme surface." }
+        secondary_color: { type: string, description: "#rrggbb or empty; must reach 3:1 against both themes" }
+        login_headline: { type: string, maxLength: 120 }
+        login_message: { type: string, maxLength: 1000 }
+        login_footer: { type: string, maxLength: 1000 }
+        support_email: { type: string, maxLength: 254 }
+        support_phone: { type: string, maxLength: 40 }
+        support_url: { type: string, maxLength: 300, description: "https only" }
+        report_footer: { type: string, maxLength: 500 }
+    BrandingAssetRef:
+      type: object
+      required: [url, width, height]
+      properties:
+        url: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+    PublicBranding:
+      type: object
+      required: [product_name, org_name, title, accent_color, secondary_color, login_headline, login_message, login_footer, support, assets, version]
+      properties:
+        product_name: { type: string }
+        org_name: { type: string }
+        title: { type: string }
+        accent_color: { type: string }
+        secondary_color: { type: string }
+        login_headline: { type: string }
+        login_message: { type: string }
+        login_footer: { type: string }
+        support:
+          type: object
+          properties:
+            email: { type: string }
+            phone: { type: string }
+            url: { type: string }
+        assets: { type: object, additionalProperties: { $ref: "#/components/schemas/BrandingAssetRef" } }
+        version: { type: string }
+    BrandingContrastCheck:
+      type: object
+      required: [id, label, foreground, background, ratio, required, pass]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        foreground: { type: string }
+        background: { type: string }
+        ratio: { type: number }
+        required: { type: number }
+        pass: { type: boolean }
+    BrandingAssetInfo:
+      allOf:
+        - { $ref: "#/components/schemas/BrandingAssetRef" }
+        - type: object
+          required: [kind, size, sha256, updated_at]
+          properties:
+            kind: { type: string }
+            size: { type: integer, format: int64 }
+            sha256: { type: string }
+            updated_at: { type: string, format: date-time }
+    BrandingView:
+      type: object
+      required: [settings, resolved, assets, defaults, contrast]
+      properties:
+        settings: { $ref: "#/components/schemas/BrandingSettings" }
+        resolved: { $ref: "#/components/schemas/PublicBranding" }
+        assets: { type: object, additionalProperties: { $ref: "#/components/schemas/BrandingAssetInfo" } }
+        defaults:
+          type: object
+          required: [product_name, accent_color]
+          properties:
+            product_name: { type: string }
+            accent_color: { type: string }
+        contrast: { type: array, items: { $ref: "#/components/schemas/BrandingContrastCheck" } }
+        updated_at: { type: string, format: date-time, nullable: true }
     TOTPEnrollment:
       type: object
       required: [totp_secret, otpauth_uri]

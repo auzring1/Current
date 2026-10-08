@@ -60,7 +60,9 @@ Run the web console against a local server: start the server with `RENOVATIO_DEV
 | [DATA_MODEL](docs/DATA_MODEL.md) | PostgreSQL schema |
 | [SECURITY](docs/SECURITY.md) | Threat model, Phase 1 controls with evidence, known gaps, disclosure policy |
 | [DECISIONS](docs/DECISIONS.md) | Owner decisions and engineering defaults |
-| [RUNBOOK](docs/RUNBOOK.md) | Install, operate, troubleshoot |
+| [RUNBOOK](docs/RUNBOOK.md) | Install, operate, troubleshoot (branding: §5g) |
 | [Research: winget & user context](docs/research/winget-and-user-context.md) | Why we don't execute through winget |
+
+**Branding:** the organization name, product name, logos, colors and sign-in texts are configuration, not source: set them in the first-run wizard and under Settings > Branding (administrators only).
 
 License: proprietary, all rights reserved (see [LICENSE](LICENSE)). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

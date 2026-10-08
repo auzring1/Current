@@ -120,6 +120,28 @@ func TestPreviousNameIsGone(t *testing.T) {
 	}
 }
 
+// TestNoCustomerNames fails when a customer's name is baked into code, seed data, defaults or docs. A deployment's
+// organization name is configuration (Settings > Branding, or the first-run wizard), never source.
+func TestNoCustomerNames(t *testing.T) {
+	// Assembled so this file does not contain the words it forbids.
+	banned := []string{"whit" + "man", "medical " + "clinics"}
+	var bad []string
+	walk(t, func(rel string, data []byte) {
+		if rel == "internal/shared/brand/brand_test.go" {
+			return
+		}
+		low := strings.ToLower(string(data))
+		for _, b := range banned {
+			if i := strings.Index(low, b); i >= 0 {
+				bad = append(bad, rel+": contains "+strconv.Quote(b)+" near line "+strconv.Itoa(1+strings.Count(low[:i], "\n")))
+			}
+		}
+	})
+	if len(bad) > 0 {
+		t.Fatalf("customer names must not appear in the repository:\n%s", strings.Join(bad, "\n"))
+	}
+}
+
 // TestNameIsNotHardCoded fails when the current product name is typed into a Go string literal, a web
 // source file or an MSI attribute: it must come from the single source of truth.
 func TestNameIsNotHardCoded(t *testing.T) {
@@ -155,7 +177,7 @@ func TestNameIsNotHardCoded(t *testing.T) {
 			}
 		case rel == "web/index.html":
 			if strings.Contains(string(data), Name) {
-				bad = append(bad, rel+": use %PRODUCT_NAME%")
+				bad = append(bad, rel+": the server fills the title from the deployment's branding")
 			}
 		}
 	})
