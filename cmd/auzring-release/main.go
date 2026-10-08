@@ -4,7 +4,7 @@
 //	auzring-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
 //	                     [--min-version V] [--rollback-from V,...] [--authenticode-subject CN] [--notes TEXT] --out agent-1.2.3.azr
 //	auzring-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
-//	auzring-release attach --manifest manifest.json --signature sig.bin --key-id ID --out agent-1.2.3.azr
+//	auzring-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.azr
 //	auzring-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
 //	auzring-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
 //	auzring-release verify --bundle agent-1.2.3.azr --exe agent.exe --pub release.pub
@@ -205,6 +205,7 @@ func attach(args []string) error {
 	mf := fl.String("manifest", "", "manifest file")
 	sf := fl.String("signature", "", "raw 64-byte Ed25519 signature file")
 	keyID := fl.String("key-id", "", "key id (hex) of the signing key")
+	pub := fl.String("pub", "", "the signing key's public key (hex, or a file holding it): the key id is derived from it and the signature is verified before the bundle is written")
 	out := fl.String("out", "", "bundle to write (.azr)")
 	if err := fl.Parse(args); err != nil {
 		return err
@@ -216,6 +217,23 @@ func attach(args []string) error {
 	sig, err := os.ReadFile(*sf) // #nosec G304 -- operator-chosen path
 	if err != nil {
 		return err
+	}
+	if *pub != "" {
+		hexKey := *pub
+		if b, err := os.ReadFile(*pub); err == nil { // #nosec G304 -- operator-chosen path
+			hexKey = string(b)
+		}
+		keys, err := release.ParseKeys(strings.TrimSpace(hexKey))
+		if err != nil || len(keys) != 1 {
+			return errors.New("--pub must hold exactly one Ed25519 public key in hex")
+		}
+		if _, err := release.Verify(keys, mb, sig, ""); err != nil {
+			return fmt.Errorf("the signature does not verify under --pub: %w", err)
+		}
+		*keyID = release.KeyID(keys[0])
+	}
+	if *keyID == "" {
+		return errors.New("--key-id or --pub is required")
 	}
 	return writeBundle(*out, mb, sig, *keyID)
 }
