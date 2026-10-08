@@ -65,6 +65,7 @@ type Gateway struct {
 	updates     *updates.Service
 	content     *catalog.Store
 	fetching    *fetchLimiter
+	licensing   Licensing
 }
 
 // Options configure a Gateway.
@@ -82,6 +83,15 @@ type Options struct {
 	Content *catalog.Store
 	// Updates stores Windows Update snapshots from devices.
 	Updates *updates.Service
+	// Licensing enforces the device cap on NEW enrollments (nothing else). Nil disables the check.
+	Licensing Licensing
+}
+
+// Licensing is the licensing check made when a device enrolls.
+type Licensing interface {
+	// CheckNewDevice returns a *licensing.LimitError when no slot is free. It runs inside the
+	// enrollment transaction.
+	CheckNewDevice(ctx context.Context, q *dbq.Queries, org uuid.UUID, replaces *uuid.UUID) error
 }
 
 // New creates a gateway; call RefreshCertificate before Serve.
@@ -99,7 +109,7 @@ func New(o Options) *Gateway {
 		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
 		invDevice: auth.NewLimiter(120, time.Minute, 450),
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
-		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2),
+		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2), licensing: o.Licensing,
 	}
 }
 
