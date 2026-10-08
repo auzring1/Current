@@ -197,7 +197,7 @@ audit_log(id bigint identity, ts, org_id, actor_type[user|api_token|system|devic
 - An optional syslog/JSON forwarder streams entries to a SIEM.
 
 ## Licensing (Phase 6)
-Migration `00009_licenses` (decisions D78-D81).
+Migration `00009_licenses` (decisions D85-D88).
 ```
 licenses(id, org_id, license_id, key_id, blob text (the signed AZL1 text), installed_by, installed_at)   -- insert-only history; newest row is in force
 license_clock(singleton, high_water timestamptz)   -- highest server time seen; guards against clock rollback

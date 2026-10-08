@@ -5,7 +5,7 @@
 // Verification never contacts anybody: there is no phone-home of any kind (decision O9).
 //
 // The license key is a different key from the release key and signs under its own domain separator,
-// so a signature made for one purpose can never be replayed for the other (docs/SECURITY.md §9e).
+// so a signature made for one purpose can never be replayed for the other (docs/SECURITY.md §9g).
 //
 // Text form, suitable for pasting into the console or an e-mail:
 //

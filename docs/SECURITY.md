@@ -350,9 +350,9 @@ Scope: the Windows MSI that wraps `auzring-agent.exe install` / `uninstall` for 
 - Partitioned tables are supported (the parent is dumped and reloaded through the parent, partitions are not listed), but a partition that does not exist in the target schema fails the load. Foreign-key cycles between tables are not supported and make the backup fail with a clear message (a test fails first if a migration introduces one).
 - Not yet verified: restore into a different PostgreSQL major version than the one that made the backup (the format is COPY text, which is portable, but only PostgreSQL 16 was tested), and backups of databases larger than the test data (the design streams, but no multi-GB run was made).
 
-## 9e. Phase 6: licensing
+## 9g. Phase 6: licensing
 
-Offline-verifiable license keys (`internal/shared/license`, `internal/server/licensing`, `cmd/auzring-license`; decisions D78-D81, operations in RUNBOOK §5f). The license is a vendor-signed document that the server checks locally; nothing is ever sent to the vendor (O9).
+Offline-verifiable license keys (`internal/shared/license`, `internal/server/licensing`, `cmd/auzring-license`; decisions D85-D88, operations in RUNBOOK §5f). The license is a vendor-signed document that the server checks locally; nothing is ever sent to the vendor (O9).
 
 | Threat | Control | Evidence |
 |---|---|---|

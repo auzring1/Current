@@ -138,7 +138,7 @@ I stop for review after each phase.
 - Security review against SECURITY.md, plus fuzzing of the protocol, manifest and uninstall-string parsers.
 - Load test with 10k simulated agents (`cmd/auzring-loadsim`), including a reconnect-storm scenario.
 - Release pipeline: reproducible builds, SBOMs, cosign and Authenticode signing.
-- Offline-verifiable license keys: Ed25519-signed license documents, checked by the server with no phone-home. *(Mechanism implemented: `internal/shared/license`, `internal/server/licensing`, `cmd/auzring-license`, the License page; see DECISIONS D78-D81 and SECURITY §9e. Default policy: 25-device evaluation, 30-day grace, the cap blocks only new enrollments. The business model, O8, is still open.)*
+- Offline-verifiable license keys: Ed25519-signed license documents, checked by the server with no phone-home. *(Mechanism implemented: `internal/shared/license`, `internal/server/licensing`, `cmd/auzring-license`, the License page; see DECISIONS D85-D88 and SECURITY §9g. Default policy: 25-device evaluation, 30-day grace, the cap blocks only new enrollments. The business model, O8, is still open.)*
 - Final documentation pass.
 
 ## 5. Biggest risks I see up front
