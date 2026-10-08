@@ -7,6 +7,7 @@ import { useSession } from "../api/session";
 import { api, errorMessage, type Device } from "../api/client";
 import { ago } from "../api/format";
 import { OnlineDot, StatusBadge } from "../components/common";
+import { LicenseBanner } from "../components/LicenseBanner";
 
 export function DevicesPage() {
   const [status, setStatus] = useState("all");
@@ -37,6 +38,7 @@ export function DevicesPage() {
 
   return (
     <>
+      <LicenseBanner />
       <Group justify="space-between" mb="md">
         <Title order={2}>Devices</Title>
         <SegmentedControl

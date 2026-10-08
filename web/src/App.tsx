@@ -21,6 +21,7 @@ import { TokensPage } from "./pages/TokensPage";
 import { PoliciesPage } from "./pages/PoliciesPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AgentUpdatesPage } from "./pages/AgentUpdatesPage";
+import { LicensePage } from "./pages/LicensePage";
 import { AccountPage } from "./pages/AccountPage";
 import { SitesPage } from "./pages/SitesPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -70,6 +71,7 @@ export function App() {
         <Route path="/deployments/new" element={<NewDeploymentPage />} />
         <Route path="/deployments/:id" element={<DeploymentPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/license" element={<LicensePage />} />
         <Route path="/enrollment" element={<TokensPage />} />
         <Route path="/audit" element={<AuditPage />} />
       </Route>
