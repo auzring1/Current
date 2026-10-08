@@ -44,7 +44,17 @@ func TestExternalSignerRoundTrip(t *testing.T) {
 		t.Fatal("bad public key file")
 	}
 	kid := release.KeyID(raw)
-	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--key-id", kid, "--out", p("external.azr")}); err != nil {
+	// A signature from some other key must be refused at attach time.
+	if err := keygen([]string{"--out", p("other.key")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("other.pub"), "--out", p("wrong.azr")}); err == nil {
+		t.Fatal("attach accepted a signature that does not verify under the given public key")
+	}
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("release.pub"), "--out", p("external.azr")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--key-id", kid, "--out", p("byid.azr")}); err != nil {
 		t.Fatal(err)
 	}
 	if err := verify([]string{"--bundle", p("external.azr"), "--exe", exe, "--pub", p("release.pub")}); err != nil {
