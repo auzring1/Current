@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // it) applies everywhere. Theme files, the design folder and the branding preview are where raw colors belong. A line
 // can opt out with the marker "rnv-allow-raw-color" and a reason.
 const ROOTS = ["src/ui", "src/pages", "src/components"];
-const RAW = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|\b(?:white|black)\b(?=\s*[;"'}])/g;
+const RAW = /#[0-9a-fA-F]{3,8}\b|\brgba?\((?!\s*var\()|\bhsla?\((?!\s*var\()|\b(?:white|black)\b(?=\s*[;"'}])/g;
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
