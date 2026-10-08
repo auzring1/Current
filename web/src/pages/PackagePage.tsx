@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Card, Checkbox, Code, Group, Loader, Select, SimpleGrid, Stack, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
-import { api, errorMessage, type Detection, type PackageDetail, type PackageOverride } from "../api/client";
+import { Alert, Button, Checkbox, Select, Textarea, TextInput } from "@mantine/core";
+import { api, errorMessage, type Detection, type Installer, type PackageDetail, type PackageOverride } from "../api/client";
 import { bytes, dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { PackageBadges } from "./CatalogPage";
 import { PRODUCT_NAME } from "../brand.generated";
+import { Card, DataTable, EmptyState, Icons, Page, PageHeader, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
+import { Fields } from "../ui/PageBits";
 
 const policies = [
   { value: "", label: "Use the organization default" },
@@ -28,120 +29,153 @@ export function PackagePage() {
   const { can } = useSession();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const q = useQuery({ queryKey: ["catalog", "package", id], queryFn: () => api<PackageDetail>("GET", `/catalog/packages/${id}`), enabled: !!id });
   const del = useMutation({
     mutationFn: () => api("DELETE", `/catalog/packages/${id}`),
-    onSuccess: () => (notifications.show({ color: "green", message: "Package removed." }), qc.invalidateQueries({ queryKey: ["catalog"] }), nav("/catalog")),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Package removed."), qc.invalidateQueries({ queryKey: ["catalog"] }), nav("/catalog")),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const d = q.data;
+  const homepage = d?.package.homepage;
   return (
-    <>
-      <Anchor component={Link} to="/catalog" size="sm">
-        ← Catalog
-      </Anchor>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {d && (
-        <Stack mt="xs">
-          <Group justify="space-between">
-            <div>
-              <Title order={2}>{d.package.name}</Title>
-              <Text size="sm" c="dimmed">
-                {d.package.identifier} · {d.package.publisher || "unknown publisher"}
-              </Text>
-            </div>
-            <Group>
+    <Page>
+      <PageHeader
+        title={d ? d.package.name : "Package"}
+        description={d ? `${d.package.identifier} · ${d.package.publisher || "unknown publisher"}` : undefined}
+        breadcrumbs={[{ label: "Catalog", to: "/catalog" }, { label: d?.package.name ?? "Package" }]}
+        actions={
+          d ? (
+            <>
               {can("deployments:write") && (
-                <Button component={Link} to={`/deployments/new?package=${d.package.id}`}>
+                <Button component={Link} to={`/deployments/new?package=${d.package.id}`} leftSection={<Icons.NavDeployments size={16} aria-hidden />}>
                   Deploy
                 </Button>
               )}
               {can("catalog:write") && (
-                <Button variant="light" color="red" onClick={() => window.confirm(`Remove ${d.package.name} from the catalog?`) && del.mutate()}>
+                <Button
+                  variant="light"
+                  color="red"
+                  leftSection={<Icons.Trash size={16} aria-hidden />}
+                  loading={del.isPending}
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: `Remove ${d.package.name} from the catalog?`,
+                      message: "Its versions and overrides are deleted. Deployments that already ran keep their history.",
+                      confirmLabel: "Remove package",
+                      danger: true,
+                    });
+                    if (ok) del.mutate();
+                  }}
+                >
                   Remove
                 </Button>
               )}
-            </Group>
-          </Group>
-          <PackageBadges p={d.package} />
-          {d.package.description && <Text size="sm">{d.package.description}</Text>}
-          <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <Field label="License" value={d.package.license} />
-            <Field label="Homepage" value={d.package.homepage} />
-            <Field label="Effective per-user policy" value={`${d.effective_user_scope_policy} (${d.effective_user_scope_policy_source || "default"})`} />
-          </SimpleGrid>
+            </>
+          ) : undefined
+        }
+      />
+      {q.isLoading && <TileSkeleton count={3} />}
+      {q.error && (
+        <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+          {errorMessage(q.error)}
+        </Alert>
+      )}
+      {d && (
+        <>
           {!d.package.verified && d.package.source === "winget" && (
-            <Alert color="yellow" title="Unverified package">
+            <Alert color="yellow" title="Unverified package" icon={<Icons.Warning size={18} aria-hidden />}>
               This package has not passed the {PRODUCT_NAME} VM test matrix. Its installer type and silent switches come from the community manifest. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
             </Alert>
           )}
-          <Title order={4}>Versions and installers</Title>
+          <Card title="Details" actions={<PackageBadges p={d.package} />}>
+            <div className="rnv-block">
+              {d.package.description && <p style={{ margin: 0 }}>{d.package.description}</p>}
+              <Fields
+                items={[
+                  { label: "License", value: d.package.license },
+                  {
+                    label: "Homepage",
+                    value: homepage && /^https?:\/\//i.test(homepage) ? (
+                      <a href={homepage} target="_blank" rel="noopener noreferrer">
+                        {homepage}
+                      </a>
+                    ) : (
+                      homepage
+                    ),
+                  },
+                  { label: "Effective per-user policy", value: `${d.effective_user_scope_policy} (${d.effective_user_scope_policy_source || "default"})` },
+                ]}
+              />
+            </div>
+          </Card>
+          {(d.versions ?? []).length === 0 && (
+            <Card>
+              <EmptyState icon={<Icons.NavCatalog size={26} />} title="No versions imported" description="Import a version from winget or upload an installer to make this package deployable." />
+            </Card>
+          )}
           {(d.versions ?? []).map((v) => (
-            <Card key={v.id} withBorder padding="sm">
-              <Group justify="space-between" mb="xs">
-                <Text fw={600}>{v.version}</Text>
-                <Text size="xs" c="dimmed">
-                  imported {dateTime(v.imported_at)}
-                </Text>
-              </Group>
-              <Table.ScrollContainer minWidth={700}>
-                <Table verticalSpacing={4} fz="sm" aria-label={`Installers of ${v.version}`}>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Arch</Table.Th>
-                      <Table.Th>Scope</Table.Th>
-                      <Table.Th>Type</Table.Th>
-                      <Table.Th>Size</Table.Th>
-                      <Table.Th>SHA-256</Table.Th>
-                      <Table.Th>Status</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {(v.installers ?? []).map((i) => (
-                      <Table.Tr key={i.id}>
-                        <Table.Td>{i.architecture}</Table.Td>
-                        <Table.Td>{i.scope}</Table.Td>
-                        <Table.Td>{i.type}</Table.Td>
-                        <Table.Td>{bytes(i.size)}</Table.Td>
-                        <Table.Td>
-                          <Code>{i.sha256 ? i.sha256.slice(0, 16) + "…" : "—"}</Code>
-                        </Table.Td>
-                        <Table.Td>
-                          {i.unsupported ? (
-                            <Text size="xs" c="red">
-                              not deployable: {i.unsupported}
-                            </Text>
-                          ) : (
-                            <Badge size="xs" color="green" variant="light">
-                              {i.server_content ? `served by ${PRODUCT_NAME}` : "vendor download"}
-                            </Badge>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
+            <Card key={v.id} title={`Version ${v.version}`} description={`Imported ${dateTime(v.imported_at)}`} flush>
+              <InstallersTable versionId={v.id} version={v.version} installers={v.installers ?? []} />
             </Card>
           ))}
           <Overrides detail={d} />
-        </Stack>
+        </>
       )}
-    </>
+    </Page>
   );
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function InstallersTable({ versionId, version, installers }: { versionId: string; version: string; installers: Installer[] }) {
+  const columns = useMemo<Column<Installer>[]>(
+    () => [
+      { id: "arch", header: "Arch", value: (i) => i.architecture, required: true, width: 100 },
+      { id: "scope", header: "Scope", value: (i) => i.scope, width: 100 },
+      { id: "type", header: "Type", value: (i) => i.type, width: 100 },
+      { id: "size", header: "Size", value: (i) => i.size ?? 0, align: "right", width: 110, cell: (i) => <span className="rnv-num">{bytes(i.size)}</span>, csv: (i) => String(i.size ?? "") },
+      {
+        id: "sha256",
+        header: "SHA-256",
+        value: (i) => i.sha256 ?? "",
+        width: 190,
+        cell: (i) => (
+          <span className="rnv-mono" title={i.sha256}>
+            {i.sha256 ? i.sha256.slice(0, 16) + "…" : "—"}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        value: (i) => (i.unsupported ? `not deployable: ${i.unsupported}` : i.server_content ? `served by ${PRODUCT_NAME}` : "vendor download"),
+        width: 260,
+        wrap: true,
+        cell: (i) =>
+          i.unsupported ? (
+            <StatusPill kind="danger" size="sm">
+              Not deployable: {i.unsupported}
+            </StatusPill>
+          ) : (
+            <StatusPill kind="success" size="sm">
+              {i.server_content ? `Served by ${PRODUCT_NAME}` : "Vendor download"}
+            </StatusPill>
+          ),
+      },
+    ],
+    [],
+  );
   return (
-    <div>
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Text size="sm" style={{ wordBreak: "break-word" }}>
-        {value || "—"}
-      </Text>
-    </div>
+    <DataTable<Installer>
+      id="package-installers"
+      label={`Installers of ${version}`}
+      data={installers}
+      columns={columns}
+      rowId={(i) => `${versionId}-${i.id}`}
+      rowLabel={(i) => `${i.architecture} ${i.scope} ${i.type}`}
+      pageSize={10}
+      searchPlaceholder="Search installers"
+      empty={<EmptyState icon={<Icons.NavCatalog size={26} />} title="No installers" description="This version has no installers." />}
+    />
   );
 }
 
@@ -184,18 +218,22 @@ function Overrides({ detail }: { detail: PackageDetail }) {
       };
       return api("PUT", `/catalog/packages/${detail.package.id}/overrides`, body);
     },
-    onSuccess: () => (notifications.show({ color: "green", message: "Overrides saved." }), qc.invalidateQueries({ queryKey: ["catalog"] })),
+    onSuccess: () => (toast.success("Overrides saved."), qc.invalidateQueries({ queryKey: ["catalog"] })),
     onError: (e) => setError(errorMessage(e)),
   });
   return (
-    <Card withBorder padding="md">
-      <Title order={4} mb="xs">
-        Overrides
-      </Title>
-      <Text size="sm" c="dimmed" mb="sm">
-        Organization-specific changes to how this package is deployed. {editable ? "Every change is audited." : "Only administrators can change these."}
-      </Text>
-      <Stack>
+    <Card
+      title="Overrides"
+      description={`Organization-specific changes to how this package is deployed. ${editable ? "Every change is audited." : "Only administrators can change these."}`}
+      footer={
+        editable ? (
+          <Button onClick={() => save.mutate()} loading={save.isPending} leftSection={<Icons.Save size={16} aria-hidden />}>
+            Save overrides
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="rnv-block">
         <TextInput
           label="Silent arguments"
           description="Replaces the manifest's switches. Only plain switches such as /S or /quiet are accepted."
@@ -224,15 +262,12 @@ function Overrides({ detail }: { detail: PackageDetail }) {
           ff="monospace"
         />
         <Checkbox label="Exclude this package from deployments" checked={excluded} disabled={!editable} onChange={(e) => setExcluded(e.currentTarget.checked)} />
-        {error && <Alert color="red">{error}</Alert>}
-        {editable && (
-          <Group>
-            <Button onClick={() => save.mutate()} loading={save.isPending}>
-              Save overrides
-            </Button>
-          </Group>
+        {error && (
+          <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+            {error}
+          </Alert>
         )}
-      </Stack>
+      </div>
     </Card>
   );
 }
