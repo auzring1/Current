@@ -75,6 +75,7 @@ type fleet struct {
 	agents     []*simAgent
 	connected  atomic.Int64
 	stormEpoch atomic.Int64 // bumped when a storm begins
+	inflight   atomic.Int64 // inventory reports sent and not yet acknowledged, fleet wide
 	cur        atomic.Pointer[phase]
 	phases     []*phase
 	phMu       sync.Mutex

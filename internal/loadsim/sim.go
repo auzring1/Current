@@ -106,6 +106,12 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 	}
 	if int(f.connected.Load()) >= need {
 		rep.RampS = time.Since(rampStart).Seconds()
+		// Connected is not onboarded: wait for the first inventory reports to be acknowledged, so that
+		// the hold phase measures a settled fleet and the ramp phase owns the initial load.
+		for f.inflight.Load() > 0 && time.Since(rampStart) < cfg.RampTimeout && ctx.Err() == nil {
+			time.Sleep(100 * time.Millisecond)
+		}
+		rep.SyncedS = time.Since(rampStart).Seconds()
 	} else {
 		rep.Failures = append(rep.Failures, fmt.Sprintf("only %d of %d agents connected after %s", f.connected.Load(), cfg.Agents, cfg.RampTimeout))
 	}
