@@ -57,6 +57,7 @@ type Gateway struct {
 
 	enrollIP    *auth.Limiter
 	enrollToken *auth.Limiter
+	enrollGate  gate // bounds enrollment transactions in flight (see gate.go)
 	statusIP    *auth.Limiter
 	renewDevice *auth.Limiter
 	invDevice   *auth.Limiter
@@ -102,10 +103,13 @@ func New(o Options) *Gateway {
 	if now == nil {
 		now = time.Now
 	}
+	perIP := rateOr(o.Config.EnrollRatePerIP, config.DefaultEnrollRatePerIP)
+	perToken := rateOr(o.Config.EnrollRatePerToken, config.DefaultEnrollRatePerToken)
 	return &Gateway{cfg: o.Config, pool: o.Pool, sealer: o.Sealer, authority: o.Authority, events: o.Events,
 		hub: o.Hub, log: o.Log, now: now,
-		enrollIP:    auth.NewLimiter(10, time.Minute, 10),
-		enrollToken: auth.NewLimiter(60, time.Minute, 60),
+		enrollIP:    auth.NewLimiter(perIP, time.Minute, perIP),
+		enrollToken: auth.NewLimiter(perToken, time.Minute, perToken),
+		enrollGate:  newGate(maxEnrollTx),
 		statusIP:    auth.NewLimiter(30, time.Minute, 30),
 		renewDevice: auth.NewLimiter(5, time.Hour, 5),
 		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
@@ -115,6 +119,17 @@ func New(o Options) *Gateway {
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
 		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2), licensing: o.Licensing,
 	}
+}
+
+// maxEnrollTx is how many enrollment transactions may run at once (a quarter of the 32-connection pool).
+const maxEnrollTx = 8
+
+// rateOr returns n, or def when n is unset (tests build a Config by hand).
+func rateOr(n, def int) int {
+	if n <= 0 {
+		return def
+	}
+	return n
 }
 
 // RefreshCertificate loads or (re-)issues the gateway TLS certificate.

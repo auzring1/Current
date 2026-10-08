@@ -327,11 +327,17 @@ func (a *Agent) pollApproval(ctx context.Context, id *store.Identity) (time.Dura
 }
 
 func (a *Agent) dial(tc *tls.Config) (*grpc.ClientConn, error) {
-	return grpc.NewClient("passthrough:///"+a.Cfg.Server,
+	return grpc.NewClient("passthrough:///"+a.Cfg.Server, DialOptions(tc)...)
+}
+
+// DialOptions are the gRPC client options of the real agent (TLS credentials, keepalive, message
+// limits). The load generator uses them so its connections behave like the agent's.
+func DialOptions(tc *tls.Config) []grpc.DialOption {
+	return []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(tc)),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 90 * time.Second, Timeout: 20 * time.Second, PermitWithoutStream: true}),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsg), grpc.MaxCallSendMsgSize(maxMsg)),
-	)
+	}
 }
 
 // goAway carries the server's retry hint out of a session.

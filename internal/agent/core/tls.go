@@ -80,3 +80,12 @@ func mutualTLS(server string, root *x509.Certificate, cert, issuing []byte, key 
 		Certificates: []tls.Certificate{{Certificate: chain, PrivateKey: key}},
 	}, nil
 }
+
+// PinnedTLS and MutualTLS expose the agent's (unchanged) trust logic to tools that
+// speak the real protocol without the full agent, such as cmd/auzring-loadsim. They do not relax anything.
+func PinnedTLS(server, pin string) (*tls.Config, error) { return pinnedTLS(server, pin) }
+
+// MutualTLS is mutualTLS for tools; see PinnedTLS.
+func MutualTLS(server string, root *x509.Certificate, cert, issuing []byte, key crypto.Signer) (*tls.Config, error) {
+	return mutualTLS(server, root, cert, issuing, key)
+}

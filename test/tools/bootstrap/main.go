@@ -19,7 +19,8 @@ import (
 	"github.com/auzring1/auzring/internal/server/auth"
 )
 
-var totpOut *string
+var totpOut, apiTokenOut *string
+var maxUses *int
 
 func main() {
 	base := flag.String("url", "http://localhost:18080", "server base URL (must equal AUZ_PUBLIC_URL)")
@@ -28,6 +29,8 @@ func main() {
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "admin password")
 	approval := flag.Bool("require-approval", false, "token requires approval")
 	totpOut = flag.String("totp-out", "", "write the administrator's TOTP secret to this file (for later scripted logins)")
+	apiTokenOut = flag.String("api-token-out", "", "also create an API token (enrollment, devices, updates, reports scopes) and write it to this file (mode 0600)")
+	maxUses = flag.Int("max-uses", 5, "uses of the enrollment token")
 	flag.Parse()
 	if err := run(*base, *setupTok, *email, *password, *approval); err != nil {
 		fmt.Fprintln(os.Stderr, "bootstrap:", err)
@@ -94,8 +97,20 @@ func run(base, setupTok, email, password string, approval bool) error {
 	var tok struct {
 		Enrollment string `json:"enrollment_string"`
 	}
-	if err := call("/enrollment-tokens", map[string]any{"name": "ci", "max_uses": 5, "expires_in_hours": 2, "require_approval": approval}, &tok); err != nil {
+	if err := call("/enrollment-tokens", map[string]any{"name": "ci", "max_uses": *maxUses, "expires_in_hours": 2, "require_approval": approval}, &tok); err != nil {
 		return err
+	}
+	if *apiTokenOut != "" {
+		var at struct {
+			Token string `json:"token"`
+		}
+		if err := call("/me/api-tokens", map[string]any{"name": "bootstrap", "expires_in_days": 7,
+			"scopes": []string{"enrollment:write", "devices:read", "devices:write", "updates:write", "reports:read"}}, &at); err != nil {
+			return err
+		}
+		if err := os.WriteFile(*apiTokenOut, []byte(at.Token), 0o600); err != nil {
+			return err
+		}
 	}
 	if *totpOut != "" {
 		if err := os.WriteFile(*totpOut, []byte(begin.TOTPSecret), 0o600); err != nil {
