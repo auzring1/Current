@@ -26,8 +26,17 @@ COPY . .
 COPY --from=web /src/internal/server/webui/dist ./internal/server/webui/dist
 ARG VERSION=0.1.0-dev
 ARG COMMIT=unknown
-RUN go build -trimpath \
-      -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=${VERSION} -X github.com/auzring1/auzring/internal/shared/version.Commit=${COMMIT}" \
+# Release builds (scripts/build-image.sh) pass the vendor release public keys and the Authenticode
+# requirement so the server binary equals the one built by scripts/build-release.sh, and the Go version
+# they expect, so a drifted base image fails loudly instead of producing a different binary.
+ARG RELEASE_PUBLIC_KEYS=""
+ARG REQUIRE_AUTHENTICODE=""
+ARG AUTHENTICODE_SUBJECTS=""
+ARG EXPECT_GO_VERSION=""
+RUN if [ -n "$EXPECT_GO_VERSION" ] && [ "$(go env GOVERSION)" != "go${EXPECT_GO_VERSION}" ]; then \
+      echo "base image has $(go env GOVERSION), release expects go${EXPECT_GO_VERSION}: update the pinned digest" >&2; exit 1; fi
+RUN go build -trimpath -buildvcs=false \
+      -ldflags "-s -w -buildid= -X github.com/auzring1/auzring/internal/shared/version.Version=${VERSION} -X github.com/auzring1/auzring/internal/shared/version.Commit=${COMMIT} -X github.com/auzring1/auzring/internal/shared/release.PublicKeysHex=${RELEASE_PUBLIC_KEYS} -X github.com/auzring1/auzring/internal/shared/release.RequireAuthenticode=${REQUIRE_AUTHENTICODE} -X 'github.com/auzring1/auzring/internal/shared/release.AuthenticodeSubjects=${AUTHENTICODE_SUBJECTS}'" \
       -o /out/auzring-server ./cmd/auzring-server
 
 # Empty content directory owned by the runtime user; compose mounts a volume over it.

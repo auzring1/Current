@@ -4,7 +4,9 @@
 //	auzring-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
 //	                     [--min-version V] [--rollback-from V,...] [--authenticode-subject CN] [--notes TEXT] --out agent-1.2.3.azr
 //	auzring-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
-//	auzring-release attach --manifest manifest.json --signature sig.bin --key-id ID --out agent-1.2.3.azr
+//	auzring-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.azr
+//	auzring-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
+//	auzring-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
 //	auzring-release verify --bundle agent-1.2.3.azr --exe agent.exe --pub release.pub
 //
 // The private key never leaves the signer: with a cloud KMS use `manifest`, sign the bytes
@@ -43,6 +45,10 @@ func main() {
 		err = manifestCmd(os.Args[2:])
 	case "attach":
 		err = attach(os.Args[2:])
+	case "tosign":
+		err = toSign(os.Args[2:])
+	case "sign-bytes":
+		err = signBytes(os.Args[2:])
 	case "verify":
 		err = verify(os.Args[2:])
 	default:
@@ -56,7 +62,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, "usage: auzring-release keygen|sign|manifest|attach|verify (see the package comment)\n")
+	fmt.Fprint(os.Stderr, "usage: auzring-release keygen|sign|manifest|attach|tosign|sign-bytes|verify (see the package comment)\n")
 }
 
 func keygen(args []string) error {
@@ -95,6 +101,7 @@ func writeNew(path string, data []byte, mode os.FileMode) error {
 
 type common struct {
 	exe, version, goos, goarch, minV, rollback, subject, notes string
+	releasedAt                                                 int64
 }
 
 func (c *common) flags(fl *flag.FlagSet) {
@@ -106,6 +113,7 @@ func (c *common) flags(fl *flag.FlagSet) {
 	fl.StringVar(&c.rollback, "rollback-from", "", "comma-separated versions from which this older release may be installed")
 	fl.StringVar(&c.subject, "authenticode-subject", "", "certificate subject the binary must be Authenticode-signed with")
 	fl.StringVar(&c.notes, "notes", "", "release notes (short)")
+	fl.Int64Var(&c.releasedAt, "released-at", 0, "release time, unix seconds (default: now; pipelines pass SOURCE_DATE_EPOCH so the manifest is reproducible)")
 }
 
 func (c *common) manifest() ([]byte, error) {
@@ -122,8 +130,12 @@ func (c *common) manifest() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	at := c.releasedAt
+	if at == 0 {
+		at = time.Now().Unix()
+	}
 	m := &release.Manifest{Format: 1, Product: release.Product, Version: c.version, OS: c.goos, Arch: c.goarch,
-		SHA256: hex.EncodeToString(h.Sum(nil)), Size: uint64(n), ReleasedAt: time.Now().Unix(), // #nosec G115 -- non-negative
+		SHA256: hex.EncodeToString(h.Sum(nil)), Size: uint64(n), ReleasedAt: at, // #nosec G115 -- non-negative
 		MinVersion: c.minV, AuthenticodeSubject: c.subject, Notes: c.notes}
 	for _, v := range strings.Split(c.rollback, ",") {
 		if v = strings.TrimSpace(v); v != "" {
@@ -193,6 +205,7 @@ func attach(args []string) error {
 	mf := fl.String("manifest", "", "manifest file")
 	sf := fl.String("signature", "", "raw 64-byte Ed25519 signature file")
 	keyID := fl.String("key-id", "", "key id (hex) of the signing key")
+	pub := fl.String("pub", "", "the signing key's public key (hex, or a file holding it): the key id is derived from it and the signature is verified before the bundle is written")
 	out := fl.String("out", "", "bundle to write (.azr)")
 	if err := fl.Parse(args); err != nil {
 		return err
@@ -205,7 +218,75 @@ func attach(args []string) error {
 	if err != nil {
 		return err
 	}
+	if *pub != "" {
+		hexKey := *pub
+		if b, err := os.ReadFile(*pub); err == nil { // #nosec G304 -- operator-chosen path
+			hexKey = string(b)
+		}
+		keys, err := release.ParseKeys(strings.TrimSpace(hexKey))
+		if err != nil || len(keys) != 1 {
+			return errors.New("--pub must hold exactly one Ed25519 public key in hex")
+		}
+		if _, err := release.Verify(keys, mb, sig, ""); err != nil {
+			return fmt.Errorf("the signature does not verify under --pub: %w", err)
+		}
+		*keyID = release.KeyID(keys[0])
+	}
+	if *keyID == "" {
+		return errors.New("--key-id or --pub is required")
+	}
 	return writeBundle(*out, mb, sig, *keyID)
+}
+
+// toSign writes the exact byte string the release key signs: the domain prefix and the manifest.
+// A KMS/HSM signs this file as-is (pure Ed25519, no pre-hash); `attach` then packs the signature.
+func toSign(args []string) error {
+	fl := flag.NewFlagSet("tosign", flag.ContinueOnError)
+	mf := fl.String("manifest", "", "manifest file made by `manifest`")
+	out := fl.String("out", "tosign.bin", "file to write")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	mb, err := os.ReadFile(*mf) // #nosec G304 -- operator-chosen path
+	if err != nil {
+		return err
+	}
+	if _, err := release.ParseUnverified(mb); err != nil { // refuse to sign a manifest agents would reject
+		return err
+	}
+	sb := release.SignedBytes(mb)
+	if err := os.WriteFile(*out, sb, 0o644); err != nil { // #nosec G306 G703 -- not secret; operator-chosen path
+		return err
+	}
+	fmt.Printf("wrote %s (%d bytes); sign it with Ed25519 as-is, then run `attach`\n", *out, len(sb))
+	return nil
+}
+
+// signBytes signs a tosign file with a key file. It exists so the pipeline's KMS step can be rehearsed
+// with a throw-away key (scripts/release-dryrun.sh); production signatures come from the KMS/HSM.
+func signBytes(args []string) error {
+	fl := flag.NewFlagSet("sign-bytes", flag.ContinueOnError)
+	keyPath := fl.String("key", "", "private key file")
+	in := fl.String("in", "", "tosign file")
+	out := fl.String("out", "", "raw 64-byte signature to write")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if *keyPath == "" || *in == "" || *out == "" {
+		return errors.New("--key, --in and --out are required")
+	}
+	priv, err := readKey(*keyPath)
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(*in) // #nosec G304 -- operator-chosen path
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(string(data), release.Domain) {
+		return errors.New("the input does not start with the release domain prefix; make it with `tosign`")
+	}
+	return os.WriteFile(*out, ed25519.Sign(priv, data), 0o644) // #nosec G306 G703 -- a signature is public; operator-chosen path
 }
 
 func writeBundle(path string, manifest, sig []byte, keyID string) error {

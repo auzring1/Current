@@ -75,3 +75,6 @@ web/blob-report/
 # Local Claude Code state (agent worktrees)
 .claude/
 dist-demo/
+
+# Release pipeline output (scripts/build-release.sh, scripts/release-dryrun.sh); throw-away keys live here
+dist-release/
