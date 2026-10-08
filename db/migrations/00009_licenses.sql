@@ -1,5 +1,5 @@
 -- +goose Up
--- Phase 6: offline-verifiable license keys (decision D78). Every installed license is kept (insert-only
+-- Phase 6: offline-verifiable license keys (decision D85). Every installed license is kept (insert-only
 -- history); the newest row is the one in force. The signed text is authoritative and is verified again
 -- every time it is used, so a row edited in the database cannot change the cap.
 

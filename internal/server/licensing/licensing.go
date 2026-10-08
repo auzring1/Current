@@ -2,7 +2,7 @@
 // the installation's effective state and enforces its one hard rule: a license problem only ever
 // stops NEW devices from being enrolled or approved.
 //
-// What it never does (decision D78, docs/SECURITY.md §9e): stop jobs, security updates, inventory,
+// What it never does (decision D85, docs/SECURITY.md §9g): stop jobs, security updates, inventory,
 // existing devices, sign-in, revocation or uninstalling. There is no phone-home (O9); the license
 // is verified locally against the vendor key compiled into the server.
 package licensing
@@ -26,7 +26,7 @@ import (
 	"github.com/auzring1/auzring/internal/shared/license"
 )
 
-// Default policy (decision D78; the business model is still open decision O8).
+// Default policy (decision D85; the business model is still open decision O8).
 const (
 	// EvaluationMaxDevices is the cap without a usable license.
 	EvaluationMaxDevices = 25
