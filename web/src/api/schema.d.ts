@@ -110,6 +110,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         setup_token: string;
+                        /** @description Also becomes the branding organization name */
                         org_name: string;
                         display_name: string;
                         /** Format: email */
@@ -117,6 +118,8 @@ export interface paths {
                         password: string;
                         root_passphrase: string;
                         totp_code: string;
+                        /** @description Optional logo, a PNG or JPEG of at most 512 KiB, base64-encoded; stored re-encoded as the light-background logo */
+                        logo_base64?: string;
                     };
                 };
             };
@@ -2842,6 +2845,280 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the signed-out pages show - names, colors, login texts, support contact and image links
+         * @description Public on purpose (the login page needs it) and cacheable by ETag. Before first-run setup it is the stock branding. Contains only display values; nothing that identifies users or devices.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublicBranding"];
+                    };
+                };
+                /** @description Not modified */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/branding/assets/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One branding image (always image/png, re-encoded by the server)
+         * @description Served with X-Content-Type-Options nosniff, Content-Security-Policy "default-src 'none'; sandbox" and Cross-Origin-Resource-Policy same-origin. A ?v=<version> query makes the response immutable-cacheable.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kind: components["schemas"]["BrandingAssetKind"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PNG image */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": string;
+                    };
+                };
+                /** @description Not modified */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No image in that slot */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Branding settings, resolved values, images and the live contrast checks (requires branding:write, administrators only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandingView"];
+                    };
+                };
+            };
+        };
+        /**
+         * Replace the branding texts and colors (requires branding:write; audited as branding.update with before and after)
+         * @description Empty strings mean the default (product name, accent) or nothing (everything else). A color combination that fails WCAG AA contrast is refused with 422 invalid_branding and a message per field.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BrandingSettings"];
+                };
+            };
+            responses: {
+                /** @description Saved; the new view */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandingView"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/branding/assets/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload an image as the raw request body (requires branding:write; audited as branding.asset_set)
+         * @description Only image/png and image/jpeg, at most 512 KiB, with per-slot dimension limits. SVG is refused (415). The file is decoded and re-encoded as a clean PNG: metadata, comments and trailing bytes are dropped.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kind: components["schemas"]["BrandingAssetKind"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            responses: {
+                /** @description Stored; the new view */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandingView"];
+                    };
+                };
+                413: components["responses"]["Error"];
+                415: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Remove an image (requires branding:write; audited as branding.asset_delete) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kind: components["schemas"]["BrandingAssetKind"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed; the new view */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandingView"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/branding/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset branding to the defaults - texts, colors and images (requires branding:write; audited as branding.reset) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Reset; the new view */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandingView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/license": {
         parameters: {
             query?: never;
@@ -3692,6 +3969,42 @@ export interface paths {
                     };
                     content: {
                         "text/csv": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/compliance.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Patch compliance per device as a printable page with the deployment's report logo, organization name and footer (requires inventory:export; audited) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A standalone HTML page (no scripts; strict CSP) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/html": string;
                     };
                 };
             };
@@ -4705,7 +5018,85 @@ export interface components {
             error: {
                 code: string;
                 message: string;
+                /** @description Per-field messages (invalid_branding) */
+                fields?: {
+                    [key: string]: string;
+                };
             };
+        };
+        /** @enum {string} */
+        BrandingAssetKind: "logo_light" | "logo_dark" | "icon" | "favicon" | "report_logo";
+        BrandingSettings: {
+            org_name?: string;
+            /** @description Empty = Renovatio */
+            product_name?: string;
+            /** @description #rrggbb; empty = default. Must reach 4.5:1 against white and 3:1 against the dark theme surface. */
+            accent_color?: string;
+            /** @description #rrggbb or empty; must reach 3:1 against both themes */
+            secondary_color?: string;
+            login_headline?: string;
+            login_message?: string;
+            login_footer?: string;
+            support_email?: string;
+            support_phone?: string;
+            /** @description https only */
+            support_url?: string;
+            report_footer?: string;
+        };
+        BrandingAssetRef: {
+            url: string;
+            width: number;
+            height: number;
+        };
+        PublicBranding: {
+            product_name: string;
+            org_name: string;
+            title: string;
+            accent_color: string;
+            secondary_color: string;
+            login_headline: string;
+            login_message: string;
+            login_footer: string;
+            support: {
+                email?: string;
+                phone?: string;
+                url?: string;
+            };
+            assets: {
+                [key: string]: components["schemas"]["BrandingAssetRef"];
+            };
+            version: string;
+        };
+        BrandingContrastCheck: {
+            id: string;
+            label: string;
+            foreground: string;
+            background: string;
+            ratio: number;
+            required: number;
+            pass: boolean;
+        };
+        BrandingAssetInfo: components["schemas"]["BrandingAssetRef"] & {
+            kind: string;
+            /** Format: int64 */
+            size: number;
+            sha256: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        BrandingView: {
+            settings: components["schemas"]["BrandingSettings"];
+            resolved: components["schemas"]["PublicBranding"];
+            assets: {
+                [key: string]: components["schemas"]["BrandingAssetInfo"];
+            };
+            defaults: {
+                product_name: string;
+                accent_color: string;
+            };
+            contrast: components["schemas"]["BrandingContrastCheck"][];
+            /** Format: date-time */
+            updated_at?: string | null;
         };
         TOTPEnrollment: {
             totp_secret: string;

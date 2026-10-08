@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api, errorMessage, type ComplianceRow, type ReportOverview } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
+import { useBranding } from "../branding/BrandingProvider";
 
 function Stat({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
@@ -20,6 +21,7 @@ function Stat({ label, value, color }: { label: string; value: number | string; 
 
 export function ReportsPage() {
   const { can } = useSession();
+  const brand = useBranding();
   const ov = useQuery({ queryKey: ["reports", "overview"], queryFn: () => api<ReportOverview>("GET", "/reports/overview"), refetchInterval: 60_000 });
   const rows = useQuery({ queryKey: ["reports", "compliance"], queryFn: () => api<{ items: ComplianceRow[] }>("GET", "/reports/compliance") });
   const o = ov.data;
@@ -31,11 +33,16 @@ export function ReportsPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={2}>Reports</Title>
+        <Title order={2}>{brand.org_name ? `${brand.org_name} · Reports` : "Reports"}</Title>
         {can("inventory:export") && (
-          <Anchor href="/api/v1/reports/compliance.csv" download>
-            Export patch compliance (CSV)
-          </Anchor>
+          <Group gap="md">
+            <Anchor href="/api/v1/reports/compliance.html" target="_blank" rel="noopener">
+              Printable patch compliance report
+            </Anchor>
+            <Anchor href="/api/v1/reports/compliance.csv" download>
+              Export patch compliance (CSV)
+            </Anchor>
+          </Group>
         )}
       </Group>
       {(ov.isLoading || rows.isLoading) && <Loader />}

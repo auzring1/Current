@@ -255,6 +255,17 @@ renovatio-license show --license example.lic --pub license.pub      # check befo
 
 Put the public key hex in server builds: `go build -ldflags "-X github.com/auzring1/renovatio/internal/shared/license.PublicKeysHex=<hex>[,<hex2>]" ./cmd/renovatio-server` (several keys allow rotation). With a KMS: `renovatio-license payload --licensee ... --max-devices ... --out doc.json --tosign doc.tosign`, have the KMS Ed25519-sign the **whole** `.tosign` file (it starts with the domain separator), then `renovatio-license attach --doc doc.json --signature sig.bin --pub license.pub --out example.lic`. Demo keys for testing go under the git-ignored `dist-demo/`; never commit a key.
 
+### 5g. Branding (Phase 7)
+
+Settings > Branding (administrators only) makes the console yours: organization name (top bar, sign-in page, page titles, report headers), an optional product name (white-label; empty means "Renovatio"), logos for light and dark backgrounds, a square icon, a favicon, an accent and an optional secondary color, the sign-in headline, welcome message, footer or legal text and support contact (email, phone, https link), and a report logo and footer. The preview pane shows the top bar and sign-in page in the light and the dark theme while you type.
+
+- **Colors are checked live against WCAG AA.** White text on the accent needs 4.5:1, the accent on the dark theme 3:1, and a secondary color 3:1 on both. A failing color shows "Fail" in the table and cannot be saved (the server refuses it too).
+- **Images** are PNG or JPEG up to 512 KB (logos up to 1200 x 400, icon square 64-512, favicon square 16-256). They apply as soon as uploaded. They are re-encoded on the server (metadata removed); **SVG is not accepted**. Without a dark-background logo the light logo is shown on a light chip in the dark theme.
+- **Reset to defaults** clears all of it, images included (confirmation required). The old values remain in the audit log (`branding.update`, `branding.asset_set`, `branding.asset_delete`, `branding.reset`, each with before/after).
+- **First run:** the wizard asks for the organization name and an optional logo. An installation that existed before this feature shows "Renovatio" with no organization name until you set one.
+- **Reports:** Reports > "Printable patch compliance report" opens a standalone page with the report logo (else the light logo), organization name and footer; use the browser's print dialog for PDF. The product has no email sender yet; the report footer is stored for when it has one.
+- **Roll back:** `renovatio-server migrate --down-to 9` removes the branding tables (and their data). Take a backup first.
+
 ## 6. Backup and restore
 
 `renovatio-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `renovatio-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.

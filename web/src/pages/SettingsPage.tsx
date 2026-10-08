@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Loader, Select, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Loader, Select, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { notifications } from "@mantine/notifications";
 import { api, errorMessage, type OrgSettings } from "../api/client";
 import { useSession } from "../api/session";
@@ -11,6 +12,26 @@ const options = [
   { value: "convert_to_machine", label: "Convert: remove the per-user copy, then install machine-wide" },
   { value: "remove", label: "Remove per-user copies" },
 ];
+
+/** The Settings area: General (for operators and administrators) and Branding (administrators). */
+export function SettingsLayout() {
+  const { can } = useSession();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const tab = loc.pathname.startsWith("/settings/branding") ? "branding" : "general";
+  return (
+    <Stack>
+      <Title order={2}>Settings</Title>
+      <Tabs value={tab} onChange={(v) => nav(v === "branding" ? "/settings/branding" : "/settings")}>
+        <Tabs.List>
+          <Tabs.Tab value="general">General</Tabs.Tab>
+          {can("branding:write") && <Tabs.Tab value="branding">Branding</Tabs.Tab>}
+        </Tabs.List>
+      </Tabs>
+      <Outlet />
+    </Stack>
+  );
+}
 
 export function SettingsPage() {
   const { can } = useSession();
@@ -28,7 +49,6 @@ export function SettingsPage() {
   const editable = can("settings:write");
   return (
     <Stack maw={720}>
-      <Title order={2}>Settings</Title>
       {q.isLoading && <Loader />}
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
       {q.data && (

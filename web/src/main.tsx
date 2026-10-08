@@ -2,7 +2,6 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
@@ -10,6 +9,7 @@ import { setNonce } from "get-nonce";
 import { App } from "./App";
 import { ApiError } from "./api/client";
 import { SessionProvider } from "./api/session";
+import { BrandingProvider } from "./branding/BrandingProvider";
 
 // Per-request CSP nonce injected by the server (see internal/server/webui).
 const nonce = document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content ?? "";
@@ -28,15 +28,15 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MantineProvider defaultColorScheme="auto" getStyleNonce={() => nonce}>
-      <Notifications />
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <BrandingProvider nonce={nonce}>
+        <Notifications />
         <BrowserRouter>
           <SessionProvider>
             <App />
           </SessionProvider>
         </BrowserRouter>
-      </QueryClientProvider>
-    </MantineProvider>
+      </BrandingProvider>
+    </QueryClientProvider>
   </StrictMode>,
 );

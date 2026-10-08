@@ -86,6 +86,35 @@ type AuditLog struct {
 	Hash       []byte
 }
 
+type Branding struct {
+	OrgID          uuid.UUID
+	OrgName        string
+	ProductName    string
+	AccentColor    string
+	SecondaryColor string
+	LoginHeadline  string
+	LoginMessage   string
+	LoginFooter    string
+	SupportEmail   string
+	SupportPhone   string
+	SupportUrl     string
+	ReportFooter   string
+	UpdatedAt      time.Time
+	UpdatedBy      *uuid.UUID
+}
+
+type BrandingAsset struct {
+	OrgID       uuid.UUID
+	Kind        string
+	Content     []byte
+	ContentType string
+	Width       int32
+	Height      int32
+	Sha256      []byte
+	UpdatedAt   time.Time
+	UpdatedBy   *uuid.UUID
+}
+
 type CatalogInstaller struct {
 	ID              uuid.UUID
 	VersionID       uuid.UUID

@@ -34,8 +34,9 @@ const (
 	PermPoliciesRead     = "policies:read"
 	PermPoliciesWrite    = "policies:write" // auto-update policies and baselines
 	PermReportsRead      = "reports:read"
-	PermLicenseRead      = "license:read"  // the installed license, device usage and history
-	PermLicenseWrite     = "license:write" // install a license (administrators only)
+	PermLicenseRead      = "license:read"   // the installed license, device usage and history
+	PermLicenseWrite     = "license:write"  // install a license (administrators only)
+	PermBrandingWrite    = "branding:write" // organization name, product name, colors, login texts and images (administrators only)
 )
 
 // Roles.
@@ -57,7 +58,7 @@ var rolePerms = map[string][]string{
 		PermCatalogRead, PermCatalogWrite, PermCatalogOverride, PermDeploymentsRead, PermDeploymentsWrite, PermSettingsWrite,
 		PermUpdatesRead, PermUpdatesWrite, PermUpdatesPolicy, PermReleasesRead, PermReleasesWrite,
 		PermSitesRead, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesRead, PermPoliciesWrite, PermReportsRead,
-		PermLicenseRead, PermLicenseWrite},
+		PermLicenseRead, PermLicenseWrite, PermBrandingWrite},
 	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermGroupsRead, PermGroupsWrite, PermInventoryExport,
 		PermCatalogRead, PermCatalogWrite, PermDeploymentsRead, PermDeploymentsWrite, PermUpdatesRead, PermUpdatesWrite, PermReleasesRead,
 		PermSitesRead, PermPoliciesRead, PermReportsRead, PermLicenseRead},
@@ -76,7 +77,7 @@ var siteScopable = map[string]bool{
 // TokenScopable reports whether a permission may be put in an API token. Identity administration
 // stays interactive: tokens cannot manage users, roles or other tokens.
 func TokenScopable(perm string) bool {
-	return perm != PermUsersRead && perm != PermUsersWrite
+	return perm != PermUsersRead && perm != PermUsersWrite && perm != PermBrandingWrite
 }
 
 // AllPermissions is every permission name, sorted.

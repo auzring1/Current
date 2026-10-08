@@ -400,6 +400,25 @@ Offline-verifiable license keys (`internal/shared/license`, `internal/server/lic
 - The device cap counts active devices of an organization; it does not distinguish a device that has been offline for years.
 - Vendor key custody (generation, KMS, rotation, an offline backup) is an owner decision (compare O7); until then demo keys must not be used for real customers.
 
+## 9h. Phase 7: branding
+
+Per-deployment branding (`internal/server/branding`, `internal/server/api/branding.go`, migration `00010_branding`; decision D92, operations in RUNBOOK §5g). It adds an upload feature and public text, so it is reviewed as an input-handling surface.
+
+| Threat | Control | Evidence |
+|---|---|---|
+| **Script via a logo** (SVG with `<script>` or `onload`) | SVG is refused outright (415 for the declared type, 422 for SVG bytes sent as PNG). Only PNG and JPEG recognised by content are decoded, then re-encoded as PNG by the server, so what is stored and served is pixels only | `TestProcessRejects`, `TestBrandingAdministration` |
+| **Polyglot or metadata payload** (bytes after IEND, `tEXt`/`eXIf` chunks, JPEG comments) | Decode and re-encode drops every ancillary chunk and anything after the image; the output is checked to end at its own IEND | `TestProcessStripsEverythingButPixels`, e2e asset assertions |
+| **Decompression bomb / oversized upload** | 512 KiB body cap (413), dimensions read from the header and limited per slot before any pixel is decoded, stored size re-checked after encoding; fuzzed | `TestProcessDecompressionBomb`, `FuzzProcess` |
+| **Browser treats an image as something else** | Always `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`; the asset kind is checked against a fixed list, and assets live in the database, never on a path | e2e header assertions, path-like kind returns 404 |
+| **Stored XSS in texts** (headline, message, footer, names, report footer) | Plain text only, length limits, control and bidi characters refused; React escapes them on the console and `html/template` on the report; the index page embeds the branding as `application/json` with `<` escaped (never executed; the CSP has no inline script) | `TestValidateRejects`, e2e report test (`<script>` escaped) |
+| **Dangerous support link** (`javascript:`, `data:`, credentials in URL) | https only, no userinfo, no quotes/whitespace/backslashes, 300 characters | `TestValidateRejects` |
+| **CSS injection via a color** | Strict `#rrggbb` only, lower-cased, also enforced by a database CHECK | `TestValidateRejects`, `TestBrandingMigrationIsReversible` |
+| **Unreadable or invisible UI via a color choice** | Contrast rules (WCAG AA) enforced server-side and mirrored in the browser; a failing combination cannot be saved | `TestAccentChecks`, `TestBlockedColorsAreRejected`, `contrast.test.ts` (shared vectors) |
+| **Non-administrators or tokens changing the look of the product** (phishing the sign-in page) | `branding:write` is administrator-only, cannot be put in an API token, needs the session, MFA and CSRF token; every change is audited with before/after | `TestRBAC`, `TestBrandingAdministration` (operator, read-only, anonymous, token, missing CSRF) |
+| **Information exposure by the public endpoint** | `GET /branding` returns only display values and image links (what the sign-in page shows); the report footer, user data and device data are not in it | `TestBrandingAdministration` |
+
+**Known gaps and residual risks:** an administrator can still make a convincing look-alike sign-in page for their own deployment (that is the feature); the public support contact and legal text are visible to anyone who can reach the server; images are not scanned beyond decoding; the report is a printable HTML page, not a PDF, so its signature of origin is the server's TLS identity only.
+
 ## 10. Vulnerability disclosure
 **Placeholder; the contact details are an owner decision.**
 - Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.

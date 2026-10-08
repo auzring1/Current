@@ -5,7 +5,15 @@ import { PRODUCT_NAME } from "./src/brand.generated";
 // The production bundle is embedded into the Go server (internal/server/webui/dist).
 export default defineConfig({
   // The product name comes from internal/shared/brand (go generate writes src/brand.generated.ts).
-  plugins: [react(), { name: "product-name", transformIndexHtml: (html) => html.replaceAll("%PRODUCT_NAME%", PRODUCT_NAME) }],
+  plugins: [react(), {
+      // Production builds keep <!--BRAND_HEAD-->; the Go server fills it per request from the
+      // deployment's branding. The dev server has no such server, so use the product defaults.
+      name: "brand-head",
+      transformIndexHtml: (html, ctx) =>
+        ctx.server
+          ? html.replace("<!--BRAND_HEAD-->", `<title>${PRODUCT_NAME}</title><link rel="icon" href="/favicon.svg" />`)
+          : html,
+    }],
   build: {
     outDir: "../internal/server/webui/dist",
     emptyOutDir: true,

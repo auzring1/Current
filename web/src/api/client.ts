@@ -62,6 +62,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /** Per-field messages (invalid_branding). */
+    public fields: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -80,9 +82,9 @@ export async function api<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: st
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 204) return undefined as T;
-  const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+  const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string; fields?: Record<string, string> } };
   if (!res.ok) {
-    throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Request failed (HTTP ${res.status})`);
+    throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Request failed (HTTP ${res.status})`, data.error?.fields);
   }
   return data as T;
 }
@@ -111,3 +113,18 @@ export async function uploadAgentRelease(binary: File, bundle: File): Promise<Ag
 }
 
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
+
+export type PublicBranding = components["schemas"]["PublicBranding"];
+export type BrandingView = components["schemas"]["BrandingView"];
+export type BrandingSettings = components["schemas"]["BrandingSettings"];
+export type BrandingAssetKind = components["schemas"]["BrandingAssetKind"];
+
+/** Uploads one branding image as a raw PNG/JPEG body. The server re-encodes it; the result is the new view. */
+export async function uploadBrandingAsset(kind: BrandingAssetKind, file: File): Promise<BrandingView> {
+  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": file.type };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch(`/api/v1/settings/branding/assets/${kind}`, { method: "PUT", headers, credentials: "same-origin", cache: "no-store", body: file });
+  const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+  if (!res.ok) throw new ApiError(res.status, data.error?.code ?? "error", data.error?.message ?? `Upload failed (HTTP ${res.status})`);
+  return data as unknown as BrandingView;
+}

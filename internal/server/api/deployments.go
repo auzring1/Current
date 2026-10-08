@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +62,7 @@ func (s *server) createDeployment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "excluded", "This package is excluded by an administrator.")
 		return
 	case errors.Is(err, deploy.ErrSelfUpdating):
-		writeError(w, http.StatusConflict, "self_updating", "This app updates itself, so "+brand.Name+" leaves updates to the vendor. To deploy updates anyway, set the package's self-update policy to “enforce” on its catalog page.")
+		writeError(w, http.StatusConflict, "self_updating", "This app updates itself, so "+s.productName(r)+" leaves updates to the vendor. To deploy updates anyway, set the package's self-update policy to “enforce” on its catalog page.")
 		return
 	case errors.Is(err, deploy.ErrNoTargets):
 		writeError(w, http.StatusUnprocessableEntity, "no_targets", "No active devices match the chosen targets.")
