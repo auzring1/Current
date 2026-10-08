@@ -79,6 +79,10 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 		deviceID   = uuid.New()
 		denyReason string
 	)
+	release, gerr := g.enrollGate.acquire(ctx)
+	if gerr != nil {
+		return nil, status.Error(codes.Unavailable, "the server is busy enrolling devices; try again")
+	}
 	err := store.Tx(ctx, g.pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		tok, err := q.GetEnrollmentTokenByHashForUpdate(ctx, th)
 		switch {
@@ -159,6 +163,7 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 			Outcome: audit.Success, Details: details}, now)
 		return err
 	})
+	release()
 	if errors.Is(err, errRejected) {
 		g.auditEnroll(ctx, nil, ip, "", audit.Denied, denyReason, hostname)
 		return nil, errRejected

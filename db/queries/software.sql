@@ -2,15 +2,26 @@
 -- Serializes inventory writes for one device and returns its revisions.
 SELECT software_rev, users_rev, org_id FROM devices WHERE id = $1 FOR UPDATE;
 
--- name: UpsertSoftwareTitles :many
+-- name: InsertSoftwareTitles :exec
+-- Creates the titles that do not exist yet. DO NOTHING (not DO UPDATE) takes no lock on a title that
+-- already exists, so thousands of devices ingesting the same common software do not queue behind each
+-- other's open transactions. Callers pass the rows in a fixed (sorted) order so that two transactions
+-- creating the same new titles cannot deadlock.
 INSERT INTO software_titles (id, org_id, normalized_name, normalized_publisher, display_name, display_publisher)
 SELECT t.id, @org_id::uuid, t.nn, t.np, t.dn, t.dp
 FROM unnest(@ids::uuid[], @normalized_names::text[], @normalized_publishers::text[],
             @display_names::text[], @display_publishers::text[])
      AS t(id, nn, np, dn, dp)
-ON CONFLICT (org_id, normalized_name, normalized_publisher)
-DO UPDATE SET normalized_name = software_titles.normalized_name
-RETURNING id, normalized_name, normalized_publisher;
+ON CONFLICT (org_id, normalized_name, normalized_publisher) DO NOTHING;
+
+-- name: GetSoftwareTitleIDs :many
+-- Run as a separate statement after InsertSoftwareTitles, so it also sees titles another transaction
+-- created and committed while ours waited.
+SELECT id, normalized_name, normalized_publisher
+FROM software_titles
+WHERE org_id = @org_id::uuid
+  AND (normalized_name, normalized_publisher) IN (
+      SELECT t.nn, t.np FROM unnest(@normalized_names::text[], @normalized_publishers::text[]) AS t(nn, np));
 
 -- name: RecordSoftwareChanges :exec
 -- History for items that are new or changed version, computed before upserting.

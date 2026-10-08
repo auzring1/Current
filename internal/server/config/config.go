@@ -20,6 +20,12 @@ import (
 	"github.com/auzring1/auzring/internal/shared/release"
 )
 
+// Default enrollment rate limits, per minute (PROTOCOL §4.1).
+const (
+	DefaultEnrollRatePerIP    = 10
+	DefaultEnrollRatePerToken = 60
+)
+
 // Config is the full server configuration.
 type Config struct {
 	DevMode bool
@@ -53,6 +59,11 @@ type Config struct {
 	DeviceCertLifetime time.Duration
 	DeviceRenewGrace   time.Duration
 	EnrollPollInterval time.Duration
+	// EnrollRatePerIP and EnrollRatePerToken are the enrollment attempts allowed per minute for one
+	// source IP and one enrollment token (the burst is the same number). Defaults: 10 and 60. They
+	// protect token guessing; raise them only for a rollout of many machines behind one NAT address.
+	EnrollRatePerIP    int
+	EnrollRatePerToken int
 	HeartbeatInterval  time.Duration
 	SessionIdleTimeout time.Duration
 	SessionAbsTimeout  time.Duration
@@ -205,6 +216,18 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		}
 		return d
 	}
+	count := func(name string, def int) int {
+		v := get(name, "")
+		if v == "" {
+			return def
+		}
+		n, perr := strconv.Atoi(v)
+		if perr != nil || n < 1 || n > 1_000_000 {
+			errs = append(errs, fmt.Errorf("%s: %q is not a number between 1 and 1000000", name, v))
+			return def
+		}
+		return n
+	}
 	// Short lifetimes are only for tests; the minimums keep production sane.
 	minLife := 24 * time.Hour
 	if c.DevMode {
@@ -213,6 +236,8 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	c.DeviceCertLifetime = dur("AUZ_DEVICE_CERT_LIFETIME", 90*24*time.Hour, minLife)
 	c.DeviceRenewGrace = dur("AUZ_DEVICE_RENEW_GRACE", 180*24*time.Hour, 0)
 	c.EnrollPollInterval = dur("AUZ_ENROLL_POLL_INTERVAL", 60*time.Second, time.Second)
+	c.EnrollRatePerIP = count("AUZ_ENROLL_RATE_PER_IP", DefaultEnrollRatePerIP)
+	c.EnrollRatePerToken = count("AUZ_ENROLL_RATE_PER_TOKEN", DefaultEnrollRatePerToken)
 	c.HeartbeatInterval = dur("AUZ_HEARTBEAT_INTERVAL", 5*time.Minute, time.Second)
 	c.SessionIdleTimeout = dur("AUZ_SESSION_IDLE_TIMEOUT", 30*time.Minute, time.Minute)
 	c.SessionAbsTimeout = dur("AUZ_SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour, 5*time.Minute)
