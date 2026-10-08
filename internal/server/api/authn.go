@@ -178,6 +178,10 @@ func (s *server) pendingSession(w http.ResponseWriter, r *http.Request) (*auth.S
 		writeError(w, http.StatusConflict, "password_change_required", "Choose a new password first.")
 		return nil, nil, false
 	}
+	if u.LockedUntil != nil && u.LockedUntil.After(s.now()) {
+		writeError(w, http.StatusUnauthorized, "locked", "This account is temporarily locked. Try again later.")
+		return nil, nil, false
+	}
 	return sess, &u, true
 }
 
@@ -186,10 +190,12 @@ func (s *server) mfaFailure(w http.ResponseWriter, r *http.Request, sess *auth.S
 	n, err := q.IncrementSessionMFAFailures(r.Context(), sess.IDHash)
 	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &u.OrgID, ActorType: audit.ActorUser, ActorID: u.ID.String(),
 		ActorIP: clientIP(r), Action: "auth.mfa", Outcome: audit.Denied, Details: map[string]any{"method": method}})
+	// Every wrong code counts toward the account lockout, not just the fifth: otherwise someone who knows
+	// the password could keep trying new sign-ins at five codes each (SECURITY.md T-WEB-1).
+	s.recordLoginFailure(r, *u)
 	if err != nil || n >= maxMFAFailures {
 		_ = q.DeleteSession(r.Context(), sess.IDHash)
 		s.Sessions.ClearCookie(w)
-		s.recordLoginFailure(r, *u)
 		writeError(w, http.StatusUnauthorized, "mfa_locked", "Too many wrong codes. Sign in again.")
 		return
 	}

@@ -363,7 +363,7 @@ Take a backup, copy `deploy/secrets/` and the backup to the new host, then follo
   1. Isolate the host and preserve logs and the database.
   2. Rotate the KEK and every database password.
   3. Review the audit log, after checking it with `verify-audit`.
-  4. From Phase 5: revoke the job-signing key with a root-signed revocation, which agents enforce on reconnect.
+  4. Rotate the job-signing key on the server so agents replace their stored signing certificate at the next connection. (Root-signed revocation lists, which would let agents reject a stolen key at once, are not implemented yet: SECURITY.md 9e, R-2. Until a rotated-out certificate expires, an agent that is offline during the rotation still trusts it.)
 - **Suspected endpoint compromise:** revoke the device, rebuild the machine, then enroll it with a new token.
 - **Leaked enrollment token:** revoke it under Enrollment, then review **Devices**, filtered to **Pending** and recent enrollments.
 

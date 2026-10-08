@@ -215,9 +215,18 @@ func TestSitesUsersAndSiteScopedAccess(t *testing.T) {
 	}
 	// Re-enable, reset the password and MFA: the technician starts over.
 	h.do("PUT", "/api/v1/users/"+techID, map[string]any{"display_name": "Tess Tech", "status": "active"}, nil)
+	// A token the technician made earlier must not survive a password reset (SECURITY.md T-WEB-7).
+	if _, err := h.db.Pool.Exec(t.Context(), `INSERT INTO api_tokens (id, org_id, user_id, name, prefix, token_hash, scopes, expires_at)
+		SELECT gen_random_uuid(), org_id, id, 'old', 'azt_old0', decode(repeat('ab', 32), 'hex'), ARRAY['devices:read'], now() + interval '30 days' FROM users WHERE id = $1`, techID); err != nil {
+		t.Fatal(err)
+	}
 	st, rp := h.do("POST", "/api/v1/users/"+techID+"/reset-password", map[string]any{}, nil)
 	if st != 200 || rp["temporary_password"] == "" {
 		t.Fatalf("reset password: %d %v", st, rp)
+	}
+	var live int
+	if err := h.db.Pool.QueryRow(t.Context(), "SELECT count(*) FROM api_tokens WHERE user_id = $1 AND revoked_at IS NULL", techID).Scan(&live); err != nil || live != 0 {
+		t.Fatalf("API tokens survived a password reset: %d %v", live, err)
 	}
 	if st, _ := h.do("POST", "/api/v1/users/"+techID+"/reset-mfa", map[string]any{}, nil); st != 204 {
 		t.Fatal("reset mfa")

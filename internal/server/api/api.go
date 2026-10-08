@@ -69,6 +69,7 @@ type server struct {
 	apiIP      *auth.Limiter
 	sse        *sseLimiter
 	verifying  sync.Mutex
+	adminMu    sync.Mutex         // last-administrator guard
 	webauthn   *webauthn.WebAuthn // nil when the public URL cannot host WebAuthn
 }
 

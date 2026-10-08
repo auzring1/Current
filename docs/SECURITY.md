@@ -65,13 +65,13 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 | T-DEV-2 | Malicious inventory (XSS, CSV injection, SQL-looking strings, huge payloads) | Everything from agents is untrusted input: size limits, parameterized SQL, React escaping plus strict CSP, CSV formula escaping (`= + - @ \t \r` get a `'` prefix), schema validation | 1–2 ✅ |
 | T-DEV-3 | Resource exhaustion (flooding messages, inventory churn) | Per-device token-bucket rate limits, message size caps, max rows, connection limit per device certificate (1) | 1–2 ✅ |
 | T-DEV-4 | Content scraping (download other tenants' or other devices' uploads) | Content served only if referenced by an active job for that device | 3 ✅ |
-| T-DEV-5 | Stolen device key reused elsewhere | Key held in TPM/non-exportable CNG; one stream per certificate; admin revocation is immediate; anomaly flag when a device connects from a new IP while still connected | 1 ✅ |
+| T-DEV-5 | Stolen device key reused elsewhere | Key held in TPM/non-exportable CNG; one stream per certificate; admin revocation is immediate; a new connection from the same certificate supersedes the old stream and logs a warning (no alert) | 1 ✅ |
 | T-DEV-6 | Falsified job results (claims patched when not) | Accepted risk for a compromised device, since we can't attest. Inventory cross-checks are shown. | ⚠ |
 
 ### Enrollment
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
-| T-ENR-1 | Token theft or mass rogue enrollment | Limited-use, expiring tokens stored hashed; optional admin approval; rate limits per IP and per token; enrollment alerts; tokens can be revoked | 1 ✅ |
+| T-ENR-1 | Token theft or mass rogue enrollment | Limited-use, expiring tokens stored hashed; optional admin approval; rate limits per IP and per token; enrollment events are audit entries (no alerts); tokens can be revoked | 1 ✅ |
 | T-ENR-2 | Taking over an existing device's identity by re-enrolling | A matching hardware ID forces approval; the old certificates are revoked when the new one is approved | 1 ✅ |
 | T-ENR-3 | Brute-forcing tokens | 256-bit tokens; generic errors; rate limits | 1 ✅ |
 
@@ -80,47 +80,47 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 |---|---|---|---|
 | T-LPE-1 | User swaps the installer between verification and execution (TOCTOU) | Staging is SYSTEM-write-only (user scope: SYSTEM-write, user read/execute). The file is opened deny-write, re-hashed from the handle, and the handle stays open through `CreateProcess`. | 3 ✅ |
 | T-LPE-2 | DLL planting next to an installer running as SYSTEM | Staging directory can't be written by users. Working directory is staging. The agent itself uses `SetDefaultDllDirectories`. | 3 ✅ |
-| T-LPE-3 | **User-writable `HKCU` uninstall strings run as SYSTEM** | Never. HKCU entries only run through the user's own helper. HKLM strings are parsed, and the executable path is checked for user-writable ACLs on the file and its parents. No shell is involved. | 3 ✅ |
+| T-LPE-3 | **User-writable `HKCU` uninstall strings run as SYSTEM** | Never. HKCU entries only run through the user's own helper. HKLM strings are parsed and the executable must lie under Program Files, the Windows directory or `ProgramData\Package Cache` (not a symbolic link). No shell is involved. **Not implemented: a DACL check on the file and its parents** (an app installed with a user-writable folder under Program Files, or anything under `Package Cache`, which is user-creatable). See 9e, R-1. | 3 ✅ / ⚠ |
 | T-LPE-4 | Command-line injection through package metadata or admin args | Argument arrays, `ComposeCommandLine` quoting, no `cmd.exe`/PowerShell, allow-listed argument token patterns, MSI GUID regex | 3 ✅ |
 | T-LPE-5 | Local IPC abuse (squatting or connecting to an agent pipe) | No named pipes or listening sockets. The helper gets an inherited anonymous pipe and takes one task. A user→service channel doesn't exist. | 3 ✅ |
 | T-LPE-6 | Tampering with agent files, config or the service | Protected DACLs (SYSTEM/Administrators). Quoted `ImagePath`. Service DACL denies non-admins stop/config. Authenticode-signed binaries. | 1 ✅ / 5 (signing) |
 | T-LPE-7 | Malicious process (same user) tampers with the helper | Accepted. The helper only has the user's own rights. The service treats its output as untrusted and re-checks detection. | ⚠ (by design) |
 | T-LPE-8 | Zip-slip or path traversal in nested installers and portable packages | Paths canonicalized, must stay under the staging root; reparse points rejected | 3 ✅ |
-| T-LPE-9 | Secrets on disk | Device key in TPM/CNG (not exportable). The enrollment token is deleted after use. Any other secret is DPAPI machine-scoped **and** in a SYSTEM-only file. | 1 ✅ |
+| T-LPE-9 | Secrets on disk | Device key in TPM/CNG (not exportable). The enrollment token is deleted after use. Any other secret is in a SYSTEM-only, ACL-protected file or the bbolt store (DPAPI is not used). | 1 ✅ |
 
 ### TB6: Upstream supply chain (catalog and vendors)
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-SUP-1 | Download replaced at the vendor URL | SHA-256 from the catalog is in the signed job. A mismatch blocks the install and raises an alert. | 3 ✅ |
-| T-SUP-2 | Malicious manifest in the winget community repository | Verify the index MSIX signature. **Signer pinning** (alert/block on Authenticode signer change between versions). `verified` overlay. New versions held for a configurable delay in auto-update rings. Unverified packages warned about and role-gated. | 3, 5 ✅ / ⚠ residual |
-| T-SUP-3 | SSRF through server-side fetching (catalog sync, content caching of admin-given URLs) | Server fetches only `https`; private, loopback and link-local addresses blocked unless the admin explicitly allows them; size and time caps; redirects re-checked | 3 ✅ |
+| T-SUP-2 | Malicious manifest in the winget community repository | Signer pins come from administrator input (the winget manifest carries none); the `verified` overlay is not populated. **Not implemented:** index MSIX signature verification and automatic signer-change detection. New versions held for a configurable delay in auto-update rings. Unverified packages warned about and role-gated. | 3, 5 ✅ / ⚠ residual |
+| T-SUP-3 | SSRF through server-side fetching (catalog sync, content caching of admin-given URLs) | The server fetches only fixed GitHub hosts, never an administrator-supplied URL (so there is nothing to point at internal addresses); https only, size and time caps, redirects re-checked. Agents fetch vendor URLs themselves, https only | 3 ✅ |
 
 ### TB1/TB2: Web GUI and API
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-WEB-1 | Credential stuffing or brute force | argon2id (m=64 MiB, t=3, p=2, with a concurrency semaphore against memory DoS); **mandatory MFA**; per-account backoff and lockout (10 failures → 15 min); per-IP rate limits; breached-password check with an offline list | 1 ✅ |
-| T-WEB-2 | Session theft | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; 30 min idle and 12 h absolute; ID rotated on login and privilege change; MFA re-check for sensitive actions (deploy to over N devices, root unlock, role changes, creating API tokens) | 1 ✅ |
+| T-WEB-2 | Session theft | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; 30 min idle and 12 h absolute; ID rotated on login and privilege change; MFA re-check for sensitive actions (deploy to over N devices, root unlock, role changes, creating API tokens) is **not implemented**; these need only the signed-in session. See 9e, R-5. | 1 ✅ / ⚠ |
 | T-WEB-3 | CSRF | SameSite=Strict, plus a synchronizer token header on all state changes, plus an `Origin` check | 1 ✅ |
 | T-WEB-4 | XSS | React escaping; CSP `default-src 'self'; script-src 'self' 'nonce-…'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'`; no `dangerouslySetInnerHTML`, enforced by a lint rule | 1 ✅ |
 | T-WEB-5 | SQL injection | sqlc parameterized queries only; allow-listed dynamic-group compiler | 1 ✅ |
 | T-WEB-6 | Broken access control (IDOR, cross-site, cross-org) | Every query takes `org_id` and the RBAC scope; central authorization middleware plus per-handler policy; tests for each role × endpoint | 1, 5 ✅ |
-| T-WEB-7 | API token misuse | Prefixed tokens (`aur_pat_`) for secret scanning; stored hashed; scoped; can't manage users, roles or tokens; expiry required | 5 ✅ |
+| T-WEB-7 | API token misuse | Prefixed tokens (`azt_`) for secret scanning; stored hashed; scoped; can't manage users, roles or tokens; expiry required | 5 ✅ |
 | T-WEB-8 | Clickjacking, MIME sniffing, referrer leaks | `frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, HSTS (when using public TLS) | 1 ✅ |
 
 ### TB4/host: Server and data
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-SRV-1 | Database exposed to the network | Postgres on an internal compose network only, no published port, scram-sha-256, least-privilege roles | 1 ✅ |
-| T-SRV-2 | Container escape or lateral movement | distroless non-root, `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mount, tmpfs `/tmp`, resource limits | 1 ✅ |
+| T-SRV-2 | Container escape or lateral movement | distroless non-root, `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mount, tmpfs `/tmp` (resource limits are not set; configure them to your host, see RUNBOOK) | 1 ✅ |
 | T-SRV-3 | Theft of key material from a volume or backup | Signing and issuing keys encrypted with the KEK (from a Docker secret, never stored in the DB or image). Root key encrypted with an owner passphrase that is never stored. Backups encrypted with age. | 1, 5 ✅ |
-| T-SRV-4 | Audit tampering | Insert-only database role plus a trigger; hash chain with daily verification; optional streaming to a SIEM | 1 ✅ |
+| T-SRV-4 | Audit tampering | Insert-only database role plus a trigger; hash chain, verified on demand (console button, `admin verify-audit`). **Not implemented:** scheduled verification and SIEM streaming. From Phase 6 the running server holds only the DML-only role; the schema owner is a non-superuser held only by the one-shot `maintenance` service | 1 ✅ |
 | T-SRV-5 | Default credentials | None exist. First-run setup needs a one-time setup token printed to the server log/stdout, then creates the admin with MFA. | 1 ✅ |
 
 ### TB8: Our own release pipeline
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-REL-1 | Malicious agent update pushed through a customer server | Agent updates need a **vendor release-key** signature (compiled in) plus Authenticode with our pinned subject, and the version can't go down. A customer server can't create one. | 5 ✅ |
-| T-REL-2 | Compromised dependency | Pinned modules and lockfile, Renovate with review, govulncheck, `npm audit`, gosec, semgrep, CodeQL, license allow-list, SBOM (Syft), reproducible builds, cosign-signed images | 1, 6 ✅ |
+| T-REL-2 | Compromised dependency | Pinned modules and lockfile, Dependabot pull requests (reviewed, never auto-merged), govulncheck, `npm audit`, gosec, semgrep, CodeQL, license allow-list, SBOM (Syft), reproducible builds, cosign-signed images | 1, 6 ✅ |
 | T-REL-3 | Release-key theft | Release key in an HSM or cloud KMS, used only by a protected CI environment with required reviewers | 6 🔜 (owner decision on KMS) |
 
 ## 6. Server compromise: blast radius and residual risk
@@ -356,3 +356,39 @@ Scope: the Windows MSI that wraps `auzring-agent.exe install` / `uninstall` for 
 - We acknowledge within 3 business days, triage within 10, and aim to fix critical issues within 30 days and high within 60. Disclosure is coordinated with the reporter. Reporters who want credit get it.
 - Safe harbour for good-faith research on your own installations. Don't test against other customers' systems.
 - Supported versions: the current minor release and the previous one get security fixes.
+
+## 9e. Phase 6: security review
+
+A line-by-line review of the code against every row of section 5 and every claim in 9–9d (read-only; Windows-only code was read, not run). Where a row did not match the code, the row above was corrected instead of leaving the claim standing. Fuzz targets were added for the job envelope (with a valid signature and without), the enrollment string, the release manifest and bundle, the job-body validators and the uninstall-key scanner; `make fuzz` runs them all, together with the earlier ones.
+
+### Fixed in Phase 6
+
+| Finding | Fix |
+|---|---|
+| **The long-running server held a PostgreSQL superuser URL** (it needed it only for migrations): code execution in the server could rewrite the audit log and re-chain it, or run programs in the database container | Migrations, backup and restore run in a one-shot `maintenance` compose service that alone mounts the owner credential; the server mounts only the DML-only role and runs with `AUZ_MIGRATE_ON_START=false`. Fresh databases create a **non-superuser** `auzring_owner` (the bootstrap superuser is used only by the init script). The compose test asserts the server has neither secret and that backup and `--verify` work through `maintenance`. Databases created earlier keep a superuser owner (PostgreSQL cannot demote the bootstrap role): RUNBOOK 6, "Hardening an older database" |
+| `%ProgramData%\Auzring` could be pre-created by a standard user, who would stay its owner and could later rewrite the agent configuration (server, root pin, `allowed_jobs`) | Install creates the directory with the protected DACL in one step, refuses an existing one that is a reparse point or is not owned by SYSTEM or Administrators, and tells the administrator what to remove. (Windows code, compiled and vetted but not run) |
+| Per-device rate limits covered only inventory and job updates; one device could flood the audit chain with security events and stall every audit-writing action | Heartbeats and hardware reports (30/min) and security events (6/min, excess acknowledged and not recorded) are limited per device |
+| MFA failures counted once per five wrong codes toward the account lockout (about 50 guesses per lockout window) | Every wrong code counts; a locked account cannot continue an existing MFA-pending session |
+| The last-administrator guard was check-then-act (two administrators could disable each other) | Serialized by a process-wide mutex around the three handlers that can remove an administrator |
+| A site-limited approver could revoke another site's device by approving an enrollment that claimed (by hardware ID) to replace it | The approver must hold `devices:write` for the replaced device's site as well |
+| Password reset, MFA reset and the user's own password change left API tokens (up to 365 days) alive | All three revoke the user's API tokens |
+| msiexec switches in the `-x`/`--x` spelling bypassed the deny-list | The key is normalized before the lookup |
+| Reserved device names stopped at COM3 and LPT3; trailing dots and spaces were not rejected in archive entries | COM1–9, LPT1–9, `CONIN$`, `CONOUT$` and trailing dots or spaces are refused |
+| The vendor download client had no timeout at all (a silent server could stall the single job loop forever) | Header timeout, handshake timeout and a 2-minute stall limit between bytes |
+| Deleting an agent release could delete a file that a custom package also uses | The file is deleted only when neither table references it |
+| Documentation claimed CodeQL and Renovate | CodeQL (`codeql.yml`, pinned) and Dependabot (`dependabot.yml`) were added; the claims were corrected where the feature did not exist (T-WEB-7 prefix, T-LPE-3, T-LPE-9, T-WEB-2, T-DEV-5, T-SRV-4, T-SRV-2, T-SUP-2/3, T-ENR-1) |
+
+### Residual risks and gaps (accepted for now, in order of concern)
+
+| ID | Gap | Notes |
+|---|---|---|
+| R-1 | **No DACL check on uninstall executables** (T-LPE-3): an application installed with a user-writable folder under Program Files, or anything under `ProgramData\Package Cache`, can have its uninstaller replaced by a local user, and the next uninstall that Auzring performs for that application runs the replacement as SYSTEM | Needs a Windows implementation (owner and DACL of the file and each parent, open by handle). Mitigation until then: use `allowed_jobs` without `software_uninstall` on sensitive machines |
+| R-2 | **No root-signed key revocation**: the field exists in the protocol but nothing produces or enforces it. A stolen job-signing key is valid until it is rotated out and, for an agent that was offline, until its certificate expires (2 years) | Planned: revocation statements signed by the root at unlock time; shorter job-signing certificate lifetimes |
+| R-3 | A compromised server can still sign any typed job (section 6). The mitigations listed there (four-eyes approval, anomaly alerts, HSM-held signing key) are **not implemented** | Largest remaining design risk; the agent-side ceiling and vendor-signed agent updates bound it |
+| R-4 | No scheduled audit-chain verification and no SIEM streaming | Verify from the console or `admin verify-audit`; copy `audit_log` out of band if you need an external record |
+| R-5 | No step-up MFA for sensitive actions (large deployments, role changes, token creation) | Sessions are short (30 min idle) and tokens cannot manage users or mint tokens |
+| R-6 | API tokens and cached site scope on open SSE streams are not re-validated until the stream ends | Streams re-check the session; revoke a token and the next request fails |
+| R-7 | Unauthenticated connections to the gateway port are bounded only by the TLS handshake timeout and the operating system | Put a firewall or connection limit in front if the port is exposed to untrusted networks |
+| R-8 | The compose file sets no CPU, memory or process limits | Set them to your host in a compose override |
+| R-9 | Per-user (HKCU) MSI uninstalls through the helper may be refused because the helper requires the executable under the staging directory | Fails closed; to be confirmed on a real machine |
+| R-10 | Audit verification (`POST /audit/verify`) reports the size of the global chain to any administrator | Single-organization installs only today |

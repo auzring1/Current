@@ -60,6 +60,8 @@ type Gateway struct {
 	statusIP    *auth.Limiter
 	renewDevice *auth.Limiter
 	invDevice   *auth.Limiter
+	hbDevice    *auth.Limiter // heartbeats and hardware reports
+	secDevice   *auth.Limiter // security events (each one is an audit row)
 	inv         *inventory.Service
 	deploy      *deploy.Service
 	updates     *updates.Service
@@ -98,6 +100,8 @@ func New(o Options) *Gateway {
 		renewDevice: auth.NewLimiter(5, time.Hour, 5),
 		// A full snapshot is up to ~100 chunks in a burst; steady state is a few per minute.
 		invDevice: auth.NewLimiter(120, time.Minute, 450),
+		hbDevice:  auth.NewLimiter(30, time.Minute, 30),
+		secDevice: auth.NewLimiter(6, time.Minute, 6),
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
 		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2),
 	}

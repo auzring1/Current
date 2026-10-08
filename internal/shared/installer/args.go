@@ -60,6 +60,8 @@ func ValidateArg(a string) error {
 		if i := strings.IndexAny(name, "=:"); i >= 0 {
 			name = name[:i]
 		}
+		// msiexec accepts -x and --x as well as /x; look them all up as /x.
+		name = "/" + strings.TrimLeft(name, "/-")
 		if msiForbidden[name] {
 			return fmt.Errorf("%w: %s is not a permitted switch", ErrArg, a)
 		}

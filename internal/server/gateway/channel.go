@@ -174,6 +174,11 @@ func (g *Gateway) handle(ctx context.Context, c *conn, dev dbq.Device, m *agentv
 	now := g.now()
 	switch msg := m.Msg.(type) {
 	case *agentv1.ConnectRequest_Heartbeat:
+		// Over the per-device limit a heartbeat is ignored, not answered with an error: a flood is the
+		// device's problem, and last_seen is already fresh (SECURITY.md T-DEV-3).
+		if !g.hbDevice.Allow(c.deviceID.String()) {
+			return nil
+		}
 		hb := msg.Heartbeat
 		if err := q.UpdateDeviceHeartbeat(ctx, dbq.UpdateDeviceHeartbeatParams{ID: dev.ID, LastSeenAt: &now,
 			UptimeS: clampI64(hb.UptimeS), PendingReboot: hb.PendingReboot, LoggedOnUser: cleanField(hb.LoggedOnUser, 256)}); err != nil {
@@ -187,6 +192,9 @@ func (g *Gateway) handle(ctx context.Context, c *conn, dev dbq.Device, m *agentv
 		}
 		if inv.GetHardware() == nil {
 			return status.Error(codes.InvalidArgument, "hardware report without body")
+		}
+		if !g.hbDevice.Allow(c.deviceID.String()) {
+			return status.Error(codes.ResourceExhausted, "hardware report rate limit")
 		}
 		hw := inv.GetHardware()
 		if err := validateHardware(hw); err != nil {
@@ -217,6 +225,11 @@ func (g *Gateway) handle(ctx context.Context, c *conn, dev dbq.Device, m *agentv
 		return g.handleJobUpdate(ctx, c, dev, msg.JobUpdate)
 	case *agentv1.ConnectRequest_SecurityEvent:
 		ev := msg.SecurityEvent
+		// Each event is an audit row taking the global chain lock: acknowledge but do not record a flood.
+		if !g.secDevice.Allow(c.deviceID.String()) {
+			g.log.Debug("security events rate limited", "device", dev.ID)
+			return c.send(&agentv1.ConnectResponse{Msg: &agentv1.ConnectResponse_Ack{Ack: &agentv1.Ack{Seq: ev.Seq}}})
+		}
 		_ = audit.Log(ctx, g.pool, audit.Entry{OrgID: &dev.OrgID, ActorType: audit.ActorDevice, ActorID: dev.ID.String(),
 			ActorIP: c.remote, Action: "agent.security_event", TargetType: "device", TargetIDs: []string{dev.ID.String()},
 			Outcome: audit.Denied, Details: map[string]any{"kind": ev.Kind.String(), "detail": cleanField(ev.Detail, 1024)}})

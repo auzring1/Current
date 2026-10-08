@@ -73,6 +73,8 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q().DeleteOtherSessionsForUser(r.Context(), dbq.DeleteOtherSessionsForUserParams{UserID: u.ID, IDHash: sess.IDHash})
+	// A password change is what people do when they suspect a compromise: tokens made before it go too.
+	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())})
 	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &u.OrgID, ActorType: audit.ActorUser, ActorID: u.ID.String(), ActorIP: clientIP(r), Action: "auth.password_change",
 		TargetType: "user", TargetIDs: []string{u.ID.String()}, Outcome: audit.Success})
 	u.MustChangePassword = false

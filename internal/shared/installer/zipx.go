@@ -44,12 +44,23 @@ func safeRel(name string) (string, error) {
 		}
 		// reserved Windows device names would address devices, not files
 		base := strings.ToUpper(strings.SplitN(seg, ".", 2)[0])
-		switch base {
-		case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "LPT1", "LPT2", "LPT3":
-			return "", fmt.Errorf("%w: reserved name %q", ErrZip, name)
+		if reservedName(base) || strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") {
+			// Windows also strips trailing dots and spaces, which makes "a." and "a" the same file.
+			return "", fmt.Errorf("%w: reserved or ambiguous name %q", ErrZip, name)
 		}
 	}
 	return clean, nil
+}
+
+func reservedName(base string) bool {
+	switch base {
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
+		return true
+	}
+	if len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) {
+		return base[3] >= '1' && base[3] <= '9'
+	}
+	return false
 }
 
 // ExtractZip extracts src into dst (which must exist and be empty or private).

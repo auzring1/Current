@@ -653,6 +653,20 @@ func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) 
 	return result.RowsAffected(), nil
 }
 
+const revokeAPITokensForUser = `-- name: RevokeAPITokensForUser :exec
+UPDATE api_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+type RevokeAPITokensForUserParams struct {
+	UserID    uuid.UUID
+	RevokedAt *time.Time
+}
+
+func (q *Queries) RevokeAPITokensForUser(ctx context.Context, arg RevokeAPITokensForUserParams) error {
+	_, err := q.db.Exec(ctx, revokeAPITokensForUser, arg.UserID, arg.RevokedAt)
+	return err
+}
+
 const setUserPassword = `-- name: SetUserPassword :exec
 UPDATE users SET password_hash = $2, must_change_password = $3, password_changed_at = $4, failed_logins = 0, locked_until = NULL WHERE id = $1
 `

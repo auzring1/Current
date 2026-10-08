@@ -112,6 +112,9 @@ UPDATE api_tokens SET last_used_at = $2, last_used_ip = $3 WHERE id = $1;
 -- name: RevokeAPIToken :execrows
 UPDATE api_tokens SET revoked_at = $3 WHERE id = $1 AND org_id = $2 AND revoked_at IS NULL;
 
+-- name: RevokeAPITokensForUser :exec
+UPDATE api_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL;
+
 -- name: CountActiveAPITokensForUser :one
 SELECT count(*) FROM api_tokens WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now();
 
