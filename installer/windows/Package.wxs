@@ -64,13 +64,20 @@
       <RegistrySearch Id="AgentServiceImagePath" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\AuzringAgent" Name="ImagePath" Type="raw" Bitness="always64" />
     </Property>
 
+    <!-- The real Windows build number. VersionNT and WindowsBuild cannot be used for the version check: Windows Installer
+         can report Windows 8.1 (VersionNT 603, WindowsBuild 9600) on Windows 10/11 and Server (seen on a Windows 11 test
+         machine), which made the 1809 launch condition fail. CurrentBuildNumber is the number winver shows. -->
+    <Property Id="WINBUILD">
+      <RegistrySearch Id="WindowsBuildNumber" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
+    </Property>
+
     <!-- Add/Remove Programs -->
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPCOMMENTS" Value="Auzring endpoint management agent" />
 
     <!-- ===== Platform conditions ===== -->
     <Launch Condition="Installed OR VersionNT64" Message="The Auzring Agent supports 64-bit (x64) Windows only." />
-    <Launch Condition="Installed OR (VersionNT &gt;= 1000 AND WindowsBuild &gt;= 17763)" Message="The Auzring Agent requires Windows 10 version 1809 (build 17763) or later, or Windows Server 2019 or later." />
+    <Launch Condition="Installed OR WINBUILD &gt;= 17763" Message="The Auzring Agent requires Windows 10 version 1809 (build 17763) or later, or Windows Server 2019 or later." />
     <Launch Condition="Installed OR Privileged" Message="The Auzring Agent must be installed by an administrator (run msiexec from an elevated prompt, or deploy it as SYSTEM)." />
 
     <!-- ===== Required properties on a first install (not on uninstall, and not when the machine is already enrolled) ===== -->
