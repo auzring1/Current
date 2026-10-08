@@ -26,8 +26,11 @@ COPY . .
 COPY --from=web /src/internal/server/webui/dist ./internal/server/webui/dist
 ARG VERSION=0.1.0-dev
 ARG COMMIT=unknown
+# Vendor license public key(s), hex, comma-separated (a public value). Empty = "licensing not configured":
+# the server then runs unlicensed (evaluation limits).
+ARG LICENSE_PUBLIC_KEYS=
 RUN go build -trimpath \
-      -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=${VERSION} -X github.com/auzring1/auzring/internal/shared/version.Commit=${COMMIT}" \
+      -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=${VERSION} -X github.com/auzring1/auzring/internal/shared/version.Commit=${COMMIT} -X github.com/auzring1/auzring/internal/shared/license.PublicKeysHex=${LICENSE_PUBLIC_KEYS}" \
       -o /out/auzring-server ./cmd/auzring-server
 
 # Empty content directory owned by the runtime user; compose mounts a volume over it.
