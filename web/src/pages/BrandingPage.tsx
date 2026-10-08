@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Box, Button, ColorInput, FileButton, Group, Loader, Modal, SimpleGrid, Stack, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Button, ColorInput, FileButton, Group, MultiSelect, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import {
   api,
   ApiError,
@@ -13,15 +12,19 @@ import {
 } from "../api/client";
 import { useSession } from "../api/session";
 import { BrandPreview } from "../branding/BrandPreview";
-import { checks, colorProblems, DEFAULT_ACCENT } from "../branding/contrast";
+import { checks, colorProblems, DARK_SURFACE, DEFAULT_ACCENT, WHITE } from "../branding/contrast";
 import { checkImageFile, LIMITS } from "../branding/images";
+import { SYSTEM_THEME, THEMES, theme as findTheme } from "../design/themes";
+import { Card, Icons, Skel, StatusPill, toast, useConfirm } from "../ui";
+import { ThemeSwatch } from "../ui/admin-kit";
 
-const SLOTS: { kind: BrandingAssetKind; label: string; help: string; checker?: "light" | "dark" }[] = [
-  { kind: "logo_light", label: "Logo for light backgrounds", help: "Shown in the top bar and on the sign-in page in the light theme." },
-  { kind: "logo_dark", label: "Logo for dark backgrounds", help: "Used in the dark theme. Without it the light logo is shown on a light chip.", checker: "dark" },
+/** `surface` is what the preview of the slot sits on: a fixed light or dark surface where the image is made for one. */
+const SLOTS: { kind: BrandingAssetKind; label: string; help: string; surface?: "light" | "dark" }[] = [
+  { kind: "logo_light", label: "Logo for light backgrounds", help: "Shown in the top bar and on the sign-in page in the light theme.", surface: "light" },
+  { kind: "logo_dark", label: "Logo for dark backgrounds", help: "Used in the dark theme. Without it the light logo is shown on a light chip.", surface: "dark" },
   { kind: "icon", label: "Square icon", help: "Shown instead of the logo when no logo is set." },
   { kind: "favicon", label: "Favicon", help: "The small icon in the browser tab." },
-  { kind: "report_logo", label: "Report and email logo", help: "Printed at the top of exported reports and used in emails. Falls back to the light logo." },
+  { kind: "report_logo", label: "Report and email logo", help: "Printed at the top of exported reports and used in emails. Falls back to the light logo.", surface: "light" },
 ];
 
 const EMPTY: BrandingSettings = {
@@ -36,17 +39,29 @@ const EMPTY: BrandingSettings = {
   support_phone: "",
   support_url: "",
   report_footer: "",
+  default_theme: "",
+  allowed_themes: [],
 };
 
-const norm = (s: BrandingSettings): BrandingSettings => ({ ...EMPTY, ...s });
+const norm = (s: BrandingSettings): BrandingSettings => ({ ...EMPTY, ...s, default_theme: s.default_theme ?? "", allowed_themes: s.allowed_themes ?? [] });
+
+const themeOption = (id: string) => {
+  const t = findTheme(id);
+  return (
+    <span className="rnv-theme-option">
+      {t ? <ThemeSwatch theme={t} /> : <Icons.Laptop size={16} aria-hidden />}
+      {t ? t.name : "Follow the device"}
+    </span>
+  );
+};
 
 export function BrandingPage() {
   const { can } = useSession();
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const q = useQuery({ queryKey: ["branding-admin"], queryFn: () => api<BrandingView>("GET", "/settings/branding"), enabled: can("branding:write") });
   const [draft, setDraft] = useState<BrandingSettings>(EMPTY);
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
-  const [confirmReset, setConfirmReset] = useState(false);
   const loaded = useRef("");
 
   // Take the stored settings into the form when they first load and after every save, but never overwrite edits in progress.
@@ -69,11 +84,11 @@ export function BrandingPage() {
     onSuccess: (v) => {
       accept(v);
       setServerErrors({});
-      notifications.show({ color: "green", message: "Branding saved." });
+      toast.success("Branding saved.");
     },
     onError: (e) => {
       if (e instanceof ApiError && e.code === "invalid_branding") setServerErrors(e.fields);
-      else notifications.show({ color: "red", message: errorMessage(e) });
+      else toast.error(errorMessage(e));
     },
   });
   const reset = useMutation({
@@ -83,10 +98,9 @@ export function BrandingPage() {
       loaded.current = JSON.stringify(v.settings);
       setDraft(norm(v.settings));
       setServerErrors({});
-      setConfirmReset(false);
-      notifications.show({ color: "green", message: "Branding reset to the defaults." });
+      toast.success("Branding reset to the defaults.");
     },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const problems = useMemo(() => colorProblems(draft.accent_color ?? "", draft.secondary_color ?? ""), [draft.accent_color, draft.secondary_color]);
@@ -95,170 +109,237 @@ export function BrandingPage() {
     return p.accent?.startsWith("Use a") || p.secondary?.startsWith("Use a") ? [] : checks(draft.accent_color ?? "", draft.secondary_color ?? "");
   }, [draft.accent_color, draft.secondary_color]);
 
-  if (!can("branding:write")) return <Alert color="yellow">Only administrators can change branding.</Alert>;
-  if (q.isLoading) return <Loader />;
-  if (q.error || !q.data) return <Alert color="red">{errorMessage(q.error)}</Alert>;
+  if (!can("branding:write")) {
+    return (
+      <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />}>
+        Only administrators can change branding.
+      </Alert>
+    );
+  }
+  if (q.isLoading) {
+    return (
+      <Card>
+        <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+          <Skel w="30%" h={16} />
+          <Skel h={36} />
+          <Skel h={36} />
+          <Skel w="60%" h={12} />
+        </div>
+      </Card>
+    );
+  }
+  if (q.error || !q.data) {
+    return (
+      <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+        {errorMessage(q.error)}
+      </Alert>
+    );
+  }
   const view = q.data;
   const dirty = JSON.stringify(norm(draft)) !== JSON.stringify(norm(view.settings));
-  const blocked = !!problems.accent || !!problems.secondary;
+  const allowed = draft.allowed_themes ?? [];
+  const defaultTheme = draft.default_theme ?? "";
+  const defaultProblem = allowed.length > 0 && defaultTheme !== "" && defaultTheme !== SYSTEM_THEME && !allowed.includes(defaultTheme) ? "The default theme must be one of the offered themes." : undefined;
+  const blocked = !!problems.accent || !!problems.secondary || !!defaultProblem;
   const set = (k: keyof BrandingSettings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setDraft({ ...draft, [k]: e.currentTarget.value });
     if (serverErrors[k]) setServerErrors({ ...serverErrors, [k]: "" });
   };
   const err = (k: keyof BrandingSettings) => serverErrors[k] || undefined;
+  const clearErr = (...ks: string[]) => setServerErrors((cur) => Object.fromEntries(Object.entries(cur).filter(([k]) => !ks.includes(k))));
+
+  const themeData = [{ value: SYSTEM_THEME, label: "Follow the device" }, ...THEMES.map((t) => ({ value: t.id, label: t.name }))];
+  const defaultData = themeData.map((o) => ({ ...o, disabled: allowed.length > 0 && o.value !== SYSTEM_THEME && !allowed.includes(o.value) }));
+
+  const askReset = async () => {
+    const ok = await confirm({
+      title: "Reset branding to the defaults?",
+      message: "This clears the organization name, product name, colors, theme choices, sign-in texts, support contact, report footer and every uploaded image. The previous values stay in the audit log.",
+      confirmLabel: "Reset to defaults",
+      danger: true,
+    });
+    if (ok) reset.mutate();
+  };
 
   return (
-    <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
-      <Stack maw={640}>
+    <div className="rnv-branding">
+      <div className="rnv-stack-y">
         <Text c="dimmed" size="sm">
           Make this deployment look like yours. Everything here is stored on your server and changes are written to the audit log.
         </Text>
 
-        <Title order={4}>Names</Title>
-        <TextInput label="Organization name" description="Shown in the top bar, on the sign-in page, in page titles and on reports." value={draft.org_name} onChange={set("org_name")} maxLength={120} error={err("org_name")} />
-        <TextInput
-          label="Product name"
-          description={`What the console calls itself. Leave empty for "${view.defaults.product_name}".`}
-          placeholder={view.defaults.product_name}
-          value={draft.product_name}
-          onChange={set("product_name")}
-          maxLength={60}
-          error={err("product_name")}
-        />
+        <Card title="Names">
+          <Stack gap="sm">
+            <TextInput label="Organization name" description="Shown in the top bar, on the sign-in page, in page titles and on reports." value={draft.org_name} onChange={set("org_name")} maxLength={120} error={err("org_name")} />
+            <TextInput
+              label="Product name"
+              description={`What the console calls itself. Leave empty for "${view.defaults.product_name}".`}
+              placeholder={view.defaults.product_name}
+              value={draft.product_name}
+              onChange={set("product_name")}
+              maxLength={60}
+              error={err("product_name")}
+            />
+          </Stack>
+        </Card>
 
-        <Title order={4} mt="md">
-          Colors
-        </Title>
-        <ColorInput
-          label="Accent color"
-          description={`Buttons, links and focus rings. Leave empty for ${DEFAULT_ACCENT}.`}
-          format="hex"
-          placeholder={DEFAULT_ACCENT}
-          value={draft.accent_color}
-          onChange={(v) => setDraft({ ...draft, accent_color: v })}
-          error={problems.accent ?? err("accent_color")}
-          popoverProps={{ withinPortal: true }}
-        />
-        <ColorInput
-          label="Secondary color (optional)"
-          description="Used for graphics such as the line under the top bar."
-          format="hex"
-          placeholder="None"
-          value={draft.secondary_color}
-          onChange={(v) => setDraft({ ...draft, secondary_color: v })}
-          error={problems.secondary ?? err("secondary_color")}
-          popoverProps={{ withinPortal: true }}
-        />
-        <ContrastTable rows={liveChecks} />
+        <Card title="Colors" description="The accent is adapted to every theme so text on it stays readable.">
+          <Stack gap="sm">
+            <ColorInput
+              label="Accent color"
+              description={`Buttons, links and focus rings. Leave empty for ${DEFAULT_ACCENT}.`}
+              format="hex"
+              placeholder={DEFAULT_ACCENT}
+              value={draft.accent_color}
+              onChange={(v) => setDraft({ ...draft, accent_color: v })}
+              error={problems.accent ?? err("accent_color")}
+              popoverProps={{ withinPortal: true }}
+            />
+            <ColorInput
+              label="Secondary color (optional)"
+              description="Used for graphics such as the line under the top bar."
+              format="hex"
+              placeholder="None"
+              value={draft.secondary_color}
+              onChange={(v) => setDraft({ ...draft, secondary_color: v })}
+              error={problems.secondary ?? err("secondary_color")}
+              popoverProps={{ withinPortal: true }}
+            />
+            <ContrastTable rows={liveChecks} />
+          </Stack>
+        </Card>
 
-        <Title order={4} mt="md">
-          Sign-in page
-        </Title>
-        <TextInput label="Headline" placeholder={`Sign in to ${(draft.product_name ?? "").trim() || view.defaults.product_name}`} value={draft.login_headline} onChange={set("login_headline")} maxLength={120} error={err("login_headline")} />
-        <Textarea label="Welcome message" autosize minRows={2} maxRows={6} value={draft.login_message} onChange={set("login_message")} maxLength={1000} error={err("login_message")} />
-        <Textarea label="Footer or legal text (optional)" description="For example an authorized-use notice." autosize minRows={2} maxRows={6} value={draft.login_footer} onChange={set("login_footer")} maxLength={1000} error={err("login_footer")} />
-        <Group grow align="flex-start">
-          <TextInput label="Support email" type="email" value={draft.support_email} onChange={set("support_email")} error={err("support_email")} />
-          <TextInput label="Support phone" value={draft.support_phone} onChange={set("support_phone")} error={err("support_phone")} />
-        </Group>
-        <TextInput label="Support link" description="An https:// address." placeholder="https://" value={draft.support_url} onChange={set("support_url")} error={err("support_url")} />
+        <Card title="Appearance" description="Which themes people can use. Everyone can still pick their own from the account menu.">
+          <Stack gap="sm">
+            <Select
+              label="Default theme"
+              description="What people see until they choose their own."
+              data={defaultData}
+              value={defaultTheme || SYSTEM_THEME}
+              onChange={(v) => {
+                setDraft({ ...draft, default_theme: !v || v === SYSTEM_THEME ? "" : v });
+                clearErr("default_theme");
+              }}
+              allowDeselect={false}
+              error={defaultProblem ?? err("default_theme")}
+              renderOption={({ option }) => themeOption(option.value)}
+              comboboxProps={{ withinPortal: true }}
+            />
+            <MultiSelect
+              label="Themes people may choose"
+              description="Leave empty to offer every theme. “Follow the device” lets people match their computer's light or dark setting."
+              data={themeData}
+              value={allowed}
+              onChange={(v) => {
+                setDraft({ ...draft, allowed_themes: v });
+                clearErr("allowed_themes", "default_theme");
+              }}
+              clearable
+              placeholder={allowed.length === 0 ? "All themes" : undefined}
+              error={err("allowed_themes")}
+              renderOption={({ option }) => themeOption(option.value)}
+              comboboxProps={{ withinPortal: true }}
+            />
+          </Stack>
+        </Card>
 
-        <Title order={4} mt="md">
-          Reports and emails
-        </Title>
-        <Textarea label="Footer text" description="Printed at the bottom of exported reports and added to emails." autosize minRows={2} maxRows={6} value={draft.report_footer} onChange={set("report_footer")} maxLength={500} error={err("report_footer")} />
+        <Card title="Sign-in page">
+          <Stack gap="sm">
+            <TextInput label="Headline" placeholder={`Sign in to ${(draft.product_name ?? "").trim() || view.defaults.product_name}`} value={draft.login_headline} onChange={set("login_headline")} maxLength={120} error={err("login_headline")} />
+            <Textarea label="Welcome message" autosize minRows={2} maxRows={6} value={draft.login_message} onChange={set("login_message")} maxLength={1000} error={err("login_message")} />
+            <Textarea label="Footer or legal text (optional)" description="For example an authorized-use notice." autosize minRows={2} maxRows={6} value={draft.login_footer} onChange={set("login_footer")} maxLength={1000} error={err("login_footer")} />
+            <Group grow align="flex-start">
+              <TextInput label="Support email" type="email" value={draft.support_email} onChange={set("support_email")} error={err("support_email")} />
+              <TextInput label="Support phone" value={draft.support_phone} onChange={set("support_phone")} error={err("support_phone")} />
+            </Group>
+            <TextInput label="Support link" description="An https:// address." placeholder="https://" value={draft.support_url} onChange={set("support_url")} error={err("support_url")} />
+          </Stack>
+        </Card>
 
-        <Group mt="sm">
-          <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!dirty || blocked}>
+        <Card title="Reports and emails">
+          <Textarea label="Footer text" description="Printed at the bottom of exported reports and added to emails." autosize minRows={2} maxRows={6} value={draft.report_footer} onChange={set("report_footer")} maxLength={500} error={err("report_footer")} />
+        </Card>
+
+        <div className="rnv-actionbar" role="group" aria-label="Save branding">
+          <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!dirty || blocked} leftSection={<Icons.Save size={16} aria-hidden />}>
             Save changes
           </Button>
           <Button variant="default" onClick={() => (setDraft(norm(view.settings)), setServerErrors({}))} disabled={!dirty}>
             Discard changes
           </Button>
-          <Button variant="outline" color="red" ml="auto" onClick={() => setConfirmReset(true)}>
+          {dirty && (
+            <StatusPill kind="warning" size="sm" icon={Icons.Clock}>
+              Unsaved changes
+            </StatusPill>
+          )}
+          <span className="rnv-actionbar__spacer" />
+          <Button variant="outline" color="red" onClick={() => void askReset()} loading={reset.isPending} leftSection={<Icons.Restore size={16} aria-hidden />}>
             Reset to defaults
           </Button>
-        </Group>
-        {blocked && (
-          <Text size="sm" c="red" role="alert">
-            These colors cannot be saved until they pass the contrast checks.
-          </Text>
-        )}
+          {blocked && (
+            <Text size="sm" role="alert" style={{ flexBasis: "100%", color: "var(--rnv-danger-fg)", display: "flex", alignItems: "center", gap: 6 }}>
+              <Icons.Danger size={16} aria-hidden />
+              {problems.accent || problems.secondary ? "These colors cannot be saved until they pass the contrast checks." : "Fix the highlighted fields to save."}
+            </Text>
+          )}
+        </div>
 
-        <Title order={4} mt="xl">
-          Images
-        </Title>
-        <Text size="sm" c="dimmed">
-          PNG or JPEG, up to 512 KB. Images are applied as soon as you upload them. They are re-encoded on the server, so metadata is removed. SVG is not accepted.
-        </Text>
-        {SLOTS.map((s) => (
-          <ImageSlot key={s.kind} slot={s} view={view} onView={accept} />
-        ))}
-      </Stack>
+        <Card title="Images" description="PNG or JPEG, up to 512 KB. Images are applied as soon as you upload them. They are re-encoded on the server, so metadata is removed. SVG is not accepted.">
+          <div>
+            {SLOTS.map((s) => (
+              <ImageSlot key={s.kind} slot={s} view={view} onView={accept} />
+            ))}
+          </div>
+        </Card>
+      </div>
 
-      <Box style={{ position: "sticky", top: 72, alignSelf: "start" }}>
-        <Title order={4} mb="xs">
-          Preview
-        </Title>
-        <BrandPreview draft={draft} view={view} />
-      </Box>
-
-      <Modal opened={confirmReset} onClose={() => setConfirmReset(false)} title="Reset branding to the defaults?" centered>
-        <Stack>
-          <Text size="sm">
-            This clears the organization name, product name, colors, sign-in texts, support contact, report footer and every uploaded image. The previous values stay in the audit log.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirmReset(false)}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={() => reset.mutate()} loading={reset.isPending}>
-              Reset to defaults
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </SimpleGrid>
+      <div className="rnv-branding__preview">
+        <Card title="Preview">
+          <BrandPreview draft={draft} view={view} />
+        </Card>
+      </div>
+    </div>
   );
 }
 
 function ContrastTable({ rows }: { rows: ReturnType<typeof checks> }) {
   if (rows.length === 0) return null;
   return (
-    <Table withTableBorder data-testid="contrast-table" aria-label="Contrast checks">
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Where it is used (WCAG AA)</Table.Th>
-          <Table.Th w={90}>Contrast</Table.Th>
-          <Table.Th w={80}>Needs</Table.Th>
-          <Table.Th w={96} />
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {rows.map((c) => (
-          <Table.Tr key={c.id} data-testid={`contrast-${c.id}`}>
-            <Table.Td>
-              <Group gap="xs" wrap="nowrap">
-                <span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 3, background: c.id.startsWith("accent_text") ? c.background : c.foreground, border: "1px solid #868e96", flex: "none" }} />
-                <Text size="sm">{c.label}</Text>
-              </Group>
-            </Table.Td>
-            <Table.Td>{c.ratio.toFixed(2)}:1</Table.Td>
-            <Table.Td>{c.required.toFixed(1)}:1</Table.Td>
-            <Table.Td>
-              <Badge color={c.pass ? "green" : "red"} variant="filled" styles={{ label: { overflow: "visible" } }}>
-                {c.pass ? "Pass" : "Fail"}
-              </Badge>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+    <div className="rnv-minitable-wrap">
+      <table className="rnv-minitable" data-testid="contrast-table" aria-label="Contrast checks">
+        <thead>
+          <tr>
+            <th scope="col">Where it is used (WCAG AA)</th>
+            <th scope="col">Contrast</th>
+            <th scope="col">Needs</th>
+            <th scope="col">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => (
+            <tr key={c.id} data-testid={`contrast-${c.id}`}>
+              <td>
+                <span className="rnv-swatch-dot" style={{ background: c.id.startsWith("accent_text") ? c.background : c.foreground }} aria-hidden="true" />
+                {c.label}
+              </td>
+              <td className="rnv-num">{c.ratio.toFixed(2)}:1</td>
+              <td className="rnv-num">{c.required.toFixed(1)}:1</td>
+              <td>
+                <StatusPill kind={c.pass ? "success" : "danger"} size="sm">
+                  {c.pass ? "Pass" : "Fail"}
+                </StatusPill>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function ImageSlot({ slot, view, onView }: { slot: (typeof SLOTS)[number]; view: BrandingView; onView: (v: BrandingView) => void }) {
   const info = view.assets[slot.kind];
+  const confirm = useConfirm();
   const [err, setErr] = useState("");
   const clearInput = useRef<() => void>(null);
   const upload = useMutation({
@@ -266,38 +347,26 @@ function ImageSlot({ slot, view, onView }: { slot: (typeof SLOTS)[number]; view:
       await checkImageFile(file, slot.kind);
       return uploadBrandingAsset(slot.kind, file);
     },
-    onSuccess: (v) => (setErr(""), onView(v), notifications.show({ color: "green", message: `${slot.label} updated.` })),
+    onSuccess: (v) => (setErr(""), onView(v), toast.success(`${slot.label} updated.`)),
     onError: (e) => setErr(errorMessage(e)),
   });
   const remove = useMutation({
     mutationFn: () => api<BrandingView>("DELETE", `/settings/branding/assets/${slot.kind}`),
-    onSuccess: (v) => (setErr(""), onView(v), notifications.show({ color: "green", message: `${slot.label} removed.` })),
+    onSuccess: (v) => (setErr(""), onView(v), toast.success(`${slot.label} removed.`)),
     onError: (e) => setErr(errorMessage(e)),
   });
+  // A logo made for light or dark backgrounds is previewed on a fixed light or dark surface in every theme.
+  const background = slot.surface === "dark" ? DARK_SURFACE : slot.surface === "light" ? WHITE : undefined;
   return (
-    <Group align="flex-start" wrap="nowrap" data-testid={`slot-${slot.kind}`}>
-      <Box
-        style={{
-          width: 120,
-          height: 64,
-          flex: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "1px dashed #868e96",
-          borderRadius: 6,
-          background: slot.checker === "dark" ? "#1a1b1e" : "#ffffff",
-        }}
-      >
-        {info ? <img src={info.url} alt={`${slot.label} (current)`} style={{ maxWidth: 112, maxHeight: 56 }} /> : <Text size="xs" c="dimmed">None</Text>}
-      </Box>
-      <Stack gap={4} style={{ flex: 1 }}>
-        <Text fw={500} size="sm">
-          {slot.label}
-        </Text>
-        <Text size="xs" c="dimmed">
+    <div className="rnv-slot" data-testid={`slot-${slot.kind}`}>
+      <div className="rnv-slot__preview" style={background ? { background } : undefined}>
+        {info ? <img src={info.url} alt={`${slot.label} (current)`} style={{ maxWidth: 112, maxHeight: 56 }} /> : <span style={background ? { color: slot.surface === "dark" ? WHITE : DARK_SURFACE } : undefined}>None</span>}
+      </div>
+      <div className="rnv-slot__body">
+        <p className="rnv-slot__title">{slot.label}</p>
+        <p className="rnv-slot__help">
           {slot.help} {LIMITS[slot.kind].hint}.{info ? ` Current: ${info.width} × ${info.height}, ${(info.size / 1024).toFixed(1)} KB.` : ""}
-        </Text>
+        </p>
         <Group gap="xs">
           <FileButton
             accept="image/png,image/jpeg"
@@ -308,23 +377,35 @@ function ImageSlot({ slot, view, onView }: { slot: (typeof SLOTS)[number]; view:
             }}
           >
             {(props) => (
-              <Button {...props} size="xs" variant="default" loading={upload.isPending} aria-label={`Upload ${slot.label}`}>
+              <Button {...props} size="xs" variant="default" loading={upload.isPending} aria-label={`Upload ${slot.label}`} leftSection={<Icons.Plus size={14} aria-hidden />}>
                 {info ? "Replace" : "Upload"}
               </Button>
             )}
           </FileButton>
           {info && (
-            <Button size="xs" variant="subtle" color="red" onClick={() => remove.mutate()} loading={remove.isPending} aria-label={`Remove ${slot.label}`}>
+            <Button
+              size="xs"
+              variant="subtle"
+              color="red"
+              loading={remove.isPending}
+              aria-label={`Remove ${slot.label}`}
+              leftSection={<Icons.Trash size={14} aria-hidden />}
+              onClick={async () => {
+                const ok = await confirm({ title: `Remove “${slot.label}”?`, message: "The image is deleted from the server. You can upload it again at any time.", confirmLabel: "Remove image", danger: true });
+                if (ok) remove.mutate();
+              }}
+            >
               Remove
             </Button>
           )}
         </Group>
         {err && (
-          <Text size="xs" c="red" role="alert">
+          <p className="rnv-slot__error" role="alert">
+            <Icons.Danger size={14} aria-hidden />
             {err}
-          </Text>
+          </p>
         )}
-      </Stack>
-    </Group>
+      </div>
+    </div>
   );
 }

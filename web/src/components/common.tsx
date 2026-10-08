@@ -1,41 +1,34 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Badge, Button, Code, CopyButton, Group, Image, List, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, CopyButton, Group, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import QRCode from "qrcode";
 import { PRODUCT_NAME } from "../brand.generated";
+import { Icons, Status } from "../ui";
+import "../ui/admin-kit.css";
 
+/** A status word from the API (active, pending, revoked...) as an icon + color + text pill. */
 export function StatusBadge({ status }: { status: string }) {
-  const color = { active: "green", pending: "yellow", revoked: "red", retired: "gray", expired: "gray", exhausted: "gray" }[status] ?? "gray";
-  return (
-    <Badge color={color} variant="light">
-      {status}
-    </Badge>
-  );
+  return <Status value={status} size="sm" />;
 }
 
 export function OnlineDot({ online }: { online: boolean }) {
-  return (
-    <Badge color={online ? "teal" : "gray"} variant="dot" aria-label={online ? "online" : "offline"}>
-      {online ? "online" : "offline"}
-    </Badge>
-  );
+  return <Status value={online ? "online" : "offline"} size="sm" />;
 }
 
+/** A value in a monospace block with a copy button. The block is a <pre> so line breaks survive. */
 export function CopyText({ value, label }: { value: string; label?: string }) {
   return (
-    <Group gap="xs" wrap="nowrap" align="flex-start">
-      <Code block style={{ flex: 1, wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
-        {value}
-      </Code>
+    <div className="rnv-copytext">
+      <pre>{value}</pre>
       <CopyButton value={value}>
         {({ copied, copy }) => (
           <Tooltip label={copied ? "Copied" : (label ?? "Copy")}>
             <ActionIcon variant="light" onClick={copy} aria-label={label ?? "Copy"}>
-              {copied ? "✓" : "⧉"}
+              {copied ? <Icons.Check size={16} aria-hidden /> : <Icons.Copy size={16} aria-hidden />}
             </ActionIcon>
           </Tooltip>
         )}
       </CopyButton>
-    </Group>
+    </div>
   );
 }
 
@@ -47,11 +40,17 @@ export function TotpQR({ uri, secret }: { uri: string; secret: string }) {
   }, [uri]);
   return (
     <Stack gap="xs" align="flex-start">
-      {src && <Image src={src} w={200} h={200} alt="Authenticator QR code" />}
+      {src && (
+        <span className="rnv-qr">
+          <img src={src} width={200} height={200} alt="Authenticator QR code" />
+        </span>
+      )}
       <Text size="sm" c="dimmed">
         Can't scan? Enter this key in your authenticator app:
       </Text>
-      <CopyText value={secret} label="Copy key" />
+      <div style={{ width: "100%" }}>
+        <CopyText value={secret} label="Copy key" />
+      </div>
     </Stack>
   );
 }
@@ -66,25 +65,25 @@ export function RecoveryCodes({ codes }: { codes: string[] }) {
     URL.revokeObjectURL(a.href);
   };
   return (
-    <Stack gap="xs">
+    <Stack gap="sm">
       <Text size="sm">
         Store these recovery codes somewhere safe, such as a password manager. Each one can be used once if you lose your
         authenticator. They will not be shown again.
       </Text>
-      <List spacing={2} size="sm" ff="monospace">
+      <ul className="rnv-codes" aria-label="Recovery codes">
         {codes.map((c) => (
-          <List.Item key={c}>{c}</List.Item>
+          <li key={c}>{c}</li>
         ))}
-      </List>
+      </ul>
       <Group>
         <CopyButton value={codes.join("\n")}>
           {({ copied, copy }) => (
-            <Button variant="light" onClick={copy}>
+            <Button variant="light" onClick={copy} leftSection={copied ? <Icons.Check size={16} aria-hidden /> : <Icons.Copy size={16} aria-hidden />}>
               {copied ? "Copied" : "Copy codes"}
             </Button>
           )}
         </CopyButton>
-        <Button variant="light" onClick={download}>
+        <Button variant="light" onClick={download} leftSection={<Icons.Download size={16} aria-hidden />}>
           Download .txt
         </Button>
       </Group>
@@ -104,7 +103,7 @@ export function CodeInput({ value, onChange, autoFocus }: { value: string; onCha
       autoFocus={autoFocus}
       value={value}
       onChange={(e) => onChange(e.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
-      styles={{ input: { letterSpacing: "0.3em", fontFamily: "monospace" } }}
+      styles={{ input: { letterSpacing: "0.3em", fontFamily: "var(--rnv-font-mono)" } }}
       w={180}
     />
   );

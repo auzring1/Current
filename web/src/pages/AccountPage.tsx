@@ -1,25 +1,69 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Checkbox, Group, Loader, NumberInput, PasswordInput, Stack, Table, Text, TextInput, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Button, Checkbox, Group, NumberInput, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { api, errorMessage, type MySecurity } from "../api/client";
 import { dateTime } from "../api/format";
+import { useSession } from "../api/session";
 import { CopyText } from "../components/common";
 import { createCredential, webauthnSupported } from "../api/webauthn";
+import { Card, DataTable, Icons, Page, PageHeader, Skel, Status, StatusPill, toast, useConfirm, type Column } from "../ui";
+import { KeyValue, RowButtons } from "../ui/admin-kit";
+
+type SecurityKey = MySecurity["security_keys"][number];
+type Token = MySecurity["api_tokens"][number];
 
 export function AccountPage() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["my-security"], queryFn: () => api<MySecurity>("GET", "/me/security") });
   const refresh = () => void qc.invalidateQueries({ queryKey: ["my-security"] });
   return (
-    <Stack>
-      <Title order={2}>Account security</Title>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      <PasswordCard />
-      {q.data && <KeysCard data={q.data} onChange={refresh} />}
-      {q.data && <TokensCard data={q.data} onChange={refresh} />}
-    </Stack>
+    <Page>
+      <PageHeader title="Account security" description="Your profile, password, second factor and the tokens that act on your behalf." />
+      {q.error && (
+        <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+          {errorMessage(q.error)}
+        </Alert>
+      )}
+      <div className="rnv-cards">
+        <div className="rnv-stack-y">
+          <ProfileCard />
+          {q.data ? <AuthenticatorCard data={q.data} /> : q.isLoading ? <LoadingCard /> : null}
+        </div>
+        <PasswordCard />
+      </div>
+      {q.data ? <KeysCard data={q.data} onChange={refresh} /> : q.isLoading ? <LoadingCard /> : null}
+      {q.data ? <TokensCard data={q.data} onChange={refresh} /> : q.isLoading ? <LoadingCard /> : null}
+    </Page>
+  );
+}
+
+function LoadingCard() {
+  return (
+    <Card>
+      <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+        <Skel w="40%" h={16} />
+        <Skel w="80%" h={14} />
+        <Skel w="60%" h={14} />
+      </div>
+    </Card>
+  );
+}
+
+function ProfileCard() {
+  const { session } = useSession();
+  return (
+    <Card title="Profile" description="Who you are signed in as. An administrator changes names and roles under Users.">
+      {session ? (
+        <KeyValue
+          label="Profile"
+          items={[
+            { label: "Name", value: session.user.display_name },
+            { label: "Email", value: session.user.email },
+            { label: "Organization", value: session.org.name },
+          ]}
+        />
+      ) : null}
+    </Card>
   );
 }
 
@@ -33,28 +77,51 @@ function PasswordCard() {
       if (n1 !== n2) throw new Error("The two new passwords are not the same.");
       return api("POST", "/auth/change-password", { current_password: cur, new_password: n1 });
     },
-    onSuccess: () => (setCur(""), setN1(""), setN2(""), setError(""), notifications.show({ color: "green", message: "Password changed. Your other sessions were signed out." })),
+    onSuccess: () => (setCur(""), setN1(""), setN2(""), setError(""), toast.success("Password changed. Your other sessions were signed out.")),
     onError: (e) => setError(errorMessage(e)),
   });
   return (
-    <Stack gap="xs" maw={420}>
-      <Title order={4}>Password</Title>
+    <Card title="Password" description="Changing it signs out your other sessions.">
       <form onSubmit={(e) => (e.preventDefault(), change.mutate())}>
-        <Stack gap="xs">
+        <Stack gap="sm">
           <PasswordInput label="Current password" value={cur} onChange={(e) => setCur(e.currentTarget.value)} autoComplete="current-password" required />
           <PasswordInput label="New password" value={n1} onChange={(e) => setN1(e.currentTarget.value)} autoComplete="new-password" required />
           <PasswordInput label="Repeat the new password" value={n2} onChange={(e) => setN2(e.currentTarget.value)} autoComplete="new-password" required />
-          {error && <Alert color="red">{error}</Alert>}
-          <Button type="submit" loading={change.isPending} w="fit-content">
+          {error && (
+            <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+              {error}
+            </Alert>
+          )}
+          <Button type="submit" loading={change.isPending} w="fit-content" leftSection={<Icons.Lock size={16} aria-hidden />}>
             Change password
           </Button>
         </Stack>
       </form>
-    </Stack>
+    </Card>
+  );
+}
+
+function AuthenticatorCard({ data }: { data: MySecurity }) {
+  return (
+    <Card title="Authenticator app" description="The six-digit codes from an app on your phone.">
+      <Stack gap="sm">
+        <div>
+          {data.totp ? (
+            <StatusPill kind="success">Set up</StatusPill>
+          ) : (
+            <StatusPill kind="warning" icon={Icons.Clock}>
+              Not set up
+            </StatusPill>
+          )}
+        </div>
+        <Text size="sm">To replace it, ask an administrator to reset your second factor.</Text>
+      </Stack>
+    </Card>
   );
 }
 
 function KeysCard({ data, onChange }: { data: MySecurity; onChange: () => void }) {
+  const confirm = useConfirm();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const add = useMutation({
@@ -63,60 +130,82 @@ function KeysCard({ data, onChange }: { data: MySecurity; onChange: () => void }
       const cred = await createCredential(begin.options);
       return api("POST", `/me/security-keys/finish?ceremony=${begin.ceremony}&name=${encodeURIComponent(name.trim())}`, cred);
     },
-    onSuccess: () => (setName(""), setError(""), onChange()),
+    onSuccess: () => (setName(""), setError(""), toast.success("Security key added."), onChange()),
     onError: (e) => setError(errorMessage(e)),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api("DELETE", `/me/security-keys/${id}`),
-    onSuccess: onChange,
+    onSuccess: () => (toast.success("Security key removed."), onChange()),
     onError: (e) => setError(errorMessage(e)),
   });
-  return (
-    <Stack gap="xs">
-      <Title order={4}>Second factor</Title>
-      <Text size="sm">
-        Authenticator app: <b>{data.totp ? "set up" : "not set up"}</b>. To replace it, ask an administrator to reset your second factor.
-      </Text>
-      <Text size="sm" fw={500}>
-        Security keys
-      </Text>
-      {data.security_keys.length === 0 && <Text size="sm">No security keys.</Text>}
-      {data.security_keys.length > 0 && (
-        <Table verticalSpacing="xs" fz="sm" aria-label="Security keys" maw={600}>
-          <Table.Tbody>
-            {data.security_keys.map((k) => (
-              <Table.Tr key={k.id}>
-                <Table.Td>{k.name}</Table.Td>
-                <Table.Td>added {dateTime(k.created_at)}</Table.Td>
-                <Table.Td>last used {dateTime(k.last_used_at)}</Table.Td>
-                <Table.Td>
-                  <Button size="compact-xs" variant="default" color="red" onClick={() => window.confirm(`Remove the key "${k.name}"?`) && remove.mutate(k.id)} aria-label={`Remove key ${k.name}`}>
-                    Remove
-                  </Button>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
-      {data.webauthn_available && webauthnSupported() ? (
-        <Group align="flex-end">
-          <TextInput label="Name for a new key" placeholder="e.g. YubiKey 5" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={100} />
-          <Button onClick={() => add.mutate()} loading={add.isPending} disabled={!name.trim()}>
-            Add security key
+  const removeKey = remove.mutate;
+  const columns = useMemo<Column<SecurityKey>[]>(
+    () => [
+      { id: "name", header: "Name", value: (k) => k.name, primary: true, required: true, width: 240, cell: (k) => <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Icons.NavEnrollment size={16} aria-hidden />{k.name}</span> },
+      { id: "added", header: "Added", value: (k) => new Date(k.created_at).getTime(), width: 190, cell: (k) => `added ${dateTime(k.created_at)}`, csv: (k) => k.created_at },
+      { id: "used", header: "Last used", value: (k) => (k.last_used_at ? new Date(k.last_used_at).getTime() : 0), width: 210, cell: (k) => `last used ${dateTime(k.last_used_at)}`, csv: (k) => k.last_used_at ?? "" },
+      {
+        id: "actions",
+        header: "Actions",
+        required: true,
+        csv: false,
+        align: "right",
+        width: 120,
+        cell: (k) => (
+          <RowButtons>
+          <Button
+            size="compact-xs"
+            variant="light"
+            color="red"
+            leftSection={<Icons.Trash size={12} aria-hidden />}
+            aria-label={`Remove key ${k.name}`}
+            onClick={async () => {
+              const ok = await confirm({ title: `Remove the key "${k.name}"?`, message: "You can no longer sign in with it. If it is your only second factor, ask an administrator to reset it.", confirmLabel: "Remove key", danger: true });
+              if (ok) removeKey(k.id);
+            }}
+          >
+            Remove
           </Button>
-        </Group>
-      ) : (
-        <Text size="xs" c="dimmed">
-          Security keys need the console to be opened at its https address (or localhost) in a browser that supports them.
-        </Text>
-      )}
-      {error && <Alert color="red">{error}</Alert>}
-    </Stack>
+          </RowButtons>
+        ),
+      },
+    ],
+    [confirm, removeKey],
+  );
+  return (
+    <Card title="Security keys" description="Hardware keys and platform authenticators (Windows Hello, Touch ID) that can replace the authenticator code at sign-in.">
+      <Stack gap="md">
+        {data.security_keys.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            No security keys.
+          </Text>
+        ) : (
+          <DataTable<SecurityKey> id="my-security-keys" label="Security keys" data={data.security_keys} columns={columns} rowId={(k) => k.id} rowLabel={(k) => k.name} pageSize={10} />
+        )}
+        {data.webauthn_available && webauthnSupported() ? (
+          <Group align="flex-end">
+            <TextInput label="Name for a new key" placeholder="e.g. YubiKey 5" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={100} />
+            <Button onClick={() => add.mutate()} loading={add.isPending} disabled={!name.trim()} leftSection={<Icons.Plus size={16} aria-hidden />}>
+              Add security key
+            </Button>
+          </Group>
+        ) : (
+          <Alert color="blue" icon={<Icons.Info size={18} aria-hidden />}>
+            Security keys need the console to be opened at its https address (or localhost) in a browser that supports them.
+          </Alert>
+        )}
+        {error && (
+          <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+            {error}
+          </Alert>
+        )}
+      </Stack>
+    </Card>
   );
 }
 
 function TokensCard({ data, onChange }: { data: MySecurity; onChange: () => void }) {
+  const confirm = useConfirm();
   const [name, setName] = useState("");
   const [days, setDays] = useState<number | string>(90);
   const [scopes, setScopes] = useState<string[]>([]);
@@ -127,70 +216,102 @@ function TokensCard({ data, onChange }: { data: MySecurity; onChange: () => void
     onSuccess: (r) => (setSecret(r.token), setName(""), setScopes([]), setError(""), onChange()),
     onError: (e) => setError(errorMessage(e)),
   });
-  const revoke = useMutation({ mutationFn: (id: string) => api("DELETE", `/me/api-tokens/${id}`), onSuccess: onChange, onError: (e) => setError(errorMessage(e)) });
-  const toggle = (s: string) => setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
+  const revoke = useMutation({
+    mutationFn: (id: string) => api("DELETE", `/me/api-tokens/${id}`),
+    onSuccess: () => (toast.success("Token revoked."), onChange()),
+    onError: (e) => setError(errorMessage(e)),
+  });
+  const revokeToken = revoke.mutate;
+  const columns = useMemo<Column<Token>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Name",
+        value: (t) => `${t.name} ${t.prefix}`,
+        primary: true,
+        required: true,
+        width: 240,
+        cell: (t) => (
+          <>
+            {t.name}
+            <span className="rnv-dt__cell-sub rnv-mono">{t.prefix}…</span>
+          </>
+        ),
+      },
+      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="rnv-mono">{t.scopes.join(", ")}</span> },
+      {
+        id: "expires",
+        header: "Expires",
+        value: (t) => (t.revoked_at ? 0 : t.expires_at ? new Date(t.expires_at).getTime() : 0),
+        width: 170,
+        cell: (t) => (t.revoked_at ? <Status value="revoked" size="sm" /> : dateTime(t.expires_at)),
+        csv: (t) => (t.revoked_at ? "revoked" : (t.expires_at ?? "")),
+      },
+      { id: "used", header: "Last used", value: (t) => (t.last_used_at ? new Date(t.last_used_at).getTime() : 0), width: 170, cell: (t) => dateTime(t.last_used_at), csv: (t) => t.last_used_at ?? "" },
+      {
+        id: "actions",
+        header: "Actions",
+        required: true,
+        csv: false,
+        align: "right",
+        width: 120,
+        cell: (t) => (
+          <RowButtons>
+            {t.revoked_at ? null : (
+            <Button
+              size="compact-xs"
+              variant="light"
+              color="red"
+              leftSection={<Icons.Close size={12} aria-hidden />}
+              aria-label={`Revoke token ${t.name}`}
+              onClick={async () => {
+                const ok = await confirm({ title: `Revoke the token "${t.name}"?`, message: "Anything using it stops working at once. This cannot be undone.", confirmLabel: "Revoke token", danger: true });
+                if (ok) revokeToken(t.id);
+              }}
+            >
+              Revoke
+            </Button>
+            )}
+          </RowButtons>
+        ),
+      },
+    ],
+    [confirm, revokeToken],
+  );
   return (
-    <Stack gap="xs">
-      <Title order={4}>API tokens</Title>
-      <Text size="sm" c="dimmed">
-        For scripts and integrations: send <code>Authorization: Bearer rnt_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.
-      </Text>
-      {secret && (
-        <Alert color="yellow" title="Copy the token now">
-          It is shown only once.
-          <CopyText value={secret} label="Copy token" />
-        </Alert>
-      )}
-      {data.api_tokens.length > 0 && (
-        <Table verticalSpacing="xs" fz="sm" aria-label="Your API tokens">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Scopes</Table.Th>
-              <Table.Th>Expires</Table.Th>
-              <Table.Th>Last used</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {data.api_tokens.map((t) => (
-              <Table.Tr key={t.id} opacity={t.revoked_at ? 0.5 : 1}>
-                <Table.Td>
-                  {t.name} <Text span size="xs" c="dimmed">{t.prefix}…</Text>
-                </Table.Td>
-                <Table.Td>{t.scopes.join(", ")}</Table.Td>
-                <Table.Td>{t.revoked_at ? <Badge color="gray">revoked</Badge> : dateTime(t.expires_at)}</Table.Td>
-                <Table.Td>{dateTime(t.last_used_at)}</Table.Td>
-                <Table.Td>
-                  {!t.revoked_at && (
-                    <Button size="compact-xs" variant="default" color="red" onClick={() => revoke.mutate(t.id)} aria-label={`Revoke token ${t.name}`}>
-                      Revoke
-                    </Button>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
-      <Stack gap="xs" maw={640}>
-        <Group align="flex-end">
-          <TextInput label="Token name" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={100} style={{ flex: 1 }} />
-          <NumberInput label="Valid for (days)" min={1} max={365} value={days} onChange={setDays} w={140} />
-        </Group>
-        <Text size="sm" fw={500}>
-          Scopes
-        </Text>
-        <Group gap="md">
-          {data.token_scopes.map((s) => (
-            <Checkbox key={s} label={s} checked={scopes.includes(s)} onChange={() => toggle(s)} size="xs" />
-          ))}
-        </Group>
-        {error && <Alert color="red">{error}</Alert>}
-        <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!name.trim() || scopes.length === 0} w="fit-content">
-          Create token
-        </Button>
+    <Card title="API tokens" description={<>For scripts and integrations: send <code>Authorization: Bearer rnt_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.</>}>
+      <Stack gap="md">
+        {secret && (
+          <Alert color="yellow" title="Copy the token now" icon={<Icons.Warning size={18} aria-hidden />} withCloseButton onClose={() => setSecret("")} closeButtonLabel="Hide the token">
+            <Stack gap="xs">
+              <span>It is shown only once.</span>
+              <CopyText value={secret} label="Copy token" />
+            </Stack>
+          </Alert>
+        )}
+        {data.api_tokens.length > 0 && <DataTable<Token> id="my-api-tokens" label="Your API tokens" data={data.api_tokens} columns={columns} rowId={(t) => t.id} rowLabel={(t) => t.name} pageSize={10} initialSort={{ id: "name" }} />}
+        <Stack gap="sm" maw={640}>
+          <Group align="flex-end">
+            <TextInput label="Token name" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={100} style={{ flex: 1, minWidth: 200 }} />
+            <NumberInput label="Valid for (days)" min={1} max={365} value={days} onChange={setDays} w={140} />
+          </Group>
+          <Checkbox.Group label="Scopes" value={scopes} onChange={setScopes}>
+            <Group gap="md" mt={6}>
+              {data.token_scopes.map((s) => (
+                <Checkbox key={s} value={s} label={s} />
+              ))}
+            </Group>
+          </Checkbox.Group>
+          {error && (
+            <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+              {error}
+            </Alert>
+          )}
+          <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!name.trim() || scopes.length === 0} w="fit-content" leftSection={<Icons.Plus size={16} aria-hidden />}>
+            Create token
+          </Button>
+        </Stack>
       </Stack>
-    </Stack>
+    </Card>
   );
 }
