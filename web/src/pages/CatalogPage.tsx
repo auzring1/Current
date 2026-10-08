@@ -1,33 +1,51 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Title, Tooltip } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { useNavigate } from "react-router-dom";
+import { Alert, Button, Group, Modal, Select, Stack, Text, TextInput } from "@mantine/core";
 import { api, errorMessage, uploadContent, type CustomPackage, type ImportResult, type Pkg } from "../api/client";
 import { useSession } from "../api/session";
 import { PRODUCT_NAME } from "../brand.generated";
+import { DataTable, EmptyState, Icons, Page, PageHeader, StatGrid, StatTile, StatusPill, TileSkeleton, toast, type Column } from "../ui";
+import { ServerSearch, ServerSearchScope } from "../ui/PageBits";
 
+/** Source, verification and self-update flags of a package, as status pills (icon + color + text). */
 export function PackageBadges({ p }: { p: Pkg }) {
   return (
-    <Group gap={4}>
-      <Badge size="xs" variant="light" color={p.source === "custom" ? "grape" : "blue"}>
-        {p.source}
-      </Badge>
-      {p.source === "winget" && (
-        <Tooltip label={p.verified ? `Passed the ${PRODUCT_NAME} VM test matrix` : `Not yet verified by the ${PRODUCT_NAME} VM test matrix; deploying needs an explicit confirmation`}>
-          <Badge size="xs" variant="light" color={p.verified ? "green" : "yellow"}>
-            {p.verified ? "verified" : "unverified"}
-          </Badge>
-        </Tooltip>
-      )}
-      {p.self_updating && (
-        <Tooltip label={`Updates itself; ${PRODUCT_NAME} defers to the vendor's updater unless you enforce versions in the package's overrides`}>
-          <Badge size="xs" variant="light" color="gray">
-            self-updating
-          </Badge>
-        </Tooltip>
-      )}
-    </Group>
+    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+      <SourcePill p={p} />
+      <VerifiedPill p={p} />
+      <SelfUpdatingPill p={p} />
+    </span>
+  );
+}
+
+function SourcePill({ p }: { p: Pkg }) {
+  return (
+    <StatusPill kind="neutral" size="sm" icon={Icons.NavCatalog}>
+      {p.source}
+    </StatusPill>
+  );
+}
+
+function VerifiedPill({ p }: { p: Pkg }) {
+  if (p.source !== "winget") return null;
+  return p.verified ? (
+    <StatusPill kind="success" size="sm" title={`Passed the ${PRODUCT_NAME} VM test matrix`}>
+      Verified
+    </StatusPill>
+  ) : (
+    <StatusPill kind="warning" size="sm" title={`Not yet verified by the ${PRODUCT_NAME} VM test matrix; deploying needs an explicit confirmation`}>
+      Unverified
+    </StatusPill>
+  );
+}
+
+function SelfUpdatingPill({ p }: { p: Pkg }) {
+  if (!p.self_updating) return null;
+  return (
+    <StatusPill kind="info" size="sm" icon={Icons.NavAgentUpdates} title={`Updates itself; ${PRODUCT_NAME} defers to the vendor's updater unless you enforce versions in the package's overrides`}>
+      Self-updating
+    </StatusPill>
   );
 }
 
@@ -41,64 +59,136 @@ export function CatalogPage() {
     queryKey: ["catalog", "packages", q],
     queryFn: () => api<{ items: Pkg[] }>("GET", `/catalog/packages?limit=200${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   });
+
+  const columns = useMemo<Column<Pkg>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Package",
+        value: (p) => p.name,
+        primary: true,
+        required: true,
+        width: 280,
+        cell: (p) => (
+          <>
+            {p.name}
+            <span className="rnv-dt__cell-sub rnv-mono">{p.identifier}</span>
+          </>
+        ),
+      },
+      { id: "identifier", header: "Identifier", value: (p) => p.identifier, width: 220, defaultHidden: true },
+      { id: "publisher", header: "Publisher", value: (p) => p.publisher ?? "", width: 200 },
+      { id: "versions", header: "Versions", value: (p) => p.version_count ?? 0, align: "right", width: 100, cell: (p) => <span className="rnv-num">{p.version_count ?? 0}</span> },
+      {
+        id: "source",
+        header: "Source",
+        value: (p) => p.source,
+        width: 120,
+        cell: (p) => <SourcePill p={p} />,
+        filter: {
+          type: "select",
+          options: [
+            { value: "winget", label: "winget" },
+            { value: "custom", label: "custom" },
+          ],
+        },
+      },
+      {
+        id: "verification",
+        header: "Verification",
+        value: (p) => (p.source === "winget" ? (p.verified ? "verified" : "unverified") : ""),
+        width: 130,
+        cell: (p) => (p.source === "winget" ? <VerifiedPill p={p} /> : <span className="rnv-muted">—</span>),
+        filter: {
+          type: "select",
+          options: [
+            { value: "verified", label: "Verified" },
+            { value: "unverified", label: "Unverified" },
+          ],
+        },
+      },
+      {
+        id: "updates",
+        header: "Updates itself",
+        value: (p) => (p.self_updating ? "yes" : "no"),
+        width: 150,
+        cell: (p) => (p.self_updating ? <SelfUpdatingPill p={p} /> : <span className="rnv-muted">—</span>),
+        filter: {
+          type: "select",
+          options: [
+            { value: "yes", label: "Self-updating" },
+            { value: "no", label: "Not self-updating" },
+          ],
+        },
+      },
+    ],
+    [],
+  );
+
+  const items = list.data?.items ?? [];
+  const unverified = items.filter((p) => p.source === "winget" && !p.verified).length;
+  const selfUpdating = items.filter((p) => p.self_updating).length;
+  const customCount = items.filter((p) => p.source === "custom").length;
+
   return (
-    <>
-      <Group justify="space-between" mb="xs">
-        <Title order={2}>Catalog</Title>
-        {can("catalog:write") && (
-          <Group>
-            <Button onClick={() => setImporting(true)}>Import from winget</Button>
-            <Button variant="default" onClick={() => setCustom(true)}>
-              Upload custom installer
-            </Button>
-          </Group>
-        )}
-      </Group>
-      <Text size="sm" c="dimmed" mb="md">
-        Software that can be deployed. Winget packages are imported as metadata only; each device downloads the installer from the vendor and the agent checks its SHA-256 and signature before running it.
-      </Text>
-      <TextInput placeholder="Filter imported packages" aria-label="Filter packages" value={q} onChange={(e) => setQ(e.currentTarget.value)} mb="md" maw={400} />
-      {list.isLoading && <Loader />}
-      {list.error && <Alert color="red">{errorMessage(list.error)}</Alert>}
-      {list.data && list.data.items.length === 0 && (
-        <Alert color="blue" title="Nothing imported yet">
-          Import a package by its winget identifier, for example <b>7zip.7zip</b> or <b>Mozilla.Firefox</b>, or upload your own installer.
-        </Alert>
-      )}
-      {!!list.data?.items.length && (
-        <Table highlightOnHover verticalSpacing="xs" aria-label="Packages">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Package</Table.Th>
-              <Table.Th>Publisher</Table.Th>
-              <Table.Th>Versions</Table.Th>
-              <Table.Th>Flags</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {list.data.items.map((p) => (
-              <Table.Tr key={p.id} data-testid="package-row">
-                <Table.Td>
-                  <Anchor component={Link} to={`/catalog/${p.id}`} fw={500} size="sm">
-                    {p.name}
-                  </Anchor>
-                  <Text size="xs" c="dimmed">
-                    {p.identifier}
-                  </Text>
-                </Table.Td>
-                <Table.Td>{p.publisher || "—"}</Table.Td>
-                <Table.Td>{p.version_count ?? 0}</Table.Td>
-                <Table.Td>
-                  <PackageBadges p={p} />
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
+    <Page>
+      <PageHeader
+        title="Catalog"
+        description="Software that can be deployed. Winget packages are imported as metadata only; each device downloads the installer from the vendor and the agent checks its SHA-256 and signature before running it."
+        actions={
+          can("catalog:write") ? (
+            <>
+              <Button onClick={() => setImporting(true)} leftSection={<Icons.Download size={16} aria-hidden />}>
+                Import from winget
+              </Button>
+              <Button variant="default" onClick={() => setCustom(true)} leftSection={<Icons.Plus size={16} aria-hidden />}>
+                Upload custom installer
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
+      {list.isLoading ? (
+        <TileSkeleton count={4} />
+      ) : items.length > 0 ? (
+        <StatGrid label="Catalog summary">
+          <StatTile label="Packages" value={items.length} kind="accent" icon={<Icons.NavCatalog size={16} aria-hidden />} hint={q ? `matching “${q}”` : undefined} />
+          <StatTile label="Unverified" value={unverified} kind={unverified > 0 ? "warning" : "success"} icon={<Icons.Warning size={16} aria-hidden />} hint="winget packages that need a confirmation to deploy" />
+          <StatTile label="Self-updating" value={selfUpdating} kind="info" icon={<Icons.NavAgentUpdates size={16} aria-hidden />} hint="the vendor's updater takes over" />
+          <StatTile label="Custom uploads" value={customCount} kind="neutral" icon={<Icons.Plus size={16} aria-hidden />} hint="installers you supplied" />
+        </StatGrid>
+      ) : null}
+      <ServerSearchScope>
+        <DataTable<Pkg>
+          id="catalog-packages"
+          label="Packages"
+          data={list.data?.items}
+          loading={list.isLoading}
+          error={list.error ? new Error(errorMessage(list.error)) : undefined}
+          columns={columns}
+          rowId={(p) => p.id}
+          rowHref={(p) => `/catalog/${p.id}`}
+          rowLabel={(p) => p.name}
+          rowTestId="package-row"
+          initialSort={{ id: "name" }}
+          exportName="catalog"
+          toolbar={<ServerSearch value={q} onChange={setQ} label="Filter packages" placeholder="Filter imported packages" />}
+          empty={
+            <EmptyState
+              icon={<Icons.NavCatalog size={26} />}
+              title="Nothing imported yet"
+              description={
+                <>
+                  Import a package by its winget identifier, for example <b>7zip.7zip</b> or <b>Mozilla.Firefox</b>, or upload your own installer.
+                </>
+              }
+            />
+          }
+        />
+      </ServerSearchScope>
       {importing && <ImportModal onClose={() => setImporting(false)} onDone={(r) => (setImporting(false), nav(`/catalog/${r.package_id}`))} />}
       {custom && <CustomModal onClose={() => setCustom(false)} onDone={(r) => (setCustom(false), nav(`/catalog/${r.package_id}`))} />}
-    </>
+    </Page>
   );
 }
 
@@ -120,7 +210,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
   const imp = useMutation({
     mutationFn: () => api<ImportResult>("POST", "/catalog/import", { identifier: id.trim(), version: version.trim() }),
     onSuccess: (r) => {
-      notifications.show({ color: "green", message: `Imported ${r.identifier} ${r.version}: ${r.deployable} of ${r.installers} installers deployable.` });
+      toast.success(`Imported ${r.identifier} ${r.version}: ${r.deployable} of ${r.installers} installers deployable.`);
       void qc.invalidateQueries({ queryKey: ["catalog"] });
       onDone(r);
     },
@@ -151,7 +241,11 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
           </Text>
         )}
         <TextInput label="Version" description="Leave empty for the newest" value={version} onChange={(e) => setVersion(e.currentTarget.value)} />
-        {error && <Alert color="red">{error}</Alert>}
+        {error && (
+          <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+            {error}
+          </Alert>
+        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Cancel
@@ -198,7 +292,7 @@ function CustomModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
       return api<ImportResult>("POST", "/catalog/custom", body);
     },
     onSuccess: (r) => {
-      notifications.show({ color: "green", message: `Added ${r.identifier} ${r.version}.` });
+      toast.success(`Added ${r.identifier} ${r.version}.`);
       void qc.invalidateQueries({ queryKey: ["catalog"] });
       onDone(r);
     },
@@ -237,7 +331,11 @@ function CustomModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
         </Group>
         <TextInput label="Detection file path" description="e.g. %ProgramFiles%\\Acme\\tool.exe; the install counts as successful when it exists" value={f.detect_file} onChange={(e) => set("detect_file")(e.currentTarget.value)} />
         <TextInput label="Required signer (optional)" description="Pin the Authenticode subject the installer must be signed by" value={f.signer_subject} onChange={(e) => set("signer_subject")(e.currentTarget.value)} />
-        {error && <Alert color="red">{error}</Alert>}
+        {error && (
+          <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+            {error}
+          </Alert>
+        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Cancel
