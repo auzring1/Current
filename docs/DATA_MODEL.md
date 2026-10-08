@@ -215,3 +215,10 @@ branding_assets(org_id, kind IN logo_light|logo_dark|icon|favicon|report_logo, c
 ```
 
 An organization without a `branding` row shows the defaults (product "Renovatio", no organization name). The first-run wizard writes the organization name (and logo) into these tables.
+
+Migration `00011_ui_preferences` (decision D93). The Down section drops `user_preferences` and the two branding columns.
+
+```
+branding += default_theme text ('' or ^[a-z][a-z0-9-]{0,31}$), allowed_themes text[] (at most 16; empty = all themes offered)
+user_preferences(user_id PK -> users ON DELETE CASCADE, data jsonb (<= 64 KiB: {theme, density, views{tableId:[{id,name,state}]}}), updated_at)
+```
