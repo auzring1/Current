@@ -36,6 +36,25 @@ export function buildTheme({ accent, secondary }: ThemeInput) {
     primaryColor: "brand",
     primaryShade: { light: 6, dark: 6 },
     colors,
+    // Look and feel come from the design tokens (src/design); these only point Mantine's scales at them.
+    fontFamily: "var(--rnv-font-sans)",
+    fontFamilyMonospace: "var(--rnv-font-mono)",
+    headings: { fontFamily: "var(--rnv-font-sans)", fontWeight: "600", sizes: { h1: { fontSize: "1.75rem" }, h2: { fontSize: "1.375rem" }, h3: { fontSize: "1.125rem" }, h4: { fontSize: "1rem" } } },
+    fontSizes: { xs: "0.75rem", sm: "0.8125rem", md: "0.875rem", lg: "1rem", xl: "1.125rem" },
+    defaultRadius: "md",
+    radius: { xs: "2px", sm: "4px", md: "6px", lg: "8px", xl: "12px" },
+    shadows: { xs: "var(--rnv-shadow-1)", sm: "var(--rnv-shadow-1)", md: "var(--rnv-shadow-2)", lg: "var(--rnv-shadow-3)", xl: "var(--rnv-shadow-3)" },
+    cursorType: "pointer",
+    components: {
+      Button: { defaultProps: { size: "sm" } },
+      TextInput: { defaultProps: { size: "sm" } },
+      PasswordInput: { defaultProps: { size: "sm" } },
+      Select: { defaultProps: { size: "sm" } },
+      MultiSelect: { defaultProps: { size: "sm" } },
+      Textarea: { defaultProps: { size: "sm" } },
+      NumberInput: { defaultProps: { size: "sm" } },
+      Paper: { defaultProps: { radius: "lg" } },
+    },
   });
 }
 

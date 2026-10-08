@@ -12,6 +12,7 @@ import { NewDeploymentPage } from "./pages/NewDeploymentPage";
 import { PackagePage } from "./pages/PackagePage";
 import { SettingsLayout, SettingsPage } from "./pages/SettingsPage";
 import { BrandingPage } from "./pages/BrandingPage";
+import { StyleGuidePage } from "./pages/StyleGuidePage";
 import { DevicePage } from "./pages/DevicePage";
 import { DevicesPage } from "./pages/DevicesPage";
 import { GroupsPage } from "./pages/GroupsPage";
@@ -76,6 +77,7 @@ export function App() {
           <Route path="branding" element={<BrandingPage />} />
         </Route>
         <Route path="/license" element={<LicensePage />} />
+        <Route path="/styleguide" element={<StyleGuidePage />} />
         <Route path="/enrollment" element={<TokensPage />} />
         <Route path="/audit" element={<AuditPage />} />
       </Route>

@@ -1,0 +1,83 @@
+/* Design tokens that do not change with the theme: type, spacing, radius, elevation, motion, layout.
+   Colors live in themes/*.css as semantic tokens (surface, text, border, accent, status...). Components use only
+   these tokens, never raw colors. */
+:root {
+  /* Typography: Inter, bundled with the console (no CDN). */
+  --rnv-font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rnv-font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --rnv-text-xs: 0.75rem;   /* 12 */
+  --rnv-text-sm: 0.8125rem; /* 13 */
+  --rnv-text-md: 0.875rem;  /* 14: body */
+  --rnv-text-lg: 1rem;      /* 16 */
+  --rnv-text-xl: 1.125rem;  /* 18 */
+  --rnv-text-2xl: 1.375rem; /* 22 */
+  --rnv-text-3xl: 1.75rem;  /* 28 */
+  --rnv-leading-tight: 1.25;
+  --rnv-leading-normal: 1.5;
+  --rnv-weight-regular: 400;
+  --rnv-weight-medium: 500;
+  --rnv-weight-semibold: 600;
+  --rnv-weight-bold: 700;
+
+  /* Spacing: a 4px grid. */
+  --rnv-space-1: 0.25rem;
+  --rnv-space-2: 0.5rem;
+  --rnv-space-3: 0.75rem;
+  --rnv-space-4: 1rem;
+  --rnv-space-5: 1.25rem;
+  --rnv-space-6: 1.5rem;
+  --rnv-space-8: 2rem;
+  --rnv-space-10: 2.5rem;
+  --rnv-space-12: 3rem;
+
+  /* Radius */
+  --rnv-radius-sm: 4px;
+  --rnv-radius-md: 6px;
+  --rnv-radius-lg: 8px;
+  --rnv-radius-xl: 12px;
+  --rnv-radius-pill: 999px;
+
+  /* Elevation: the shadow color comes from the theme (--rnv-shadow-rgb). */
+  --rnv-shadow-1: 0 1px 2px rgb(var(--rnv-shadow-rgb) / 0.08), 0 0 0 1px rgb(var(--rnv-shadow-rgb) / 0.03);
+  --rnv-shadow-2: 0 2px 8px rgb(var(--rnv-shadow-rgb) / 0.12), 0 1px 2px rgb(var(--rnv-shadow-rgb) / 0.08);
+  --rnv-shadow-3: 0 12px 32px rgb(var(--rnv-shadow-rgb) / 0.22), 0 2px 6px rgb(var(--rnv-shadow-rgb) / 0.12);
+
+  /* Motion: reduced when the person asks for it. */
+  --rnv-motion-fast: 100ms;
+  --rnv-motion-base: 160ms;
+  --rnv-motion-slow: 260ms;
+  --rnv-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout */
+  --rnv-topbar-h: 56px;
+  --rnv-nav-w: 236px;
+  --rnv-content-max: 1680px;
+  --rnv-z-nav: 100;
+  --rnv-z-topbar: 200;
+  --rnv-z-overlay: 300;
+
+  /* Interaction states derived from the accent (the accent itself is layered on by accent.ts). */
+  --rnv-accent-hover: color-mix(in srgb, var(--rnv-accent) 88%, var(--rnv-text));
+  --rnv-accent-active: color-mix(in srgb, var(--rnv-accent) 78%, var(--rnv-text));
+
+  /* Density: tables and dense lists. Set by data-density on the root element. */
+  --rnv-row-h: 48px;
+  --rnv-cell-py: 0.625rem;
+  --rnv-cell-px: 0.75rem;
+  --rnv-control-h: 36px;
+}
+
+:root[data-density="compact"] {
+  --rnv-row-h: 36px;
+  --rnv-cell-py: 0.25rem;
+  --rnv-cell-px: 0.625rem;
+  --rnv-control-h: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rnv-motion-fast: 0ms;
+    --rnv-motion-base: 0ms;
+    --rnv-motion-slow: 0ms;
+  }
+}

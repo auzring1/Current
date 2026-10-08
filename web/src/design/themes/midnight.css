@@ -1,0 +1,50 @@
+/* Theme "Midnight" (dark). One file is one theme: add a file like this one and it appears in the picker.
+   Every pair below is checked against WCAG AA by src/design/themes.test.ts. */
+:root[data-theme="midnight"] {
+  --rnv-theme-name: "Midnight";
+  --rnv-scheme: dark;
+  --rnv-theme-order: 40;
+
+  /* Surfaces */
+  --rnv-bg: #070b16;
+  --rnv-surface: #0d1424;
+  --rnv-surface-raised: #141d33;
+  --rnv-surface-sunken: #050810;
+  --rnv-surface-hover: #121b30;
+  --rnv-surface-selected: #14305a;
+
+  /* Text */
+  --rnv-text: #e6ecf7;
+  --rnv-text-muted: #a3b0c8;
+
+  /* Borders and focus */
+  --rnv-border: #1f2a44;
+  --rnv-border-strong: #7686a6;
+  --rnv-focus: #7ab4ff;
+
+  /* Accent (defaults; the branding accent is layered on top at runtime, see accent.ts) */
+  --rnv-accent: #1f6fd0;
+  --rnv-on-accent: #ffffff;
+  --rnv-accent-text: #86b9fa;
+  --rnv-accent-subtle: #14305a;
+  --rnv-accent-subtle-text: #b0d0fb;
+  --rnv-accent-border: #2f5ea5;
+
+  /* Fill text and shadow */
+  --rnv-on-solid: #05080f;
+  --rnv-shadow-rgb: 0 0 8;
+
+  /* Status and severity: fg = text/icon, bg = pill tint, border, solid = fill for bars and dots */
+  --rnv-success-fg: #7fd99a; --rnv-success-bg: #13301d; --rnv-success-border: #2d6b43; --rnv-success-solid: #45b867;
+  --rnv-warning-fg: #f2c26b; --rnv-warning-bg: #3a2a0c; --rnv-warning-border: #7d5a1c; --rnv-warning-solid: #e0a030;
+  --rnv-danger-fg: #ff9aa0; --rnv-danger-bg: #3d1519; --rnv-danger-border: #8a343b; --rnv-danger-solid: #f2696f;
+  --rnv-info-fg: #8ec5fb; --rnv-info-bg: #10294a; --rnv-info-border: #2d5c93; --rnv-info-solid: #4c9bf0;
+  --rnv-neutral-fg: #c3cad6; --rnv-neutral-bg: #2c3038; --rnv-neutral-border: #4a505c; --rnv-neutral-solid: #8b94a6;
+  --rnv-critical-fg: #ff8e96; --rnv-critical-bg: #45131a; --rnv-critical-border: #962f38; --rnv-critical-solid: #f2616a;
+  --rnv-important-fg: #ffb27a; --rnv-important-bg: #3d200c; --rnv-important-border: #85481f; --rnv-important-solid: #ee8a45;
+  --rnv-moderate-fg: #e8d56a; --rnv-moderate-bg: #33300c; --rnv-moderate-border: #6e6420; --rnv-moderate-solid: #d4bb3c;
+  --rnv-low-fg: #a6c7f5; --rnv-low-bg: #16294a; --rnv-low-border: #35588f; --rnv-low-solid: #6b9be0;
+
+  /* Chart series */
+  --rnv-chart-1: #62a3f5; --rnv-chart-2: #f08f52; --rnv-chart-3: #5fcb80; --rnv-chart-4: #ae92f5; --rnv-chart-5: #52c7da; --rnv-chart-6: #ea72c6;
+}

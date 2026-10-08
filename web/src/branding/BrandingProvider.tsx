@@ -1,10 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { Box, MantineProvider, useComputedColorScheme } from "@mantine/core";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { Box, useComputedColorScheme } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api, type PublicBranding } from "../api/client";
 import { PRODUCT_NAME } from "../brand.generated";
-import { DARK_SURFACE, DEFAULT_ACCENT, WHITE } from "./contrast";
-import { buildTheme } from "./theme";
+import { DEFAULT_ACCENT } from "./contrast";
 
 /** What an installation shows before an administrator has configured anything. */
 export const STOCK_BRANDING: PublicBranding = {
@@ -17,6 +16,8 @@ export const STOCK_BRANDING: PublicBranding = {
   login_message: "",
   login_footer: "",
   support: {},
+  default_theme: "",
+  allowed_themes: [],
   assets: {},
   version: "",
 };
@@ -38,8 +39,8 @@ const Ctx = createContext<PublicBranding>(STOCK_BRANDING);
 
 export const useBranding = (): PublicBranding => useContext(Ctx);
 
-/** Loads the public branding and gives the console its theme (the accent becomes the primary color). */
-export function BrandingProvider({ nonce, children }: { nonce: string; children: ReactNode }) {
+/** Loads the public branding. The theme and the accent layered on it are applied by AppearanceProvider. */
+export function BrandingProvider({ children }: { children: ReactNode }) {
   const q = useQuery({
     queryKey: ["branding"],
     queryFn: () => api<PublicBranding>("GET", "/branding"),
@@ -47,14 +48,7 @@ export function BrandingProvider({ nonce, children }: { nonce: string; children:
     staleTime: 60_000,
   });
   const b = q.data ?? STOCK_BRANDING;
-  const theme = useMemo(() => buildTheme({ accent: b.accent_color, secondary: b.secondary_color }), [b.accent_color, b.secondary_color]);
-  return (
-    <Ctx.Provider value={b}>
-      <MantineProvider theme={theme} defaultColorScheme="auto" getStyleNonce={() => nonce}>
-        {children}
-      </MantineProvider>
-    </Ctx.Provider>
-  );
+  return <Ctx.Provider value={b}>{children}</Ctx.Provider>;
 }
 
 /** Sets the tab title to "<page> · <organization> · <product>" (or just the branded title). */
@@ -93,10 +87,10 @@ export function BrandMark({ height = 32, allowIcon = true }: MarkProps) {
   );
   if (scheme === "dark") {
     if (dark) return img(dark);
-    if (light) return chip(WHITE, img(light));
+    if (light) return chip("var(--rnv-surface-raised)", img(light));
   } else {
     if (light) return img(light);
-    if (dark) return chip(DARK_SURFACE, img(dark));
+    if (dark) return chip("var(--rnv-surface-raised)", img(dark));
   }
   return icon ? img(icon, true) : null;
 }
