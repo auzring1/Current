@@ -379,10 +379,13 @@ func (f *fleet) jobLoop(ctx context.Context) {
 				start := time.Now()
 				id, err := f.api.CreateJob(ctx, kind, a.ident.DeviceID)
 				if err != nil {
+					if ctx.Err() != nil {
+						return // the run is ending; not a failure
+					}
 					var ae *APIError
-					key := "job.create_error"
+					key := "job.create_error.net"
 					if errors.As(err, &ae) {
-						key += "." + strconv.Itoa(ae.Status)
+						key = "job.create_error." + strconv.Itoa(ae.Status)
 					}
 					f.count(key)
 					return

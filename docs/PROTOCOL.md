@@ -79,7 +79,7 @@ EnrollResponse { status [APPROVED|PENDING|REJECTED], device_id, ticket (if pendi
 
 - the token hash exists, isn't expired or revoked, and `used_count < max_uses` (incremented in the same transaction);
 - the CSR is well-formed and self-signed with a P-256 key;
-- rate limits: per source IP 10/min, per token 60/min, globally configurable.
+- rate limits: per source IP 10/min and per token 60/min by default (burst equal). `AUZ_ENROLL_RATE_PER_IP` and `AUZ_ENROLL_RATE_PER_TOKEN` change them; raise them only for a rollout of many machines behind one NAT address, or enrolling 1,000 devices from one address takes 100 minutes (see LOADTEST.md).
 
 Failures return one generic error. The detailed reason goes to the audit log only.
 
