@@ -97,6 +97,7 @@ interface Layout {
   pageSize?: number;
 }
 
+const EMPTY: never[] = []; // a stable empty list: a fresh [] every render would reset the page index forever
 const SELECT = "__select";
 const ACTIONS = "__actions";
 const layoutKey = (id: string) => `rnv-dt:${id}`;
@@ -178,7 +179,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
   }, [order, columns, p.selectable, p.rowActions]);
 
   const table = useReactTable<T>({
-    data: p.data ?? [],
+    data: p.data ?? (EMPTY as T[]),
     columns: defs,
     getRowId: (row) => p.rowId(row),
     state: { sorting, columnVisibility: visibility, columnOrder: fullOrder, columnSizing: sizes, columnFilters: filters, globalFilter: search, rowSelection, pagination },
