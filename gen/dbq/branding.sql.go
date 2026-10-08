@@ -48,7 +48,7 @@ func (q *Queries) DeleteBrandingAssets(ctx context.Context, orgID uuid.UUID) err
 }
 
 const getBranding = `-- name: GetBranding :one
-SELECT org_id, org_name, product_name, accent_color, secondary_color, login_headline, login_message, login_footer, support_email, support_phone, support_url, report_footer, updated_at, updated_by FROM branding WHERE org_id = $1
+SELECT org_id, org_name, product_name, accent_color, secondary_color, login_headline, login_message, login_footer, support_email, support_phone, support_url, report_footer, updated_at, updated_by, default_theme, allowed_themes FROM branding WHERE org_id = $1
 `
 
 func (q *Queries) GetBranding(ctx context.Context, orgID uuid.UUID) (Branding, error) {
@@ -69,6 +69,8 @@ func (q *Queries) GetBranding(ctx context.Context, orgID uuid.UUID) (Branding, e
 		&i.ReportFooter,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.DefaultTheme,
+		&i.AllowedThemes,
 	)
 	return i, err
 }
@@ -114,6 +116,17 @@ func (q *Queries) GetDefaultOrganization(ctx context.Context) (GetDefaultOrganiz
 	var i GetDefaultOrganizationRow
 	err := row.Scan(&i.ID, &i.Name)
 	return i, err
+}
+
+const getUserPreferences = `-- name: GetUserPreferences :one
+SELECT data FROM user_preferences WHERE user_id = $1
+`
+
+func (q *Queries) GetUserPreferences(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getUserPreferences, userID)
+	var data []byte
+	err := row.Scan(&data)
+	return data, err
 }
 
 const listBrandingAssets = `-- name: ListBrandingAssets :many
@@ -162,15 +175,16 @@ func (q *Queries) ListBrandingAssets(ctx context.Context, orgID uuid.UUID) ([]Li
 
 const upsertBranding = `-- name: UpsertBranding :exec
 INSERT INTO branding (org_id, org_name, product_name, accent_color, secondary_color, login_headline, login_message,
-                      login_footer, support_email, support_phone, support_url, report_footer, updated_at, updated_by)
+                      login_footer, support_email, support_phone, support_url, report_footer, default_theme, allowed_themes, updated_at, updated_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12, $13, $14)
+        $8, $9, $10, $11, $12, $13, $14, $15, $16)
 ON CONFLICT (org_id) DO UPDATE SET
     org_name = EXCLUDED.org_name, product_name = EXCLUDED.product_name, accent_color = EXCLUDED.accent_color,
     secondary_color = EXCLUDED.secondary_color, login_headline = EXCLUDED.login_headline,
     login_message = EXCLUDED.login_message, login_footer = EXCLUDED.login_footer,
     support_email = EXCLUDED.support_email, support_phone = EXCLUDED.support_phone,
     support_url = EXCLUDED.support_url, report_footer = EXCLUDED.report_footer,
+    default_theme = EXCLUDED.default_theme, allowed_themes = EXCLUDED.allowed_themes,
     updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
 `
 
@@ -187,6 +201,8 @@ type UpsertBrandingParams struct {
 	SupportPhone   string
 	SupportUrl     string
 	ReportFooter   string
+	DefaultTheme   string
+	AllowedThemes  []string
 	UpdatedAt      time.Time
 	UpdatedBy      *uuid.UUID
 }
@@ -205,6 +221,8 @@ func (q *Queries) UpsertBranding(ctx context.Context, arg UpsertBrandingParams) 
 		arg.SupportPhone,
 		arg.SupportUrl,
 		arg.ReportFooter,
+		arg.DefaultTheme,
+		arg.AllowedThemes,
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)
@@ -243,5 +261,21 @@ func (q *Queries) UpsertBrandingAsset(ctx context.Context, arg UpsertBrandingAss
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)
+	return err
+}
+
+const upsertUserPreferences = `-- name: UpsertUserPreferences :exec
+INSERT INTO user_preferences (user_id, data, updated_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+`
+
+type UpsertUserPreferencesParams struct {
+	UserID    uuid.UUID
+	Data      []byte
+	UpdatedAt time.Time
+}
+
+func (q *Queries) UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) error {
+	_, err := q.db.Exec(ctx, upsertUserPreferences, arg.UserID, arg.Data, arg.UpdatedAt)
 	return err
 }

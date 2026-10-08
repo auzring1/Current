@@ -101,6 +101,8 @@ type Branding struct {
 	ReportFooter   string
 	UpdatedAt      time.Time
 	UpdatedBy      *uuid.UUID
+	DefaultTheme   string
+	AllowedThemes  []string
 }
 
 type BrandingAsset struct {
@@ -542,6 +544,12 @@ type UserIdentity struct {
 	UserID   uuid.UUID
 	Provider string
 	Subject  string
+}
+
+type UserPreference struct {
+	UserID    uuid.UUID
+	Data      []byte
+	UpdatedAt time.Time
 }
 
 type WebauthnCeremony struct {

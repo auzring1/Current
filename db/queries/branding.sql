@@ -7,15 +7,16 @@ SELECT * FROM branding WHERE org_id = $1;
 
 -- name: UpsertBranding :exec
 INSERT INTO branding (org_id, org_name, product_name, accent_color, secondary_color, login_headline, login_message,
-                      login_footer, support_email, support_phone, support_url, report_footer, updated_at, updated_by)
+                      login_footer, support_email, support_phone, support_url, report_footer, default_theme, allowed_themes, updated_at, updated_by)
 VALUES (@org_id, @org_name, @product_name, @accent_color, @secondary_color, @login_headline, @login_message,
-        @login_footer, @support_email, @support_phone, @support_url, @report_footer, @updated_at, @updated_by)
+        @login_footer, @support_email, @support_phone, @support_url, @report_footer, @default_theme, @allowed_themes, @updated_at, @updated_by)
 ON CONFLICT (org_id) DO UPDATE SET
     org_name = EXCLUDED.org_name, product_name = EXCLUDED.product_name, accent_color = EXCLUDED.accent_color,
     secondary_color = EXCLUDED.secondary_color, login_headline = EXCLUDED.login_headline,
     login_message = EXCLUDED.login_message, login_footer = EXCLUDED.login_footer,
     support_email = EXCLUDED.support_email, support_phone = EXCLUDED.support_phone,
     support_url = EXCLUDED.support_url, report_footer = EXCLUDED.report_footer,
+    default_theme = EXCLUDED.default_theme, allowed_themes = EXCLUDED.allowed_themes,
     updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by;
 
 -- name: DeleteBranding :exec
@@ -41,3 +42,10 @@ DELETE FROM branding_assets WHERE org_id = $1 AND kind = $2;
 
 -- name: DeleteBrandingAssets :exec
 DELETE FROM branding_assets WHERE org_id = $1;
+
+-- name: GetUserPreferences :one
+SELECT data FROM user_preferences WHERE user_id = $1;
+
+-- name: UpsertUserPreferences :exec
+INSERT INTO user_preferences (user_id, data, updated_at) VALUES (@user_id, @data, @updated_at)
+ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
