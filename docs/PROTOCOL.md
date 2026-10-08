@@ -83,6 +83,8 @@ EnrollResponse { status [APPROVED|PENDING|REJECTED], device_id, ticket (if pendi
 
 Failures return one generic error. The detailed reason goes to the audit log only.
 
+**One exception: the license device limit.** After the token has been validated, if the installation has no free device slot (unlicensed evaluation: 25 devices; or the installed license's `max_devices`, DECISIONS D85/D87), `Enroll` returns gRPC `FAILED_PRECONDITION` with a plain-text message ("device limit reached: ..."). The caller already holds a valid token, so nothing is revealed to an outsider. The transaction is rolled back (the token's use is not consumed) and the attempt is audited as `device.enroll` / `denied` / `license_device_limit`. The agent surfaces the message in its status file (the installer prints it) and retries after about 15 minutes. Re-enrollment of known hardware that replaces an active device is exempt. This check is the only way licensing touches the protocol; established devices are never affected.
+
 **Duplicate devices.** If `smbios_uuid`+`serial` matches an active device, the request becomes a **re-enrollment** that needs approval, regardless of the token setting. This stops one token from silently taking over an existing device's identity.
 
 **Pending approval.** `EnrollStatus(ticket)` is called at the server-suggested interval (`retry_after_s`; 60 s by default, configurable with `AUZ_ENROLL_POLL_INTERVAL`) plus up to 1/3 jitter. This is the only polling in the protocol, and it only happens while pending. The ticket is stored hashed; when the device is approved, the next poll returns the client certificate and the ticket is invalidated.

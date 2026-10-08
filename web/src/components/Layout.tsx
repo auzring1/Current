@@ -38,6 +38,7 @@ export function Layout() {
     { to: "/audit", label: "Audit log", perm: "audit:read" },
     { to: "/sites", label: "Sites", perm: "sites:write" },
     { to: "/users", label: "Users", perm: "users:read" },
+    { to: "/license", label: "License", perm: "license:write" },
     { to: "/settings", label: "Settings", perm: "catalog:read" },
   ];
 

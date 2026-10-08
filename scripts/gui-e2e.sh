@@ -11,6 +11,11 @@ trap 'kill ${server_pid:-0} 2>/dev/null || true; rm -rf "$work"' EXIT
 (cd web && npm run build >/dev/null)
 go build -o "$work/auzring-server" ./cmd/auzring-server
 go build -o "$work/auzring-agent" ./cmd/auzring-agent
+# A license key pair made for this run only (never committed): the server trusts its public half
+# (AUZ_LICENSE_PUBLIC_KEYS) and the test signs demo licenses with the tool.
+go build -o "$work/auzring-license" ./cmd/auzring-license
+"$work/auzring-license" keygen --out "$work/license.key" >/dev/null
+license_pub=$(tr -d '[:space:]' < "$work/license.pub")
 
 db="auz_gui_$(date +%s)"
 psql "$AUZ_TEST_PG_URL" -qc "CREATE DATABASE $db"
@@ -18,7 +23,7 @@ dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print
 
 AUZ_DEV_MODE=true AUZ_PUBLIC_URL=http://localhost:18080 AUZ_HTTP_ADDR=127.0.0.1:18080 \
 AUZ_GATEWAY_ADDR=127.0.0.1:18443 AUZ_GATEWAY_PUBLIC_ADDR=localhost:18443 AUZ_GATEWAY_SANS=127.0.0.1 \
-AUZ_CONTENT_DIR="$work/content" AUZ_DATABASE_URL="$dburl" AUZ_MASTER_KEY=$(openssl rand -hex 32) AUZ_HEARTBEAT_INTERVAL=5s \
+AUZ_LICENSE_PUBLIC_KEYS="$license_pub" AUZ_CONTENT_DIR="$work/content" AUZ_DATABASE_URL="$dburl" AUZ_MASTER_KEY=$(openssl rand -hex 32) AUZ_HEARTBEAT_INTERVAL=5s \
   "$work/auzring-server" serve >"$work/server.log" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 50); do grep -q "setup token" "$work/server.log" 2>/dev/null && break; sleep 0.2; done
@@ -29,4 +34,5 @@ fi
 
 cd web
 AUZ_SETUP_TOKEN="$token" AUZ_AGENT_BIN="$work/auzring-agent" AUZ_GATEWAY=127.0.0.1:18443 \
+AUZ_LICENSE_TOOL="$work/auzring-license" AUZ_LICENSE_KEY="$work/license.key" \
   npx playwright test "$@" || { echo "--- server log ---"; tail -50 "$work/server.log"; exit 1; }

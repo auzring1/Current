@@ -210,6 +210,13 @@ func (a *Agent) enroll(ctx context.Context) (time.Duration, error) {
 			a.status("error", "The server rejected the enrollment token (expired, revoked or used up). Create a new token and reinstall.", "")
 			return time.Hour, err
 		}
+		if status.Code(err) == codes.FailedPrecondition {
+			// The server understood the request but will not enroll another device (license device
+			// limit). Say so plainly: the installer prints this message. Retry slowly, an
+			// administrator may install a license in the meantime.
+			a.status("error", "The server refused to enroll this device: "+status.Convert(err).Message(), "")
+			return jitter(15*time.Minute, 5*time.Minute), err
+		}
 		a.status("error", "Enrollment failed: "+err.Error(), "")
 		return 0, err
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/catalog"
 	"github.com/auzring1/auzring/internal/server/deploy"
 	"github.com/auzring1/auzring/internal/server/events"
+	"github.com/auzring1/auzring/internal/server/licensing"
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/shared/release"
 	"github.com/auzring1/auzring/internal/shared/vercmp"
@@ -72,9 +73,35 @@ type Service struct {
 	Events  *events.Broker
 	Log     *slog.Logger
 	Now     func() time.Time
+	// Licensing decides whether a release is inside the license's update period (nil = no check).
+	// It applies ONLY to agent releases: it never affects Windows, driver or software updates.
+	Licensing Licensing
 	// Keys are the vendor release public keys the server accepts for uploads
 	// (default: the keys compiled into this build).
 	Keys []ed25519.PublicKey
+}
+
+// Licensing is the part of the licensing service that agentrel needs.
+type Licensing interface {
+	// CheckRelease returns an error wrapping licensing.ErrUpdatesEnded when the release was
+	// published after the license's updates_until.
+	CheckRelease(ctx context.Context, org uuid.UUID, version string, releasedAt int64) error
+}
+
+// ErrNotEligible means the license does not cover the release (maps to HTTP 422/license_updates_ended).
+var ErrNotEligible = errors.New("agentrel: release not covered by the license")
+
+func (s *Service) eligible(ctx context.Context, org uuid.UUID, version string, releasedAt int64) error {
+	if s.Licensing == nil {
+		return nil
+	}
+	if err := s.Licensing.CheckRelease(ctx, org, version, releasedAt); err != nil {
+		if errors.Is(err, licensing.ErrUpdatesEnded) {
+			return fmt.Errorf("%w: %s", ErrNotEligible, strings.TrimPrefix(err.Error(), licensing.ErrUpdatesEnded.Error()+": "))
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Service) now() time.Time {
@@ -146,6 +173,9 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	m, err := release.Verify(s.keys(), b.Manifest, b.Signature, b.KeyID)
 	if err != nil {
 		return Release{}, invalid("%v", err)
+	}
+	if err := s.eligible(ctx, a.Org, m.Version, m.ReleasedAt); err != nil {
+		return Release{}, err
 	}
 	limit := int64(m.Size) + 1 // #nosec G115 -- Verify bounds Size to release.MaxBinaryBytes
 	sha, size, err := s.Content.Put(a.Org, io.LimitReader(binary, limit), limit)
@@ -361,6 +391,11 @@ func (s *Service) SetRollout(ctx context.Context, a Actor, in Rollout) error {
 			if r.Status != "available" {
 				return invalid("that release is withdrawn")
 			}
+			if m, err := release.ParseUnverified(r.Manifest); err == nil {
+				if err := s.eligible(ctx, a.Org, r.Version, m.ReleasedAt); err != nil {
+					return err
+				}
+			}
 			if perr == nil && prev.ReleaseID != nil && *prev.ReleaseID == *in.ReleaseID {
 				started = prev.StartedAt // same target: keep the pilot's clock
 			} else {
@@ -502,6 +537,18 @@ func (s *Service) tickOrg(ctx context.Context, ro dbq.AgentRollout) error {
 	m, err := release.ParseUnverified(rel.Manifest)
 	if err != nil {
 		return err
+	}
+	// The license may have changed since the target was chosen (an older one installed, the key set
+	// changed): do not start new update jobs for a release it does not cover. Pause, say why.
+	if err := s.eligible(ctx, ro.OrgID, rel.Version, m.ReleasedAt); err != nil {
+		reason := strings.TrimPrefix(err.Error(), ErrNotEligible.Error()+": ")
+		if perr := q.PauseAgentRollout(ctx, dbq.PauseAgentRolloutParams{OrgID: ro.OrgID, PausedReason: reason}); perr != nil {
+			return perr
+		}
+		_ = audit.Log(ctx, s.Pool, audit.Entry{OrgID: &ro.OrgID, ActorType: audit.ActorSystem, Action: "agent.rollout_hold", TargetType: "agent_release",
+			TargetIDs: []string{rel.ID.String()}, Outcome: audit.Denied, Details: map[string]any{"reason": reason, "version": rel.Version}})
+		s.log().Warn("agent rollout paused", "org", ro.OrgID, "reason", reason)
+		return nil
 	}
 	cands, err := q.ListAgentUpdateCandidates(ctx, dbq.ListAgentUpdateCandidatesParams{OrgID: ro.OrgID, ReleaseID: rel.ID, Version: rel.Version})
 	if err != nil {

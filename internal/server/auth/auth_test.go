@@ -1,10 +1,12 @@
 package auth
 
 import (
-	"github.com/google/uuid"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestPasswordHashVerify(t *testing.T) {
@@ -97,9 +99,12 @@ func TestRBAC(t *testing.T) {
 	}
 	for _, x := range PermissionsFor([]string{RoleOperator}) {
 		switch x {
-		case PermCatalogOverride, PermSettingsWrite, PermUpdatesPolicy, PermReleasesWrite, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesWrite:
-			t.Fatalf("operator has %s: overrides, settings, update policy, releases, sites, users and automation policies are admin-only", x)
+		case PermCatalogOverride, PermSettingsWrite, PermUpdatesPolicy, PermReleasesWrite, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesWrite, PermLicenseWrite:
+			t.Fatalf("operator has %s: overrides, settings, update policy, releases, sites, users, automation policies and installing a license are admin-only", x)
 		}
+	}
+	if !slices.Contains(PermissionsFor([]string{RoleOperator}), PermLicenseRead) || !slices.Contains(PermissionsFor([]string{RoleAdmin}), PermLicenseWrite) {
+		t.Fatal("operators read the license, administrators install it")
 	}
 	if got := len(PermissionsFor([]string{RoleAdmin})); got != len(AllPermissions()) {
 		t.Fatalf("the admin role must hold every permission: %d of %d", got, len(AllPermissions()))

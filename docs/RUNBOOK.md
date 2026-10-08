@@ -169,6 +169,7 @@ Configuration (all optional, set in the server's environment):
 | `AUZ_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/auzring/content`). Empty disables custom packages. |
 | `AUZ_WINGET_SOURCE` | `github` (default) or `off`. |
 | `AUZ_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
+| `AUZ_LICENSE_PUBLIC_KEYS` | Extra vendor license public keys (hex, comma-separated). Only for testing licensing with a key made by `auzring-license keygen`; official builds carry the vendor key inside them. |
 | `AUZ_GITHUB_TOKEN` / `AUZ_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
 
 ### 5b. Windows updates (Phase 4)
@@ -218,6 +219,39 @@ Configuration (all optional, set in the server's environment):
 | Reports | **Reports**: devices, online, patch compliance (no approved or Critical update missing, no failed install, scanned within a week), devices needing a restart, devices not seen for a week and job results of the last 30 days; **Export patch compliance (CSV)**. |
 | Search the audit log | **Audit log**: filter by action prefix (`user.`, `deployment`), outcome, actor (id or IP) and time; **Export CSV** (up to 100,000 rows; spreadsheet formulas are neutralized). |
 | Prove the log is intact | **Audit log → Verify the chain** walks every entry; a broken chain names the first bad entry. Do it before relying on the log in an investigation. |
+
+### 5f. Licensing (Phase 6)
+
+Licensing is checked on your server, offline; nothing is ever sent to the vendor. **Rule of thumb: a licensing problem only stops NEW devices from being enrolled or approved.** Existing devices, deployments, Windows and software updates, sign-in, revoking and uninstalling keep working in every state.
+
+| State (License page) | What it means | New devices |
+|---|---|---|
+| **Unlicensed (evaluation)** | No license installed (or the subscription ended more than 30 days ago) | up to 25 enrolled devices |
+| **Licensed** | A valid license is installed and inside its term | up to the license's device count |
+| **Expired (grace period)** | The subscription ended less than 30 days ago | the license's device count still applies until the date shown; renew before then |
+| **License not usable** | The installed license cannot be verified with this build's vendor key, or is not valid yet | the evaluation limit (25) |
+
+| Task | How |
+|---|---|
+| Install a license | **License** (administrators only) **→ paste the license text (it starts with `AZL1.`) → Install license**. Takes effect at once; the previous one stays in the history. Refused with a reason if the signature does not verify, it is not valid yet, it expired more than 30 days ago, or it is already installed. Each attempt is in the audit log (`license.install`, `license.invalid`). From a script: `PUT /api/v1/license` with `{"license": "AZL1...."}` (permission `license:write`). |
+| Renew | Install the new license text the same way, any time before or during the grace period. Devices are not touched. |
+| See usage and expiry | **License** shows "N of M devices", the term, the update period and the history. The **Devices** page shows a banner when the cap is reached or the subscription ends within 30 days (people with `license:read`, i.e. administrators and operators). |
+| At the cap | The next enrollment fails on the machine with `device limit reached: ... An administrator can install a license under License ...` (the installer prints it, and the service retries every ~15 minutes, so the machine enrolls by itself once there is room); a pending device cannot be approved (the console shows the same message). Fix: install a license with more devices, or **revoke and delete** devices you no longer manage. Every other function keeps working. A smaller license than your fleet removes nothing: you are simply over the cap until devices leave. |
+| A re-installed machine | Re-enrolling a known machine (same hardware) replaces its old device and is always allowed, even at the cap. |
+| Agent update period | If your license has an *updates until* date, agent releases published after it cannot be uploaded or rolled out ("Agent updates" shows why); a running rollout of such a release is paused. Windows, driver and software updates are never affected, and agents that are already installed keep working. |
+| "Licensing is not configured" | This server build contains no vendor license key, so it can only run as an unlicensed evaluation. Use the vendor's official build or image (docker: `--build-arg LICENSE_PUBLIC_KEYS=<hex>` at image build). |
+| Clock | The server remembers the latest time it has seen; setting the clock backwards does not bring back an expired subscription. Keep the server clock correct (NTP). |
+
+**Issuing licenses (vendor side).** `auzring-license` is in `cmd/auzring-license` and is not shipped to customers. Generate the license key once and keep it offline or in a KMS (it is a different key from the release key; never reuse one for the other):
+
+```
+auzring-license keygen --out license.key            # writes license.key (secret) and license.pub
+auzring-license sign --key license.key --licensee "Example GmbH" --max-devices 250 \
+    --expires 2027-10-01 --updates-until 2027-10-01 --features reports.export --out example.lic
+auzring-license show --license example.lic --pub license.pub      # check before sending
+```
+
+Put the public key hex in server builds: `go build -ldflags "-X github.com/auzring1/auzring/internal/shared/license.PublicKeysHex=<hex>[,<hex2>]" ./cmd/auzring-server` (several keys allow rotation). With a KMS: `auzring-license payload --licensee ... --max-devices ... --out doc.json --tosign doc.tosign`, have the KMS Ed25519-sign the **whole** `.tosign` file (it starts with the domain separator), then `auzring-license attach --doc doc.json --signature sig.bin --pub license.pub --out example.lic`. Demo keys for testing go under the git-ignored `dist-demo/`; never commit a key.
 
 ## 6. Backup and restore
 

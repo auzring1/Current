@@ -89,7 +89,8 @@ fuzz: ## Short fuzzing run (20s per target) over every parser that sees untruste
 	  ./internal/server/catalog:FuzzParseManifest ./internal/shared/vercmp:FuzzKey ./internal/server/inventory:FuzzNormalize \
 	  ./internal/server/groups:FuzzCompile ./internal/agent/hardware:FuzzParseSMBIOS \
 	  ./internal/shared/envelope:FuzzOpenSigned ./internal/shared/envelope:FuzzOpenRaw ./internal/shared/bundle:FuzzParse ./internal/shared/release:FuzzBundle ./internal/shared/release:FuzzVerify \
-	  ./internal/agent/jobs:FuzzValidateBodies ./internal/agent/inventory:FuzzScanUninstall ./internal/server/backup:FuzzWalker ./internal/server/backup:FuzzManifest; do \
+	  ./internal/agent/jobs:FuzzValidateBodies ./internal/agent/inventory:FuzzScanUninstall ./internal/server/backup:FuzzWalker ./internal/server/backup:FuzzManifest \
+	  ./internal/shared/license:FuzzVerify ./internal/shared/license:FuzzDecode; do \
 	  go test $${t%%:*} -run XXX -fuzz $${t##*:} -fuzztime 20s; done
 
 .PHONY: vuln

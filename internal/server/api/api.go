@@ -22,6 +22,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/deploy"
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/kek"
+	"github.com/auzring1/auzring/internal/server/licensing"
 	"github.com/auzring1/auzring/internal/server/pki"
 	"github.com/auzring1/auzring/internal/server/policies"
 	"github.com/auzring1/auzring/internal/server/updates"
@@ -57,6 +58,7 @@ type Deps struct {
 	Updates   *updates.Service
 	Releases  *agentrel.Service
 	Policies  *policies.Service
+	Licensing *licensing.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -226,6 +228,10 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermReportsRead)).Get("/reports/overview", s.reportOverview)
 	r.With(s.require(auth.PermReportsRead)).Get("/reports/compliance", s.reportCompliance)
 	r.With(s.require(auth.PermInventoryExport)).Get("/reports/compliance.csv", s.complianceCSV)
+
+	r.With(s.require(auth.PermLicenseRead)).Get("/license", s.getLicense)
+	r.With(s.require(auth.PermLicenseWrite)).Put("/license", s.putLicense)
+	r.With(s.require(auth.PermLicenseRead)).Get("/license/history", s.licenseHistory)
 
 	r.With(s.requireAny(auth.PermSitesRead)).Get("/sites", s.listSites)
 	r.With(s.require(auth.PermSitesWrite)).Post("/sites", s.createSite)

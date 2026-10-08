@@ -4,6 +4,8 @@ Self-hosted patch and software management for Windows endpoints. It has three pa
 
 **Status: Phase 5 (automation and polish) complete, awaiting review.** On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
 
+**Licensing (Phase 6, in progress):** the server verifies a vendor-signed **license key** offline (no phone-home). Without a license it runs as an evaluation limited to 25 enrolled devices; a license problem (missing, expired beyond a 30-day grace, over the device count) only ever blocks *new* enrollments and approvals, never patching or existing devices. Install a license under **License** in the console; see [RUNBOOK §5f](docs/RUNBOOK.md) and [DECISIONS D85](docs/DECISIONS.md). The business model is still owner decision O8.
+
 ## Quick start (production-style, one host)
 ```bash
 ./scripts/init-secrets.sh                       # Docker secrets in deploy/secrets/ (back them up!)
@@ -35,7 +37,7 @@ Run the web console against a local server: start the server with `AUZ_DEV_MODE=
 ## Repository layout
 | Path | |
 |---|---|
-| `cmd/auzring-server`, `cmd/auzring-agent`, `cmd/auzring-release` | Binaries (`auzring-release` is the vendor-side release signing tool, not shipped to customers) |
+| `cmd/auzring-server`, `cmd/auzring-agent`, `cmd/auzring-release`, `cmd/auzring-license` | Binaries (`auzring-release` and `auzring-license` are vendor-side signing tools for releases and license keys, not shipped to customers) |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |

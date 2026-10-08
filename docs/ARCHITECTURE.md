@@ -70,6 +70,7 @@ Implementation notes that refine the design below:
   - *Access model* (D71): a role binding is organization-wide or for one site. Site bindings grant only the permissions that act on a device from its own page (devices, deployments and updates on that device, catalog read); org configuration and fleet-wide views need an organization-wide role. Out-of-scope devices answer 404.
   - *API tokens* (D72) and *security keys* (D73): see SECURITY §9d.
   - *Software policies* (D75): the scheduler (every 5 minutes) turns a policy into an ordinary deployment for the devices that need it; nothing bypasses the deployment engine.
+- **Phase 6 licensing (D85-D88):** `internal/shared/license` (document, signature, strict parsing; domain `auzring/license/v1\0`), `internal/server/licensing` (effective state: licensed / grace / evaluation / invalid; the only device-cap enforcement point `CheckNewDevice`, called inside the enrollment transaction in `gateway/enroll.go` and the approval transaction in `api/devices.go`; install and history; the agent-release eligibility check used by `agentrel`; the clock high-water mark), `cmd/auzring-license` (vendor tool), console **License** page and Devices banner. A licensing problem never touches jobs, updates or existing devices.
 - **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
 
 
@@ -415,6 +416,8 @@ Everything except the Windows-specific calls (`mgr`, `schtasks`, the restart) is
 ├── cmd/
 │   ├── auzring-server/        server main
 │   ├── auzring-agent/         agent main (windows; core builds on linux for tests)
+│   ├── auzring-release/       vendor tool: agent release keys and signed bundles
+│   ├── auzring-license/       vendor tool: license keys and signed licenses
 │   └── auzring-loadsim/       simulated agents for integration and load tests
 ├── internal/
 │   ├── server/...             see §2

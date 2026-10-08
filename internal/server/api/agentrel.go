@@ -30,6 +30,8 @@ func (s *server) relError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, agentrel.ErrInvalid):
 		writeError(w, http.StatusUnprocessableEntity, "invalid_request", strings.TrimPrefix(err.Error(), agentrel.ErrInvalid.Error()+": "))
+	case errors.Is(err, agentrel.ErrNotEligible):
+		writeError(w, http.StatusUnprocessableEntity, "license_updates_ended", strings.TrimPrefix(err.Error(), agentrel.ErrNotEligible.Error()+": "))
 	case errors.Is(err, agentrel.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
 	case errors.Is(err, agentrel.ErrConflict):

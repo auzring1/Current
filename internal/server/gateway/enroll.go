@@ -19,6 +19,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/audit"
 	"github.com/auzring1/auzring/internal/server/auth"
 	"github.com/auzring1/auzring/internal/server/events"
+	"github.com/auzring1/auzring/internal/server/licensing"
 	"github.com/auzring1/auzring/internal/server/pki"
 	"github.com/auzring1/auzring/internal/server/store"
 	"github.com/auzring1/auzring/internal/shared/pkix"
@@ -107,6 +108,13 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 		} else if !isNoRows(err) {
 			return err
 		}
+		// The device cap: refuse a NEW device when no license slot is free. The transaction rolls back,
+		// so the token is not consumed. Re-enrolling known hardware replaces an active device (net zero).
+		if g.licensing != nil {
+			if err := g.licensing.CheckNewDevice(ctx, q, tok.OrgID, replaces); err != nil {
+				return err
+			}
+		}
 		needsApproval := tok.RequireApproval || replaces != nil
 		params := dbq.CreateDeviceParams{ID: deviceID, OrgID: tok.OrgID, SiteID: tok.SiteID, Hostname: hostname,
 			SmbiosUuid: smbios, Serial: serial, OsBuild: cleanField(req.OsBuild, 64), Arch: cleanField(req.Arch, 32),
@@ -154,6 +162,12 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 	if errors.Is(err, errRejected) {
 		g.auditEnroll(ctx, nil, ip, "", audit.Denied, denyReason, hostname)
 		return nil, errRejected
+	}
+	var limit *licensing.LimitError
+	if errors.As(err, &limit) {
+		// The caller holds a valid token, so the reason may be told plainly (it is shown by the agent installer).
+		g.auditEnroll(ctx, &orgID, ip, "", audit.Denied, "license_device_limit", hostname)
+		return nil, status.Error(codes.FailedPrecondition, limit.Error())
 	}
 	if err != nil {
 		g.log.Error("enroll", "err", err)
