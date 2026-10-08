@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, MultiSelect, NumberInput, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Button, Checkbox, Group, Modal, MultiSelect, NumberInput, Select, Stack, TextInput } from "@mantine/core";
 import { api, errorMessage, type Group as Grp, type Pkg, type SoftwarePolicy } from "../api/client";
 import { useSession } from "../api/session";
+import { DataTable, EmptyState, Icons, IconButton, Page, PageHeader, StatGrid, StatTile, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
 
 const kindLabel: Record<string, string> = { keep_updated: "Keep updated", baseline: "Install on new devices" };
 
@@ -11,75 +11,129 @@ export function PoliciesPage() {
   const { canOrg } = useSession();
   const canWrite = canOrg("policies:write");
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const q = useQuery({ queryKey: ["policies"], queryFn: () => api<{ items: SoftwarePolicy[] }>("GET", "/policies") });
   const groups = useQuery({ queryKey: ["groups"], queryFn: () => api<{ items: Grp[] }>("GET", "/groups") });
   const [edit, setEdit] = useState<SoftwarePolicy | "new" | null>(null);
   const del = useMutation({
     mutationFn: (id: string) => api("DELETE", `/policies/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["policies"] }),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Policy deleted."), qc.invalidateQueries({ queryKey: ["policies"] })),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const groupName = (id: string) => groups.data?.items.find((g) => g.id === id)?.name ?? id.slice(0, 8);
+
+  const columns = useMemo<Column<SoftwarePolicy>[]>(
+    () => [
+      { id: "name", header: "Name", value: (p) => p.name, required: true, width: 240 },
+      {
+        id: "state",
+        header: "State",
+        value: (p) => (p.enabled ? "enabled" : "disabled"),
+        width: 120,
+        cell: (p) =>
+          p.enabled ? (
+            <StatusPill kind="success" size="sm">
+              Enabled
+            </StatusPill>
+          ) : (
+            <StatusPill kind="neutral" size="sm" icon={Icons.Pause}>
+              Disabled
+            </StatusPill>
+          ),
+        filter: {
+          type: "select",
+          options: [
+            { value: "enabled", label: "Enabled" },
+            { value: "disabled", label: "Disabled" },
+          ],
+        },
+      },
+      {
+        id: "kind",
+        header: "What",
+        value: (p) => kindLabel[p.kind] ?? p.kind,
+        width: 190,
+        filter: {
+          type: "select",
+          options: Object.entries(kindLabel).map(([, label]) => ({ value: label, label })),
+        },
+      },
+      { id: "package", header: "Package", value: (p) => p.package_name, width: 200 },
+      // The group names resolve once the groups have loaded, so the value follows `groups.data`.
+      { id: "groups", header: "Groups", value: (p) => p.group_ids.map(groupName).join(", "), width: 220, wrap: true },
+      { id: "delay", header: "Delay", value: (p) => p.delay_days, align: "right", width: 90, cell: (p) => <span className="rnv-num">{p.delay_days} d</span>, csv: (p) => String(p.delay_days) },
+      { id: "handled", header: "Devices handled", value: (p) => p.devices_attempted, align: "right", width: 140, cell: (p) => <span className="rnv-num">{p.devices_attempted}</span> },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groups.data],
+  );
+
+  const items = q.data?.items ?? [];
+  const enabled = items.filter((p) => p.enabled).length;
+  const handled = items.reduce((n, p) => n + p.devices_attempted, 0);
+
   return (
-    <>
-      <Group justify="space-between" mb="xs">
-        <Title order={2}>Software policies</Title>
-        {canWrite && <Button onClick={() => setEdit("new")}>Add policy</Button>}
-      </Group>
-      <Text size="sm" c="dimmed" mb="md">
-        A policy keeps a package current on a group (after a delay you choose), or installs it on devices that newly join a group. Each run creates an ordinary deployment you can follow under Deployments; a device that fails three times is left alone.
-      </Text>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && <Alert color="blue">No policies yet.</Alert>}
-      {q.data && q.data.items.length > 0 && (
-        <Table verticalSpacing="xs" fz="sm" aria-label="Software policies">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>What</Table.Th>
-              <Table.Th>Package</Table.Th>
-              <Table.Th>Groups</Table.Th>
-              <Table.Th>Delay</Table.Th>
-              <Table.Th>Devices handled</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {q.data.items.map((p) => (
-              <Table.Tr key={p.id} opacity={p.enabled ? 1 : 0.5}>
-                <Table.Td>
-                  {p.name}
-                  {!p.enabled && (
-                    <Badge ml={6} size="xs" color="gray">
-                      disabled
-                    </Badge>
-                  )}
-                </Table.Td>
-                <Table.Td>{kindLabel[p.kind] ?? p.kind}</Table.Td>
-                <Table.Td>{p.package_name}</Table.Td>
-                <Table.Td>{p.group_ids.map(groupName).join(", ")}</Table.Td>
-                <Table.Td>{p.delay_days} d</Table.Td>
-                <Table.Td>{p.devices_attempted}</Table.Td>
-                <Table.Td>
-                  {canWrite && (
-                    <Group gap="xs" justify="flex-end" wrap="nowrap">
-                      <Button size="compact-xs" variant="default" onClick={() => setEdit(p)} aria-label={`Edit policy ${p.name}`}>
-                        Edit
-                      </Button>
-                      <Button size="compact-xs" variant="default" color="red" onClick={() => window.confirm(`Delete policy "${p.name}"?`) && del.mutate(p.id)} aria-label={`Delete policy ${p.name}`}>
-                        Delete
-                      </Button>
-                    </Group>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
+    <Page>
+      <PageHeader
+        title="Software policies"
+        description="A policy keeps a package current on a group (after a delay you choose), or installs it on devices that newly join a group. Each run creates an ordinary deployment you can follow under Deployments; a device that fails three times is left alone."
+        actions={
+          canWrite ? (
+            <Button onClick={() => setEdit("new")} leftSection={<Icons.Plus size={16} aria-hidden />}>
+              Add policy
+            </Button>
+          ) : undefined
+        }
+      />
+      {q.isLoading ? (
+        <TileSkeleton count={3} />
+      ) : items.length > 0 ? (
+        <StatGrid label="Policy summary">
+          <StatTile label="Policies" value={items.length} kind="accent" icon={<Icons.NavSoftwarePolicy size={16} aria-hidden />} />
+          <StatTile label="Enabled" value={enabled} kind="success" icon={<Icons.Play size={16} aria-hidden />} hint={items.length - enabled > 0 ? `${items.length - enabled} disabled` : "all policies are running"} />
+          <StatTile label="Devices handled" value={handled} kind="info" icon={<Icons.NavDevices size={16} aria-hidden />} hint="attempts across all policies" />
+        </StatGrid>
+      ) : null}
+      <DataTable<SoftwarePolicy>
+        id="policies"
+        label="Software policies"
+        data={q.data?.items}
+        loading={q.isLoading}
+        error={q.error ? new Error(errorMessage(q.error)) : undefined}
+        columns={columns}
+        rowId={(p) => p.id}
+        rowLabel={(p) => p.name}
+        initialSort={{ id: "name" }}
+        searchPlaceholder="Search policies"
+        exportName="software-policies"
+        rowActions={
+          canWrite
+            ? (p) => (
+                <>
+                  <IconButton label={`Edit policy ${p.name}`} icon={<Icons.Edit size={16} aria-hidden />} size="sm" onClick={() => setEdit(p)} />
+                  <IconButton
+                    label={`Delete policy ${p.name}`}
+                    icon={<Icons.Trash size={16} aria-hidden />}
+                    size="sm"
+                    color="red"
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Delete policy “${p.name}”?`,
+                        message: "The policy stops creating deployments. Deployments it already created are not affected.",
+                        confirmLabel: "Delete policy",
+                        danger: true,
+                      });
+                      if (ok) del.mutate(p.id);
+                    }}
+                  />
+                </>
+              )
+            : undefined
+        }
+        empty={<EmptyState icon={<Icons.NavSoftwarePolicy size={26} />} title="No policies yet" description="Add a policy to keep a package current on a group, or to install it on devices that newly join one." />}
+      />
       {edit && <PolicyModal policy={edit === "new" ? undefined : edit} groups={groups.data?.items ?? []} onClose={() => setEdit(null)} />}
-    </>
+    </Page>
   );
 }
 
@@ -101,7 +155,7 @@ function PolicyModal({ policy, groups, onClose }: { policy?: SoftwarePolicy; gro
       const body = { name: name.trim(), kind, package_id: pkg, group_ids: gs, delay_days: Number(delay) || 0, only_new_devices: onlyNew, unverified_confirmed: unverified, enabled };
       return policy ? api("PUT", `/policies/${policy.id}`, body) : api("POST", "/policies", body);
     },
-    onSuccess: () => (void qc.invalidateQueries({ queryKey: ["policies"] }), onClose()),
+    onSuccess: () => (toast.success("Policy saved."), void qc.invalidateQueries({ queryKey: ["policies"] }), onClose()),
     onError: (e) => setError(errorMessage(e)),
   });
   return (
@@ -127,7 +181,11 @@ function PolicyModal({ policy, groups, onClose }: { policy?: SoftwarePolicy; gro
             <Checkbox label="I accept that this winget package has not been verified on test machines" checked={unverified} onChange={(e) => setUnverified(e.currentTarget.checked)} />
           )}
           <Checkbox label="Enabled" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} />
-          {error && <Alert color="red">{error}</Alert>}
+          {error && (
+            <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+              {error}
+            </Alert>
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>
               Cancel
