@@ -42,9 +42,9 @@ jobs:
       - name: Build agent (size budget 15 MiB) and server
         shell: pwsh
         run: |
-          go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent
-          go build -o auzring-server.exe ./cmd/auzring-server
-          $size = (Get-Item auzring-agent.exe).Length
+          go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent
+          go build -o renovatio-server.exe ./cmd/renovatio-server
+          $size = (Get-Item renovatio-agent.exe).Length
           Write-Host "agent size: $size bytes"
           if ($size -gt 15728640) { throw "agent binary over the 15 MiB budget" }
 
@@ -61,7 +61,7 @@ jobs:
           $env:AUZ_GATEWAY_PUBLIC_ADDR = "localhost:18443"
           $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_ci?sslmode=disable"
           $env:AUZ_MASTER_KEY = $key
-          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\renovatio-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -73,7 +73,7 @@ jobs:
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
 
-          .\auzring-agent.exe install --token $enroll.Trim()
+          .\renovatio-agent.exe install --token $enroll.Trim()
           if ($LASTEXITCODE -ne 0) { Get-Content "$env:ProgramData\Auzring\logs\agent.log" -ErrorAction SilentlyContinue; throw "install failed" }
           & "$env:ProgramFiles\Auzring\Agent\slot-a\auzring-agent.exe" status
           $status = Get-Content "$env:ProgramData\Auzring\status.json" | ConvertFrom-Json
@@ -114,7 +114,7 @@ jobs:
           $ws = (Get-Process -Id $agentPid).WorkingSet64
           Write-Host "agent working set: $([math]::Round($ws/1MB,1)) MiB"
 
-          .\auzring-agent.exe uninstall
+          .\renovatio-agent.exe uninstall
           if (Get-Service AuzringAgent -ErrorAction SilentlyContinue) { throw "service still present" }
           if (Test-Path "$env:ProgramData\Auzring") { throw "data dir still present" }
           Stop-Process -Id $server.Id
@@ -154,10 +154,10 @@ jobs:
           $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_deploy?sslmode=disable"
           $env:AUZ_MASTER_KEY = $key
           $env:AUZ_CONTENT_DIR = "$env:RUNNER_TEMP\auz-content"
-          go build -o auzring-server.exe ./cmd/auzring-server
-          go build -trimpath -o auzring-agent.exe ./cmd/auzring-agent
+          go build -o renovatio-server.exe ./cmd/renovatio-server
+          go build -trimpath -o renovatio-agent.exe ./cmd/renovatio-agent
           go build -o deploycheck.exe ./test/tools/deploycheck
-          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\renovatio-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -168,7 +168,7 @@ jobs:
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token -totp-out totp.txt
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
-          .\auzring-agent.exe install --token $enroll.Trim()
+          .\renovatio-agent.exe install --token $enroll.Trim()
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           $failed = @()
           foreach ($s in @("unsigned-pinned", "winget-7zip")) {
@@ -176,7 +176,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $failed += $s }
           }
           Get-Content "$env:ProgramData\Auzring\logs\agent.log" -Tail 80 -ErrorAction SilentlyContinue
-          .\auzring-agent.exe uninstall
+          .\renovatio-agent.exe uninstall
           Stop-Process -Id $server.Id
           if ($failed.Count -gt 0) { Get-Content server.err -Tail 60; throw "scenarios failed: $($failed -join ', ')" }
 
@@ -221,11 +221,11 @@ jobs:
           dotnet --info | Select-Object -First 6
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($v in @("0.1.0", "0.1.1")) {
-            go build -trimpath -ldflags "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=$v" -o "dist\auzring-agent-$v.exe" ./cmd/auzring-agent
+            go build -trimpath -ldflags "-s -w -X github.com/auzring1/renovatio/internal/shared/version.Version=$v" -o "dist\renovatio-agent-$v.exe" ./cmd/renovatio-agent
             if ($LASTEXITCODE -ne 0) { throw "agent build $v failed" }
-            ./installer/windows/build.ps1 -AgentExe "dist\auzring-agent-$v.exe" -Version $v -Output "$PWD\dist\auzring-agent-$v.msi"
+            ./installer/windows/build.ps1 -AgentExe "dist\renovatio-agent-$v.exe" -Version $v -Output "$PWD\dist\renovatio-agent-$v.msi"
           }
-          go build -o auzring-server.exe ./cmd/auzring-server
+          go build -o renovatio-server.exe ./cmd/renovatio-server
           if ($LASTEXITCODE -ne 0) { throw "server build failed" }
 
       - name: Install, failure and rollback, upgrade, uninstall with msiexec
@@ -242,7 +242,7 @@ jobs:
           $env:AUZ_GATEWAY_PUBLIC_ADDR = "localhost:18443"
           $env:AUZ_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/auzring_msi?sslmode=disable"
           $env:AUZ_MASTER_KEY = $key
-          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\renovatio-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $setup = $null
           for ($i = 0; $i -lt 60 -and -not $setup; $i++) {
@@ -254,8 +254,8 @@ jobs:
           $enroll = (go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $setup).Trim()
           if ($LASTEXITCODE -ne 0 -or -not $enroll.StartsWith("AURZ1.")) { throw "bootstrap failed" }
 
-          $v1 = "$PWD\dist\auzring-agent-0.1.0.msi"
-          $v2 = "$PWD\dist\auzring-agent-0.1.1.msi"
+          $v1 = "$PWD\dist\renovatio-agent-0.1.0.msi"
+          $v2 = "$PWD\dist\renovatio-agent-0.1.1.msi"
           $data = "$env:ProgramData\Auzring"
           $pf = $env:ProgramFiles
 
@@ -319,8 +319,8 @@ jobs:
           if ((Get-Content "$data\status.json" | ConvertFrom-Json).device_id -ne $deviceId) { throw "device identity changed by the upgrade" }
           $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d auzring_msi -tAc "SELECT count(*) FROM devices")
           if ($n -ne 1) { throw "upgrade re-enrolled: $n devices" }
-          $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "Auzring Agent"
-          if (@($arp).Count -ne 1) { throw "expected one Auzring Agent product after the upgrade, found $(@($arp).Count)" }
+          $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "Renovatio Agent"
+          if (@($arp).Count -ne 1) { throw "expected one Renovatio Agent product after the upgrade, found $(@($arp).Count)" }
           if (Test-LogLeak "$PWD\upgrade.log" $enroll) { throw "the enrollment token is in upgrade.log" }
 
           # 4. Uninstall removes service, data, program files and the staged copy.
@@ -381,20 +381,20 @@ jobs:
           $ErrorActionPreference = "Stop"
           & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE auzring_selfupdate"
           # A throw-away release key; the agents are built to trust it and the server is told to accept it.
-          go build -o auzring-release.exe ./cmd/auzring-release
-          .\auzring-release.exe keygen --out release.key | Out-Null
+          go build -o renovatio-release.exe ./cmd/renovatio-release
+          .\renovatio-release.exe keygen --out release.key | Out-Null
           $pub = (Get-Content release.pub -Raw).Trim()
           function Build($v, $pkg, $out) {
-            $f = "-s -w -X github.com/auzring1/auzring/internal/shared/version.Version=$v -X github.com/auzring1/auzring/internal/shared/release.PublicKeysHex=$pub"
+            $f = "-s -w -X github.com/auzring1/renovatio/internal/shared/version.Version=$v -X github.com/auzring1/renovatio/internal/shared/release.PublicKeysHex=$pub"
             go build -trimpath -ldflags $f -o $out $pkg
             if ($LASTEXITCODE -ne 0) { throw "build $v failed" }
           }
           New-Item -ItemType Directory -Force rel | Out-Null
-          Build "0.9.0" ./cmd/auzring-agent auzring-agent.exe
-          Build "0.9.1" ./cmd/auzring-agent rel/auzring-agent-0.9.1.exe
-          Build "0.9.2" ./test/tools/brokenagent rel/auzring-agent-0.9.2.exe
+          Build "0.9.0" ./cmd/renovatio-agent renovatio-agent.exe
+          Build "0.9.1" ./cmd/renovatio-agent rel/renovatio-agent-0.9.1.exe
+          Build "0.9.2" ./test/tools/brokenagent rel/renovatio-agent-0.9.2.exe
           foreach ($v in "0.9.1", "0.9.2") {
-            .\auzring-release.exe sign --key release.key --exe "rel/auzring-agent-$v.exe" --version $v --out "rel/auzring-agent-$v.azr" | Out-Null
+            .\renovatio-release.exe sign --key release.key --exe "rel/renovatio-agent-$v.exe" --version $v --out "rel/renovatio-agent-$v.azr" | Out-Null
           }
           $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
           $env:AUZ_DEV_MODE = "true"
@@ -406,9 +406,9 @@ jobs:
           $env:AUZ_MASTER_KEY = $key
           $env:AUZ_CONTENT_DIR = "$env:RUNNER_TEMP\auz-content"
           $env:AUZ_RELEASE_PUBLIC_KEYS = $pub
-          go build -o auzring-server.exe ./cmd/auzring-server
+          go build -o renovatio-server.exe ./cmd/renovatio-server
           go build -o deploycheck.exe ./test/tools/deploycheck
-          $server = Start-Process -FilePath .\auzring-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\renovatio-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -419,7 +419,7 @@ jobs:
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token -totp-out totp.txt
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
-          .\auzring-agent.exe install --token $enroll.Trim()
+          .\renovatio-agent.exe install --token $enroll.Trim()
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           # Shorten the safety net so the rollback case does not take ten minutes.
           Stop-Service AuzringAgent
@@ -434,6 +434,6 @@ jobs:
           Get-Content "$env:ProgramData\Auzring\logs\agent.log" -Tail 120 -ErrorAction SilentlyContinue
           Get-Content "$env:ProgramData\Auzring\logs\rollback-check.log" -ErrorAction SilentlyContinue
           schtasks /Query /TN "\Auzring\rollback-check" 2>&1 | Out-Host
-          .\auzring-agent.exe uninstall
+          .\renovatio-agent.exe uninstall
           Stop-Process -Id $server.Id
           if ($failed) { Get-Content server.err -Tail 60; throw "agent-update scenario failed" }

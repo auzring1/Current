@@ -5,6 +5,7 @@ import { Alert, Anchor, Badge, Button, Group, Loader, Modal, Select, Stack, Tabl
 import { notifications } from "@mantine/notifications";
 import { api, errorMessage, uploadContent, type CustomPackage, type ImportResult, type Pkg } from "../api/client";
 import { useSession } from "../api/session";
+import { PRODUCT_NAME } from "../brand.generated";
 
 export function PackageBadges({ p }: { p: Pkg }) {
   return (
@@ -13,14 +14,14 @@ export function PackageBadges({ p }: { p: Pkg }) {
         {p.source}
       </Badge>
       {p.source === "winget" && (
-        <Tooltip label={p.verified ? "Passed the Auzring VM test matrix" : "Not yet verified by the Auzring VM test matrix; deploying needs an explicit confirmation"}>
+        <Tooltip label={p.verified ? `Passed the ${PRODUCT_NAME} VM test matrix` : `Not yet verified by the ${PRODUCT_NAME} VM test matrix; deploying needs an explicit confirmation`}>
           <Badge size="xs" variant="light" color={p.verified ? "green" : "yellow"}>
             {p.verified ? "verified" : "unverified"}
           </Badge>
         </Tooltip>
       )}
       {p.self_updating && (
-        <Tooltip label="Updates itself; Auzring defers to the vendor's updater unless you enforce versions in the package's overrides">
+        <Tooltip label={`Updates itself; ${PRODUCT_NAME} defers to the vendor's updater unless you enforce versions in the package's overrides`}>
           <Badge size="xs" variant="light" color="gray">
             self-updating
           </Badge>

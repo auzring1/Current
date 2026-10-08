@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Runs the software-deployment VM matrix on THIS Windows machine, which must already have
-  the Auzring agent installed and enrolled against the server named by -Url.
+  the Renovatio agent installed and enrolled against the server named by -Url.
 
 .DESCRIPTION
   For every package in matrix.json: import it from winget-pkgs, deploy an install, check the
@@ -13,7 +13,7 @@
   and revert between rows. See test/vm-matrix/README.md.
 
 .EXAMPLE
-  .\run.ps1 -Url https://auzring.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
+  .\run.ps1 -Url https://renovatio.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
 #>
 param(
   [Parameter(Mandatory)] [string] $Url,

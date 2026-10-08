@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/auzring/internal/agent/core"
-	sconfig "github.com/auzring1/auzring/internal/server/config"
-	"github.com/auzring1/auzring/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/agent/core"
+	sconfig "github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/shared/license"
 )
 
 // TestLicenseDeviceCap: without a license the server runs as an evaluation limited to 25 enrolled

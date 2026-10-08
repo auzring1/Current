@@ -1,10 +1,10 @@
-// Command auzring-agent is the Auzring endpoint agent.
+// Command renovatio-agent is the Renovatio endpoint agent.
 //
-//	auzring-agent install --server HOST:PORT --token AURZ1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
-//	auzring-agent uninstall
-//	auzring-agent status
-//	auzring-agent run [--data-dir DIR] [--server HOST:PORT --token AURZ1....]   (foreground; development)
-//	auzring-agent version
+//	renovatio-agent install --server HOST:PORT --token AURZ1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
+//	renovatio-agent uninstall
+//	renovatio-agent status
+//	renovatio-agent run [--data-dir DIR] [--server HOST:PORT --token AURZ1....]   (foreground; development)
+//	renovatio-agent version
 //
 // When started by the Windows Service Control Manager it runs as a service.
 package main
@@ -14,6 +14,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"io/fs"
 	"os"
@@ -23,18 +24,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/auzring/internal/agent/config"
-	"github.com/auzring1/auzring/internal/agent/core"
-	"github.com/auzring1/auzring/internal/agent/hardware"
-	"github.com/auzring1/auzring/internal/agent/install"
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/agent/jobs"
-	"github.com/auzring1/auzring/internal/agent/keystore"
-	"github.com/auzring1/auzring/internal/agent/logging"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/agent/store"
-	"github.com/auzring1/auzring/internal/agent/winsvc"
-	"github.com/auzring1/auzring/internal/shared/version"
+	"github.com/auzring1/renovatio/internal/agent/config"
+	"github.com/auzring1/renovatio/internal/agent/core"
+	"github.com/auzring1/renovatio/internal/agent/hardware"
+	"github.com/auzring1/renovatio/internal/agent/install"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/agent/jobs"
+	"github.com/auzring1/renovatio/internal/agent/keystore"
+	"github.com/auzring1/renovatio/internal/agent/logging"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/agent/store"
+	"github.com/auzring1/renovatio/internal/agent/winsvc"
+	"github.com/auzring1/renovatio/internal/shared/version"
 )
 
 func main() {
@@ -71,7 +72,7 @@ func main() {
 	case "service":
 		err = errors.New("the service command is only used by the Windows Service Control Manager")
 	case "version", "--version", "-v":
-		fmt.Printf("auzring-agent %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf(brand.VersionBanner+" %s (%s)\n", version.Version, version.Commit)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -86,11 +87,11 @@ func main() {
 
 func usage() {
 	fmt.Fprint(os.Stderr, `Usage:
-  auzring-agent install --server HOST:PORT --token AURZ1....   Install and enroll (Administrator)
-  auzring-agent uninstall                                      Remove the agent (Administrator)
-  auzring-agent status                                         Show enrollment/connection state
-  auzring-agent run [--data-dir DIR] [--server S --token T]    Run in the foreground (development)
-  auzring-agent version
+  renovatio-agent install --server HOST:PORT --token AURZ1....   Install and enroll (Administrator)
+  renovatio-agent uninstall                                      Remove the agent (Administrator)
+  renovatio-agent status                                         Show enrollment/connection state
+  renovatio-agent run [--data-dir DIR] [--server S --token T]    Run in the foreground (development)
+  renovatio-agent version
 `)
 }
 
@@ -201,7 +202,7 @@ func runAgent(ctx context.Context, dataDir string, first *config.Config) error {
 	}
 	defer func() { _ = st.Close() }()
 	_ = st.LedgerPrune(time.Now())
-	log.Info("auzring-agent starting", "version", version.Version, "server", cfg.Server)
+	log.Info("renovatio-agent starting", "version", version.Version, "server", cfg.Server)
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dataDir, Store: st, Keys: keystore.Default(dataDir),
 		HW: hardware.New(), Log: log, Version: version.Version}
 	a.Inv = &inventory.Manager{Collector: inventory.NewCollector(), Store: st, Log: log}

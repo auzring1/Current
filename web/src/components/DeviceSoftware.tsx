@@ -14,6 +14,7 @@ import {
 } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
+import { PRODUCT_NAME } from "../brand.generated";
 
 const rowKey = (s: { source: string; scope: string; user_sid?: string; item_key?: string }) => `${s.source}|${s.scope}|${s.user_sid ?? ""}|${s.item_key ?? ""}`;
 const ref = (s: { source: string; scope: string; user_sid?: string; item_key?: string }) => ({ source: s.source, scope: s.scope, user_sid: s.user_sid ?? "", item_key: s.item_key ?? "" });
@@ -87,7 +88,7 @@ function UpdateConfirm({ items, onCancel, onConfirm, busy }: { items: AvailableU
         {unverified.length > 0 && (
           <Alert color="yellow" title="Unverified packages">
             <Checkbox
-              label={`${unverified.map((u) => u.package_name).join(", ")} ${unverified.length === 1 ? "has" : "have"} not been tested by Auzring. I accept deploying ${unverified.length === 1 ? "it" : "them"}; this is recorded in the audit log.`}
+              label={`${unverified.map((u) => u.package_name).join(", ")} ${unverified.length === 1 ? "has" : "have"} not been tested by ${PRODUCT_NAME}. I accept deploying ${unverified.length === 1 ? "it" : "them"}; this is recorded in the audit log.`}
               checked={ok}
               onChange={(e) => setOk(e.currentTarget.checked)}
             />

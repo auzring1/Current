@@ -1,6 +1,8 @@
 # Rename plan: Auzring → Renovatio
 
-Stage 1 of 2. This file is a survey and a set of recommendations. **No code, string, file or identifier has been changed.** Stage 2 starts only after you answer the questions in section 5.
+> **Status: stage 2 done (branch `rename-renovatio`).** Decisions taken: keep the group-B identifiers listed under "Keep" in section 3; rename B16, B17 (image), B24, B25; add the Windows version resource (B6); the software is **Renovatio**, the agent **Renovatio Agent**, the company stays **Auzring**; rename the GitHub repository and Go module path to `renovatio` (the repository rename itself is done in GitHub's settings; the organisation `auzring1` stays); example host names change. See DECISIONS D89 and D90.
+
+Stage 1 (below) was a survey and a set of recommendations, written before any change.
 
 Survey method: `git grep` over every tracked file (server, agent, web console, installer/MSI, scripts, CI workflows, docs, the six PHASE demo files, tests, `deploy/`), excluding generated code (`gen/`, which is regenerated from the sources) and agent worktrees. Patterns: `auzring`, `Auzring`, `AUZRING`, `AUZ_`, `AURZ1`, `AZL1`, plus the related abbreviations `azt_` (API tokens) and `.azr` (release bundles).
 

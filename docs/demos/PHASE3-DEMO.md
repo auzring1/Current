@@ -2,7 +2,7 @@
 
 Goal: import software into the catalog, install, update and remove it on a real Windows machine from the console, see live per-device results, upload your own installer, prove that a tampered or wrongly signed installer is refused, and try the per-user paths (two users on one machine). Allow about 90 minutes; Parts A to F are the core (about 45 minutes), Parts G to K are the checks that matter most for trust.
 
-You need the Phase 1 and 2 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md), [PHASE2-DEMO.md](PHASE2-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 test machine (a VM you can revert is best). For Part K you also need a second local user on that machine. The examples assume the server name `auzring.lab`.
+You need the Phase 1 and 2 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md), [PHASE2-DEMO.md](PHASE2-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 test machine (a VM you can revert is best). For Part K you also need a second local user on that machine. The examples assume the server name `renovatio.lab`.
 
 **Be honest about what is new:** the Windows execution paths in this phase (running installers as the system, Authenticode checks, Job Objects, and above all running installers inside another user's session) have only been compiled and run on a CI runner, never on a real multi-user machine. Part K is the first real test of the per-user helper. If anything fails there, that is useful information, not a surprise.
 
@@ -23,7 +23,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 2. **Build the Phase 3 agent** (any machine with Go 1.27):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent
    ```
    Copy it to the Windows machine (`C:\Temp`). Phase 1 and 2 agents cannot run jobs, so they must be replaced (there is no agent self-update until Phase 5).
 
@@ -36,7 +36,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
    ```
    In the console: **Enrollment → New token**, then
    ```powershell
-   .\auzring-agent.exe install --server auzring.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
    ```
    Approve the device if it asks (same hardware re-enrolls as *pending*; approving retires the old identity). ✅ The device is **online** and its Software tab is filled.
 
@@ -100,13 +100,13 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 14. Download any MSI or EXE installer you like to the **console machine** (the 7-Zip MSI from `7-zip.org` is fine). **Catalog → Upload custom installer**:
     - choose the file; Identifier `Acme.SevenZip`, Name `Acme 7-Zip`, Version `24.08`; Type `msi`, Architecture `x64`, Scope `machine`;
     - **Detection file path:** `%ProgramFiles%\7-Zip\7z.exe`.
-    ✅ You land on the package page with one installer marked *served by Auzring*, no "unverified" warning (you supplied the file).
+    ✅ You land on the package page with one installer marked *served by Renovatio*, no "unverified" warning (you supplied the file).
 15. Deploy it to your device (**Install**, machine-wide). ✅ It succeeds. This time the device downloaded the bytes from **your server over the agent's mutual-TLS channel**, not from the internet (in the agent log: `fetch ... server`).
     🔒 *Check:* in the **Audit log** you see `catalog.upload` (with the SHA-256 and size), `catalog.custom` and `deployment.create`.
 
 ## Part H: Prove a bad installer is refused (about 10 minutes, important)
 
-16. **Wrong signer.** Upload `auzring-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\AuzCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
+16. **Wrong signer.** Upload `renovatio-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\AuzCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
     ✅ The job ends `failed` with "the installer's signature does not match the pinned signer" and **never runs** (nothing starts; no `AuzCheck` folder). The agent also reports a security event.
     Click **Retry** on the job ✅ a second attempt (`attempt 2`) is queued, runs and fails the same way: a retry is a brand-new signed job, never a re-run of the old one.
 17. **Tampered file.** (Needs shell access to the server.) Upload any small installer as a custom package, deploy it once successfully, then corrupt the stored file and deploy again:
@@ -120,7 +120,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 ## Part I: Self-updating apps (about 5 minutes)
 
-20. **Catalog → Import from winget**: `Mozilla.Firefox`. ✅ It carries a grey **self-updating** badge. Try **New deployment → Update** for it. ✅ Refused: "This app updates itself, so Auzring leaves updates to the vendor… set the package's self-update policy to enforce". Install is still allowed. Under **Overrides → Self-updating behaviour: Enforce the pinned version anyway**, Update works.
+20. **Catalog → Import from winget**: `Mozilla.Firefox`. ✅ It carries a grey **self-updating** badge. Try **New deployment → Update** for it. ✅ Refused: "This app updates itself, so Renovatio leaves updates to the vendor… set the package's self-update policy to enforce". Install is still allowed. Under **Overrides → Self-updating behaviour: Enforce the pinned version anyway**, Update works.
 
 ## Part J: Version pin and exclusion (about 3 minutes)
 
@@ -143,7 +143,7 @@ You should have the second user `demo2` from Part B and have signed in as them o
 
 ## Part L: Logs and audit (about 3 minutes)
 
-25. **Audit log.** ✅ You see `catalog.import`, `catalog.upload`, `catalog.custom`, `catalog.override`, `deployment.create` (including whether unverified packages were confirmed), `deployment.cancel`, `job.retry`, `settings.update`. On the server: `docker compose ... exec server /auzring-server admin verify-audit` ✅ chain intact.
+25. **Audit log.** ✅ You see `catalog.import`, `catalog.upload`, `catalog.custom`, `catalog.override`, `deployment.create` (including whether unverified packages were confirmed), `deployment.cancel`, `job.retry`, `settings.update`. On the server: `docker compose ... exec server /renovatio-server admin verify-audit` ✅ chain intact.
 
 ## Clean up
 ```powershell

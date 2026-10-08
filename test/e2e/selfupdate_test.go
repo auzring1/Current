@@ -16,11 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/agent/core"
-	"github.com/auzring1/auzring/internal/agent/jobs"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/agent/store"
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/agent/core"
+	"github.com/auzring1/renovatio/internal/agent/jobs"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/agent/store"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // uploadRelease sends a bundle and binary to POST /agent-releases.
@@ -60,7 +60,7 @@ func TestAgentSelfUpdateEndToEnd(t *testing.T) {
 	h.app.Releases.Keys = []ed25519.PublicKey{pub}
 
 	// The "agent binary" is a script that reports its version, which is all the engine runs.
-	script := func(v string) []byte { return []byte("#!/bin/sh\necho 'auzring-agent " + v + " (e2e)'\n") }
+	script := func(v string) []byte { return []byte("#!/bin/sh\necho 'renovatio-agent " + v + " (e2e)'\n") }
 
 	var ta *testAgent
 	restarted := make(chan *testAgent, 1)
@@ -138,7 +138,7 @@ func TestAgentSelfUpdateEndToEnd(t *testing.T) {
 	if _, err := selfupdate.Load(dir); err == nil {
 		t.Fatal("update state not cleared")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", "auzring-agent")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", "renovatio-agent")); err != nil {
 		t.Fatalf("new binary not staged: %v", err)
 	}
 

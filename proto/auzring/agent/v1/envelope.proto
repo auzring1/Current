@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package auzring.agent.v1;
 
-option go_package = "github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1";
+option go_package = "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1";
 
 // SignedEnvelope carries a job. The signature covers exactly `payload`
 // (a serialized JobEnvelope) prefixed with the domain separator

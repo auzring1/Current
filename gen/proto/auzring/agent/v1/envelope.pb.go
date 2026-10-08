@@ -2469,7 +2469,7 @@ const file_auzring_agent_v1_envelope_proto_rawDesc = "" +
 	"\x0fUninstallMethod\x12 \n" +
 	"\x1cUNINSTALL_METHOD_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15UNINSTALL_METHOD_AUTO\x10\x01\x12!\n" +
-	"\x1dUNINSTALL_METHOD_PRODUCT_CODE\x10\x02B@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x1dUNINSTALL_METHOD_PRODUCT_CODE\x10\x02BBZ@github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_envelope_proto_rawDescOnce sync.Once

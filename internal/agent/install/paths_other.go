@@ -3,4 +3,4 @@
 package install
 
 // DataDir is the default state directory on non-Windows development builds.
-func DataDir() string { return "/var/lib/auzring-agent" }
+func DataDir() string { return "/var/lib/renovatio-agent" }

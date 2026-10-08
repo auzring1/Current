@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/server/licensing"
-	"github.com/auzring1/auzring/internal/shared/license"
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // A license with an updates_until date refuses agent releases published after it: at upload, when the

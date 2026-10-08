@@ -15,11 +15,11 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/agent/wu"
-	"github.com/auzring1/auzring/internal/shared/installer"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/agent/wu"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 // ---- in-memory registry ----

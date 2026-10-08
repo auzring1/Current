@@ -1,9 +1,9 @@
-# Auzring developer tasks. Tools: Go (see go.mod toolchain), Node 22, Docker.
+# Renovatio developer tasks. Tools: Go (see go.mod toolchain), Node 22, Docker.
 # Run `make help` for targets.
 SHELL := /bin/bash
 VERSION ?= 0.1.0-dev
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-LDFLAGS := -s -w -X github.com/auzring1/auzring/internal/shared/version.Version=$(VERSION) -X github.com/auzring1/auzring/internal/shared/version.Commit=$(COMMIT)
+LDFLAGS := -s -w -X github.com/auzring1/renovatio/internal/shared/version.Version=$(VERSION) -X github.com/auzring1/renovatio/internal/shared/version.Commit=$(COMMIT)
 AGENT_MAX_BYTES := 15728640   # 15 MiB budget (ARCHITECTURE §3.1)
 TEST_PG ?= postgres://postgres:devpostgres@127.0.0.1:55432/postgres?sslmode=disable
 
@@ -24,13 +24,14 @@ tools: ## Install pinned code generators and linters into GOBIN
 
 .PHONY: generate
 generate: ## Regenerate protobuf, sqlc and TypeScript API code
+	go generate ./internal/shared/brand
 	buf generate
 	sqlc generate
 	cd web && npm run gen:api
 
 .PHONY: check-generated
 check-generated: generate ## Fail if generated code is out of date
-	git diff --exit-code -- gen web/src/api/schema.d.ts
+	git diff --exit-code -- gen web/src/api/schema.d.ts web/src/brand.generated.ts
 
 .PHONY: web
 web: ## Build the web console into the server's embed directory
@@ -38,20 +39,25 @@ web: ## Build the web console into the server's embed directory
 
 .PHONY: build
 build: web ## Build server (linux) and agent (windows + linux test build) into bin/
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/auzring-server ./cmd/auzring-server
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/auzring-agent.exe ./cmd/auzring-agent
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/auzring-agent-linux ./cmd/auzring-agent
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/renovatio-server ./cmd/renovatio-server
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/renovatio-agent.exe ./cmd/renovatio-agent
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/renovatio-agent-linux ./cmd/renovatio-agent
 
 .PHONY: agent
 agent: ## Build only the Windows agent and enforce the size budget
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/auzring-agent.exe ./cmd/auzring-agent
-	@size=$$(stat -c %s bin/auzring-agent.exe); echo "agent size: $$size bytes (budget $(AGENT_MAX_BYTES))"; \
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/renovatio-agent.exe ./cmd/renovatio-agent
+	@size=$$(stat -c %s bin/renovatio-agent.exe); echo "agent size: $$size bytes (budget $(AGENT_MAX_BYTES))"; \
 	  test $$size -le $(AGENT_MAX_BYTES) || { echo "agent binary over budget"; exit 1; }
+
+.PHONY: winres
+winres: ## Regenerate the agent's Windows version resource (needs: go install github.com/tc-hib/go-winres@v0.3.3)
+	go run ./internal/shared/brand/gen -winres cmd/renovatio-agent/winres/winres.json
+	cd cmd/renovatio-agent && go-winres make --in winres/winres.json --out rsrc --arch amd64
 
 .PHONY: dev-db
 dev-db: ## Start a throwaway PostgreSQL for tests on 127.0.0.1:55432
-	docker run -d --rm --name auzring-dev-pg -e POSTGRES_PASSWORD=devpostgres -p 127.0.0.1:55432:5432 postgres:16-alpine
-	@until docker exec auzring-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export AUZ_TEST_PG_URL='$(TEST_PG)'"
+	docker run -d --rm --name renovatio-dev-pg -e POSTGRES_PASSWORD=devpostgres -p 127.0.0.1:55432:5432 postgres:16-alpine
+	@until docker exec renovatio-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export AUZ_TEST_PG_URL='$(TEST_PG)'"
 
 .PHONY: test
 test: ## Unit + DB + in-process end-to-end tests (needs AUZ_TEST_PG_URL, see dev-db)
@@ -64,7 +70,7 @@ test-gui: ## Browser end-to-end test (Playwright + real server + real agent)
 
 .PHONY: image
 image: ## Build the server container image
-	docker build -f deploy/Dockerfile.server --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t auzring/server:dev .
+	docker build -f deploy/Dockerfile.server --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t renovatio/server:dev .
 
 .PHONY: test-compose
 test-compose: image ## Full docker-compose stack + real agent integration test
@@ -75,10 +81,10 @@ lint: ## go vet, staticcheck, gosec (linux + windows), semgrep, typecheck
 	go vet ./...
 	GOOS=windows go vet ./...
 	staticcheck ./...
-	GOOS=windows staticcheck ./internal/agent/... ./cmd/auzring-agent/...
+	GOOS=windows staticcheck ./internal/agent/... ./cmd/renovatio-agent/...
 	gosec -quiet -exclude-generated -exclude-dir=test ./...
 	# G103 (unsafe) is inherent to Win32 FFI in the agent; those call sites are reviewed.
-	GOOS=windows gosec -quiet -exclude-generated -exclude=G103 ./internal/agent/... ./cmd/auzring-agent/...
+	GOOS=windows gosec -quiet -exclude-generated -exclude=G103 ./internal/agent/... ./cmd/renovatio-agent/...
 	docker run --rm -v "$$PWD:/src" -w /src semgrep/semgrep:latest semgrep scan --config .semgrep.yml --error --metrics=off --quiet
 	cd web && npx tsc --noEmit -p .
 
@@ -96,7 +102,7 @@ fuzz: ## Short fuzzing run (20s per target) over every parser that sees untruste
 .PHONY: vuln
 vuln: ## govulncheck + npm audit
 	govulncheck ./...
-	GOOS=windows govulncheck ./cmd/auzring-agent/...
+	GOOS=windows govulncheck ./cmd/renovatio-agent/...
 	cd web && npm audit --omit=dev --audit-level=high
 
 .PHONY: licenses

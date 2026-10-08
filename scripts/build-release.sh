@@ -6,11 +6,11 @@
 # From a clean checkout of one commit this produces, byte for byte the same on any machine with the same
 # pinned toolchains (Go from go.mod's `toolchain` line, Node major 22, web/package-lock.json):
 #
-#   auzring-agent_<v>_windows_amd64.exe      the agent (UNSIGNED: Authenticode is applied later by release.yml)
-#   auzring-server_<v>_linux_amd64           the server with the web console embedded
-#   auzring-release_<v>_linux_amd64          vendor tool (manifest / sign / verify)
-#   auzring-license_<v>_linux_amd64          license tool (only when cmd/auzring-license exists)
-#   auzring-web_<v>.tar.gz                   the web console bundle (what is embedded in the server)
+#   renovatio-agent_<v>_windows_amd64.exe      the agent (UNSIGNED: Authenticode is applied later by release.yml)
+#   renovatio-server_<v>_linux_amd64           the server with the web console embedded
+#   renovatio-release_<v>_linux_amd64          vendor tool (manifest / sign / verify)
+#   renovatio-license_<v>_linux_amd64          license tool (only when cmd/renovatio-license exists)
+#   renovatio-web_<v>.tar.gz                   the web console bundle (what is embedded in the server)
 #   *.cdx.json                               CycloneDX 1.5 SBOMs, one per binary and one for the web bundle
 #   unsigned-SHA256SUMS                      digests of everything above (this is what a rebuild must match)
 #   BUILD-INFO.txt                           inputs: commit, SOURCE_DATE_EPOCH, toolchains, ldflags
@@ -128,7 +128,7 @@ if [ -n "$(ls -A "$out")" ]; then die "output directory $out is not empty"; fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-pkg=github.com/auzring1/auzring/internal/shared
+pkg=github.com/auzring1/renovatio/internal/shared
 ldflags="-s -w -buildid= -X $pkg/version.Version=$v -X $pkg/version.Commit=$short"
 ldflags="$ldflags -X $pkg/release.PublicKeysHex=$pubkeys -X $pkg/release.RequireAuthenticode=$req_auth"
 # the subject list may contain spaces: single-quote the whole -X argument for the go tool's ldflags parser
@@ -141,7 +141,7 @@ gobuild() { # goos goarch package output
 }
 
 # --- web bundle (embedded into the server, also shipped on its own) -----------------------------------
-webtar="$out/auzring-web_$v.tar.gz"
+webtar="$out/renovatio-web_$v.tar.gz"
 if [ "$skip_web" = 0 ]; then
   echo "== web bundle (node $have_node)"
   (cd web && npm ci --ignore-scripts --no-audit --no-fund >/dev/null && npm run build >/dev/null)
@@ -152,31 +152,31 @@ fi
 
 # --- binaries ----------------------------------------------------------------------------------------
 echo "== Go binaries"
-agent="$out/auzring-agent_${v}_windows_amd64.exe"
-gobuild windows amd64 ./cmd/auzring-agent "$agent"
+agent="$out/renovatio-agent_${v}_windows_amd64.exe"
+gobuild windows amd64 ./cmd/renovatio-agent "$agent"
 size=$(wc -c <"$agent")
 [ "$size" -le "$AGENT_MAX_BYTES" ] || die "agent is $size bytes, over the $AGENT_MAX_BYTES budget"
 if [ "$with_arm64" = 1 ]; then
-  gobuild windows arm64 ./cmd/auzring-agent "$out/auzring-agent_${v}_windows_arm64.exe"
+  gobuild windows arm64 ./cmd/renovatio-agent "$out/renovatio-agent_${v}_windows_arm64.exe"
 fi
-gobuild linux amd64 ./cmd/auzring-server "$out/auzring-server_${v}_linux_amd64"
-gobuild linux amd64 ./cmd/auzring-release "$out/auzring-release_${v}_linux_amd64"
-if [ -d cmd/auzring-license ]; then
-  gobuild linux amd64 ./cmd/auzring-license "$out/auzring-license_${v}_linux_amd64"
+gobuild linux amd64 ./cmd/renovatio-server "$out/renovatio-server_${v}_linux_amd64"
+gobuild linux amd64 ./cmd/renovatio-release "$out/renovatio-release_${v}_linux_amd64"
+if [ -d cmd/renovatio-license ]; then
+  gobuild linux amd64 ./cmd/renovatio-license "$out/renovatio-license_${v}_linux_amd64"
 fi
 
 # --- SBOMs -------------------------------------------------------------------------------------------
 if [ "$skip_sbom" = 0 ]; then
   echo "== SBOMs"
-  go build -trimpath -buildvcs=false -o "$work/auzring-sbom" ./cmd/auzring-sbom
-  for f in "$out"/auzring-agent_* "$out"/auzring-server_* "$out"/auzring-release_* "$out"/auzring-license_*; do
+  go build -trimpath -buildvcs=false -o "$work/renovatio-sbom" ./cmd/renovatio-sbom
+  for f in "$out"/renovatio-agent_* "$out"/renovatio-server_* "$out"/renovatio-release_* "$out"/renovatio-license_*; do
     [ -f "$f" ] || continue
     b=$(basename "$f")
-    # component name: auzring-agent_1.2.3_windows_amd64.exe -> auzring-agent
-    "$work/auzring-sbom" go --binary "$f" --version "$v" --name "${b%%_*}" --epoch "$SOURCE_DATE_EPOCH" --out "$f.cdx.json" >/dev/null
+    # component name: renovatio-agent_1.2.3_windows_amd64.exe -> renovatio-agent
+    "$work/renovatio-sbom" go --binary "$f" --version "$v" --name "${b%%_*}" --epoch "$SOURCE_DATE_EPOCH" --out "$f.cdx.json" >/dev/null
   done
   if [ "$skip_web" = 0 ]; then
-    "$work/auzring-sbom" npm --lock web/package-lock.json --version "$v" --epoch "$SOURCE_DATE_EPOCH" --out "$out/auzring-web_$v.cdx.json" >/dev/null
+    "$work/renovatio-sbom" npm --lock web/package-lock.json --version "$v" --epoch "$SOURCE_DATE_EPOCH" --out "$out/renovatio-web_$v.cdx.json" >/dev/null
   fi
 fi
 
@@ -190,7 +190,7 @@ if [ "$want_image" = 1 ]; then
   echo "== container image"
   AUZ_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
       --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --authenticode-subjects "$subjects" --go-version "${want_go#go}" \
-      --oci-out "$out/auzring-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
+      --oci-out "$out/renovatio-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
   image_digest=$(cat "$out/image-digest.txt")
   rm -f "$out/image-digest.txt"
 fi

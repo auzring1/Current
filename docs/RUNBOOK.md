@@ -7,7 +7,7 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 | Component | Requirement |
 |---|---|
 | Server host | Linux with Docker Engine 24+ and Compose v2. 2 vCPU, 4 GB RAM and 40 GB disk are enough for Phase 1 and ~2k devices. Sizing for 10k devices comes from the Phase 6 load test. |
-| DNS | One name for the server, e.g. `auzring.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
+| DNS | One name for the server, e.g. `renovatio.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
 | Inbound firewall to the server | 443/tcp (console). 80/tcp only for Let's Encrypt HTTP challenges. 8443/tcp from every managed endpoint (agent gateway). |
 | Outbound from endpoints | 8443/tcp to the server. To install **winget-catalog** packages, also HTTPS to the vendors' download hosts (the URLs inside each manifest). Custom (uploaded) packages need only the server. |
 | Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**. Set `AUZ_WINGET_SOURCE=off` to disable it (custom uploads still work). |
@@ -18,7 +18,7 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 ## 2. Install the server
 
 ```bash
-git clone <repo> auzring && cd auzring
+git clone <repo> renovatio && cd renovatio
 ./scripts/init-secrets.sh                 # creates deploy/secrets/ (refuses to overwrite)
 cp deploy/.env.example deploy/.env        # then edit AUZ_HOSTNAME and AUZ_CADDY_TLS
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
@@ -43,7 +43,7 @@ docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 These modes only affect the console. The agent channel always uses the server's internal CA, which agents pin.
 
 ## 3. First-run setup
-1. Open `https://<AUZ_HOSTNAME>`. You are sent to **Set up Auzring**.
+1. Open `https://<AUZ_HOSTNAME>`. You are sent to **Set up Renovatio**.
 2. Enter the one-time **setup token** from the server log. It changes on every restart until setup completes.
 3. Enter the organization name, your name, and a password: at least 12 characters, and breached or common passwords are rejected.
 4. Enter a **CA root passphrase** (16+ characters). The server never stores it. You will need it for rare CA operations from Phase 5 on (rotating the job-signing key, revoking a signing key). **Store it offline, for example in a safe or a password manager vault that is separate from your password.**
@@ -55,26 +55,27 @@ These modes only affect the console. The agent channel always uses the server's 
 2. Copy the install command. It is shown only once.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
-   .\auzring-agent.exe install --server auzring.example.com:8443 --token AURZ1.eyJ...
+   .\renovatio-agent.exe install --server renovatio.example.com:8443 --token AURZ1.eyJ...
    ```
    - `--server` is optional. It defaults to the address inside the token; set it when agents must use a different name or IP. That name or IP must be in the gateway certificate: add it with `AUZ_GATEWAY_SANS`.
    - `--allowed-jobs inventory,wu_scan` is optional. It sets a local ceiling that the server can never raise (enforced from Phase 3, when jobs exist).
 4. The command copies the agent to `C:\Program Files\Auzring\Agent\slot-a\`, locks down `C:\ProgramData\Auzring\`, registers and starts the **AuzringAgent** service (LocalSystem, automatic start, restart on failure), and waits for enrollment.
+   The file you download is `renovatio-agent.exe`; the installed copy keeps its earlier file name `auzring-agent.exe` (and the folders and the service name keep the earlier spelling), because machines that are already enrolled depend on those names (DECISIONS D90). The service is shown as **Renovatio Agent** in the Services list, and the file's properties say Renovatio Agent.
 5. Check the agent at any time with `"C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" status`.
 
 **Large rollouts.** The server limits enrollment attempts to 10 per minute per source address and 60 per minute per token, which protects tokens from guessing. Machines behind one NAT address therefore enroll at about 10 per minute, and a rollout of 1,000 from one site takes about 100 minutes (agents retry on their own). If you roll out many machines at once, raise the limits for the duration with `AUZ_ENROLL_RATE_PER_IP` and `AUZ_ENROLL_RATE_PER_TOKEN` (attempts per minute) and restore them afterwards. At most 8 enrollments are processed at the same time; in the load test the server enrolled about 70 devices per second at most (see [LOADTEST.md](LOADTEST.md)). Servers that will hold thousands of connections also need a raised open-file limit; LOADTEST.md lists the settings.
 
-To **remove** the agent, run `auzring-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
+To **remove** the agent, run `renovatio-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
 
 ### Install with the MSI (GPO, Intune, RMM)
 
-For fleets, use the MSI instead of copying the exe around. It is a thin wrapper around the commands above (decision O6/D67): it carries `auzring-agent.exe`, and a SYSTEM-context step runs `auzring-agent.exe install ...` (service, slot-a, enrollment). Build it with `installer/windows/build.ps1` (see `installer/windows/README.md`); the release pipeline signs it. Per-machine, x64 only, Windows 10 1809+ / Server 2019+, must run elevated (or as SYSTEM, which is what GPO, Intune and RMM agents do).
+For fleets, use the MSI instead of copying the exe around. It is a thin wrapper around the commands above (decision O6/D67): it carries `renovatio-agent.exe`, and a SYSTEM-context step runs `renovatio-agent.exe install ...` (service, slot-a, enrollment). Build it with `installer/windows/build.ps1` (see `installer/windows/README.md`); the release pipeline signs it. Per-machine, x64 only, Windows 10 1809+ / Server 2019+, must run elevated (or as SYSTEM, which is what GPO, Intune and RMM agents do).
 
 **Public properties** (anything else on the command line is ignored by the agent):
 
 | Property | Required | Meaning |
 |---|---|---|
-| `SERVER` | first install | Gateway `host:port`, e.g. `auzring.example.com:8443`. Letters, digits and `. - _ :` (IPv6 in `[..]`). |
+| `SERVER` | first install | Gateway `host:port`, e.g. `renovatio.example.com:8443`. Letters, digits and `. - _ :` (IPv6 in `[..]`). |
 | `TOKEN` | first install | The enrollment string (`AURZ1....`). Letters, digits and `. - _`. Treated as a secret. |
 | `ALLOWEDJOBS` | no | Comma list for the local job ceiling, e.g. `inventory,wu_scan`. Lower-case letters, digits, `_`, `,`. |
 
@@ -82,7 +83,7 @@ Values with spaces, quotes or shell characters are refused by the MSI (and again
 
 **Silent install (copy and paste):**
 ```
-msiexec /i auzring-agent-1.0.0-x64.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... ALLOWEDJOBS=inventory,wu_scan /l*v C:\Windows\Temp\auzring-msi.log
+msiexec /i renovatio-agent-1.0.0-x64.msi /qn SERVER=renovatio.example.com:8443 TOKEN=AURZ1.eyJ... ALLOWEDJOBS=inventory,wu_scan /l*v C:\Windows\Temp\renovatio-msi.log
 ```
 `/qn` is fully silent, `/qb` shows only the progress bar. The MSI does not request a restart. Because `TOKEN` is declared a hidden property, Windows Installer writes it as `***` in verbose logs and the custom action receives it only as CustomActionData and runs the agent exe directly. **The token is still on the `msiexec` command line**, so it is visible in the process list to administrators while the install runs and in whatever logs your deployment tool keeps of the command (see the Intune and RMM notes).
 
@@ -91,14 +92,14 @@ msiexec /i auzring-agent-1.0.0-x64.msi /qn SERVER=auzring.example.com:8443 TOKEN
 **Group Policy.** GPO software installation (Computer Configuration, Software Settings, Software installation, "Assigned") cannot pass properties. The two workable options:
 1. *Startup script (recommended).* A computer startup script runs as SYSTEM and can use the command above. Keep the MSI on a share that Domain Computers can read. Make the script skip machines that are already enrolled, so it can run on every boot:
    ```
-   if not exist "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" msiexec /i "\\fs01\software\auzring-agent.msi" /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%windir%\Temp\auzring-msi.log"
+   if not exist "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" msiexec /i "\\fs01\software\renovatio-agent.msi" /qn SERVER=renovatio.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%windir%\Temp\renovatio-msi.log"
    ```
 2. *Transform (.mst).* Create a transform that adds `SERVER` and `TOKEN` rows to the `Property` table (Orca, or the Windows SDK transform tools), put it next to the MSI and add it on the Modifications tab of the GPO package. Be aware that the token is then stored in the transform.
 **SYSVOL and script shares are readable by every authenticated domain user, so anyone in the domain can read a token placed in a GPO script or transform.** Use the mitigations below, and prefer a share whose ACL allows only the computer accounts (and administrators) to read.
 
 **Intune (Win32 app).** Wrap the MSI with the Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) and set:
-- Install command: `msiexec /i auzring-agent-1.0.0-x64.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%ProgramData%\Auzring-msi-install.log"`
-- Uninstall command: `msiexec /x auzring-agent-1.0.0-x64.msi /qn` (runs from the content folder; the ProductCode changes with every build, so do not hard-code it).
+- Install command: `msiexec /i renovatio-agent-1.0.0-x64.msi /qn SERVER=renovatio.example.com:8443 TOKEN=AURZ1.eyJ... /l*v "%ProgramData%\Auzring-msi-install.log"`
+- Uninstall command: `msiexec /x renovatio-agent-1.0.0-x64.msi /qn` (runs from the content folder; the ProductCode changes with every build, so do not hard-code it).
 - Install behavior: System. Device restart behavior: No specific action.
 - Detection rule: file exists `C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe` (or "Service" via a custom script rule: `Get-Service AuzringAgent`).
 - Return codes: 0 success; 1603 failed (see below); 3010 is not used.
@@ -106,7 +107,7 @@ Intune keeps the install command line in the Intune Management Extension log on 
 
 **Generic RMM / script.** Run as SYSTEM, wait for the exit code, and treat anything other than 0 as failure:
 ```powershell
-$p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/i C:\Temp\auzring-agent.msi /qn SERVER=auzring.example.com:8443 TOKEN=AURZ1.eyJ... /l*v C:\Windows\Temp\auzring-msi.log'
+$p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/i C:\Temp\renovatio-agent.msi /qn SERVER=renovatio.example.com:8443 TOKEN=AURZ1.eyJ... /l*v C:\Windows\Temp\renovatio-msi.log'
 if ($p.ExitCode -ne 0) { Get-Content C:\ProgramData\Auzring\logs\agent.log -Tail 40 -ErrorAction SilentlyContinue; exit $p.ExitCode }
 ```
 Do not echo the command into your RMM's job output.
@@ -116,12 +117,12 @@ Do not echo the command into your RMM's job output.
 | msiexec exit | Meaning | What to do |
 |---|---|---|
 | 0 | Installed (or enrolled and waiting for approval), or nothing to do on an enrolled machine | |
-| 1603 | Fatal error: a launch condition failed (`SERVER is required...`, `TOKEN is not an Auzring enrollment string...`, `... may only contain...`, unsupported Windows, not elevated), an older MSI than the installed one was run (downgrade), or the install step failed (the agent or the server rejected the token or `ALLOWEDJOBS`, the gateway is unreachable or does not trust the pin). The MSI rolls back: service, data directory and program files are removed. | Repeat with `/l*v msi.log` and search it for `LaunchCondition` and `Return value 3`. (The Windows version check reads the build number from the registry, `CurrentBuildNumber`, because Windows Installer can report Windows 8.1 on Windows 10/11; the first Phase 5 MSI wrongly rejected a Windows 11 machine with "requires Windows 10 version 1809".) The MSI log never contains the agent's command line or output (the token is on it), so for an install-step failure run the release's `auzring-agent.exe` by hand (the same file the MSI carries) from an elevated prompt: `auzring-agent.exe install --server ... --token ...` prints the reason, and `auzring-agent.exe uninstall` cleans up. If enrollment got as far as the service, `C:\ProgramData\Auzring\logs\agent.log` has the details until the rollback deletes it. |
+| 1603 | Fatal error: a launch condition failed (`SERVER is required...`, `TOKEN is not a Renovatio enrollment string...`, `... may only contain...`, unsupported Windows, not elevated), an older MSI than the installed one was run (downgrade), or the install step failed (the agent or the server rejected the token or `ALLOWEDJOBS`, the gateway is unreachable or does not trust the pin). The MSI rolls back: service, data directory and program files are removed. | Repeat with `/l*v msi.log` and search it for `LaunchCondition` and `Return value 3`. (The Windows version check reads the build number from the registry, `CurrentBuildNumber`, because Windows Installer can report Windows 8.1 on Windows 10/11; the first Phase 5 MSI wrongly rejected a Windows 11 machine with "requires Windows 10 version 1809".) The MSI log never contains the agent's command line or output (the token is on it), so for an install-step failure run the release's `renovatio-agent.exe` by hand (the same file the MSI carries) from an elevated prompt: `renovatio-agent.exe install --server ... --token ...` prints the reason, and `renovatio-agent.exe uninstall` cleans up. If enrollment got as far as the service, `C:\ProgramData\Auzring\logs\agent.log` has the details until the rollback deletes it. |
 | 1618 | Another installation is running | Retry later |
 | 3010 | Not used | |
 | 1605 | `/x` of a product that is not installed | Nothing to remove |
 
-Uninstall: `msiexec /x auzring-agent-1.0.0-x64.msi /qn` (or `/x {ProductCode}`). It stops and deletes the service, deletes the device key and `C:\ProgramData\Auzring\`, `C:\Program Files\Auzring\` and the staged `C:\Program Files\AuzringSetup\`. A failed uninstall step does not block removal of the MSI entry, so check that the service is gone (`Get-Service AuzringAgent`). As always, also revoke the device in the console.
+Uninstall: `msiexec /x renovatio-agent-1.0.0-x64.msi /qn` (or `/x {ProductCode}`). It stops and deletes the service, deletes the device key and `C:\ProgramData\Auzring\`, `C:\Program Files\Auzring\` and the staged `C:\Program Files\AuzringSetup\`. A failed uninstall step does not block removal of the MSI entry, so check that the service is gone (`Get-Service AuzringAgent`). As always, also revoke the device in the console.
 
 **Tokens for mass deployment.** A token has a maximum number of uses, an expiry, and optionally requires approval; every successful enrollment consumes one use. A single-use token therefore works for one machine only, and a token that enrolls and is then rolled back is spent. For a rollout:
 - create **one multi-use token per rollout wave** (max uses a little above the number of machines, for example 120 for 100 machines),
@@ -136,9 +137,9 @@ Devices that enroll with a leaked token before it is revoked appear as pending w
 |---|---|
 | Revoke a device | Console, then Devices, then the device, then **Revoke**. The live connection is cut immediately and the certificate can never connect again. To manage the machine again, uninstall and reinstall the agent with a new token. |
 | Approve or reject a pending device | Console, then Devices, filter **Pending**, then **Approve** or **Reject**. A re-enrollment of known hardware always needs approval, and approving it revokes the old identity. |
-| Locked-out admin (lost authenticator, no recovery codes) | `docker compose -f deploy/docker-compose.yml exec server /auzring-server admin reset-mfa --email you@example.com`. The user enrolls a new authenticator at next sign-in. The action is audited. |
-| Clear a login lockout (10 failures lock for 15 min) | `... exec server /auzring-server admin unlock --email you@example.com` |
-| Verify audit-log integrity | `... exec server /auzring-server admin verify-audit` |
+| Locked-out admin (lost authenticator, no recovery codes) | `docker compose -f deploy/docker-compose.yml exec server /renovatio-server admin reset-mfa --email you@example.com`. The user enrolls a new authenticator at next sign-in. The action is audited. |
+| Clear a login lockout (10 failures lock for 15 min) | `... exec server /renovatio-server admin unlock --email you@example.com` |
+| Verify audit-log integrity | `... exec server /renovatio-server admin verify-audit` |
 | Upgrade | Back up first (§6). Then `git pull` and `docker compose ... up -d --build`. Migrations run automatically under an advisory lock and are forward-only. |
 | See what is installed | Console, **Software**: one row per product with device and version counts. Open a product to see which versions exist and which devices have them; **Devices → device → Software** lists one device (with change history). |
 | Find devices by software or hardware | Console, **Groups → New group**. Example: *All of* [Form factor is one of laptop/notebook/portable] [Has software "chrome" with version < 130]. **Preview matches** shows the devices; **Save group** keeps it. Membership is recomputed each time it is opened. |
@@ -155,7 +156,7 @@ Devices that enroll with a leaked token before it is revoked appear as pending w
 | Deploy | **Deployments → New deployment** (or **Deploy** on a package page). Choose action (install, update, uninstall), scope (machine-wide or per user), groups and/or devices, optional start time, expiry (default 72 h) and an optional maintenance window evaluated on each device in its local time. Offline devices receive the job when they reconnect and run it inside the window before it expires. |
 | Watch progress | The deployment page updates live. Open a job for its timeline and the installer log tail. **Retry** creates a new attempt for a failed, expired, rejected or cancelled job; **Cancel deployment** stops everything unfinished (a job already running on a device is cancelled when the device is reachable). |
 | Unverified packages | Winget packages that have not passed the VM matrix ask for a confirmation that is recorded in the audit log. Custom uploads do not. |
-| Self-updating apps (Chrome, Edge, Firefox, Zoom, …) | Marked `self-updating`. Update deployments are refused and per-user in-place updates skipped, so Auzring does not fight the vendor's updater. An administrator can set **Self-updating behaviour: enforce** on the package page. |
+| Self-updating apps (Chrome, Edge, Firefox, Zoom, …) | Marked `self-updating`. Update deployments are refused and per-user in-place updates skipped, so Renovatio does not fight the vendor's updater. An administrator can set **Self-updating behaviour: enforce** on the package page. |
 | Per-user installs | **Settings** sets the organization default (report only, update in place, convert to machine, remove); a package can override it. The policy applies when a machine-wide deployment finds per-user copies. Per-user changes run in the user's own session, at their next logon if they are signed out ("waiting for user logon"). |
 | Update and remove old versions | An **Update** removes older copies that the new installer does not replace by itself (for example an EXE install followed by an MSI update) **before** installing, as `Remove old …` jobs you can see on the Jobs tab. A removal that fails does not stop the update. |
 | From a device: refresh, update, uninstall | Device page: **↻ Refresh** asks the online device to report hardware, software and users now. **Missing updates** lists installed programs that the catalog has a newer version of (**Deploy Updates**). **Software** has checkboxes, **Deploy Updates**, **Uninstall Software** and a ⋮ menu per row. System components are not removable from here. |
@@ -171,7 +172,7 @@ Configuration (all optional, set in the server's environment):
 | `AUZ_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/auzring/content`). Empty disables custom packages. |
 | `AUZ_WINGET_SOURCE` | `github` (default) or `off`. |
 | `AUZ_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
-| `AUZ_LICENSE_PUBLIC_KEYS` | Extra vendor license public keys (hex, comma-separated). Only for testing licensing with a key made by `auzring-license keygen`; official builds carry the vendor key inside them. |
+| `AUZ_LICENSE_PUBLIC_KEYS` | Extra vendor license public keys (hex, comma-separated). Only for testing licensing with a key made by `renovatio-license keygen`; official builds carry the vendor key inside them. |
 | `AUZ_GITHUB_TOKEN` / `AUZ_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
 
 ### 5b. Windows updates (Phase 4)
@@ -185,7 +186,7 @@ Configuration (all optional, set in the server's environment):
 | A rollout stopped | **Update policy → Held updates** lists updates that failed a ring's threshold. Look at the failures on the update's device list, then **Release** (continue) or decline the update. |
 | Install now on one device | Device → **Windows updates** → tick updates → **Install selected** (ignores approval and rings; audited). **Restart now…** appears when the device is waiting for a restart (countdown 1–1440 min, visible to signed-in users). |
 | Source (WU / Microsoft Update / drivers) | **Update policy → Update source** (administrators). Devices get it as a scan job and rescan. |
-| Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Auzring does not change these policies. |
+| Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Renovatio does not change these policies. |
 | Limit what an endpoint will do | Add `wu_scan,wu_install,wu_hide,reboot` to (or leave them out of) `--allowed-jobs` at install time. |
 
 ### 5c. Agent updates (Phase 5)
@@ -193,7 +194,7 @@ Configuration (all optional, set in the server's environment):
 | Task | How |
 |---|---|
 | One-time: get the agents to trust a release key | Agents only accept releases signed by the vendor release key compiled into them. Official builds carry it. For your own test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `AUZ_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
-| Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.azr` bundle (made with `auzring-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
+| Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.azr` bundle (made with `renovatio-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
 | Roll it out | **Agent updates → Rollout**: pick the target release, optional **pilot groups** (they update first), a **soak** time and the success percentage the pilot must reach, and how many devices per minute. Everyone else follows when the pilot has proven itself. |
 | Watch it | The page shows versions in use, how many updated/failed, why devices outside the pilot are waiting, and a banner if the rollout was put on hold. A failing pilot pauses the rollout by itself; look at the failed jobs (device → Jobs), fix or withdraw the release, then un-pause. |
 | Stop or withdraw | Untick/clear the target, tick **Pause the rollout**, or **Withdraw** a release (never offered again; pauses the rollout if it was the target). |
@@ -244,20 +245,20 @@ Licensing is checked on your server, offline; nothing is ever sent to the vendor
 | "Licensing is not configured" | This server build contains no vendor license key, so it can only run as an unlicensed evaluation. Use the vendor's official build or image (docker: `--build-arg LICENSE_PUBLIC_KEYS=<hex>` at image build). |
 | Clock | The server remembers the latest time it has seen; setting the clock backwards does not bring back an expired subscription. Keep the server clock correct (NTP). |
 
-**Issuing licenses (vendor side).** `auzring-license` is in `cmd/auzring-license` and is not shipped to customers. Generate the license key once and keep it offline or in a KMS (it is a different key from the release key; never reuse one for the other):
+**Issuing licenses (vendor side).** `renovatio-license` is in `cmd/renovatio-license` and is not shipped to customers. Generate the license key once and keep it offline or in a KMS (it is a different key from the release key; never reuse one for the other):
 
 ```
-auzring-license keygen --out license.key            # writes license.key (secret) and license.pub
-auzring-license sign --key license.key --licensee "Example GmbH" --max-devices 250 \
+renovatio-license keygen --out license.key            # writes license.key (secret) and license.pub
+renovatio-license sign --key license.key --licensee "Example GmbH" --max-devices 250 \
     --expires 2027-10-01 --updates-until 2027-10-01 --features reports.export --out example.lic
-auzring-license show --license example.lic --pub license.pub      # check before sending
+renovatio-license show --license example.lic --pub license.pub      # check before sending
 ```
 
-Put the public key hex in server builds: `go build -ldflags "-X github.com/auzring1/auzring/internal/shared/license.PublicKeysHex=<hex>[,<hex2>]" ./cmd/auzring-server` (several keys allow rotation). With a KMS: `auzring-license payload --licensee ... --max-devices ... --out doc.json --tosign doc.tosign`, have the KMS Ed25519-sign the **whole** `.tosign` file (it starts with the domain separator), then `auzring-license attach --doc doc.json --signature sig.bin --pub license.pub --out example.lic`. Demo keys for testing go under the git-ignored `dist-demo/`; never commit a key.
+Put the public key hex in server builds: `go build -ldflags "-X github.com/auzring1/renovatio/internal/shared/license.PublicKeysHex=<hex>[,<hex2>]" ./cmd/renovatio-server` (several keys allow rotation). With a KMS: `renovatio-license payload --licensee ... --max-devices ... --out doc.json --tosign doc.tosign`, have the KMS Ed25519-sign the **whole** `.tosign` file (it starts with the domain separator), then `renovatio-license attach --doc doc.json --signature sig.bin --pub license.pub --out example.lic`. Demo keys for testing go under the git-ignored `dist-demo/`; never commit a key.
 
 ## 6. Backup and restore
 
-`auzring-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `auzring-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.
+`renovatio-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `renovatio-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.
 
 ### 6.1 What is and is not in a backup
 
@@ -265,7 +266,7 @@ Put the public key hex in server builds: `go build -ldflags "-X github.com/auzri
 |---|---|
 | Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the rest of `deploy/secrets/`.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
 | The content directory (`AUZ_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
-| A manifest: format version, `auzring-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
+| A manifest: format version, `renovatio-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
 | | Database roles and passwords (the roles come from `deploy/postgres/init` and the secrets) |
 
 **You must back up `deploy/secrets/` separately** (for example `tar czf - -C deploy secrets | age -r <key> > secrets.tgz.age`, stored somewhere other than the database backups). Keep copies of the two in different places: someone who has both can read everything.
@@ -274,25 +275,25 @@ The file is encrypted with [age](https://age-encryption.org). Anyone who knows t
 
 ### 6.2 One-time setup: the backup key
 
-Do this on an **offline or at least separate** machine, not on the Auzring host:
+Do this on an **offline or at least separate** machine, not on the Renovatio host:
 
 ```bash
-age-keygen -o auzring-backup.key         # prints the public key (age1...); keep the .key file offline
+age-keygen -o renovatio-backup.key         # prints the public key (age1...); keep the .key file offline
 ```
 
-- The file `auzring-backup.key` is the **age secret key**. Print it or put it in your password manager and on offline media. Whoever has it can read every backup; without it nobody can, including you.
-- Put only the **public key** (`age1...`) on the Auzring host. You can give several `--recipient` options (for example two administrators, or a spare key kept in a safe); any one of the matching secret keys can restore.
+- The file `renovatio-backup.key` is the **age secret key**. Print it or put it in your password manager and on offline media. Whoever has it can read every backup; without it nobody can, including you.
+- Put only the **public key** (`age1...`) on the Renovatio host. You can give several `--recipient` options (for example two administrators, or a spare key kept in a safe); any one of the matching secret keys can restore.
 - Alternative: a **passphrase** (`--passphrase-file`, scrypt, at least 12 characters, `openssl rand -base64 24`). Passphrase files must be readable by the backup job, so prefer public keys for unattended backups. The two modes cannot be mixed in one backup.
 
 ### 6.3 Taking a backup
 
 ```bash
-cd /srv/auzring        # the checkout with deploy/
+cd /srv/renovatio        # the checkout with deploy/
 umask 077
 set -o pipefail
 docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
   backup --out - --recipient age1xxxxxxxx... \
-  > /var/backups/auzring/auzring-$(date +%F-%H%M).age
+  > /var/backups/renovatio/renovatio-$(date +%F-%H%M).age
 ```
 
 - `--out -` writes the encrypted archive to standard output **and nothing else** (logs go to standard error); the container's root filesystem is read-only, so this is the way to get the file out. `--out /path` writes a temp file, fsyncs, and renames it into place with mode 0600 (use it where the path is writable, for example `docker compose run -v`).
@@ -304,39 +305,39 @@ docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
 **Verify every backup** without touching a database (decrypts, checks every part against the manifest, prints a summary):
 
 ```bash
-auzring-server backup --verify /var/backups/auzring/auzring-2026-10-07-0300.age --identity-file auzring-backup.key
-# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/auzring-backup.key:/k:ro maintenance backup --verify - --identity-file /k < file.age
+renovatio-server backup --verify /var/backups/renovatio/renovatio-2026-10-07-0300.age --identity-file renovatio-backup.key
+# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/renovatio-backup.key:/k:ro maintenance backup --verify - --identity-file /k < file.age
 ```
 
 A routine verification needs the secret key; if you do not want it on the backup host, verify during the restore drill (6.6) instead, and on the host only check that the file is non-trivially sized and recent.
 
 ### 6.4 Scheduling
 
-cron (`/etc/cron.d/auzring-backup`), nightly at 02:30 as the user that owns `/srv/auzring` and may run Docker:
+cron (`/etc/cron.d/renovatio-backup`), nightly at 02:30 as the user that owns `/srv/renovatio` and may run Docker:
 
 ```cron
-30 2 * * * auzring /usr/local/bin/auzring-backup.sh
+30 2 * * * renovatio /usr/local/bin/renovatio-backup.sh
 ```
 
-`/usr/local/bin/auzring-backup.sh`:
+`/usr/local/bin/renovatio-backup.sh`:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 umask 077
-dest=/var/backups/auzring
-f="$dest/auzring-$(date +%F-%H%M).age"
-cd /srv/auzring
+dest=/var/backups/renovatio
+f="$dest/renovatio-$(date +%F-%H%M).age"
+cd /srv/renovatio
 docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
-  backup --out - --recipient-file /etc/auzring/backup-recipients.txt > "$f.partial"
+  backup --out - --recipient-file /etc/renovatio/backup-recipients.txt > "$f.partial"
 test "$(stat -c %s "$f.partial")" -gt 10000       # an empty or tiny file is a failure
 mv "$f.partial" "$f"
-find "$dest" -name 'auzring-*.age' -mtime +30 -delete     # retention, see 6.7
+find "$dest" -name 'renovatio-*.age' -mtime +30 -delete     # retention, see 6.7
 # copy off the host (a different machine or bucket); example:
-# rclone copy "$f" remote:auzring-backups/
+# rclone copy "$f" remote:renovatio-backups/
 ```
 
-Or as a systemd timer: `auzring-backup.service` (`Type=oneshot`, `ExecStart=/usr/local/bin/auzring-backup.sh`, `User=auzring`) plus `auzring-backup.timer` (`OnCalendar=*-*-* 02:30:00`, `Persistent=true`, `RandomizedDelaySec=10m`), enabled with `systemctl enable --now auzring-backup.timer`. Make a failing run visible: `OnFailure=` an alert unit, or send the script's exit status to your monitoring. A backup nobody notices failing is not a backup.
+Or as a systemd timer: `renovatio-backup.service` (`Type=oneshot`, `ExecStart=/usr/local/bin/renovatio-backup.sh`, `User=renovatio`) plus `renovatio-backup.timer` (`OnCalendar=*-*-* 02:30:00`, `Persistent=true`, `RandomizedDelaySec=10m`), enabled with `systemctl enable --now renovatio-backup.timer`. Make a failing run visible: `OnFailure=` an alert unit, or send the script's exit status to your monitoring. A backup nobody notices failing is not a backup.
 
 `--recipient-file` takes the same format as age: one public key per line, `#` comments allowed.
 
@@ -350,13 +351,13 @@ You need: the backup file, the **age secret key** (or passphrase), the **`deploy
 
    ```bash
    docker compose -f deploy/docker-compose.yml run --rm -T --no-deps \
-     -v "$PWD/auzring-backup.key:/restore.key:ro" \
-     maintenance restore --in - --identity-file /restore.key < /var/backups/auzring/auzring-2026-10-07-0230.age
+     -v "$PWD/renovatio-backup.key:/restore.key:ro" \
+     maintenance restore --in - --identity-file /restore.key < /var/backups/renovatio/renovatio-2026-10-07-0230.age
    ```
 
    (`--passphrase-file` works the same way with a mounted file or `AUZ_BACKUP_PASSPHRASE_FILE`.) With `--in <file>` instead of `-` the archive is verified completely **before** the database is touched; with standard input it cannot be read twice, so the load is done in one transaction and rolled back if any part fails to verify.
-4. What the restore does, in order: decrypts and reads the header; **refuses** a backup made by a newer `auzring-server` than this binary or with an unknown format version; refuses a database that already holds data; runs the embedded migrations *up to the backup's schema version*; in **one transaction** loads every table (foreign-key order, user triggers off, so the audit log arrives byte for byte), resets sequences, checks `AUZ_MASTER_KEY` against the sealed CA keys, writes the content files, checks every part's SHA-256 against the manifest, and only then commits; runs the remaining migrations forward; and **verifies the audit hash chain**, finishing with an `admin.restore` entry. A bad archive therefore leaves no rows behind.
-5. **Start everything:** `docker compose -f deploy/docker-compose.yml up -d`. Confirm: you can sign in (your TOTP still works because the KEK is the same), `docker compose ... exec server /auzring-server admin verify-audit` reports an intact chain, **Devices** shows the fleet (devices appear offline until they reconnect), and the **Packages** you uploaded can be opened.
+4. What the restore does, in order: decrypts and reads the header; **refuses** a backup made by a newer `renovatio-server` than this binary or with an unknown format version; refuses a database that already holds data; runs the embedded migrations *up to the backup's schema version*; in **one transaction** loads every table (foreign-key order, user triggers off, so the audit log arrives byte for byte), resets sequences, checks `AUZ_MASTER_KEY` against the sealed CA keys, writes the content files, checks every part's SHA-256 against the manifest, and only then commits; runs the remaining migrations forward; and **verifies the audit hash chain**, finishing with an `admin.restore` entry. A bad archive therefore leaves no rows behind.
+5. **Start everything:** `docker compose -f deploy/docker-compose.yml up -d`. Confirm: you can sign in (your TOTP still works because the KEK is the same), `docker compose ... exec server /renovatio-server admin verify-audit` reports an intact chain, **Devices** shows the fleet (devices appear offline until they reconnect), and the **Packages** you uploaded can be opened.
 6. **After the restore:** agents reconnect on their own and resend their full inventory (their revisions no longer match). Anything that happened after the backup is gone: devices enrolled since then are unknown to the server and will be refused (re-enroll them), jobs and approvals created since are lost, and the audit log ends at the backup time. Revoke any enrollment token or device you revoked after the backup was taken, again.
 
 Refusals you may meet, and what they mean:
@@ -378,7 +379,7 @@ Refusals you may meet, and what they mean:
 
 An untested backup is a hope. **Do a restore drill at least once a quarter, and after every upgrade that changes the database schema** (any release with a new migration), on a scratch machine:
 
-1. Copy the latest backup, `auzring-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
+1. Copy the latest backup, `renovatio-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
 2. Follow 6.5 with a different `AUZ_HOSTNAME` (agents must not be able to reach this copy: leave 8443 closed or use an isolated network).
 3. Sign in, run `admin verify-audit`, open a device and a custom package, and compare the device and audit counts with production (`backup --verify` prints the row counts too).
 4. Record the date and the time it took. If the drill failed, fix that first; the production backup job is not trustworthy until then.
@@ -386,7 +387,7 @@ An untested backup is a hope. **Do a restore drill at least once a quarter, and 
 ### 6.7 Retention and storage
 
 - Keep **daily backups for 30 days, weekly for 3 months, monthly for a year**, adjusted to how much change you can afford to lose (the recovery point is the age of the newest good backup) and to your retention rules for audit data.
-- Keep at least one copy **off the host and off the same account/provider**, and one that cannot be deleted by the Auzring host (object lock, or pull from the backup server).
+- Keep at least one copy **off the host and off the same account/provider**, and one that cannot be deleted by the Renovatio host (object lock, or pull from the backup server).
 - Keep the age secret key and the secrets backup in a place that survives the loss of the site. Losing the master key or the age key makes every backup useless.
 - Delete old backups with the same care as the audit log: they contain it.
 
@@ -433,7 +434,7 @@ Fresh installs create `auzring_owner` as a non-superuser and keep the bootstrap 
 
 ## 9. Release manager (vendor side)
 
-This section is for the people who ship Auzring, not for operators of an installation. Customers verify releases with `docs/VERIFYING_RELEASES.md`. The design is `docs/DECISIONS.md` D79-D84. **Owner decisions O5 (code-signing certificate) and O7 (release-key custody) are still open**; this section describes the options and what the pipeline expects of whichever is chosen. Nothing below has run against real GitHub, Azure, AWS or a certificate yet: do the dry runs first and expect to fix small things.
+This section is for the people who ship Renovatio, not for operators of an installation. Customers verify releases with `docs/VERIFYING_RELEASES.md`. The design is `docs/DECISIONS.md` D79-D84. **Owner decisions O5 (code-signing certificate) and O7 (release-key custody) are still open**; this section describes the options and what the pipeline expects of whichever is chosen. Nothing below has run against real GitHub, Azure, AWS or a certificate yet: do the dry runs first and expect to fix small things.
 
 ### 9.1 What the pipeline does
 
@@ -446,7 +447,7 @@ This section is for the people who ship Auzring, not for operators of an install
 | build | `scripts/build-release.sh`: Go binaries, web bundle, SBOMs, `unsigned-SHA256SUMS` | real public keys | throw-away key |
 | rebuild | The same build again on another runner in another directory; digests must match | runs | runs |
 | sign-windows | Authenticode-signs the agent, **then** builds the MSI (WiX) around it, then signs the MSI; verifies the signer name | real | skipped, unsigned MSI is still built |
-| sign-manifest | `auzring-release manifest` → `tosign` → KMS signs → `attach` → `verify` (the vendor bundle, D68) | KMS via OIDC | throw-away key |
+| sign-manifest | `renovatio-release manifest` → `tosign` → KMS signs → `attach` → `verify` (the vendor bundle, D68) | KMS via OIDC | throw-away key |
 | image | Builds `deploy/Dockerfile.server`, pushes to `ghcr.io`, cosign-signs the digest, attaches the SBOM, build provenance; checks the binary inside equals the released binary | runs | OCI archive only |
 | publish | `SHA256SUMS`, cosign signature, GitHub build provenance, SBOM attestations, verification, **draft** GitHub release | runs | workflow artifact only |
 
@@ -472,7 +473,7 @@ A person publishes the draft release after checking it. The signing jobs sit beh
 | `AUZ_RELEASE_MIN_VERSION` | Optional `min_version` for the manifest |
 
    The only secret the pipeline can read is `AUZ_SIGNTOOL_SECRET` (a KSP credential for the `signtool` provider). With OIDC no cloud credential is stored in GitHub.
-4. **OIDC trust.** In Azure/AWS, trust the GitHub OIDC issuer for the subject `repo:auzring1/auzring:environment:release` only (not the repository as a whole, not the dry-run environment). The AWS role may do `kms:Sign` and `kms:GetPublicKey` on the one key and nothing else. The Azure identity gets the signing role on the one Artifact Signing certificate profile and nothing else.
+4. **OIDC trust.** In Azure/AWS, trust the GitHub OIDC issuer for the subject `repo:auzring1/renovatio:environment:release` only (not the repository as a whole, not the dry-run environment). The AWS role may do `kms:Sign` and `kms:GetPublicKey` on the one key and nothing else. The Azure identity gets the signing role on the one Artifact Signing certificate profile and nothing else.
 5. **Pinned versions.** Every third-party action is pinned to a commit SHA (`scripts/check-actions-pinned.sh`, run in CI). To bump one: list the tags with `git ls-remote --tags https://github.com/OWNER/REPO`, review the changes between releases, and replace the SHA and the version comment together. BuildKit itself is not yet pinned by digest: set `AUZ_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...` for the image job when you have chosen one.
 
 ### 9.3 Cutting a release
@@ -501,7 +502,7 @@ The vendor release key is an **Ed25519** key (the agents verify Ed25519 and noth
 
 1. Two people and a witness, with a written log. Decide the key's name, account/region and the people who may change its policy (not the people who can push tags).
 2. Create the key in the KMS with: no export, deletion protection or a long deletion window, and a key policy that lets only (a) the pipeline role `kms:Sign`/`kms:GetPublicKey` under the OIDC subject condition of 9.2 and (b) a break-glass administrator role manage it. Turn on CloudTrail (or Azure diagnostic logs) for the key and alert on any `Sign` outside a release run.
-3. Read the public key: `AUZ_RELEASE_KMS_KEY_ID=... scripts/release-kms.sh aws pubkey` (64 hex digits). Record it and its short key id (the first 8 bytes of its SHA-256, printed by `auzring-release keygen` and `verify`) in the log; both witnesses read them back from the KMS console.
+3. Read the public key: `AUZ_RELEASE_KMS_KEY_ID=... scripts/release-kms.sh aws pubkey` (64 hex digits). Record it and its short key id (the first 8 bytes of its SHA-256, printed by `renovatio-release keygen` and `verify`) in the log; both witnesses read them back from the KMS console.
 4. Add the public key to `release/release-public-keys.txt` by pull request (two reviewers). Never commit anything else there. The first build with this file non-empty produces agents that trust the key.
 5. **Make a standby key now, not later.** KMS keys cannot be backed up in a usable form: if the only key is lost or its account is closed, no agent can ever be updated again (only reinstalled). So create a second key in a different account/region/provider with a different custodian, put **both** public keys into the file from the first release, and keep the standby's access closed. This is the backup.
 6. Prove sign, `attach --pub` and `verify` work with the real key before the first release: run `scripts/release-kms.sh` by hand from a shell that has assumed the role, on a test manifest.

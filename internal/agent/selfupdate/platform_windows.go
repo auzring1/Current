@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"os/exec"
@@ -41,7 +42,7 @@ func programDir() string {
 }
 
 func slotExe(slot string) string {
-	return filepath.Join(programDir(), "slot-"+slot, "auzring-agent.exe")
+	return filepath.Join(programDir(), "slot-"+slot, brand.InstalledAgentExe)
 }
 
 // Default returns the platform for this operating system.
@@ -65,7 +66,7 @@ func openService() (*mgr.Mgr, *mgr.Service, error) {
 	return m, s, nil
 }
 
-// exeFromImagePath extracts the binary from a service image path (`"C:\...\auzring-agent.exe" service`).
+// exeFromImagePath extracts the binary from a service image path (`"C:\...\renovatio-agent.exe" service`).
 func exeFromImagePath(p string) string {
 	p = strings.TrimSpace(p)
 	if strings.HasPrefix(p, `"`) {
@@ -168,7 +169,7 @@ func (w *Windows) Switch(slot string) error {
 func (w *Windows) ScheduleRollback(at time.Time, exe string) error {
 	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>Auzring agent update safety net</Description></RegistrationInfo>
+  <RegistrationInfo><Description>%s update safety net</Description></RegistrationInfo>
   <Triggers><TimeTrigger><StartBoundary>%s</StartBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>
   <Principals><Principal id="Author"><UserId>S-1-5-18</UserId><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
   <Settings>
@@ -180,7 +181,7 @@ func (w *Windows) ScheduleRollback(at time.Time, exe string) error {
     <Enabled>true</Enabled>
   </Settings>
   <Actions Context="Author"><Exec><Command>%s</Command><Arguments>rollback-check</Arguments></Exec></Actions>
-</Task>`, at.Local().Format("2006-01-02T15:04:05"), xmlEscape(exe))
+</Task>`, xmlEscape(brand.AgentName), at.Local().Format("2006-01-02T15:04:05"), xmlEscape(exe))
 	f := filepath.Join(w.DataDir, "rollback-task.xml")
 	if err := os.WriteFile(f, utf16le(xml), 0o600); err != nil {
 		return err

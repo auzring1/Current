@@ -1,6 +1,6 @@
 # Load testing
 
-Phase 6 asks for a load test with 10,000 simulated agents, including a reconnect storm. This document describes the tool (`cmd/auzring-loadsim`), the method, how to run it, what to tune on the host, what to measure, what we measured in a small development sandbox, and the server defects the tool found.
+Phase 6 asks for a load test with 10,000 simulated agents, including a reconnect storm. This document describes the tool (`cmd/renovatio-loadsim`), the method, how to run it, what to tune on the host, what to measure, what we measured in a small development sandbox, and the server defects the tool found.
 
 **Read the results as "measured in the dev sandbox, not a capacity statement".** The sandbox is a 4-CPU, 15.7 GiB virtual machine on which the server, the load generator and PostgreSQL all run at the same time, over the loopback interface. Real capacity needs a run on separate hosts (section 6).
 
@@ -67,7 +67,7 @@ Options: `--agents`, `--scenarios`, `--duration`, `--ramp-per-sec`, `--heartbeat
 ### 4.2 Against a server you already run
 
 ```
-export LOADTEST_API=https://auzring.example.com       # REST base URL
+export LOADTEST_API=https://renovatio.example.com       # REST base URL
 export LOADTEST_GATEWAY=agents.example.com:8443       # as in the gateway certificate
 export LOADTEST_API_TOKEN=...                         # scopes: enrollment:write devices:read devices:write updates:write reports:read
 scripts/loadtest.sh --external --agents 10000 --scenarios "steady storm"
@@ -78,12 +78,12 @@ For docker compose, start the stack as the README says, finish setup in the cons
 ### 4.3 The tool directly
 
 ```
-go build -o auzring-loadsim ./cmd/auzring-loadsim
-AUZ_LOADSIM_API_TOKEN=... ./auzring-loadsim --api http://127.0.0.1:8080 --server localhost:8443 \
+go build -o renovatio-loadsim ./cmd/renovatio-loadsim
+AUZ_LOADSIM_API_TOKEN=... ./renovatio-loadsim --api http://127.0.0.1:8080 --server localhost:8443 \
   --agents 10000 --ramp-per-sec 100 --scenario storm --identity-cache ids.json --report storm.json --report-md storm.md
 ```
 
-`--enrollment AURZ1...` (or `AUZ_LOADSIM_ENROLLMENT`) uses an existing token; without it the tool mints one through the API. `--identity-cache FILE` keeps the enrolled identities (mode 0600, **contains private keys**), bound to the server's CA, so later runs skip enrollment. Run `./auzring-loadsim -h` for every flag. The exit status is 2 when the success criteria are not met (`--no-fail` to ignore).
+`--enrollment AURZ1...` (or `AUZ_LOADSIM_ENROLLMENT`) uses an existing token; without it the tool mints one through the API. `--identity-cache FILE` keeps the enrolled identities (mode 0600, **contains private keys**), bound to the server's CA, so later runs skip enrollment. Run `./renovatio-loadsim -h` for every flag. The exit status is 2 when the success criteria are not met (`--no-fail` to ignore).
 
 The in-process test `test/e2e/loadsim_test.go` runs 50 agents through the steady, storm and churn scenarios against the same server code in about 40 seconds, and `internal/loadsim/stats_test.go` tests the histogram, counters and recovery clock. Both run in `go test -race ./...`.
 
@@ -110,7 +110,7 @@ Record the environment first (CPUs, RAM, kernel, PostgreSQL version and settings
 
 ## 7. Results from the development sandbox
 
-**Not a capacity statement.** 4 vCPUs, 15.7 GiB RAM, Linux 6.18, PostgreSQL 16.15 with default settings on the same machine, open-file limit 20,000, Go 1.27.1. The server (`auzring-server serve`, dev mode, log level info), the load generator and PostgreSQL competed for the same four CPUs. Every simulated agent had 120 software items; heartbeats every 60 s; each agent changed 3 items about every 2 minutes; jobs for 1% of the fleet every 30 s (`inventory` kind; the server's own scheduler also queued a `wu_scan` job per device on its first connection). Ramp 100 agents per second. `netdev_max_backlog` was the default 1000 unless stated. Code at the commit that contains this file. Raw reports are not committed.
+**Not a capacity statement.** 4 vCPUs, 15.7 GiB RAM, Linux 6.18, PostgreSQL 16.15 with default settings on the same machine, open-file limit 20,000, Go 1.27.1. The server (`renovatio-server serve`, dev mode, log level info), the load generator and PostgreSQL competed for the same four CPUs. Every simulated agent had 120 software items; heartbeats every 60 s; each agent changed 3 items about every 2 minutes; jobs for 1% of the fleet every 30 s (`inventory` kind; the server's own scheduler also queued a `wu_scan` job per device on its first connection). Ramp 100 agents per second. `netdev_max_backlog` was the default 1000 unless stated. Code at the commit that contains this file. Raw reports are not committed.
 
 ### 7.1 Steady state
 

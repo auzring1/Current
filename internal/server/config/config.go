@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/auzring/internal/shared/license"
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // Default enrollment rate limits, per minute (PROTOCOL §4.1).
@@ -32,7 +32,7 @@ type Config struct {
 
 	// HTTPAddr serves the REST API, GUI and SSE (behind Caddy).
 	HTTPAddr string
-	// PublicURL is the browser-facing origin, e.g. https://auzring.example.com.
+	// PublicURL is the browser-facing origin, e.g. https://renovatio.example.com.
 	// Used for Origin/CSRF checks and cookie security.
 	PublicURL *url.URL
 	// TrustedProxies are the CIDRs whose X-Forwarded-For header is trusted.
@@ -141,7 +141,7 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 
 	pub := get("AUZ_PUBLIC_URL", "")
 	if pub == "" {
-		errs = append(errs, errors.New("AUZ_PUBLIC_URL is required (e.g. https://auzring.example.com)"))
+		errs = append(errs, errors.New("AUZ_PUBLIC_URL is required (e.g. https://renovatio.example.com)"))
 	} else if u, perr := url.Parse(pub); perr != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		errs = append(errs, fmt.Errorf("AUZ_PUBLIC_URL %q is not a valid http(s) origin", pub))
 	} else {

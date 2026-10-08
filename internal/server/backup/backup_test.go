@@ -15,9 +15,9 @@ import (
 	"filippo.io/age"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 func randKey() []byte {
@@ -376,7 +376,7 @@ func TestRefusesNewerSchemaAndUnknownFormat(t *testing.T) {
 	for _, repeatable := range []bool{true, false} {
 		dst := newEmptyDB(t)
 		_, err := Restore(ctx, RestoreOptions{DatabaseURL: dst, Source: bytesSource(archive, repeatable), Identities: []age.Identity{id}, Log: discard})
-		if !errors.Is(err, ErrNewerSchema) || !strings.Contains(err.Error(), "newer auzring-server") {
+		if !errors.Is(err, ErrNewerSchema) || !strings.Contains(err.Error(), "newer renovatio-server") {
 			t.Fatalf("newer schema: %v", err)
 		}
 		assertNoTables(t, dst)

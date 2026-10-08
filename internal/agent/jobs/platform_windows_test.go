@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 // These tests exercise the real Windows implementation. They need an elevated

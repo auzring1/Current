@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/inventory"
-	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/inventory"
+	"github.com/auzring1/renovatio/internal/server/store"
 )
 
 // Device-level actions that are not part of a catalog deployment: refresh a device, remove a
@@ -157,7 +158,7 @@ func (s *Service) UninstallSoftware(ctx context.Context, org, user, device uuid.
 			continue
 		}
 		if r.Source == "appx" || r.Source == "portable" {
-			res.Skipped = append(res.Skipped, Skip{Device: row.Name, Reason: "this kind of program (" + r.Source + ") cannot be uninstalled by Auzring yet"})
+			res.Skipped = append(res.Skipped, Skip{Device: row.Name, Reason: "this kind of program (" + r.Source + ") cannot be uninstalled by " + brand.Name + " yet"})
 			continue
 		}
 		sc := agentv1.InstallScope_INSTALL_SCOPE_MACHINE
@@ -224,7 +225,7 @@ type AvailableUpdate struct {
 	LatestVersion    string    `json:"latest_version"`
 	Verified         bool      `json:"verified"`
 	SelfUpdating     bool      `json:"self_updating"`
-	// Deployable is false when Auzring leaves this update to the vendor (a self-updating app).
+	// Deployable is false when Renovatio leaves this update to the vendor (a self-updating app).
 	Deployable bool   `json:"deployable"`
 	Reason     string `json:"reason,omitempty"`
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"os"
 	"regexp"
 	"sort"
@@ -76,10 +77,10 @@ func fromNPMLock(data []byte, o NPMOptions) ([]byte, error) {
 	rootRef := "pkg:npm/" + npmPurlName(rootName) + "@" + purlEscape(o.Version)
 	root := Component{
 		Type: "application", BOMRef: rootRef, Name: rootName, Version: o.Version, PURL: rootRef,
-		Description: "Auzring web console production bundle (Vite build embedded in the server binary)",
+		Description: brand.Name + " web console production bundle (Vite build embedded in the server binary)",
 		Licenses:    npmLicense(rootPkg.License),
 		Properties: []Property{
-			{Name: "auzring:scope", Value: "production dependencies of the lockfile (dev dependencies, which are not shipped, are excluded)"},
+			{Name: "renovatio:scope", Value: "production dependencies of the lockfile (dev dependencies, which are not shipped, are excluded)"},
 		},
 	}
 	b := newBOM(o.Epoch, root)
@@ -116,7 +117,7 @@ func fromNPMLock(data []byte, o NPMOptions) ([]byte, error) {
 			c.ExternalRefs = []ExternalRef{{Type: "distribution", URL: pkg.Resolved}}
 		}
 		if pkg.Optional {
-			c.Properties = append(c.Properties, Property{Name: "auzring:npm-optional", Value: "true"})
+			c.Properties = append(c.Properties, Property{Name: "renovatio:npm-optional", Value: "true"})
 		}
 		b.Components = append(b.Components, c)
 	}

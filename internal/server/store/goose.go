@@ -5,7 +5,7 @@ import (
 
 	"github.com/pressly/goose/v3/lock"
 
-	"github.com/auzring1/auzring/db"
+	"github.com/auzring1/renovatio/db"
 )
 
 func migrationsFS() fs.FS {

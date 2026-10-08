@@ -51,7 +51,7 @@ func HashPassword(pw string) (string, error) {
 
 // dummyHash equalizes timing when the user does not exist.
 var dummyHash = sync.OnceValue(func() string {
-	h, _ := HashPassword("auzring-dummy-password-for-timing")
+	h, _ := HashPassword("renovatio-dummy-password-for-timing")
 	return h
 })
 

@@ -7,7 +7,7 @@ import (
 
 // IsInstalled reports whether this machine already has an installed and configured
 // agent: the Windows service is registered and the protected config.json exists.
-// `auzring-agent install --if-not-installed` uses it so that the MSI can be run again
+// `renovatio-agent install --if-not-installed` uses it so that the MSI can be run again
 // (major upgrade, repair, GPO re-application) on an enrolled machine without
 // re-enrolling and without needing a new token.
 func IsInstalled() bool { return installedIn(DataDir(), serviceRegistered) }

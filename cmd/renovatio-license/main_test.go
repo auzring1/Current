@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/auzring1/auzring/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/shared/license"
 )
 
 // TestKMSFlow: payload -> external Ed25519 signature over the .tosign bytes -> attach -> verify.

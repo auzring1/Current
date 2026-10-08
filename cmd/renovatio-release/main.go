@@ -1,13 +1,13 @@
-// Command auzring-release is the vendor-side tool that creates and checks signed agent releases.
+// Command renovatio-release is the vendor-side tool that creates and checks signed agent releases.
 //
-//	auzring-release keygen --out release.key            create an Ed25519 release key pair (writes release.key and release.pub)
-//	auzring-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
+//	renovatio-release keygen --out release.key            create an Ed25519 release key pair (writes release.key and release.pub)
+//	renovatio-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
 //	                     [--min-version V] [--rollback-from V,...] [--authenticode-subject CN] [--notes TEXT] --out agent-1.2.3.azr
-//	auzring-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
-//	auzring-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.azr
-//	auzring-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
-//	auzring-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
-//	auzring-release verify --bundle agent-1.2.3.azr --exe agent.exe --pub release.pub
+//	renovatio-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
+//	renovatio-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.azr
+//	renovatio-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
+//	renovatio-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
+//	renovatio-release verify --bundle agent-1.2.3.azr --exe agent.exe --pub release.pub
 //
 // The private key never leaves the signer: with a cloud KMS use `manifest`, sign the bytes
 // with "auzring/release/v1\x00" prepended, then `attach`. This tool is not part of the shipped
@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, "usage: auzring-release keygen|sign|manifest|attach|tosign|sign-bytes|verify (see the package comment)\n")
+	fmt.Fprint(os.Stderr, "usage: renovatio-release keygen|sign|manifest|attach|tosign|sign-bytes|verify (see the package comment)\n")
 }
 
 func keygen(args []string) error {

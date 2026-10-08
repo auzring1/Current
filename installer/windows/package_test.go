@@ -153,7 +153,7 @@ func TestTokenIsHiddenEverywhereItTravels(t *testing.T) {
 		if sp.attr("Id") == "InstallAgent" {
 			found = true
 			v := sp.attr("Value")
-			if !strings.HasPrefix(v, `"[SetupDir]auzring-agent.exe" install `) {
+			if !strings.HasPrefix(v, `"[SetupDir]renovatio-agent.exe" install `) {
 				t.Errorf("InstallAgent must begin with the quoted exe path (WixSilentExec requirement); got %q", v)
 			}
 			if !strings.Contains(v, "--if-not-installed") {
@@ -263,14 +263,14 @@ func TestInstallUninstallSequencing(t *testing.T) {
 		}
 	}
 	for _, sp := range root.find("SetProperty") {
-		if (sp.attr("Id") == "UninstallAgent" || sp.attr("Id") == "RollbackInstallAgent") && !strings.HasSuffix(sp.attr("Value"), `auzring-agent.exe" uninstall`) {
-			t.Errorf("%s must run exactly `auzring-agent.exe uninstall`, got %q", sp.attr("Id"), sp.attr("Value"))
+		if (sp.attr("Id") == "UninstallAgent" || sp.attr("Id") == "RollbackInstallAgent") && !strings.HasSuffix(sp.attr("Value"), `renovatio-agent.exe" uninstall`) {
+			t.Errorf("%s must run exactly `renovatio-agent.exe uninstall`, got %q", sp.attr("Id"), sp.attr("Value"))
 		}
 	}
 }
 
 func TestStagingDirectoryIsOutsideTheAgentTree(t *testing.T) {
-	// `auzring-agent uninstall` removes %ProgramFiles%\Auzring entirely and defers file removal to the
+	// `renovatio-agent uninstall` removes %ProgramFiles%\Auzring entirely and defers file removal to the
 	// next reboot when it runs from below %ProgramFiles%\Auzring\Agent. The staged copy must therefore
 	// live elsewhere.
 	root := pkg(t)
@@ -409,7 +409,7 @@ func baseEnv() map[string]string {
 // fillRequired sets valid values for the required properties other than skip, so that a test isolates one property.
 func fillRequired(env map[string]string, skip string) {
 	if skip != "SERVER" {
-		env["SERVER"] = "auzring.example.com:8443"
+		env["SERVER"] = "renovatio.example.com:8443"
 	}
 	if skip != "TOKEN" {
 		env["TOKEN"] = "AURZ1.eyJ2IjoxfQ"
@@ -445,7 +445,7 @@ func TestLaunchConditionBehaviour(t *testing.T) {
 		}
 		return e
 	}
-	good := []string{"SERVER", "auzring.example.com:8443", "TOKEN", "AURZ1.eyJ0b2tlbiI6IngifQ-_x", "ALLOWEDJOBS", "inventory,wu_scan"}
+	good := []string{"SERVER", "renovatio.example.com:8443", "TOKEN", "AURZ1.eyJ0b2tlbiI6IngifQ-_x", "ALLOWEDJOBS", "inventory,wu_scan"}
 	cases := []tc{
 		{"fresh install with all properties", with(good...), true},
 		{"fresh install without ALLOWEDJOBS", with("SERVER", "10.0.0.5:8443", "TOKEN", "AURZ1.abc"), true},
@@ -455,7 +455,7 @@ func TestLaunchConditionBehaviour(t *testing.T) {
 		{"nothing at all on a fresh machine", with(), false},
 		{"upgrade of an enrolled machine needs nothing", with("AGENTSERVICEPATH", `"C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" service`), true},
 		{"uninstall needs nothing", with("Installed", "1"), true},
-		{"SERVER without port", with("SERVER", "auzring.example.com", "TOKEN", "AURZ1.abc"), false},
+		{"SERVER without port", with("SERVER", "renovatio.example.com", "TOKEN", "AURZ1.abc"), false},
 		{"TOKEN not an enrollment string", with("SERVER", "a:1", "TOKEN", "hello"), false},
 		{"quote injection in SERVER", with("SERVER", `a:1"`, "TOKEN", "AURZ1.abc"), false},
 		{"space in TOKEN", with("SERVER", "a:1", "TOKEN", "AURZ1.a b"), false},

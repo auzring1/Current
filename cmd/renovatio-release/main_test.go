@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // TestExternalSignerRoundTrip walks the KMS contract (decision D68): manifest -> tosign -> external

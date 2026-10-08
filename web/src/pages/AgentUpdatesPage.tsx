@@ -125,8 +125,8 @@ function UploadCard({ onDone }: { onDone: () => void }) {
   return (
     <Stack gap="xs" maw={560} mt="md">
       <Title order={4}>Upload a release</Title>
-      <FileInput label="Agent binary" placeholder="auzring-agent.exe" value={bin} onChange={setBin} />
-      <FileInput label="Signed bundle (.azr)" placeholder="auzring-agent-1.2.3.azr" value={bundle} onChange={setBundle} accept=".azr,application/json" />
+      <FileInput label="Agent binary" placeholder="renovatio-agent.exe" value={bin} onChange={setBin} />
+      <FileInput label="Signed bundle (.azr)" placeholder="renovatio-agent-1.2.3.azr" value={bundle} onChange={setBundle} accept=".azr,application/json" />
       {error && <Alert color="red">{error}</Alert>}
       <Button onClick={() => up.mutate()} loading={up.isPending} disabled={!bin || !bundle} w="fit-content">
         Upload

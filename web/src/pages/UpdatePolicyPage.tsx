@@ -6,6 +6,7 @@ import { notifications } from "@mantine/notifications";
 import { api, errorMessage, type Group as Grp, type RestartPolicy, type UpdateRing, type UpdateRule, type UpdateSettings, type WuPolicy } from "../api/client";
 import { dateTime, hhmm, parseHHMM } from "../api/format";
 import { useSession } from "../api/session";
+import { PRODUCT_NAME } from "../brand.generated";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const classifications = ["Security Updates", "Critical Updates", "Definition Updates", "Drivers", "Feature Packs", "Service Packs", "Update Rollups", "Updates", "Upgrades", "Tools"];
@@ -454,7 +455,7 @@ function ConflictsCard() {
   const items = q.data?.items ?? [];
   if (q.isLoading || items.length === 0) return null;
   return (
-    <Section title="Devices managed by another update policy" hint="WSUS, deferral policies or disabled automatic updates on these devices can delay or block what Auzring installs.">
+    <Section title="Devices managed by another update policy" hint={`WSUS, deferral policies or disabled automatic updates on these devices can delay or block what ${PRODUCT_NAME} installs.`}>
       <Table verticalSpacing="xs" fz="sm" aria-label="Policy conflicts">
         <Table.Thead>
           <Table.Tr>

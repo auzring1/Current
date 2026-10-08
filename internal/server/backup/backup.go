@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -18,8 +19,8 @@ import (
 	"filippo.io/age"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/shared/version"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/shared/version"
 )
 
 // BackupOptions configures Backup.
@@ -183,7 +184,7 @@ func Backup(ctx context.Context, o BackupOptions) (*Manifest, error) {
 		return nil, err
 	}
 	if !has || schemaVer < 1 {
-		return nil, errors.New("the database has no migration history (is this an Auzring database? run `auzring-server migrate` first)")
+		return nil, errors.New("the database has no migration history (is this a " + brand.Name + " database? run `" + brand.Slug + "-server migrate` first)")
 	}
 	tables, err := discoverTables(ctx, tx)
 	if err != nil {
@@ -210,7 +211,7 @@ func Backup(ctx context.Context, o BackupOptions) (*Manifest, error) {
 		Notes: []string{
 			NotMasterKey,
 			"Table data is PostgreSQL COPY text format, loaded with COPY FROM; files/ is the content directory.",
-			"Restore with this or a newer auzring-server; the schema is rebuilt from the embedded migrations.",
+			"Restore with this or a newer renovatio-server; the schema is rebuilt from the embedded migrations.",
 		},
 		Sequences: seqs,
 	}

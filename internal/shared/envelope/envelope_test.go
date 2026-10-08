@@ -15,8 +15,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	spkix "github.com/auzring1/auzring/internal/shared/pkix"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	spkix "github.com/auzring1/renovatio/internal/shared/pkix"
 )
 
 type memLedger map[string]bool

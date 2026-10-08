@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-  Builds the Auzring Agent MSI (WiX v7) from a built, ideally already signed, auzring-agent.exe.
+  Builds the Renovatio Agent MSI (WiX v7) from a built, ideally already signed, renovatio-agent.exe.
 
 .DESCRIPTION
   Needs PowerShell 7, the .NET SDK (8+), Go (only to compute the numeric MSI version) and git (optional).
@@ -13,7 +13,7 @@
   Read installer/windows/README.md before running this in a commercial pipeline.
 
   Signing is NOT done here and no certificate is ever read by this script. Release pipeline:
-    1. signtool sign ... auzring-agent.exe          (before this script)
+    1. signtool sign ... renovatio-agent.exe          (before this script)
     2. build.ps1 -AgentExe ... -SignScript .\sign.ps1   (the script receives the MSI path)
     or run signtool on the MSI afterwards. See README.md for a signtool example.
 
@@ -25,7 +25,7 @@
 .PARAMETER BuildNumber
   Fourth MSI version field for pre-release builds (CI run number). Releases always get .0.
 .PARAMETER Output
-  Output .msi path. Default: installer/windows/out/auzring-agent-<version>-x64.msi
+  Output .msi path. Default: installer/windows/out/renovatio-agent-<version>-x64.msi
 .PARAMETER SignScript
   Optional script called as `& $SignScript <path-to-msi>` after the build and validation.
 .PARAMETER SkipValidate
@@ -78,13 +78,19 @@ try {
   $fileVersion = if ($Version) { $Version.TrimStart('v') } else { 'default' }
   Write-Host "Version '$Version' -> MSI ProductVersion $msiVersion"
 
-  if (-not $Output) { $Output = Join-Path $PSScriptRoot "out\auzring-agent-$($fileVersion -replace '[^0-9A-Za-z.+-]','_')-x64.msi" }
+  if (-not $Output) { $Output = Join-Path $PSScriptRoot "out\renovatio-agent-$($fileVersion -replace '[^0-9A-Za-z.+-]','_')-x64.msi" }
   $Output = [System.IO.Path]::GetFullPath($Output)
   New-Item -ItemType Directory -Force -Path (Split-Path $Output) | Out-Null
 
   # --- toolchain -------------------------------------------------------------------------------
   Invoke-Tool 'dotnet tool restore' { dotnet tool restore }
   Invoke-Tool 'wix extension add' { dotnet wix --acceptEula $EulaId extension add -g $UtilExtension }
+
+  # --- product name: one source of truth (internal/shared/brand), handed to WiX as defines ---------
+  $brand = @{}
+  Push-Location (Join-Path $PSScriptRoot '..\..')
+  try { go run ./internal/shared/brand/gen -wix | ForEach-Object { $k, $v = $_ -split '=', 2; $brand[$k] = $v } } finally { Pop-Location }
+  foreach ($k in 'ProductName', 'AgentName', 'Company', 'Slug') { if (-not $brand[$k]) { throw "internal/shared/brand did not provide $k" } }
 
   # --- build -----------------------------------------------------------------------------------
   Invoke-Tool 'wix build' {
@@ -93,6 +99,9 @@ try {
       -ext ($UtilExtension.Split('/')[0]) `
       -d "Version=$msiVersion" `
       -d "AgentExe=$AgentExe" `
+      -d "ProductName=$($brand.ProductName)" `
+      -d "AgentName=$($brand.AgentName)" `
+      -d "Company=$($brand.Company)" `
       -o $Output `
       (Join-Path $PSScriptRoot 'Package.wxs')
   }

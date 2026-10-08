@@ -15,7 +15,7 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/auzring1/auzring/internal/server/config"
+	"github.com/auzring1/renovatio/internal/server/config"
 )
 
 // scryptWorkFactor lets tests lower age's default scrypt cost (0 = default).
@@ -35,14 +35,14 @@ func OSEnv(load func() (*config.Config, error)) Env {
 	return Env{LoadConfig: load, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
 }
 
-// CommandBackup is the entry point for `auzring-server backup`.
+// CommandBackup is the entry point for `renovatio-server backup`.
 func CommandBackup(args []string, load func() (*config.Config, error)) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	return RunBackup(ctx, args, OSEnv(load))
 }
 
-// CommandRestore is the entry point for `auzring-server restore`.
+// CommandRestore is the entry point for `renovatio-server restore`.
 func CommandRestore(args []string, load func() (*config.Config, error)) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -55,8 +55,8 @@ func (s *stringList) String() string     { return strings.Join(*s, ",") }
 func (s *stringList) Set(v string) error { *s = append(*s, v); return nil }
 
 const backupUsage = `usage:
-  auzring-server backup --out FILE|-  (--recipient age1... [--recipient ...] | --recipient-file F | --passphrase-file F)
-  auzring-server backup --verify FILE|-  (--identity-file KEY | --passphrase-file F)
+  renovatio-server backup --out FILE|-  (--recipient age1... [--recipient ...] | --recipient-file F | --passphrase-file F)
+  renovatio-server backup --verify FILE|-  (--identity-file KEY | --passphrase-file F)
 
 The passphrase file can also be named by AUZ_BACKUP_PASSPHRASE_FILE. With --out - the encrypted
 archive goes to standard output and nothing else does (logs go to standard error).
@@ -239,7 +239,7 @@ func writeOut(out string, stdout io.Writer, fn func(io.Writer) error) error {
 }
 
 const restoreUsage = `usage:
-  auzring-server restore --in FILE|-  (--identity-file KEY | --passphrase-file F)
+  renovatio-server restore --in FILE|-  (--identity-file KEY | --passphrase-file F)
                          [--force --wipe] [--skip-content] [--skip-kek-check]
 
 Restores into the database named by AUZ_MIGRATE_DATABASE_URL (or AUZ_DATABASE_URL), which must be empty.

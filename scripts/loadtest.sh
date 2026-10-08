@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the Auzring load scenarios (docs/LOADTEST.md) with cmd/auzring-loadsim.
+# Runs the Renovatio load scenarios (docs/LOADTEST.md) with cmd/renovatio-loadsim.
 #
 # Local mode (default): builds the server, the load generator and the bootstrap tool, creates a
 # fresh database on the PostgreSQL named by AUZ_TEST_PG_URL (a superuser URL), starts the server
@@ -10,7 +10,7 @@
 #
 # External mode (--external): points at a server you already run (for example docker compose
 # on another host). Needs
-#   LOADTEST_API=https://auzring.example.com   REST base URL
+#   LOADTEST_API=https://renovatio.example.com   REST base URL
 #   LOADTEST_API_TOKEN=...                     API token with enrollment:write, devices:read,
 #                                              devices:write, updates:write, reports:read
 #   LOADTEST_GATEWAY=agents.example.com:8443   gateway address as in its certificate
@@ -74,7 +74,7 @@ if [ "$have" != "unlimited" ] && [ "$have" -lt $((AGENTS + 500)) ]; then
 fi
 
 echo "== building"
-CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/auzring-loadsim" ./cmd/auzring-loadsim
+CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-loadsim" ./cmd/renovatio-loadsim
 server_pid=""
 cleanup() {
   [ -n "${server_pid:-}" ] && kill "$server_pid" 2>/dev/null || true
@@ -92,7 +92,7 @@ start_server() {
     export AUZ_ENROLL_RATE_PER_IP=1000000 AUZ_ENROLL_RATE_PER_TOKEN=1000000
     # Without a license the server enrolls at most 25 devices: this run signs itself a throw-away one.
     export AUZ_LICENSE_PUBLIC_KEYS="$(tr -d '[:space:]' <"$OUT/license.pub")"
-    exec "$OUT/bin/auzring-server" serve >>"$OUT/server.log" 2>&1
+    exec "$OUT/bin/renovatio-server" serve >>"$OUT/server.log" 2>&1
   ) &
   server_pid=$!
 }
@@ -105,15 +105,15 @@ if [ "$EXTERNAL" = 1 ]; then
   pgflag=(); pidflag=()
 else
   : "${AUZ_TEST_PG_URL:?set AUZ_TEST_PG_URL to a PostgreSQL superuser URL}"
-  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/auzring-server" ./cmd/auzring-server
+  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-server" ./cmd/renovatio-server
   CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/bootstrap" ./test/tools/bootstrap
   dbname="auz_load_$(date +%s)"
   psql "$AUZ_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
   dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$AUZ_TEST_PG_URL" "$dbname")
   (umask 077; openssl rand -hex 32 >"$OUT/master_key")
-  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/auzring-license" ./cmd/auzring-license
-  (umask 077; "$OUT/bin/auzring-license" keygen --out "$OUT/license.key" >/dev/null
-   "$OUT/bin/auzring-license" sign --key "$OUT/license.key" --licensee "load test" --max-devices 1000000 \
+  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-license" ./cmd/renovatio-license
+  (umask 077; "$OUT/bin/renovatio-license" keygen --out "$OUT/license.key" >/dev/null
+   "$OUT/bin/renovatio-license" sign --key "$OUT/license.key" --licensee "load test" --max-devices 1000000 \
      --expires "$(date -u -d '+30 days' +%F)" --out "$OUT/load.lic" >/dev/null)
   echo "== starting the server (database $dbname, http :$HTTP_PORT, gateway :$GW_PORT)"
   start_server
@@ -173,7 +173,7 @@ for sc in $SCENARIOS; do
   args+=(${pgflag[@]+"${pgflag[@]}"} ${pidflag[@]+"${pidflag[@]}"})
   if [ "$sc" = storm ] && [ "$STORM_MODE" = server-restart ]; then
     args+=(--storm-mode external)
-    "$OUT/bin/auzring-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" &
+    "$OUT/bin/renovatio-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" &
     sim=$!
     for _ in $(seq 1 3600); do grep -q "STORM: waiting" "$OUT/$sc.err" 2>/dev/null && break; kill -0 "$sim" 2>/dev/null || break; sleep 0.1; done
     if kill -0 "$sim" 2>/dev/null; then
@@ -184,7 +184,7 @@ for sc in $SCENARIOS; do
     wait "$sim" || status=1
   else
     [ "$sc" = storm ] && args+=(--storm-mode client)
-    "$OUT/bin/auzring-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" || status=1
+    "$OUT/bin/renovatio-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" || status=1
   fi
   netsnap >"$OUT/$sc.net.after"
   {

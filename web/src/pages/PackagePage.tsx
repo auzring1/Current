@@ -7,6 +7,7 @@ import { api, errorMessage, type Detection, type PackageDetail, type PackageOver
 import { bytes, dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { PackageBadges } from "./CatalogPage";
+import { PRODUCT_NAME } from "../brand.generated";
 
 const policies = [
   { value: "", label: "Use the organization default" },
@@ -72,7 +73,7 @@ export function PackagePage() {
           </SimpleGrid>
           {!d.package.verified && d.package.source === "winget" && (
             <Alert color="yellow" title="Unverified package">
-              This package has not passed the Auzring VM test matrix. Its installer type and silent switches come from the community manifest. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
+              This package has not passed the {PRODUCT_NAME} VM test matrix. Its installer type and silent switches come from the community manifest. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
             </Alert>
           )}
           <Title order={4}>Versions and installers</Title>
@@ -113,7 +114,7 @@ export function PackagePage() {
                             </Text>
                           ) : (
                             <Badge size="xs" color="green" variant="light">
-                              {i.server_content ? "served by Auzring" : "vendor download"}
+                              {i.server_content ? `served by ${PRODUCT_NAME}` : "vendor download"}
                             </Badge>
                           )}
                         </Table.Td>

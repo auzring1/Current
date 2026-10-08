@@ -18,11 +18,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/renovatio/internal/server/store"
 )
 
 // AppPassword is the password of the test-only auzring_app role.
-const AppPassword = "auzring-app-test-only"
+const AppPassword = "renovatio-app-test-only"
 
 // DB is a migrated test database.
 type DB struct {

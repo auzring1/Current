@@ -6,6 +6,7 @@ import { api, errorMessage, type DeviceWindowsUpdates, type RestartPolicy } from
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { DecisionBadge, severityColor } from "../pages/UpdatesPage";
+import { PRODUCT_NAME } from "../brand.generated";
 
 const doneStates = ["succeeded", "succeeded_reboot", "failed", "expired", "cancelled", "rejected"];
 
@@ -96,7 +97,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
             </ul>
           )}
           <Text size="sm" mt={4}>
-            Auzring does not change these policies. Installs can be delayed or blocked until you change them (for example with Group Policy).
+            {PRODUCT_NAME} does not change these policies. Installs can be delayed or blocked until you change them (for example with Group Policy).
           </Text>
         </Alert>
       )}

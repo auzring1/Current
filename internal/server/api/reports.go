@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/csv"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/groups"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/groups"
 )
 
 // maxExportRows bounds one CSV download.
@@ -49,7 +50,7 @@ func (s *server) startCSV(w http.ResponseWriter, r *http.Request, kind string, d
 	}
 	stamp := s.now().UTC().Format("20060102-150405")
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="auzring-`+kind+`-`+stamp+`.csv"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+brand.Slug+`-`+kind+`-`+stamp+`.csv"`)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("\xEF\xBB\xBF"))

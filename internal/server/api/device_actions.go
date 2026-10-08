@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/auzring/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/deploy"
 )
 
 // deviceActionError maps the deploy service's device-level errors to HTTP responses.

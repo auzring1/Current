@@ -1,8 +1,8 @@
 # Phase 4 demo script: Windows and driver updates
 
-Goal: see what Windows Update offers a real Windows machine from the console, approve updates by hand and by rule, roll them out through rings, watch an install, use the three restart policies (including the visible countdown), hide an update, and see how Auzring reports a machine whose updates are controlled by WSUS or Windows Update for Business. Allow about 90 minutes plus the time Windows needs to install updates; Parts A to F are the core.
+Goal: see what Windows Update offers a real Windows machine from the console, approve updates by hand and by rule, roll them out through rings, watch an install, use the three restart policies (including the visible countdown), hide an update, and see how Renovatio reports a machine whose updates are controlled by WSUS or Windows Update for Business. Allow about 90 minutes plus the time Windows needs to install updates; Parts A to F are the core.
 
-You need the Phase 1 to 3 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE3-DEMO.md](PHASE3-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine. **Use a VM you can revert, and prefer one that is a few months behind on patches** (an old snapshot, or a freshly installed ISO that has never run Windows Update). A fully patched machine has nothing to install, and you will only see the empty state. The examples assume the server name `auzring.lab`. For Part G you want a second enrolled machine (optional but it is the only way to see a ring wait for another ring).
+You need the Phase 1 to 3 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE3-DEMO.md](PHASE3-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine. **Use a VM you can revert, and prefer one that is a few months behind on patches** (an old snapshot, or a freshly installed ISO that has never run Windows Update). A fully patched machine has nothing to install, and you will only see the empty state. The examples assume the server name `renovatio.lab`. For Part G you want a second enrolled machine (optional but it is the only way to see a ring wait for another ring).
 
 **Be honest about what is new:** this is the first time the Windows Update Agent (WUA, driven through COM) and the restart countdown run on a real machine. They have only been compiled for Windows, covered by tests against a scripted stand-in, and run read-only on a CI runner. If a scan or an install fails here, that is useful information: keep `C:\ProgramData\Auzring\logs\agent.log` and the job's log tail from the console.
 
@@ -22,7 +22,7 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
 
 2. **Build the Phase 4 agent** and copy it to the Windows machine (`C:\Temp`):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent
    ```
    Older agents cannot run Windows Update jobs and there is no agent self-update until Phase 5, so reinstall: in PowerShell as Administrator
    ```powershell
@@ -31,7 +31,7 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
    ```
    then **Enrollment → New token** in the console and
    ```powershell
-   .\auzring-agent.exe install --server auzring.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
    ```
    Approve the device if asked. ✅ It is **online**.
 
@@ -94,13 +94,13 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
     Set-ItemProperty "$k\AU" UseWUServer 1 -Type DWord
     ```
     Click **Scan now**. ✅ The device tab shows a yellow banner **"Windows updates on this device are managed by another policy"**, effective source *wsus*, with the server name, and the machine appears under **Update policy → Devices managed by another update policy**. The scan itself will likely report an error (the fake server does not exist): ✅ it appears as **The last scan failed** with the cause.
-    Remove the test policy: `Remove-Item -Recurse "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"`. ✅ After the next scan the banner is gone. **Auzring never writes these policies**; the check proves that.
+    Remove the test policy: `Remove-Item -Recurse "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"`. ✅ After the next scan the banner is gone. **Renovatio never writes these policies**; the check proves that.
 
 ## Part I: Checks that matter for trust (about 15 minutes)
 
 19. **Local ceiling.** Reinstall the agent with `--allowed-jobs inventory,software_install` (no `wu_*`). Click **Scan now**. ✅ The job ends `rejected` with the ceiling as the reason; the server cannot override it.
 
-20. **Audit.** **Audit log** shows `wu.decision`, `wu.auto_approve`, `wu.install`, `wu.hide`, `wu.scan`, `wu.ring_create`, `wu.rule_create`, `wu.hold`, `wu.hold_release` and `device.reboot` with who did what. 🔒 Verify the chain still checks: `docker compose -f deploy/docker-compose.yml exec server auzring-server admin verify-audit`.
+20. **Audit.** **Audit log** shows `wu.decision`, `wu.auto_approve`, `wu.install`, `wu.hide`, `wu.scan`, `wu.ring_create`, `wu.rule_create`, `wu.hold`, `wu.hold_release` and `device.reboot` with who did what. 🔒 Verify the chain still checks: `docker compose -f deploy/docker-compose.yml exec server renovatio-server admin verify-audit`.
 
 ## What to send back
 

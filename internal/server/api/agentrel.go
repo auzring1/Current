@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/auzring/internal/server/agentrel"
-	"github.com/auzring1/auzring/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/agentrel"
+	"github.com/auzring1/renovatio/internal/server/deploy"
 )
 
 func (s *server) relSvc(w http.ResponseWriter) bool {

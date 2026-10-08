@@ -5,10 +5,10 @@
 #   scripts/release-kms.sh <provider> pubkey [--out public.hex]
 #
 # Contract
-#   input   tosign.bin from `auzring-release tosign`: "auzring/release/v1\0" + the manifest bytes.
+#   input   tosign.bin from `renovatio-release tosign`: "auzring/release/v1\0" + the manifest bytes.
 #   output  sig.bin: the raw 64-byte Ed25519 (RFC 8032, PureEdDSA, no pre-hash) signature over those exact bytes.
 #   The private key never leaves the KMS/HSM. The caller (release.yml) authenticates to the cloud with OIDC
-#   (no stored cloud credentials), then runs `auzring-release attach` and `auzring-release verify` against the
+#   (no stored cloud credentials), then runs `renovatio-release attach` and `renovatio-release verify` against the
 #   public key committed in release/release-public-keys.txt, so a wrong key or a bad signature fails the release.
 #
 # Providers (set AUZ_KMS_PROVIDER in the repository variables; you need exactly one)
@@ -19,7 +19,7 @@
 #           logged in (azure/login with OIDC). CAVEAT: this hook assumes the vault can hold an Ed25519 (OKP) key and
 #           sign with algorithm EdDSA. We could not confirm that Azure offers this (as of writing it does not for
 #           Key Vault, to our knowledge); if the service refuses, use the aws provider or another KMS/HSM. Unverified.
-#   dryrun  throw-away key file (AUZ_DRYRUN_KEY) signed with `auzring-release sign-bytes` (AUZ_RELEASE_BIN). NEVER for
+#   dryrun  throw-away key file (AUZ_DRYRUN_KEY) signed with `renovatio-release sign-bytes` (AUZ_RELEASE_BIN). NEVER for
 #           a real release; the workflow uses it only when dry_run is true.
 #
 # Adding a provider (GCP KMS, a PKCS#11 HSM, Vault transit ...) means one more function pair below with the same
@@ -108,7 +108,7 @@ case "$provider:$action" in
   aws:sign|azure:sign|dryrun:sign)
     [ -n "$in" ] && [ -n "$out" ] || die "sign needs --in and --out"
     [ -s "$in" ] || die "$in is missing or empty"
-    head -c 19 "$in" | cmp -s - <(printf 'auzring/release/v1\0') || die "$in does not start with the release domain prefix (make it with: auzring-release tosign)"
+    head -c 19 "$in" | cmp -s - <(printf 'auzring/release/v1\0') || die "$in does not start with the release domain prefix (make it with: renovatio-release tosign)"
     tmp=$(mktemp)
     out_final=$out; out=$tmp
     "${provider}_sign"

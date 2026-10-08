@@ -12,7 +12,7 @@
 # (cosign and GitHub attestations are attached afterwards, see .github/workflows/release.yml); layer and
 # config timestamps are rewritten to --source-date-epoch (BuildKit >= 0.13, `rewrite-timestamp=true`).
 # The server binary inside is built with the same flags as scripts/build-release.sh, so it should be
-# byte-identical to auzring-server_<v>_linux_amd64 from that script; `--go-version` makes the build fail if the
+# byte-identical to renovatio-server_<v>_linux_amd64 from that script; `--go-version` makes the build fail if the
 # pinned base image carries a different Go release.
 #
 # Needs Docker with buildx and a daemon. NOT exercised in the authoring sandbox (no Docker daemon there).
@@ -42,7 +42,7 @@ done
 [[ $sde =~ ^[0-9]+$ ]] || die "--source-date-epoch must be a number"
 
 command -v docker >/dev/null || die "docker is required"
-builder=auzring-release
+builder=renovatio-release
 if ! docker buildx inspect "$builder" >/dev/null 2>&1; then
   opts=()
   # Pin BuildKit itself by digest in the release environment: AUZ_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...

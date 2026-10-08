@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/auzring1/auzring/internal/server/kek"
+	"github.com/auzring1/renovatio/internal/server/kek"
 )
 
 // Root-passphrase KDF parameters (argon2id). Root unlocks are rare, so we

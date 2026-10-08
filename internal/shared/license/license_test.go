@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 func key(t testing.TB) (ed25519.PublicKey, ed25519.PrivateKey) {

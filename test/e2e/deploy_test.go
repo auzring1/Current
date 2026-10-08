@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/core"
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/agent/jobs"
-	"github.com/auzring1/auzring/internal/agent/store"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/core"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/agent/jobs"
+	"github.com/auzring1/renovatio/internal/agent/store"
 )
 
 // upload sends an installer as the raw request body.

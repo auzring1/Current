@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/shared/installer"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 // Limits applied to every job body before anything is persisted or run.

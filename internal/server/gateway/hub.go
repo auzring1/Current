@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // Hub tracks the live stream of each connected device (one per device).

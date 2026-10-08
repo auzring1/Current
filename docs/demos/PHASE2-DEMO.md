@@ -4,7 +4,7 @@ Goal: see everything installed on a real Windows machine (machine-wide, per-user
 
 You need the Phase 1 setup from [PHASE1-DEMO.md](PHASE1-DEMO.md): a running server stack, a console login with your authenticator, and a Windows test machine (a VM, or your own PC; the agent runs as a service and only reads data). Phase 1's agent has no self-update yet, so the agent is reinstalled in step 3.
 
-The examples assume the server name `auzring.lab` as in Phase 1.
+The examples assume the server name `renovatio.lab` as in Phase 1.
 
 ---
 
@@ -20,7 +20,7 @@ The examples assume the server name `auzring.lab` as in Phase 1.
 
 2. **Build the new agent** (any machine with Go 1.27):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent
    ```
    Copy it to the Windows machine (for example `C:\Temp`).
 
@@ -33,7 +33,7 @@ The examples assume the server name `auzring.lab` as in Phase 1.
    ```
    In the console create a new enrollment token (**Enrollment → New token**, approval **off** is fine), then:
    ```powershell
-   .\auzring-agent.exe install --server auzring.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
    ```
    If the old device is still listed, it is now **revoked** or **pending** (same hardware re-enrolls and needs approval; approving it retires the old identity). Approve the new one.
 
@@ -127,7 +127,7 @@ The examples assume the server name `auzring.lab` as in Phase 1.
 Remove-Item HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\DemoBrowser, HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\DemoFormula -ErrorAction SilentlyContinue
 net user demo2 /delete
 ```
-Remove the agent with `auzring-agent.exe uninstall` when you are done.
+Remove the agent with `renovatio-agent.exe uninstall` when you are done.
 
 ## What to tell me
 Anything that looks wrong in the Software tab compared with *Settings → Apps*, any missing Store apps, any BitLocker value that looks wrong for your machine, and how long the 30-second change detection felt. The Windows-only collectors have been run by CI on a clean runner only; your real machine is the first full-profile test.

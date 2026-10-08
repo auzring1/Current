@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/shared/installer"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 const logTailMax = 16 << 10
@@ -224,7 +224,7 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 }
 
 // installPortable copies a single portable executable into the machine-wide
-// Auzring portable directory.
+// legacy "Auzring" portable directory (the folder name is kept, see RENAME-PLAN.md B2).
 func (e *Engine) installPortable(b *agentv1.InstallBody, file string) (string, error) {
 	root := e.P.Env(installer.Machine, "", "PROGRAMFILES")
 	if root == "" {

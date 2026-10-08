@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/base64"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io/fs"
 	"net/http"
 	"path"
@@ -23,7 +24,7 @@ func Handler() http.Handler {
 	sub, _ := fs.Sub(dist, "dist")
 	index, err := fs.ReadFile(sub, "index.html")
 	if err != nil {
-		index = []byte(`<!doctype html><html><head><meta charset="utf-8"><title>Auzring</title></head>` +
+		index = []byte(`<!doctype html><html><head><meta charset="utf-8"><title>` + brand.Name + `</title></head>` +
 			`<body><p>The web console was not built into this binary. Run <code>make web</code> and rebuild.</p></body></html>`)
 	}
 	files := http.FileServer(http.FS(sub))

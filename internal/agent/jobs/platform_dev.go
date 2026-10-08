@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/agent/wu"
-	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/agent/wu"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 // devPlatform is the Linux stand-in used only for integration tests and the

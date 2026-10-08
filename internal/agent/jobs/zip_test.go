@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 func zipBytes(t *testing.T, files map[string]string) []byte {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActionIcon, Badge, Button, Code, CopyButton, Group, Image, List, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import QRCode from "qrcode";
+import { PRODUCT_NAME } from "../brand.generated";
 
 export function StatusBadge({ status }: { status: string }) {
   const color = { active: "green", pending: "yellow", revoked: "red", retired: "gray", expired: "gray", exhausted: "gray" }[status] ?? "gray";
@@ -57,10 +58,10 @@ export function TotpQR({ uri, secret }: { uri: string; secret: string }) {
 
 export function RecoveryCodes({ codes }: { codes: string[] }) {
   const download = () => {
-    const blob = new Blob([`Auzring recovery codes (each works once)\n\n${codes.join("\n")}\n`], { type: "text/plain" });
+    const blob = new Blob([`${PRODUCT_NAME} recovery codes (each works once)\n\n${codes.join("\n")}\n`], { type: "text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "auzring-recovery-codes.txt";
+    a.download = `${PRODUCT_NAME.toLowerCase()}-recovery-codes.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
