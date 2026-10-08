@@ -5,7 +5,7 @@ import "testing"
 // FuzzParse: an enrollment string is typed or pasted by an administrator, but it is still parsed
 // as untrusted text. Whatever Parse accepts must survive Encode and Parse again unchanged.
 func FuzzParse(f *testing.F) {
-	good := Bundle{V: 1, Gateway: "auzring.example.com:8443", RootPin: "sha256/" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", Token: "tok", Org: "00000000-0000-0000-0000-000000000001"}
+	good := Bundle{V: 1, Gateway: "renovatio.example.com:8443", RootPin: "sha256/" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", Token: "tok", Org: "00000000-0000-0000-0000-000000000001"}
 	if s, err := good.Encode(); err == nil {
 		f.Add(s)
 	}

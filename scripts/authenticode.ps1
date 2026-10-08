@@ -16,7 +16,7 @@
   -Action Verify  checks that each file has a valid, timestamped Authenticode signature and that the signer's
                   simple display name (the CN; this is exactly what the agent compares, see
                   internal/agent/jobs/platform_windows.go, CERT_NAME_SIMPLE_DISPLAY_TYPE) equals -Subject.
-                  The same value must be pinned into the vendor release manifest (auzring-release manifest
+                  The same value must be pinned into the vendor release manifest (renovatio-release manifest
                   --authenticode-subject), otherwise agents will refuse the update.
 
   Not exercised in the authoring sandbox (Linux, no signtool, no certificate). Reviewed against the

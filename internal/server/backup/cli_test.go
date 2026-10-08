@@ -13,8 +13,8 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/auzring1/auzring/internal/server/config"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 type cliEnv struct {

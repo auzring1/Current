@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // devClient is the non-Windows stand-in: it reads and writes <dataDir>/wu-dev.json so tests, the

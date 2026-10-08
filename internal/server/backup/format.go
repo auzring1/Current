@@ -1,4 +1,4 @@
-// Package backup implements `auzring-server backup` and `auzring-server restore`.
+// Package backup implements `renovatio-server backup` and `renovatio-server restore`.
 //
 // An archive is a tar stream inside an age stream (filippo.io/age). The tar
 // members, in order, are:

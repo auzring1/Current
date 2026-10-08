@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -14,18 +15,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/agentrel"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/config"
-	"github.com/auzring1/auzring/internal/server/deploy"
-	"github.com/auzring1/auzring/internal/server/events"
-	"github.com/auzring1/auzring/internal/server/kek"
-	"github.com/auzring1/auzring/internal/server/licensing"
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/server/policies"
-	"github.com/auzring1/auzring/internal/server/updates"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/agentrel"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/events"
+	"github.com/auzring1/renovatio/internal/server/kek"
+	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/updates"
 )
 
 // SetupController is implemented by the app to drive first-run setup.
@@ -95,7 +96,7 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 		sse:        newSSELimiter(5),
 	}
 	if d.Cfg != nil && d.Cfg.PublicURL != nil {
-		if wa, err := webauthn.New(&webauthn.Config{RPDisplayName: "Auzring", RPID: d.Cfg.PublicURL.Hostname(), RPOrigins: []string{d.Cfg.Origin()}}); err == nil {
+		if wa, err := webauthn.New(&webauthn.Config{RPDisplayName: brand.Name, RPID: d.Cfg.PublicURL.Hostname(), RPOrigins: []string{d.Cfg.Origin()}}); err == nil {
 			s.webauthn = wa
 		} else if d.Log != nil {
 			d.Log.Warn("security keys disabled", "err", err)

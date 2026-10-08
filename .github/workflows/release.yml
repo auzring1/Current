@@ -129,9 +129,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$DRY" = true ]; then
-            subjects="Auzring Dry Run"
+            subjects="Renovatio Dry Run"
             mkdir -p "$RUNNER_TEMP/dryrun-key"
-            go run ./cmd/auzring-release keygen --out "$RUNNER_TEMP/dryrun-key/release.key" >/dev/null
+            go run ./cmd/renovatio-release keygen --out "$RUNNER_TEMP/dryrun-key/release.key" >/dev/null
             pub=$(tr -d '[:space:]' < "$RUNNER_TEMP/dryrun-key/release.pub")
             echo "::warning::DRY RUN: the compiled-in release key is a throw-away; its private half is uploaded as a workflow artifact"
           else
@@ -248,7 +248,7 @@ jobs:
           endpoint: ${{ vars.AUZ_ARTIFACT_SIGNING_ENDPOINT }}
           signing-account-name: ${{ vars.AUZ_ARTIFACT_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ vars.AUZ_ARTIFACT_SIGNING_PROFILE }}
-          files: ${{ github.workspace }}\dist-release\out\auzring-agent_${{ needs.prepare.outputs.version }}_windows_amd64.exe
+          files: ${{ github.workspace }}\dist-release\out\renovatio-agent_${{ needs.prepare.outputs.version }}_windows_amd64.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
@@ -260,12 +260,12 @@ jobs:
         env:
           AUZ_SIGNTOOL_ARGS: ${{ vars.AUZ_SIGNTOOL_ARGS }}
           AUZ_SIGNTOOL_SECRET: ${{ secrets.AUZ_SIGNTOOL_SECRET }}
-        run: ./scripts/authenticode.ps1 -Action Sign -Files "dist-release\out\auzring-agent_$($env:VERSION)_windows_amd64.exe"
+        run: ./scripts/authenticode.ps1 -Action Sign -Files "dist-release\out\renovatio-agent_$($env:VERSION)_windows_amd64.exe"
 
       - name: Verify the agent signature and the pinned signer
         if: ${{ needs.prepare.outputs.dry_run == 'false' }}
         shell: pwsh
-        run: ./scripts/authenticode.ps1 -Action Verify -Subject $env:SUBJECT -Files "dist-release\out\auzring-agent_$($env:VERSION)_windows_amd64.exe"
+        run: ./scripts/authenticode.ps1 -Action Verify -Subject $env:SUBJECT -Files "dist-release\out\renovatio-agent_$($env:VERSION)_windows_amd64.exe"
 
       # The agent is signed BEFORE it goes into the MSI; build.ps1 embeds it unchanged.
       - name: Build the MSI (WiX v7, ICE validation)
@@ -274,9 +274,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force dist-release\msi | Out-Null
           ./installer/windows/build.ps1 `
-            -AgentExe "dist-release\out\auzring-agent_$($env:VERSION)_windows_amd64.exe" `
+            -AgentExe "dist-release\out\renovatio-agent_$($env:VERSION)_windows_amd64.exe" `
             -Version $env:VERSION `
-            -Output "$PWD\dist-release\msi\auzring-agent_$($env:VERSION)_windows_x64.msi"
+            -Output "$PWD\dist-release\msi\renovatio-agent_$($env:VERSION)_windows_x64.msi"
 
       - name: Sign the MSI (Azure Artifact Signing)
         if: ${{ needs.prepare.outputs.dry_run == 'false' && vars.AUZ_AUTHENTICODE_PROVIDER == 'azure-artifact-signing' }}
@@ -285,7 +285,7 @@ jobs:
           endpoint: ${{ vars.AUZ_ARTIFACT_SIGNING_ENDPOINT }}
           signing-account-name: ${{ vars.AUZ_ARTIFACT_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ vars.AUZ_ARTIFACT_SIGNING_PROFILE }}
-          files: ${{ github.workspace }}\dist-release\msi\auzring-agent_${{ needs.prepare.outputs.version }}_windows_x64.msi
+          files: ${{ github.workspace }}\dist-release\msi\renovatio-agent_${{ needs.prepare.outputs.version }}_windows_x64.msi
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
@@ -295,18 +295,18 @@ jobs:
         env:
           AUZ_SIGNTOOL_ARGS: ${{ vars.AUZ_SIGNTOOL_ARGS }}
           AUZ_SIGNTOOL_SECRET: ${{ secrets.AUZ_SIGNTOOL_SECRET }}
-        run: ./scripts/authenticode.ps1 -Action Sign -Files "dist-release\msi\auzring-agent_$($env:VERSION)_windows_x64.msi"
+        run: ./scripts/authenticode.ps1 -Action Sign -Files "dist-release\msi\renovatio-agent_$($env:VERSION)_windows_x64.msi"
       - name: Verify the MSI signature and the pinned signer
         if: ${{ needs.prepare.outputs.dry_run == 'false' }}
         shell: pwsh
-        run: ./scripts/authenticode.ps1 -Action Verify -Subject $env:SUBJECT -Files "dist-release\msi\auzring-agent_$($env:VERSION)_windows_x64.msi"
+        run: ./scripts/authenticode.ps1 -Action Verify -Subject $env:SUBJECT -Files "dist-release\msi\renovatio-agent_$($env:VERSION)_windows_x64.msi"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-signed
           path: |
-            dist-release/out/auzring-agent_${{ needs.prepare.outputs.version }}_windows_amd64.exe
-            dist-release/msi/auzring-agent_${{ needs.prepare.outputs.version }}_windows_x64.msi
+            dist-release/out/renovatio-agent_${{ needs.prepare.outputs.version }}_windows_amd64.exe
+            dist-release/msi/renovatio-agent_${{ needs.prepare.outputs.version }}_windows_x64.msi
           retention-days: 14
 
   # The vendor release manifest (decision D68): the pipeline obtains the bytes to sign, a KMS signs them
@@ -341,7 +341,7 @@ jobs:
           set -euo pipefail
           if [ "$DRY" = true ]; then
             echo "provider=dryrun" >> "$GITHUB_OUTPUT"
-            echo "subject=Auzring Dry Run" >> "$GITHUB_OUTPUT"
+            echo "subject=Renovatio Dry Run" >> "$GITHUB_OUTPUT"
             echo "::warning::DRY RUN: the vendor manifest is signed with a throw-away key, not a KMS"
           else
             case "$KMS_PROVIDER" in aws|azure) ;; *) echo "::error::AUZ_KMS_PROVIDER must be 'aws' or 'azure' (open decision O7, docs/RUNBOOK.md)"; exit 1 ;; esac
@@ -373,9 +373,9 @@ jobs:
           AUZ_AKV_KEY_VERSION: ${{ vars.AUZ_AKV_KEY_VERSION }}
         run: |
           set -euo pipefail
-          tool="$PWD/dist-release/out/auzring-release_${VERSION}_linux_amd64"
+          tool="$PWD/dist-release/out/renovatio-release_${VERSION}_linux_amd64"
           chmod +x "$tool"
-          exe=$(find dist-release/signed -name "auzring-agent_${VERSION}_windows_amd64.exe" | head -1)
+          exe=$(find dist-release/signed -name "renovatio-agent_${VERSION}_windows_amd64.exe" | head -1)
           [ -n "$exe" ] || { echo "::error::signed agent not found in the windows-signed artifact"; exit 1; }
           sde=$(git log -1 --format=%ct)
           work=dist-release/manifest
@@ -393,13 +393,13 @@ jobs:
           # The key that signed must be one of the keys compiled into this build.
           case ",${COMPILED_KEYS}," in *",$pub,"*) ;; *) echo "::error::the KMS key $pub is not among the compiled-in release keys"; exit 1 ;; esac
           "$tool" attach --manifest "$work/manifest.json" --signature "$work/sig.bin" --pub "$pub" \
-            --out "dist-release/manifest/auzring-agent_${VERSION}_windows_amd64.azr"
+            --out "dist-release/manifest/renovatio-agent_${VERSION}_windows_amd64.azr"
           echo "$pub" > "$work/pub.hex"
-          "$tool" verify --bundle "dist-release/manifest/auzring-agent_${VERSION}_windows_amd64.azr" --exe "$exe" --pub "$work/pub.hex"
+          "$tool" verify --bundle "dist-release/manifest/renovatio-agent_${VERSION}_windows_amd64.azr" --exe "$exe" --pub "$work/pub.hex"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: manifest
-          path: dist-release/manifest/auzring-agent_${{ needs.prepare.outputs.version }}_windows_amd64.azr
+          path: dist-release/manifest/renovatio-agent_${{ needs.prepare.outputs.version }}_windows_amd64.azr
           retention-days: 14
 
   image:
@@ -455,10 +455,10 @@ jobs:
         run: |
           set -euo pipefail
           id=$(docker create "$IMAGE@$DIGEST")
-          docker cp "$id:/auzring-server" "$RUNNER_TEMP/image-server"
+          docker cp "$id:/renovatio-server" "$RUNNER_TEMP/image-server"
           docker rm "$id" >/dev/null
           a=$(sha256sum "$RUNNER_TEMP/image-server" | cut -d' ' -f1)
-          b=$(sha256sum "dist-release/out/auzring-server_${VERSION}_linux_amd64" | cut -d' ' -f1)
+          b=$(sha256sum "dist-release/out/renovatio-server_${VERSION}_linux_amd64" | cut -d' ' -f1)
           [ "$a" = "$b" ] || { echo "::error::image binary $a differs from the released binary $b"; exit 1; }
       - name: SBOM of the image
         if: needs.prepare.outputs.dry_run == 'false'
@@ -466,7 +466,7 @@ jobs:
         with:
           image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }}
           format: cyclonedx-json
-          output-file: auzring-server_${{ needs.prepare.outputs.version }}_image.cdx.json
+          output-file: renovatio-server_${{ needs.prepare.outputs.version }}_image.cdx.json
           upload-artifact: false
           upload-release-assets: false
       - name: Sign the image and attach the SBOM (cosign keyless, by digest)
@@ -477,7 +477,7 @@ jobs:
         run: |
           set -euo pipefail
           cosign sign --yes "$IMAGE@$DIGEST"
-          cosign attest --yes --type cyclonedx --predicate "auzring-server_${VERSION}_image.cdx.json" "$IMAGE@$DIGEST"
+          cosign attest --yes --type cyclonedx --predicate "renovatio-server_${VERSION}_image.cdx.json" "$IMAGE@$DIGEST"
           cosign verify "$IMAGE@$DIGEST" \
             --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
@@ -495,7 +495,7 @@ jobs:
           name: image-meta
           path: |
             image-ref.txt
-            auzring-server_${{ needs.prepare.outputs.version }}_image.cdx.json
+            renovatio-server_${{ needs.prepare.outputs.version }}_image.cdx.json
           retention-days: 14
 
   publish:
@@ -531,9 +531,9 @@ jobs:
           # The signed agent replaces the unsigned one; the MSI and the vendor bundle are added.
           find dist-release/signed -type f -exec cp {} "$final/" \;
           cp dist-release/manifest/*.azr "$final/"
-          chmod +x "$final"/auzring-release_* "$final"/auzring-server_*_linux_amd64 2>/dev/null || true
+          chmod +x "$final"/renovatio-release_* "$final"/renovatio-server_*_linux_amd64 2>/dev/null || true
           # Everything except the signed agent must still be byte-identical to the reproducible build.
-          agent="auzring-agent_${VERSION}_windows_amd64.exe"
+          agent="renovatio-agent_${VERSION}_windows_amd64.exe"
           grep -v "  ${agent}$" "$final/unsigned-SHA256SUMS" > "$RUNNER_TEMP/expected"
           (cd "$final" && sha256sum -c "$RUNNER_TEMP/expected")
           scripts/release-checksums.sh "$final"
@@ -583,4 +583,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "Auzring $VERSION" --generate-notes dist-release/final/*
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "Renovatio $VERSION" --generate-notes dist-release/final/*

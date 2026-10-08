@@ -7,7 +7,7 @@ allowed_go="Apache-2.0,BSD-2-Clause,BSD-3-Clause,MIT,ISC,MPL-2.0"
 echo "== Go modules linked into shipped binaries"
 for goos in linux windows; do
   GOOS=$goos go-licenses check ./cmd/... --allowed_licenses="$allowed_go" \
-    --ignore github.com/auzring1/auzring
+    --ignore github.com/auzring1/renovatio
 done
 echo "== npm production dependencies (web console bundle)"
 node - <<'JS'

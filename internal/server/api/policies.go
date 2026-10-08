@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/policies"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/policies"
 )
 
 func (s *server) polSvc(w http.ResponseWriter) bool {

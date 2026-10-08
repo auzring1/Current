@@ -52,7 +52,7 @@ const (
 // PublicKeysHex is the comma-separated list of trusted vendor license public keys (hex Ed25519).
 // Release builds set it with
 //
-//	-ldflags "-X github.com/auzring1/auzring/internal/shared/license.PublicKeysHex=<hex>[,<hex>]"
+//	-ldflags "-X github.com/auzring1/renovatio/internal/shared/license.PublicKeysHex=<hex>[,<hex>]"
 //
 // There is no default key and no "dev" key in the tree. A build without a key reports "licensing not
 // configured" and the server runs unlicensed (evaluation limits), see ErrNotConfigured.
@@ -225,7 +225,7 @@ func Verify(keys []ed25519.PublicKey, blob string) (*Verified, error) {
 }
 
 // ParseUnverified decodes and validates a blob WITHOUT checking the signature. Only for display
-// tools (`auzring-license show`) and code that already verified the blob.
+// tools (`renovatio-license show`) and code that already verified the blob.
 func ParseUnverified(blob string) (*Document, error) {
 	doc, _, err := Decode(blob)
 	if err != nil {

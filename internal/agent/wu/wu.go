@@ -11,7 +11,7 @@ import (
 	"errors"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // MaxUpdates bounds a scan snapshot; a device with more applicable updates is reported truncated.

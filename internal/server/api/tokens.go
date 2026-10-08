@@ -14,12 +14,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/shared/bundle"
-	"github.com/auzring1/auzring/internal/shared/pkix"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/bundle"
+	"github.com/auzring1/renovatio/internal/shared/pkix"
 )
 
 type tokenView struct {
@@ -147,7 +147,7 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"token":             viewToken(created, now),
 		"enrollment_string": enc,
-		"install_command":   `auzring-agent.exe install --server ` + s.Cfg.GatewayPublicAddr + ` --token ` + enc,
+		"install_command":   `renovatio-agent.exe install --server ` + s.Cfg.GatewayPublicAddr + ` --token ` + enc,
 		"root_ca_pin":       pkix.SPKIPin(a.Root),
 	})
 }

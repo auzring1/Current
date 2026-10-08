@@ -83,7 +83,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByLabel(/^Name/).fill("GUI test");
   await page.getByRole("button", { name: "Create" }).click();
   const cmd = (await page.locator("pre").first().innerText()).trim();
-  expect(cmd).toContain("auzring-agent.exe install --server");
+  expect(cmd).toContain("renovatio-agent.exe install --server");
   await shot(page, "03-token");
   const enrollment = cmd.split("--token ")[1]!.trim();
   await page.keyboard.press("Escape");
@@ -133,7 +133,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.keyboard.press("Escape");
       const download = page.waitForEvent("download");
       await page.getByRole("link", { name: "Export CSV" }).first().click();
-      expect((await download).suggestedFilename()).toMatch(/^auzring-software-.*\.csv$/);
+      expect((await download).suggestedFilename()).toMatch(/^renovatio-software-.*\.csv$/);
 
       // Dynamic group: preview, save, list.
       await page.getByRole("link", { name: "Groups" }).click();

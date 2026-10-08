@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 // queryText reads a free-text search parameter: trimmed, lower-cased, bounded.

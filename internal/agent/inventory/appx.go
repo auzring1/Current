@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // The AppX/MSIX registration store. This layout is not formally documented;

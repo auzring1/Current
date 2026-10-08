@@ -14,8 +14,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/shared/envelope"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/shared/envelope"
 )
 
 // The user-context helper (docs/ARCHITECTURE.md §8) is the agent binary started

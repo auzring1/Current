@@ -5,9 +5,11 @@ package selfupdate
 import (
 	"encoding/json"
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -39,7 +41,7 @@ func (d *Dev) active() string {
 }
 
 func (d *Dev) exe(slot string) string {
-	return filepath.Join(d.Dir, "slots", "slot-"+slot, "auzring-agent")
+	return filepath.Join(d.Dir, "slots", "slot-"+slot, strings.TrimSuffix(brand.InstalledAgentExe, ".exe"))
 }
 
 // Current implements Platform.

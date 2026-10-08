@@ -17,9 +17,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/kek"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/kek"
 )
 
 // Errors a caller may want to tell apart.
@@ -111,7 +111,7 @@ func Restore(ctx context.Context, o RestoreOptions) (*RestoreResult, error) {
 		return nil, err
 	}
 	if hdr.SchemaVersion > latest {
-		return nil, fmt.Errorf("%w: the backup has schema version %d (made by auzring-server %s) but this binary only knows migrations up to %d; restore with a newer auzring-server",
+		return nil, fmt.Errorf("%w: the backup has schema version %d (made by renovatio-server %s) but this binary only knows migrations up to %d; restore with a newer renovatio-server",
 			ErrNewerSchema, hdr.SchemaVersion, hdr.AppVersion, latest)
 	}
 	if !known[hdr.SchemaVersion] {
@@ -135,7 +135,7 @@ func Restore(ctx context.Context, o RestoreOptions) (*RestoreResult, error) {
 
 	// The data is committed. Bring the schema forward, then prove the audit chain.
 	if err := migrate(ctx, o.DatabaseURL, 0, log); err != nil {
-		return res, fmt.Errorf("the data was restored at schema version %d, but migrating forward failed (run `auzring-server migrate` after fixing it): %w", hdr.SchemaVersion, err)
+		return res, fmt.Errorf("the data was restored at schema version %d, but migrating forward failed (run `renovatio-server migrate` after fixing it): %w", hdr.SchemaVersion, err)
 	}
 	res.SchemaVersion = latest
 	conn, err := connect(ctx, o.DatabaseURL, "auzring-restore")

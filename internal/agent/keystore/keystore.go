@@ -28,7 +28,7 @@ type Provider interface {
 // server (it assigns the device ID), so it is left minimal.
 func CSR(key crypto.Signer) ([]byte, error) {
 	return x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
-		Subject:            pkix.Name{CommonName: "auzring-agent"},
+		Subject:            pkix.Name{CommonName: "renovatio-agent"},
 		SignatureAlgorithm: x509.ECDSAWithSHA256,
 	}, key)
 }

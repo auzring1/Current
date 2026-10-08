@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // NewCollector returns a development collector that reports dpkg packages as

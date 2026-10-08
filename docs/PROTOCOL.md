@@ -32,7 +32,7 @@ Root CA (ECDSA P-384, 20y)  — key encrypted with an owner passphrase; unlocked
  ├── Issuing CA (P-384, 5y, pathlen 0, EKU serverAuth+clientAuth)   — key encrypted with server KEK
  │    ├── Gateway server cert (P-256, 90d, auto-renewed, SAN = configured gateway hostnames/IPs)
  │    └── Device client certs (P-256, 90d; CN = device UUID; URI SAN urn:auzring:device:<uuid>; EKU clientAuth)
- └── Job-signing cert (Ed25519, 2y, EKU = 1.3.6.1.4.1.32473.7231.1.1 "auzring job signing" (placeholder PEN, see DECISIONS D25), issued *directly* by root)
+ └── Job-signing cert (Ed25519, 2y, EKU = 1.3.6.1.4.1.32473.7231.1.1 "renovatio job signing" (placeholder PEN, see DECISIONS D25), issued *directly* by root)
 ```
 
 - **The agent pins the root** by SPKI SHA-256 from its enrollment bundle. It accepts a job-signing certificate only if the root issued it directly and it has the job-signing EKU. The issuing CA can't produce one, because of its EKU constraint and path rule. So stealing the TLS issuing key does **not** let an attacker sign jobs.
@@ -51,7 +51,7 @@ AURZ1.<base64url(JSON)>
 
 The token is shown to the admin once. The server stores only `SHA-256("auzring/enroll-token/v1\0" || token)`, because the token is 256-bit random and a slow hash isn't needed. After the server accepts the enrollment (approved *or* pending), the agent erases the token from `config.json`.
 
-**Install command:** `auzring-agent.exe install --server host:port --token AURZ1....`. `--server` overrides the gateway address inside the bundle; the root pin always comes from the bundle.
+**Install command:** `renovatio-agent.exe install --server host:port --token AURZ1....`. `--server` overrides the gateway address inside the bundle; the root pin always comes from the bundle.
 
 ## 4. RPCs
 
@@ -234,13 +234,13 @@ RebootPolicy  { allow [NEVER|OUTSIDE_ACTIVE_HOURS|DEADLINE|NOW], active_hours{st
 
 ```
 AgentUpdateBody { manifest bytes, signature bytes (64), key_id bytes, timeout_s }
-Manifest (JSON, the exact signed bytes) { format 1, product "auzring-agent", version, os, arch, sha256 (hex), size,
+Manifest (JSON, the exact signed bytes) { format 1, product "renovatio-agent", version, os, arch, sha256 (hex), size,
   released_at?, min_version?, rollback_from[]?, authenticode_subject?, notes? }
 Signature = Ed25519( "auzring/release/v1\0" || manifest )   -- by a VENDOR release key
 ```
 
 - **Two signatures, two jobs.** The customer server signs the *job* like any other. The *release* is trusted only because its manifest verifies under a vendor release public key **compiled into the agent** (`-ldflags -X .../internal/shared/release.PublicKeysHex=<hex>[,<hex>]`; a build without one rejects every update). A compromised server can pick *when* an agent updates and *which vendor release*, never supply its own binary.
-- **Agent checks, in order:** manifest signature and strict parse (unknown fields, trailing data, bad hash/size/version are refused) → `os`/`arch` match → version rules (`CheckApplicable`: not the running version; not older unless the current version is listed in `rollback_from`; not below `min_version`) → no other update in flight → download over the mTLS channel (`FetchContent`, authorized for a job whose manifest names that SHA-256) → size and SHA-256 while streaming, re-hash from a locked handle → Authenticode subject equals `authenticode_subject` when set (release builds require it: `RequireAuthenticode`) → the binary run with `version` must print `auzring-agent <version> (`.
+- **Agent checks, in order:** manifest signature and strict parse (unknown fields, trailing data, bad hash/size/version are refused) → `os`/`arch` match → version rules (`CheckApplicable`: not the running version; not older unless the current version is listed in `rollback_from`; not below `min_version`) → no other update in flight → download over the mTLS channel (`FetchContent`, authorized for a job whose manifest names that SHA-256) → size and SHA-256 while streaming, re-hash from a locked handle → Authenticode subject equals `authenticode_subject` when set (release builds require it: `RequireAuthenticode`) → the binary run with `version` must print `renovatio-agent <version> (`.
 - **Switch (ARCHITECTURE §10):** write the binary to the inactive slot, persist `update.json`, arm the rollback task (abort if that fails), point the service at the new slot, ask the service manager to restart. The job stays `running` (`restarting_into_<version>`) and **ends after the restart**: `succeeded` when the new process completes its first handshake, `failed` ("did not become healthy…") when the safety net restored the old slot.
 - **Server side:** job type `agent_update` in `jobs.type`; per-device/release attempts in `agent_attempts`; `FetchContent` authorizes the binary when the live job's manifest names that hash.
 
@@ -303,7 +303,7 @@ Sections: `HARDWARE`, `USERS`, `SOFTWARE` and `WU` (§5.2b). Each section has it
 - The integrity guarantee is always the SHA-256 in the signed envelope, never the transport: the agent hashes while streaming, then re-opens the staged file locked and hashes it again before running it.
 
 ## 9. Service ↔ helper IPC (local only)
-- **Transport (as built):** two anonymous pipes created by the service, one for the task and one for the result. Only the helper's two ends are inherited (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and their numeric handle values are passed on the helper's command line (`auzring-agent.exe helper <taskHandle> <resultHandle>`). There is no named pipe and no listening endpoint. The helper process is created suspended in a kill-on-close Job Object with the user's primary token (`WTSQueryUserToken`, never the linked elevated token).
+- **Transport (as built):** two anonymous pipes created by the service, one for the task and one for the result. Only the helper's two ends are inherited (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and their numeric handle values are passed on the helper's command line (`renovatio-agent.exe helper <taskHandle> <resultHandle>`). There is no named pipe and no listening endpoint. The helper process is created suspended in a kill-on-close Job Object with the user's primary token (`WTSQueryUserToken`, never the linked elevated token).
 - **Framing:** one JSON `HelperTask` (≤ 1 MiB) in, one JSON `HelperResult` (≤ 64 KiB) out. The helper takes exactly one task and exits.
 - **`HelperTask`:** the `SignedEnvelope` bytes, the pinned root and signing certificates (DER), device and org IDs, the server-corrected time, the target SID, the staging directory, the staged file (install jobs), and the already-built command (`exe`, `args`, working directory, log path, timeout).
 - **The helper re-verifies** the envelope signature and chain, device and org, expiry (§5 steps 1 to 5), that `target_user_sid` equals the SID of its own token, that every path it is given lies under its staging directory (`%ProgramData%\AuzringStage\<SID>`), and the SHA-256 of the staged file, before it starts the command in its own Job Object.

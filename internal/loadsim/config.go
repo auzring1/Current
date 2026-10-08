@@ -1,4 +1,4 @@
-// Package loadsim simulates a large fleet of Auzring agents against a real server.
+// Package loadsim simulates a large fleet of Renovatio agents against a real server.
 //
 // Each simulated agent speaks the real protocol: it enrolls with a token and a CSR over the pinned
 // TLS channel, reconnects over TLS 1.3 mutual TLS, sends Hello, hardware, software and user

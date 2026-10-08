@@ -5,6 +5,7 @@ import { api, errorMessage, setCsrf } from "../api/client";
 import { useSession } from "../api/session";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
 import { getAssertion, webauthnSupported } from "../api/webauthn";
+import { PRODUCT_NAME } from "../brand.generated";
 
 type Stage =
   | { kind: "password" }
@@ -94,7 +95,7 @@ export function LoginPage() {
     <Center mih="100vh" p="md">
       <Paper withBorder p="xl" radius="md" w={440} maw="100%">
         <Stack>
-          <Title order={2}>Sign in to Auzring</Title>
+          <Title order={2}>Sign in to {PRODUCT_NAME}</Title>
           {stage.kind === "password" && (
             <form onSubmit={(e) => (e.preventDefault(), void login())}>
               <Stack>

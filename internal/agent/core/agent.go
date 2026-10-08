@@ -26,15 +26,15 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/config"
-	"github.com/auzring1/auzring/internal/agent/hardware"
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/agent/jobs"
-	"github.com/auzring1/auzring/internal/agent/keystore"
-	"github.com/auzring1/auzring/internal/agent/store"
-	"github.com/auzring1/auzring/internal/shared/envelope"
-	"github.com/auzring1/auzring/internal/shared/pkix"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/config"
+	"github.com/auzring1/renovatio/internal/agent/hardware"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/agent/jobs"
+	"github.com/auzring1/renovatio/internal/agent/keystore"
+	"github.com/auzring1/renovatio/internal/agent/store"
+	"github.com/auzring1/renovatio/internal/shared/envelope"
+	"github.com/auzring1/renovatio/internal/shared/pkix"
 )
 
 const (

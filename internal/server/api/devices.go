@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/events"
-	"github.com/auzring1/auzring/internal/server/licensing"
-	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/events"
+	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/store"
 )
 
 type deviceView struct {

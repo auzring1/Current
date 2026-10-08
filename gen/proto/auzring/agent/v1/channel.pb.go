@@ -1614,7 +1614,7 @@ const file_auzring_agent_v1_channel_proto_rawDesc = "" +
 	"\x13AgentChannelService\x12R\n" +
 	"\aConnect\x12 .auzring.agent.v1.ConnectRequest\x1a!.auzring.agent.v1.ConnectResponse(\x010\x01\x12_\n" +
 	"\fFetchContent\x12%.auzring.agent.v1.FetchContentRequest\x1a&.auzring.agent.v1.FetchContentResponse0\x01\x12i\n" +
-	"\x10RenewCertificate\x12).auzring.agent.v1.RenewCertificateRequest\x1a*.auzring.agent.v1.RenewCertificateResponseB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x10RenewCertificate\x12).auzring.agent.v1.RenewCertificateRequest\x1a*.auzring.agent.v1.RenewCertificateResponseBBZ@github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_channel_proto_rawDescOnce sync.Once

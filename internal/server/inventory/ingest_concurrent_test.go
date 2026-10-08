@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 // Many devices of one organization ingest the same common software at the same moment, as happens when
 // a fleet enrolls or comes back after an outage. This used to fail with "deadlock detected": the title
-// upsert locked existing rows in random order. Found by cmd/auzring-loadsim.
+// upsert locked existing rows in random order. Found by cmd/renovatio-loadsim.
 func TestConcurrentSnapshotsOfCommonSoftwareDoNotDeadlock(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/auth"
 )
 
 var totpOut, apiTokenOut, licenseFile *string

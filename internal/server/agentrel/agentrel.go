@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"log/slog"
 	"strings"
@@ -27,16 +28,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/deploy"
-	"github.com/auzring1/auzring/internal/server/events"
-	"github.com/auzring1/auzring/internal/server/licensing"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/shared/release"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/events"
+	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 // Errors the API maps to HTTP statuses.
@@ -193,7 +194,7 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	if err != nil {
 		return Release{}, err
 	}
-	name := "auzring-agent-" + m.Version + ".exe"
+	name := "renovatio-agent-" + m.Version + ".exe"
 	now := s.now()
 	err = store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		if err := q.InsertContentBlob(ctx, dbq.InsertContentBlobParams{OrgID: a.Org, Sha256: sha, Size: size, FileName: name, UploadedBy: &a.User}); err != nil {
@@ -637,7 +638,7 @@ func (s *Service) tickOrg(ctx context.Context, ro dbq.AgentRollout) error {
 	}
 	for _, c := range ordered {
 		job, err := s.Deploy.NewJob(ro.OrgID, c.ID, deploy.JobSpec{Type: agentv1.JobType_JOB_TYPE_AGENT_UPDATE, DBType: "agent_update",
-			Title: "Update the Auzring agent to " + rel.Version, Body: body(), NotBefore: now, Expires: now.Add(jobLifetime), Window: win})
+			Title: "Update the " + brand.Name + " agent to " + rel.Version, Body: body(), NotBefore: now, Expires: now.Add(jobLifetime), Window: win})
 		if err != nil {
 			return err
 		}

@@ -1,15 +1,15 @@
-// Command auzring-server is the Auzring management server.
+// Command renovatio-server is the Renovatio management server.
 //
-//	auzring-server [serve]            run the server (default)
-//	auzring-server migrate            apply database migrations and exit
-//	auzring-server backup --out F|-   write an age-encrypted backup (database + content files)
-//	auzring-server backup --verify F  check a backup without touching any database
-//	auzring-server restore --in F|-   restore a backup into an empty database
-//	auzring-server healthcheck        exit 0 if the local server is healthy (Docker HEALTHCHECK)
-//	auzring-server admin reset-mfa --email E   force MFA re-enrollment for a user
-//	auzring-server admin unlock --email E      clear a login lockout
-//	auzring-server admin verify-audit          verify the audit-log hash chain
-//	auzring-server version
+//	renovatio-server [serve]            run the server (default)
+//	renovatio-server migrate            apply database migrations and exit
+//	renovatio-server backup --out F|-   write an age-encrypted backup (database + content files)
+//	renovatio-server backup --verify F  check a backup without touching any database
+//	renovatio-server restore --in F|-   restore a backup into an empty database
+//	renovatio-server healthcheck        exit 0 if the local server is healthy (Docker HEALTHCHECK)
+//	renovatio-server admin reset-mfa --email E   force MFA re-enrollment for a user
+//	renovatio-server admin unlock --email E      clear a login lockout
+//	renovatio-server admin verify-audit          verify the audit-log hash chain
+//	renovatio-server version
 package main
 
 import (
@@ -27,13 +27,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/app"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/backup"
-	"github.com/auzring1/auzring/internal/server/config"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/shared/version"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/app"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/backup"
+	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/version"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 	case "admin":
 		err = admin(os.Args[2:])
 	case "version", "--version", "-v":
-		fmt.Printf("auzring-server %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf("renovatio-server %s (%s)\n", version.Version, version.Commit)
 	default:
 		err = fmt.Errorf("unknown command %q (serve|migrate|backup|restore|healthcheck|admin|version)", cmd)
 	}
@@ -78,7 +78,7 @@ func serve() error {
 		return err
 	}
 	log := logger(cfg.LogLevel)
-	log.Info("starting auzring-server", "version", version.Version, "commit", version.Commit, "dev_mode", cfg.DevMode)
+	log.Info("starting renovatio-server", "version", version.Version, "commit", version.Commit, "dev_mode", cfg.DevMode)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	a, err := app.New(ctx, cfg, log)

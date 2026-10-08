@@ -14,12 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/shared/envelope"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/shared/envelope"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 type recorder struct {

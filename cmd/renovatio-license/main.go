@@ -1,13 +1,13 @@
-// Command auzring-license is the vendor-side tool that creates and checks Auzring license keys.
+// Command renovatio-license is the vendor-side tool that creates and checks Renovatio license keys.
 //
-//	auzring-license keygen --out license.key             create an Ed25519 license key pair (license.key, license.pub)
-//	auzring-license sign --key license.key --licensee "Example GmbH" --max-devices 250
+//	renovatio-license keygen --out license.key             create an Ed25519 license key pair (license.key, license.pub)
+//	renovatio-license sign --key license.key --licensee "Example GmbH" --max-devices 250
 //	                     [--license-id ID] [--features a,b] [--not-before DATE] [--expires DATE]
 //	                     [--updates-until DATE] [--notes TEXT] [--out license.txt]
-//	auzring-license payload <same flags as sign> --out doc.json --tosign doc.tosign   (for a KMS/HSM signer)
-//	auzring-license attach --doc doc.json --signature sig.bin [--pub license.pub] [--out license.txt]
-//	auzring-license verify --license license.txt (--pub license.pub | --pub-hex HEX)
-//	auzring-license show --license license.txt [--pub license.pub]
+//	renovatio-license payload <same flags as sign> --out doc.json --tosign doc.tosign   (for a KMS/HSM signer)
+//	renovatio-license attach --doc doc.json --signature sig.bin [--pub license.pub] [--out license.txt]
+//	renovatio-license verify --license license.txt (--pub license.pub | --pub-hex HEX)
+//	renovatio-license show --license license.txt [--pub license.pub]
 //
 // DATE is YYYY-MM-DD (UTC) or RFC 3339. A license file holds one line, AZL1.<document>.<signature>.
 //
@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/auzring/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/shared/license"
 )
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, "usage: auzring-license keygen|sign|payload|attach|verify|show (see the package comment)\n")
+	fmt.Fprint(os.Stderr, "usage: renovatio-license keygen|sign|payload|attach|verify|show (see the package comment)\n")
 }
 
 func keygen(args []string) error {

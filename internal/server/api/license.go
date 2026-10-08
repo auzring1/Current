@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/auzring1/auzring/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/licensing"
 )
 
 func (s *server) licSvc(w http.ResponseWriter) bool {

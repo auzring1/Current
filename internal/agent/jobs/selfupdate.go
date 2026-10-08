@@ -6,15 +6,16 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/shared/installer"
-	"github.com/auzring1/auzring/internal/shared/release"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // RequestServiceRestart makes the running service process exit so the service manager starts it
@@ -86,8 +87,8 @@ func (e *Engine) agentUpdate(ctx context.Context, r *Record, env *agentv1.JobEnv
 	if free, ferr := e.P.FreeSpaceMB(dir); ferr == nil && free < 2*m.Size/(1<<20)+64 {
 		return fail("not enough free disk space for the update")
 	}
-	file := filepath.Join(dir, "auzring-agent.exe")
-	in := &agentv1.Installer{Sha256: m.SHA256Bytes(), Size: m.Size, FileName: "auzring-agent.exe",
+	file := filepath.Join(dir, "renovatio-agent.exe")
+	in := &agentv1.Installer{Sha256: m.SHA256Bytes(), Size: m.Size, FileName: "renovatio-agent.exe",
 		Sources: []*agentv1.ContentSource{{Kind: agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_SERVER}}}
 	mism, err := e.download(ctx, r.JobID, in, file)
 	if err != nil {
@@ -126,7 +127,7 @@ func (e *Engine) agentUpdate(ctx context.Context, r *Record, env *agentv1.JobEnv
 	// The binary must say it is the version the manifest promised (catches a wrong file early,
 	// before the service is pointed at it).
 	if run, err := e.P.Run(ctx, RunSpec{Exe: file, Args: []string{"version"}, Dir: dir, Timeout: time.Minute}); err != nil || run.ExitCode != 0 ||
-		!strings.HasPrefix(strings.TrimSpace(run.LogTail), "auzring-agent "+m.Version+" ") {
+		!strings.HasPrefix(strings.TrimSpace(run.LogTail), brand.VersionBanner+" "+m.Version+" ") {
 		return fail("the staged binary does not report version %s", m.Version)
 	}
 

@@ -6,14 +6,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"os"
 
-	"github.com/auzring1/auzring/internal/shared/version"
+	"github.com/auzring1/renovatio/internal/shared/version"
 )
 
 func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version") {
-		fmt.Printf("auzring-agent %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf(brand.VersionBanner+" %s (%s)\n", version.Version, version.Commit)
 		return
 	}
 	fmt.Fprintln(os.Stderr, "brokenagent: refusing to run (this build exists to test rollback)")

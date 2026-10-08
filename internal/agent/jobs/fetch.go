@@ -6,13 +6,14 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // Fetcher opens the bytes of one content source. Every source is untrusted:
@@ -73,7 +74,7 @@ func (m *MultiFetcher) vendor(ctx context.Context, raw string) (io.ReadCloser, e
 		cancel()
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Auzring-Agent")
+	req.Header.Set("User-Agent", brand.Name+"-Agent")
 	resp, err := client.Do(req) // #nosec G107 G704 -- https-only URL from a signed job body, redirects constrained
 	if err != nil {
 		cancel()

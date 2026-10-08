@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { PRODUCT_NAME } from "./src/brand.generated";
 
 // The production bundle is embedded into the Go server (internal/server/webui/dist).
 export default defineConfig({
-  plugins: [react()],
+  // The product name comes from internal/shared/brand (go generate writes src/brand.generated.ts).
+  plugins: [react(), { name: "product-name", transformIndexHtml: (html) => html.replaceAll("%PRODUCT_NAME%", PRODUCT_NAME) }],
   build: {
     outDir: "../internal/server/webui/dist",
     emptyOutDir: true,

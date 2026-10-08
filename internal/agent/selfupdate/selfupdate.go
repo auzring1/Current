@@ -109,7 +109,7 @@ type Platform interface {
 	Bounce() error
 }
 
-// RollbackCheck is the body of `auzring-agent rollback-check`, run by the one-shot task from the
+// RollbackCheck is the body of `renovatio-agent rollback-check`, run by the one-shot task from the
 // OLD binary. It returns what it did, for the log.
 func RollbackCheck(dir string, p Platform, now time.Time) (string, error) {
 	st, err := Load(dir)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Verifies a downloaded Auzring release directory (docs/VERIFYING_RELEASES.md explains every check).
+# Verifies a downloaded Renovatio release directory (docs/VERIFYING_RELEASES.md explains every check).
 #
-#   scripts/verify-release.sh --dir DIR --repo auzring1/auzring --tag v1.2.3 --pub <hex>[,<hex>]
+#   scripts/verify-release.sh --dir DIR --repo auzring1/renovatio --tag v1.2.3 --pub <hex>[,<hex>]
 #
 # Checks, in this order; any failure makes the exit status 1:
 #   1. SHA256SUMS: every listed file matches (and files that are not listed are reported)
@@ -18,7 +18,7 @@
 #   --tag vX.Y.Z                exact tag to expect in the signing identity (default: any v* tag of the repo)
 #   --pub HEX[,HEX]             vendor release public key(s), hex; from your own records, NOT from the release directory
 #   --pub-file FILE             same, from a file (lines starting with # are ignored)
-#   --release-tool PATH         auzring-release binary to use (default: the one in DIR on linux/amd64)
+#   --release-tool PATH         renovatio-release binary to use (default: the one in DIR on linux/amd64)
 #   --authenticode-subject CN   expected Authenticode signer (the CN pinned in the vendor manifest)
 #   --skip-cosign, --skip-attestations   skip 2-3 / 4 (used by the pipeline before anything is signed)
 #   --skip-azr                  skip 5 (no vendor key at hand)
@@ -109,7 +109,7 @@ elif ! command -v gh >/dev/null; then
   fail "gh (GitHub CLI) is not installed; install it or pass --skip-attestations"
 else
   shopt -s nullglob
-  for f in auzring-agent_*.exe auzring-agent_*.msi auzring-server_*_linux_amd64 auzring-release_*_linux_amd64 auzring-license_*_linux_amd64 auzring-web_*.tar.gz; do
+  for f in renovatio-agent_*.exe renovatio-agent_*.msi renovatio-server_*_linux_amd64 renovatio-release_*_linux_amd64 renovatio-license_*_linux_amd64 renovatio-web_*.tar.gz; do
     if gh attestation verify "$f" --repo "$repo" --signer-workflow "$repo/.github/workflows/release.yml" >/dev/null 2>&1; then
       ok "provenance: $f was built by the $repo release workflow"
     else
@@ -121,12 +121,12 @@ fi
 
 # ---- 5. vendor release bundle ---------------------------------------------------------------------
 shopt -s nullglob
-azrs=(auzring-agent_*.azr)
+azrs=(renovatio-agent_*.azr)
 shopt -u nullglob
 if [ "$skip_azr" = 1 ]; then
   warn "vendor bundle check skipped"
 elif [ ${#azrs[@]} -eq 0 ]; then
-  fail "no auzring-agent_*.azr vendor release bundle in the directory"
+  fail "no renovatio-agent_*.azr vendor release bundle in the directory"
 else
   keyfile=$(mktemp)
   trap 'rm -f "$keyfile"' EXIT
@@ -135,10 +135,10 @@ else
     fail "the vendor bundle cannot be verified without the vendor public key (--pub or --pub-file; take it from your own records)"
   else
     if [ -z "$tool" ]; then
-      for t in auzring-release_*_linux_amd64; do [ -f "$t" ] && tool="$PWD/$t"; done
+      for t in renovatio-release_*_linux_amd64; do [ -f "$t" ] && tool="$PWD/$t"; done
     fi
     if [ -z "$tool" ] || [ ! -f "$tool" ]; then
-      fail "no auzring-release tool (build it from source with go build ./cmd/auzring-release, or pass --release-tool)"
+      fail "no renovatio-release tool (build it from source with go build ./cmd/renovatio-release, or pass --release-tool)"
     else
       [ -x "$tool" ] || chmod +x "$tool" 2>/dev/null || true
       for azr in "${azrs[@]}"; do
@@ -163,7 +163,7 @@ shopt -u nullglob
 # ---- 7. Authenticode -------------------------------------------------------------------------------
 if [ -n "$subject" ]; then
   shopt -s nullglob
-  pes=(auzring-agent_*.exe auzring-agent_*.msi)
+  pes=(renovatio-agent_*.exe renovatio-agent_*.msi)
   shopt -u nullglob
   here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   if command -v pwsh >/dev/null && [ "$(uname -s | cut -c1-5)" != Linux ]; then

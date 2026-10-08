@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,7 +15,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 // Source provides winget manifests. Only the official winget-pkgs repository is
@@ -86,7 +87,7 @@ func (g *GitHubSource) get(ctx context.Context, u string, max int64, api bool) (
 	if err != nil {
 		return nil, 0, err
 	}
-	req.Header.Set("User-Agent", "Auzring-Server")
+	req.Header.Set("User-Agent", brand.Name+"-Server")
 	if api {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		if g.Token != "" {

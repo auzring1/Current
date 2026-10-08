@@ -3,6 +3,7 @@ package backup
 import (
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"strings"
@@ -110,7 +111,7 @@ func decrypt(src io.Reader, ids []age.Identity) (io.Reader, error) {
 		if errors.As(err, &noMatch) {
 			return nil, errors.New("cannot decrypt: the supplied key or passphrase does not match this backup")
 		}
-		return nil, fmt.Errorf("cannot decrypt (is this an Auzring backup?): %w", err)
+		return nil, fmt.Errorf("cannot decrypt (is this a %s backup?): %w", brand.Name, err)
 	}
 	return r, nil
 }

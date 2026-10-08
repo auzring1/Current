@@ -12,8 +12,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/wu"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/wu"
 )
 
 // Windows Update jobs (docs/ARCHITECTURE.md §9): scan, install exactly the listed updates, hide or

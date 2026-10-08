@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/renovatio/gen/dbq"
 )
 
 // Session cookie names. The __Host- prefix forces Secure, Path=/ and no Domain.

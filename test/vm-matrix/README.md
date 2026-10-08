@@ -27,7 +27,7 @@ Install the agent against a server you control, then on the VM:
 ```powershell
 # totp.txt = the administrator's TOTP secret (shown once at setup)
 $env:AUZ_ADMIN_PASSWORD = "..."
-.\test\vm-matrix\run.ps1 -Url https://auzring.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
+.\test\vm-matrix\run.ps1 -Url https://renovatio.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
 ```
 
 `results.json` gains one entry per passing row. Merge the entries from all images into

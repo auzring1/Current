@@ -27,12 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/agent/core"
-	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/agent/core"
+	"github.com/auzring1/renovatio/internal/server/auth"
 )
 
 const (
-	project   = "auzring-it"
+	project   = "renovatio-it"
 	httpsPort = "28443"
 	gwPort    = "28444"
 	origin    = "https://localhost:" + httpsPort
@@ -265,8 +265,8 @@ func TestComposeStack(t *testing.T) {
 	enrollment := b["enrollment_string"].(string)
 
 	// --- A real agent process enrolls through the published gateway port ---
-	agentBin := filepath.Join(s.dir, "auzring-agent")
-	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/auzring-agent")
+	agentBin := filepath.Join(s.dir, "renovatio-agent")
+	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/renovatio-agent")
 	agentDir := filepath.Join(s.dir, "agent")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -351,7 +351,7 @@ func TestComposeStack(t *testing.T) {
 	}
 
 	// --- Audit chain verifies with the admin CLI inside the container ---
-	out := s.compose("exec", "-T", "server", "/auzring-server", "admin", "verify-audit")
+	out := s.compose("exec", "-T", "server", "/renovatio-server", "admin", "verify-audit")
 	if !strings.Contains(out, "audit chain intact") {
 		t.Fatalf("verify-audit: %s", out)
 	}

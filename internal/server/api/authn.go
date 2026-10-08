@@ -3,16 +3,17 @@ package api
 import (
 	"crypto/subtle"
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/kek"
-	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/kek"
+	"github.com/auzring1/renovatio/internal/server/store"
 )
 
 const (
@@ -123,7 +124,7 @@ func (s *server) mfaChallenge(w http.ResponseWriter, r *http.Request, sess *auth
 			return
 		}
 		resp = map[string]any{"mfa": "enroll", "csrf_token": sess.CSRFToken,
-			"totp_secret": auth.TOTPSecretString(secret), "otpauth_uri": auth.TOTPURI("Auzring", u.Email, secret)}
+			"totp_secret": auth.TOTPSecretString(secret), "otpauth_uri": auth.TOTPURI(brand.Name, u.Email, secret)}
 	case totpErr != nil && !errors.Is(totpErr, pgx.ErrNoRows):
 		internalError(w)
 		return

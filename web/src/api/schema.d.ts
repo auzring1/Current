@@ -2284,7 +2284,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a vendor-signed agent release (requires releases:write; audited)
-         * @description The agent binary is the raw request body (application/octet-stream). The vendor bundle (.azr, produced by auzring-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
+         * @description The agent binary is the raw request body (application/octet-stream). The vendor bundle (.azr, produced by renovatio-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
          */
         post: {
             parameters: {

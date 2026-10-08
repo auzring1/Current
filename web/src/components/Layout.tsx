@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, setCsrf } from "../api/client";
 import { useLiveEvents } from "../api/events";
 import { useSession } from "../api/session";
+import { PRODUCT_NAME } from "../brand.generated";
 
 export function Layout() {
   const { session, can, canOrg } = useSession();
@@ -48,7 +49,7 @@ export function Layout() {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="Toggle navigation" />
-            <Text fw={700}>Auzring</Text>
+            <Text fw={700}>{PRODUCT_NAME}</Text>
             <Text c="dimmed" size="sm">
               {session?.org.name}
             </Text>

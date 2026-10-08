@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/auzring/internal/server/deploy"
-	"github.com/auzring1/auzring/internal/server/events"
+	"github.com/auzring1/renovatio/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/events"
 )
 
 // Errors the API maps to HTTP statuses.

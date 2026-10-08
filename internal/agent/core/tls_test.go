@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/shared/pkix"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/shared/pkix"
 )
 
 func TestVerifyPinnedChain(t *testing.T) {

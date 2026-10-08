@@ -20,13 +20,14 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"math/big"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
 
-	spkix "github.com/auzring1/auzring/internal/shared/pkix"
+	spkix "github.com/auzring1/renovatio/internal/shared/pkix"
 )
 
 const (
@@ -59,7 +60,7 @@ func NewHierarchy(orgName string, now time.Time) (*Hierarchy, error) {
 	}
 	rootTmpl := &x509.Certificate{
 		SerialNumber:          mustSerial(),
-		Subject:               pkix.Name{CommonName: "Auzring Root CA", Organization: []string{orgName}},
+		Subject:               pkix.Name{CommonName: brand.Name + " Root CA", Organization: []string{orgName}},
 		NotBefore:             now.Add(-backdate),
 		NotAfter:              now.Add(rootLifetime),
 		IsCA:                  true,
@@ -78,7 +79,7 @@ func NewHierarchy(orgName string, now time.Time) (*Hierarchy, error) {
 	}
 	issTmpl := &x509.Certificate{
 		SerialNumber:          mustSerial(),
-		Subject:               pkix.Name{CommonName: "Auzring Issuing CA", Organization: []string{orgName}},
+		Subject:               pkix.Name{CommonName: brand.Name + " Issuing CA", Organization: []string{orgName}},
 		NotBefore:             now.Add(-backdate),
 		NotAfter:              now.Add(issuingLifetime),
 		IsCA:                  true,
@@ -100,7 +101,7 @@ func NewHierarchy(orgName string, now time.Time) (*Hierarchy, error) {
 	}
 	jobTmpl := &x509.Certificate{
 		SerialNumber:          mustSerial(),
-		Subject:               pkix.Name{CommonName: "Auzring Job Signing", Organization: []string{orgName}},
+		Subject:               pkix.Name{CommonName: brand.Name + " Job Signing", Organization: []string{orgName}},
 		NotBefore:             now.Add(-backdate),
 		NotAfter:              now.Add(jobSigningLifetime),
 		BasicConstraintsValid: true,
@@ -150,7 +151,7 @@ func (a *Authority) IssueDeviceCert(csrDER []byte, deviceID uuid.UUID, lifetime 
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber:          mustSerial(),
-		Subject:               pkix.Name{CommonName: deviceID.String(), Organization: []string{"Auzring device"}},
+		Subject:               pkix.Name{CommonName: deviceID.String(), Organization: []string{brand.Name + " device"}},
 		URIs:                  []*urlURL{spkix.DeviceURI(deviceID)},
 		NotBefore:             now.Add(-backdate),
 		NotAfter:              notAfter,
@@ -169,7 +170,7 @@ func (a *Authority) IssueGatewayCert(sans []string, now time.Time) (KeyPair, err
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber:          mustSerial(),
-		Subject:               pkix.Name{CommonName: "Auzring Agent Gateway"},
+		Subject:               pkix.Name{CommonName: brand.Name + " Agent Gateway"},
 		NotBefore:             now.Add(-backdate),
 		NotAfter:              now.Add(GatewayLifetime),
 		KeyUsage:              x509.KeyUsageDigitalSignature,

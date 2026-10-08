@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"slices"
 	"strings"
 	"testing"
@@ -64,8 +65,8 @@ func TestTOTPRFC6238Vector(t *testing.T) {
 	if _, ok := VerifyTOTP(secret, "abc", now); ok {
 		t.Fatal("malformed code accepted")
 	}
-	if !strings.HasPrefix(TOTPURI("Auzring", "a@b.c", secret), "otpauth://totp/Auzring:a@b.c?") {
-		t.Fatal(TOTPURI("Auzring", "a@b.c", secret))
+	if !strings.HasPrefix(TOTPURI(brand.Name, "a@b.c", secret), "otpauth://totp/"+brand.Name+":a@b.c?") {
+		t.Fatal(TOTPURI(brand.Name, "a@b.c", secret))
 	}
 }
 

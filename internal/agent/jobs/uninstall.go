@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strings"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/inventory"
-	"github.com/auzring1/auzring/internal/shared/installer"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/inventory"
+	"github.com/auzring1/renovatio/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 var (

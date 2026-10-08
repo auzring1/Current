@@ -1,8 +1,8 @@
-# Auzring (codename)
+# Renovatio (codename)
 
 Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
 
-**Status: Phase 6 (hardening and release) complete, awaiting review.** Phase 6 added a security review with fixes (the running server no longer holds the database-owner credential; see [docs/SECURITY.md §9f](docs/SECURITY.md)), more fuzzers, offline license keys, a load generator (`cmd/auzring-loadsim`, results in [docs/LOADTEST.md](docs/LOADTEST.md)) and a release pipeline written but not yet run on GitHub ([docs/VERIFYING_RELEASES.md](docs/VERIFYING_RELEASES.md)); demo: [Phase 6](docs/demos/PHASE6-DEMO.md). The Phase 5 summary follows. On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
+**Status: Phase 6 (hardening and release) complete, awaiting review.** Phase 6 added a security review with fixes (the running server no longer holds the database-owner credential; see [docs/SECURITY.md §9f](docs/SECURITY.md)), more fuzzers, offline license keys, a load generator (`cmd/renovatio-loadsim`, results in [docs/LOADTEST.md](docs/LOADTEST.md)) and a release pipeline written but not yet run on GitHub ([docs/VERIFYING_RELEASES.md](docs/VERIFYING_RELEASES.md)); demo: [Phase 6](docs/demos/PHASE6-DEMO.md). The Phase 5 summary follows. On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
 
 **Licensing (Phase 6):** the server verifies a vendor-signed **license key** offline (no phone-home). Without a license it runs as an evaluation limited to 25 enrolled devices; a license problem (missing, expired beyond a 30-day grace, over the device count) only ever blocks *new* enrollments and approvals, never patching or existing devices. Install a license under **License** in the console; see [RUNBOOK §5f](docs/RUNBOOK.md) and [DECISIONS D85](docs/DECISIONS.md). The business model is still owner decision O8.
 
@@ -14,7 +14,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
 Then open `https://<AUZ_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
-`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o auzring-agent.exe ./cmd/auzring-agent`
+`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent`
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
@@ -37,8 +37,8 @@ Run the web console against a local server: start the server with `AUZ_DEV_MODE=
 ## Repository layout
 | Path | |
 |---|---|
-| `cmd/auzring-server`, `cmd/auzring-agent`, `cmd/auzring-release`, `cmd/auzring-license` | Binaries (`auzring-release` and `auzring-license` are vendor-side signing tools for releases and license keys, not shipped to customers) |
-| `cmd/auzring-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
+| `cmd/renovatio-server`, `cmd/renovatio-agent`, `cmd/renovatio-release`, `cmd/renovatio-license` | Binaries (`renovatio-release` and `renovatio-license` are vendor-side signing tools for releases and license keys, not shipped to customers) |
+| `cmd/renovatio-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |

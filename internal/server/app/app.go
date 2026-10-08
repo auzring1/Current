@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"log/slog"
 	"net"
 	"net/http"
@@ -18,24 +19,24 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/agentrel"
-	"github.com/auzring1/auzring/internal/server/api"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/config"
-	"github.com/auzring1/auzring/internal/server/deploy"
-	"github.com/auzring1/auzring/internal/server/events"
-	"github.com/auzring1/auzring/internal/server/gateway"
-	"github.com/auzring1/auzring/internal/server/kek"
-	"github.com/auzring1/auzring/internal/server/licensing"
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/server/policies"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/server/updates"
-	"github.com/auzring1/auzring/internal/server/webui"
-	"github.com/auzring1/auzring/internal/shared/release"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/agentrel"
+	"github.com/auzring1/renovatio/internal/server/api"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/events"
+	"github.com/auzring1/renovatio/internal/server/gateway"
+	"github.com/auzring1/renovatio/internal/server/kek"
+	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/server/updates"
+	"github.com/auzring1/renovatio/internal/server/webui"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // App is a running server.
@@ -153,7 +154,7 @@ func (a *App) newSetupToken() error {
 	a.mu.Unlock()
 	fmt.Fprintf(os.Stderr, "\n"+
 		"==================================================================\n"+
-		"  Auzring first-run setup is pending.\n"+
+		"  "+brand.Name+" first-run setup is pending.\n"+
 		"  Open %s and enter this one-time setup token:\n\n"+
 		"      %s\n\n"+
 		"  The token changes every time the server restarts until setup is done.\n"+

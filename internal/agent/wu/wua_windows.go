@@ -5,6 +5,7 @@ package wu
 import (
 	"context"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"runtime"
 	"strings"
 	"sync"
@@ -13,7 +14,7 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 // Windows Update Agent over COM (https://learn.microsoft.com/windows/win32/wua_sdk/). COM objects
@@ -284,7 +285,7 @@ func (c *wuaClient) Scan(ctx context.Context, o Options) ([]*agentv1.WuUpdate, e
 		if err != nil {
 			return err
 		}
-		_, _ = oleutil.PutProperty(session, "ClientApplicationID", "Auzring")
+		_, _ = oleutil.PutProperty(session, "ClientApplicationID", brand.Name)
 		s, err := c.searcher(d, session, o)
 		if err != nil {
 			return err
@@ -378,7 +379,7 @@ func (c *wuaClient) Install(ctx context.Context, o Options, refs []*agentv1.WuUp
 		if err != nil {
 			return err
 		}
-		_, _ = oleutil.PutProperty(session, "ClientApplicationID", "Auzring")
+		_, _ = oleutil.PutProperty(session, "ClientApplicationID", brand.Name)
 		want := map[string]int32{}
 		for _, r := range refs {
 			want[strings.ToLower(r.UpdateId)] = r.Revision

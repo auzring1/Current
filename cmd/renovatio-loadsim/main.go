@@ -1,9 +1,9 @@
-// Command auzring-loadsim simulates thousands of agents against an Auzring server and measures how
+// Command renovatio-loadsim simulates thousands of agents against a Renovatio server and measures how
 // the server copes: a steady fleet, a reconnect storm after a mass disconnect, or random churn.
 // The simulated agents enroll and speak the real gateway protocol; see docs/LOADTEST.md.
 //
-//	auzring-loadsim --enrollment AURZ1.… --agents 1000 --scenario steady --report out.json
-//	auzring-loadsim --api http://127.0.0.1:8080 --api-token … --server localhost:8443 --scenario storm
+//	renovatio-loadsim --enrollment AURZ1.… --agents 1000 --scenario steady --report out.json
+//	renovatio-loadsim --api http://127.0.0.1:8080 --api-token … --server localhost:8443 --scenario storm
 package main
 
 import (
@@ -17,19 +17,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/auzring/internal/loadsim"
-	"github.com/auzring1/auzring/internal/shared/version"
+	"github.com/auzring1/renovatio/internal/loadsim"
+	"github.com/auzring1/renovatio/internal/shared/version"
 )
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "auzring-loadsim:", err)
+		fmt.Fprintln(os.Stderr, "renovatio-loadsim:", err)
 		os.Exit(2)
 	}
 }
 
 func run(args []string) error {
-	fs := flag.NewFlagSet("auzring-loadsim", flag.ContinueOnError)
+	fs := flag.NewFlagSet("renovatio-loadsim", flag.ContinueOnError)
 	var (
 		cfg      loadsim.Config
 		report   = fs.String("report", "", "write the JSON report to this file")

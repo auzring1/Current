@@ -1415,7 +1415,7 @@ func (x *WuUpdate) GetLastError() string {
 }
 
 // WuPolicyInfo says who is in charge of updates on this machine, so administrators are not
-// surprised when another tool (WSUS, Intune, a GPO) fights Auzring.
+// surprised when another tool (WSUS, Intune, a GPO) fights Renovatio.
 type WuPolicyInfo struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	WsusConfigured    bool                   `protobuf:"varint,1,opt,name=wsus_configured,json=wsusConfigured,proto3" json:"wsus_configured,omitempty"` // UseWUServer = 1
@@ -1789,7 +1789,7 @@ const file_auzring_agent_v1_inventory_proto_rawDesc = "" +
 	"\x1aWU_UPDATE_STATE_DOWNLOADED\x10\x02\x12\x1a\n" +
 	"\x16WU_UPDATE_STATE_HIDDEN\x10\x03\x12\"\n" +
 	"\x1eWU_UPDATE_STATE_PENDING_REBOOT\x10\x04\x12\x1a\n" +
-	"\x16WU_UPDATE_STATE_FAILED\x10\x05B@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\x16WU_UPDATE_STATE_FAILED\x10\x05BBZ@github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_inventory_proto_rawDescOnce sync.Once

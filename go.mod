@@ -1,4 +1,4 @@
-module github.com/auzring1/auzring
+module github.com/auzring1/renovatio
 
 go 1.26.0
 

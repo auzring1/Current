@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/shared/license"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/license"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 var t0 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)

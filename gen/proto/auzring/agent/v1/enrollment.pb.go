@@ -455,7 +455,7 @@ const file_auzring_agent_v1_enrollment_proto_rawDesc = "" +
 	"\x16ENROLL_STATUS_REJECTED\x10\x032\xbf\x01\n" +
 	"\x11EnrollmentService\x12K\n" +
 	"\x06Enroll\x12\x1f.auzring.agent.v1.EnrollRequest\x1a .auzring.agent.v1.EnrollResponse\x12]\n" +
-	"\fEnrollStatus\x12%.auzring.agent.v1.EnrollStatusRequest\x1a&.auzring.agent.v1.EnrollStatusResponseB@Z>github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
+	"\fEnrollStatus\x12%.auzring.agent.v1.EnrollStatusRequest\x1a&.auzring.agent.v1.EnrollStatusResponseBBZ@github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_auzring_agent_v1_enrollment_proto_rawDescOnce sync.Once

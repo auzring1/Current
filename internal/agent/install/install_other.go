@@ -17,9 +17,9 @@ type Options struct {
 	Out         io.Writer
 }
 
-// Install is Windows-only; use `auzring-agent run` on development platforms.
+// Install is Windows-only; use `renovatio-agent run` on development platforms.
 func Install(Options) error {
-	return errors.New("install is only supported on Windows; use `auzring-agent run` for development")
+	return errors.New("install is only supported on Windows; use `renovatio-agent run` for development")
 }
 
 // Uninstall is Windows-only.

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Center, Checkbox, Paper, PasswordInput, Stack, Stepper, Text, TextInput, Title } from "@mantine/core";
 import { api, errorMessage } from "../api/client";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
+import { PRODUCT_NAME } from "../brand.generated";
 
 export function SetupPage() {
   const nav = useNavigate();
@@ -59,7 +60,7 @@ export function SetupPage() {
     <Center mih="100vh" p="md">
       <Paper withBorder p="xl" radius="md" w={620} maw="100%">
         <Stack>
-          <Title order={2}>Set up Auzring</Title>
+          <Title order={2}>Set up {PRODUCT_NAME}</Title>
           <Stepper active={step} size="sm">
             <Stepper.Step label="Verify" description="Setup token">
               <Stack mt="md">

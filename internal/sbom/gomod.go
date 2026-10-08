@@ -47,16 +47,16 @@ func fromBuildInfo(bi *debug.BuildInfo, base string, o GoOptions) ([]byte, error
 		Type: "application", BOMRef: rootRef, Name: name, Version: o.Version,
 		PURL: "pkg:golang/" + purlPath(mainPath) + "@" + purlEscape(o.Version),
 		Properties: []Property{
-			{Name: "auzring:go-main-package", Value: bi.Path},
-			{Name: "auzring:go-version", Value: bi.GoVersion},
-			{Name: "auzring:hash-kind", Value: "component hashes of Go modules are the go.sum h1 dirhash decoded to hex: SHA-256 over the sorted list of the module files' SHA-256 digests, not the digest of a zip archive"},
-			{Name: "auzring:dependency-graph", Value: "flat: every module linked into the binary is a direct dependency of the product (the module-level graph is not recorded)"},
+			{Name: "renovatio:go-main-package", Value: bi.Path},
+			{Name: "renovatio:go-version", Value: bi.GoVersion},
+			{Name: "renovatio:hash-kind", Value: "component hashes of Go modules are the go.sum h1 dirhash decoded to hex: SHA-256 over the sorted list of the module files' SHA-256 digests, not the digest of a zip archive"},
+			{Name: "renovatio:dependency-graph", Value: "flat: every module linked into the binary is a direct dependency of the product (the module-level graph is not recorded)"},
 		},
 	}
 	for _, s := range bi.Settings {
 		switch s.Key {
 		case "GOOS", "GOARCH", "CGO_ENABLED", "-trimpath", "GOAMD64", "GOARM64", "-tags":
-			root.Properties = append(root.Properties, Property{Name: "auzring:go-build-" + strings.TrimPrefix(s.Key, "-"), Value: s.Value})
+			root.Properties = append(root.Properties, Property{Name: "renovatio:go-build-" + strings.TrimPrefix(s.Key, "-"), Value: s.Value})
 		}
 	}
 	b := newBOM(o.Epoch, root)
@@ -76,7 +76,7 @@ func fromBuildInfo(bi *debug.BuildInfo, base string, o GoOptions) ([]byte, error
 		var props []Property
 		if m.Replace != nil {
 			eff = m.Replace
-			props = append(props, Property{Name: "auzring:go-replaces", Value: m.Path + "@" + m.Version})
+			props = append(props, Property{Name: "renovatio:go-replaces", Value: m.Path + "@" + m.Version})
 		}
 		ref := "pkg:golang/" + purlPath(eff.Path) + "@" + purlEscape(eff.Version)
 		c := Component{
@@ -85,7 +85,7 @@ func fromBuildInfo(bi *debug.BuildInfo, base string, o GoOptions) ([]byte, error
 		}
 		if h, ok := goSumHash(eff.Sum); ok {
 			c.Hashes = []Hash{{Alg: "SHA-256", Content: h}}
-			c.Properties = append(c.Properties, Property{Name: "auzring:go-sum", Value: eff.Sum})
+			c.Properties = append(c.Properties, Property{Name: "renovatio:go-sum", Value: eff.Sum})
 		}
 		b.Components = append(b.Components, c)
 		deps = append(deps, ref)

@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 type jobAssociate struct {

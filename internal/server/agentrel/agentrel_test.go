@@ -17,13 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/deploy"
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/shared/release"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/deploy"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/shared/release"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 type nullDispatcher struct{}

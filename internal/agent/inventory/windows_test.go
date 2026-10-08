@@ -17,7 +17,7 @@ import (
 
 	"golang.org/x/sys/windows/registry"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 func randName(prefix string) string {
@@ -35,7 +35,7 @@ func writeUninstall(t *testing.T, root registry.Key, path, name, display, versio
 	defer k.Close()
 	_ = k.SetStringValue("DisplayName", display)
 	_ = k.SetStringValue("DisplayVersion", version)
-	_ = k.SetStringValue("Publisher", "Auzring CI")
+	_ = k.SetStringValue("Publisher", "Renovatio CI")
 	t.Cleanup(func() { _ = registry.DeleteKey(root, path+`\`+name) })
 }
 
@@ -52,7 +52,7 @@ func findItem(items []*agentv1.SoftwareItem, name string) *agentv1.SoftwareItem 
 // uninstall entry must appear with the right scope; Windows itself must yield
 // a plausible amount of software and at least one user.
 func TestRealCollector(t *testing.T) {
-	machine, user := randName("AuzringCI-M-"), randName("AuzringCI-U-")
+	machine, user := randName("RenovatioCI-M-"), randName("RenovatioCI-U-")
 	writeUninstall(t, registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`, machine, machine, "1.2.3")
 	writeUninstall(t, registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Uninstall`, user, user, "4.5.6")
 
@@ -102,7 +102,7 @@ func diffForTest(a, b *Scan) (Snapshot, int, int) {
 
 // An offline hive must load without touching the user's real file.
 func TestLoadAppHiveIsReadOnly(t *testing.T) {
-	name := randName("AuzringCIHive")
+	name := randName("RenovatioCIHive")
 	writeUninstall(t, registry.CURRENT_USER, `Software\`+name+`\Microsoft\Windows\CurrentVersion\Uninstall`, "Pkg", "Offline Pkg", "9.9.9")
 	file := filepath.Join(t.TempDir(), "hive.dat")
 	if out, err := exec.Command("reg", "save", `HKCU\Software\`+name, file, "/y").CombinedOutput(); err != nil {
@@ -161,7 +161,7 @@ func TestWatcherFiresOnInstall(t *testing.T) {
 	}
 	defer w.Close()
 	time.Sleep(500 * time.Millisecond) // let the watchers arm
-	writeUninstall(t, registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`, randName("AuzringCI-W-"), "Watcher Test", "1")
+	writeUninstall(t, registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`, randName("RenovatioCI-W-"), "Watcher Test", "1")
 	select {
 	case <-w.Events():
 	case <-time.After(10 * time.Second):

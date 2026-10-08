@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Button, Checkbox, Group, Loader, MultiSelect, NumberInput, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { hhmm, parseHHMM } from "../api/format";
 import { api, errorMessage, type Device, type DeploymentPlan, type DeploymentRequest, type Group as Grp, type PackageDetail, type Pkg } from "../api/client";
+import { PRODUCT_NAME } from "../brand.generated";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -116,7 +117,7 @@ export function NewDeploymentPage() {
       {needsConfirm && (
         <Alert color="yellow" title="Unverified package">
           <Checkbox
-            label="I understand this package has not been tested by Auzring and I accept deploying it. This confirmation is recorded in the audit log."
+            label={`I understand this package has not been tested by ${PRODUCT_NAME} and I accept deploying it. This confirmation is recorded in the audit log.`}
             checked={confirmed}
             onChange={(e) => setConfirmed(e.currentTarget.checked)}
           />

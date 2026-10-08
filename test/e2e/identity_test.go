@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/auzring/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/auth"
 )
 
 // otherClient is a second, independent browser session against the same server.

@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/catalog"
-	"github.com/auzring1/auzring/internal/server/groups"
-	"github.com/auzring1/auzring/internal/server/inventory"
-	"github.com/auzring1/auzring/internal/server/store"
-	"github.com/auzring1/auzring/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/gen/dbq"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/groups"
+	"github.com/auzring1/renovatio/internal/server/inventory"
+	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
 )
 
 // Window is a maintenance window (evaluated on the device).

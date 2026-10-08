@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/auzring1/auzring/internal/shared/installer"
+	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
 // RunAsUser runs spec in the user's session through the helper process
@@ -175,7 +175,7 @@ func (p *winPlatform) RunAsUser(ctx context.Context, sid string, spec RunSpec) (
 	return RunResult{ExitCode: hr.ExitCode, TimedOut: hr.TimedOut, LogTail: hr.LogTail}, nil
 }
 
-// HelperMain is the entry point of `auzring-agent helper <task-handle> <result-handle>`.
+// HelperMain is the entry point of `renovatio-agent helper <task-handle> <result-handle>`.
 func HelperMain(args []string) error {
 	if len(args) != 2 {
 		return errors.New("usage: helper <task-handle> <result-handle>")

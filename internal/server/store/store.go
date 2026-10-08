@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/auzring1/auzring/gen/dbq"
+	"github.com/auzring1/renovatio/gen/dbq"
 )
 
 // Open connects a pgx pool and verifies connectivity.
@@ -25,7 +25,7 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 	cfg.MaxConns = 32
 	cfg.MaxConnIdleTime = 5 * time.Minute
-	cfg.ConnConfig.RuntimeParams["application_name"] = "auzring-server"
+	cfg.ConnConfig.RuntimeParams["application_name"] = "renovatio-server"
 	// Defense in depth against runaway queries.
 	cfg.ConnConfig.RuntimeParams["statement_timeout"] = "30000"
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

@@ -1,6 +1,6 @@
-# Verifying an Auzring release
+# Verifying a Renovatio release
 
-This page is for customers and auditors: how to check that the files you downloaded are the ones the Auzring
+This page is for customers and auditors: how to check that the files you downloaded are the ones the Renovatio
 release pipeline built, and what each check does and does not prove. The maintainers' side (keys, certificates, how
 a release is cut) is in `docs/RUNBOOK.md`, section 9; the design is `docs/DECISIONS.md` D79-D84.
 
@@ -16,12 +16,12 @@ a release is cut) is in `docs/RUNBOOK.md`, section 9; the design is `docs/DECISI
 
 | File | What it is |
 |---|---|
-| `auzring-agent_<v>_windows_amd64.exe` | The agent. Authenticode-signed. |
-| `auzring-agent_<v>_windows_x64.msi` | The agent MSI (GPO, Intune, RMM). Carries the signed exe; itself Authenticode-signed. |
-| `auzring-agent_<v>_windows_amd64.azr` | The **vendor release bundle**: manifest (hash, size, version, signer) + Ed25519 signature. This is what agents check when they update themselves. |
-| `auzring-server_<v>_linux_amd64` | The server binary (also inside the container image). |
-| `auzring-release_<v>_linux_amd64`, `auzring-license_<v>_linux_amd64` | Vendor tools (the license tool only exists from the release that introduced it). |
-| `auzring-web_<v>.tar.gz` | The web console bundle that is embedded in the server. |
+| `renovatio-agent_<v>_windows_amd64.exe` | The agent. Authenticode-signed. |
+| `renovatio-agent_<v>_windows_x64.msi` | The agent MSI (GPO, Intune, RMM). Carries the signed exe; itself Authenticode-signed. |
+| `renovatio-agent_<v>_windows_amd64.azr` | The **vendor release bundle**: manifest (hash, size, version, signer) + Ed25519 signature. This is what agents check when they update themselves. |
+| `renovatio-server_<v>_linux_amd64` | The server binary (also inside the container image). |
+| `renovatio-release_<v>_linux_amd64`, `renovatio-license_<v>_linux_amd64` | Vendor tools (the license tool only exists from the release that introduced it). |
+| `renovatio-web_<v>.tar.gz` | The web console bundle that is embedded in the server. |
 | `*.cdx.json` | CycloneDX 1.5 SBOMs: one per binary, one for the web bundle, one for the container image. |
 | `unsigned-SHA256SUMS` | Digests of the build **before** signing. Anyone can reproduce these (see the last section). |
 | `BUILD-INFO.txt` | The inputs of the build: commit, `SOURCE_DATE_EPOCH`, toolchain versions, linker flags, compiled-in keys and signer names. |
@@ -29,20 +29,20 @@ a release is cut) is in `docs/RUNBOOK.md`, section 9; the design is `docs/DECISI
 | `SHA256SUMS.sigstore.json` | Cosign (Sigstore) keyless signature over `SHA256SUMS`. |
 | `<artifact>.sbom.sigstore.json` | Cosign attestation that `<artifact>.cdx.json` is the SBOM of `<artifact>`. |
 
-The container image is `ghcr.io/auzring1/auzring-server@sha256:<digest>`; the digest is in `image-ref.txt`.
+The container image is `ghcr.io/auzring1/renovatio-server@sha256:<digest>`; the digest is in `image-ref.txt`.
 
 ## All at once
 
 ```sh
-scripts/verify-release.sh --dir ./release-v1.2.3 --repo auzring1/auzring --tag v1.2.3 \
+scripts/verify-release.sh --dir ./release-v1.2.3 --repo auzring1/renovatio --tag v1.2.3 \
     --pub <VENDOR_PUBKEY_HEX> --authenticode-subject '<SIGNER_CN>'
 ```
 
 Needs `sha256sum`, `jq`, [cosign](https://docs.sigstore.dev/) and the GitHub CLI `gh` (logged in). It prints one
 PASS/WARN/FAIL line per check and exits 1 on any failure. The steps it performs are the sections below, so you can
-also run them by hand. The script checks the vendor bundle with the `auzring-release` binary from the same release
+also run them by hand. The script checks the vendor bundle with the `renovatio-release` binary from the same release
 directory (after its digest has been verified); to be strict, build that tool yourself:
-`go build ./cmd/auzring-release` from the tagged source and pass `--release-tool`.
+`go build ./cmd/renovatio-release` from the tagged source and pass `--release-tool`.
 
 ## 1. Checksums
 
@@ -60,12 +60,12 @@ issues a short-lived certificate naming the workflow, and the signature is recor
 ```sh
 cosign verify-blob \
   --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "https://github.com/auzring1/auzring/.github/workflows/release.yml@refs/tags/v1.2.3" \
+  --certificate-identity "https://github.com/auzring1/renovatio/.github/workflows/release.yml@refs/tags/v1.2.3" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   SHA256SUMS
 ```
 
-What this proves: the file was signed by the `release.yml` workflow of `auzring1/auzring` at tag `v1.2.3`. What it does
+What this proves: the file was signed by the `release.yml` workflow of `auzring1/renovatio` at tag `v1.2.3`. What it does
 not prove: that the code at that tag is good (read the source or rely on step 7), or that a maintainer who can push
 tags is honest. Protect yourself against a re-pointed tag by comparing the commit in `BUILD-INFO.txt` with what you
 reviewed.
@@ -73,8 +73,8 @@ reviewed.
 ## 3. Build provenance (SLSA)
 
 ```sh
-gh attestation verify auzring-server_1.2.3_linux_amd64 \
-  --repo auzring1/auzring --signer-workflow auzring1/auzring/.github/workflows/release.yml
+gh attestation verify renovatio-server_1.2.3_linux_amd64 \
+  --repo auzring1/renovatio --signer-workflow auzring1/renovatio/.github/workflows/release.yml
 ```
 
 Do this for each file you intend to run. The attestation says which workflow run, commit and runner built the file.
@@ -85,10 +85,10 @@ Do this for each file you intend to run. The attestation says which workflow run
 ```sh
 for f in *.cdx.json; do jq -e '.bomFormat=="CycloneDX" and .specVersion=="1.5"' "$f" >/dev/null && echo "$f ok"; done
 
-cosign verify-blob-attestation --bundle auzring-server_1.2.3_linux_amd64.sbom.sigstore.json --type cyclonedx \
-  --certificate-identity "https://github.com/auzring1/auzring/.github/workflows/release.yml@refs/tags/v1.2.3" \
+cosign verify-blob-attestation --bundle renovatio-server_1.2.3_linux_amd64.sbom.sigstore.json --type cyclonedx \
+  --certificate-identity "https://github.com/auzring1/renovatio/.github/workflows/release.yml@refs/tags/v1.2.3" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  auzring-server_1.2.3_linux_amd64
+  renovatio-server_1.2.3_linux_amd64
 ```
 
 How to read them:
@@ -96,7 +96,7 @@ How to read them:
 - Go SBOMs list the modules the linker actually compiled into that binary (read from the binary's embedded build
   information), plus the Go standard library at the toolchain's version. Each module has a `purl` and, from
   `go.sum`, a hash. That hash is the Go module "dirhash" (`h1:`) decoded to hex, a SHA-256 over the module's file
-  digests, **not** the digest of a download archive; the property `auzring:hash-kind` says so.
+  digests, **not** the digest of a download archive; the property `renovatio:hash-kind` says so.
 - The dependency graph is flat (every module hangs off the product); the module-level graph is not recorded.
 - The web SBOM lists the production closure of `web/package-lock.json` with the SHA-512 `integrity` digests npm uses
   and the license each package declares. Development tools are excluded because they are not shipped.
@@ -106,18 +106,18 @@ How to read them:
 ## 5. The container image
 
 ```sh
-IMG=ghcr.io/auzring1/auzring-server@sha256:<digest from image-ref.txt>
+IMG=ghcr.io/auzring1/renovatio-server@sha256:<digest from image-ref.txt>
 cosign verify "$IMG" \
-  --certificate-identity "https://github.com/auzring1/auzring/.github/workflows/release.yml@refs/tags/v1.2.3" \
+  --certificate-identity "https://github.com/auzring1/renovatio/.github/workflows/release.yml@refs/tags/v1.2.3" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 cosign verify-attestation "$IMG" --type cyclonedx \
-  --certificate-identity "https://github.com/auzring1/auzring/.github/workflows/release.yml@refs/tags/v1.2.3" \
+  --certificate-identity "https://github.com/auzring1/renovatio/.github/workflows/release.yml@refs/tags/v1.2.3" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-gh attestation verify "oci://$IMG" --repo auzring1/auzring
+gh attestation verify "oci://$IMG" --repo auzring1/renovatio
 ```
 
 Always run the image **by digest**, never by tag (a tag can be moved; the signature belongs to the digest).
-`deploy/docker-compose.yml` uses `auzring/server:${AUZ_VERSION}` for local builds; for a verified deployment, pull the
+`deploy/docker-compose.yml` uses `renovatio/server:${AUZ_VERSION}` for local builds; for a verified deployment, pull the
 digest above and point `image:` at it. The base images in `deploy/Dockerfile.server` are pinned by digest.
 
 ## 6. Authenticode (the Windows files)
@@ -125,9 +125,9 @@ digest above and point `image:` at it. The base images in `deploy/Dockerfile.ser
 The agent exe and the MSI carry an Authenticode signature with an RFC 3161 timestamp. On Windows:
 
 ```powershell
-Get-AuthenticodeSignature .\auzring-agent_1.2.3_windows_amd64.exe |
+Get-AuthenticodeSignature .\renovatio-agent_1.2.3_windows_amd64.exe |
   Format-List Status, @{n='Signer CN';e={$_.SignerCertificate.GetNameInfo('SimpleName',$false)}}, TimeStamperCertificate
-signtool verify /pa /v .\auzring-agent_1.2.3_windows_x64.msi
+signtool verify /pa /v .\renovatio-agent_1.2.3_windows_x64.msi
 ```
 
 `Status` must be `Valid`, the signer CN must equal `<SIGNER_CN>` exactly as announced, and a timestamp must be present.
@@ -138,7 +138,7 @@ to the file, so the signed file's SHA-256 differs from the one in `unsigned-SHA2
 
 ## 7. How the agent verifies its own updates
 
-You do not have to trust the Auzring server you run for agent updates to be safe. The agent installs a new version
+You do not have to trust the Renovatio server you run for agent updates to be safe. The agent installs a new version
 only if **all** of these hold (docs/DECISIONS.md D68, D83; `internal/shared/release`, `internal/agent/jobs/selfupdate.go`):
 
 1. The **vendor release bundle** (`.azr`) carries an Ed25519 signature that verifies under a vendor public key compiled
@@ -155,8 +155,8 @@ only if **all** of these hold (docs/DECISIONS.md D68, D83; `internal/shared/rele
 To check a bundle yourself with a key you trust:
 
 ```sh
-auzring-release verify --bundle auzring-agent_1.2.3_windows_amd64.azr \
-    --exe auzring-agent_1.2.3_windows_amd64.exe --pub vendor.pub    # vendor.pub holds <VENDOR_PUBKEY_HEX>
+renovatio-release verify --bundle renovatio-agent_1.2.3_windows_amd64.azr \
+    --exe renovatio-agent_1.2.3_windows_amd64.exe --pub vendor.pub    # vendor.pub holds <VENDOR_PUBKEY_HEX>
 ```
 
 The vendor public key(s) are also in the tagged source at `release/release-public-keys.txt` and in `BUILD-INFO.txt`;
@@ -169,7 +169,7 @@ directories, with different time zones, umasks and build caches, gives byte-iden
 checks exactly that). To reproduce a release:
 
 ```sh
-git clone https://github.com/auzring1/auzring && cd auzring && git checkout v1.2.3
+git clone https://github.com/auzring1/renovatio && cd renovatio && git checkout v1.2.3
 cat BUILD-INFO.txt                      # from the release: Go version, Node major, keys, signer names
 export GOTOOLCHAIN=go1.27.1             # the version BUILD-INFO.txt names
 scripts/build-release.sh --version 1.2.3 \

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
 )
 
 func find(items []*agentv1.SoftwareItem, source agentv1.SoftwareSource, scope agentv1.SoftwareScope, sid, key string) *agentv1.SoftwareItem {

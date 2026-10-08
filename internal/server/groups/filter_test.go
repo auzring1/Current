@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/auzring/internal/shared/vercmp"
-	"github.com/auzring1/auzring/internal/testutil/pgtest"
+	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/renovatio/internal/testutil/pgtest"
 )
 
 func mustCompile(t *testing.T, js string) *Compiled {

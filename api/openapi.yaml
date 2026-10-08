@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Auzring Management API
+  title: Renovatio Management API
   version: 0.1.0
   description: |
-    REST API used by the Auzring web console. Authentication is a server-side
+    REST API used by the Renovatio web console. Authentication is a server-side
     session cookie (`__Host-auz_session`) obtained via password + mandatory MFA.
     Every state-changing request must carry a same-origin `Origin` header and,
     once a session exists, the `X-CSRF-Token` header returned by the auth endpoints.
@@ -1054,7 +1054,7 @@ paths:
       summary: Upload a vendor-signed agent release (requires releases:write; audited)
       description: >
         The agent binary is the raw request body (application/octet-stream). The vendor bundle (.azr, produced by
-        auzring-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
+        renovatio-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
         vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
       parameters:
         - { name: X-Release-Bundle, in: header, required: true, schema: { type: string } }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -10,12 +11,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/auzring/gen/dbq"
-	"github.com/auzring1/auzring/internal/server/audit"
-	"github.com/auzring1/auzring/internal/server/auth"
-	"github.com/auzring1/auzring/internal/server/kek"
-	"github.com/auzring1/auzring/internal/server/pki"
-	"github.com/auzring1/auzring/internal/server/store"
+	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/renovatio/internal/server/kek"
+	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/server/store"
 )
 
 func (s *server) setupStatus(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +84,7 @@ func (s *server) setupBegin(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"totp_secret": auth.TOTPSecretString(secret),
-		"otpauth_uri": auth.TOTPURI("Auzring", email, secret),
+		"otpauth_uri": auth.TOTPURI(brand.Name, email, secret),
 	})
 }
 

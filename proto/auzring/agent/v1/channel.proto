@@ -5,7 +5,7 @@ package auzring.agent.v1;
 import "auzring/agent/v1/envelope.proto";
 import "auzring/agent/v1/inventory.proto";
 
-option go_package = "github.com/auzring1/auzring/gen/proto/auzring/agent/v1;agentv1";
+option go_package = "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1";
 
 // AgentChannelService requires a verified device client certificate.
 // See docs/PROTOCOL.md §4.2.

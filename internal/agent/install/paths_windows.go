@@ -3,6 +3,7 @@
 package install
 
 import (
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"os"
 	"path/filepath"
 )
@@ -26,4 +27,4 @@ func DataDir() string {
 }
 
 // BinaryPath is where the installed agent lives (slot A; slot B is for Phase 5 self-update).
-func BinaryPath() string { return filepath.Join(programDir(), "slot-a", "auzring-agent.exe") }
+func BinaryPath() string { return filepath.Join(programDir(), "slot-a", brand.InstalledAgentExe) }

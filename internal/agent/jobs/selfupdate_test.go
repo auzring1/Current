@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/auzring/gen/proto/auzring/agent/v1"
-	"github.com/auzring1/auzring/internal/agent/selfupdate"
-	"github.com/auzring1/auzring/internal/shared/release"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	"github.com/auzring1/renovatio/internal/agent/selfupdate"
+	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
 // fakeUpdater records the slot operations of an agent update.
@@ -87,7 +87,7 @@ func newSURig(t *testing.T) *suRig {
 	r.f.data[""] = s.bin
 	r.p.runFn = func(spec RunSpec, _ string) (RunResult, error) {
 		if len(spec.Args) == 1 && spec.Args[0] == "version" {
-			return RunResult{LogTail: "auzring-agent 1.1.0 (abc)\\n"}, nil
+			return RunResult{LogTail: "renovatio-agent 1.1.0 (abc)\\n"}, nil
 		}
 		return RunResult{}, nil
 	}
@@ -264,7 +264,7 @@ func TestAgentUpdateRefusals(t *testing.T) {
 		}, "does not report version", 0},
 		{"pinned signer does not match", func(s *suRig) (*agentv1.SignedEnvelope, *agentv1.JobEnvelope) {
 			s.p.sig = Signature{Signed: true, Valid: true, Subject: "Somebody Else"}
-			return s.env("r8", s.manifest("1.1.0", func(m *release.Manifest) { m.AuthenticodeSubject = "Auzring Software" }), s.priv)
+			return s.env("r8", s.manifest("1.1.0", func(m *release.Manifest) { m.AuthenticodeSubject = "Renovatio Software" }), s.priv)
 		}, "pinned signer", agentv1.SecurityEventKind_SECURITY_EVENT_KIND_SIGNER_MISMATCH},
 		{"rollback task cannot be armed", func(s *suRig) (*agentv1.SignedEnvelope, *agentv1.JobEnvelope) {
 			s.p.su.failArm = true
