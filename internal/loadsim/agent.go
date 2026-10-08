@@ -296,6 +296,7 @@ func (a *simAgent) session(parent context.Context) (healthy, wait time.Duration,
 	}()
 
 	st := &sessionState{a: a, stream: stream, pend: map[uint64]pending{}, sent: map[*agentv1.JobUpdate]bool{}}
+	defer func() { f.inflight.Add(-int64(len(st.pend))) }()
 	forceHW := false
 	var invOpt inventory.SyncOptions
 	for _, sec := range ack.ResyncSections {
@@ -509,12 +510,12 @@ func (s *sessionState) Send(m *agentv1.ConnectRequest) error {
 				s.snapT = now
 			}
 			if ch.Index+1 == ch.Total {
-				s.pend[inv.Seq] = pending{"inventory_snapshot", s.snapT}
+				s.track(inv.Seq, "inventory_snapshot", s.snapT)
 			}
 		case inv.GetSoftwareDelta() != nil:
-			s.pend[inv.Seq] = pending{"inventory_delta", now}
+			s.track(inv.Seq, "inventory_delta", now)
 		case inv.GetUsers() != nil:
-			s.pend[inv.Seq] = pending{"inventory_users", now}
+			s.track(inv.Seq, "inventory_users", now)
 		}
 	}
 	return s.stream.Send(m)
@@ -541,7 +542,7 @@ func (s *sessionState) sendHardware(force bool) error {
 		Body: &agentv1.InventoryReport_Hardware{Hardware: hw}}}}); err != nil {
 		return err
 	}
-	s.pend[seq] = pending{"hardware", time.Now()}
+	s.track(seq, "hardware", time.Now())
 	return nil
 }
 
@@ -564,6 +565,7 @@ func (s *sessionState) onAck(seq uint64) {
 	a := s.a
 	if p, ok := s.pend[seq]; ok {
 		delete(s.pend, seq)
+		a.f.inflight.Add(-1)
 		a.f.hist("ack_" + p.kind).Record(time.Since(p.at))
 	}
 	if a.inv.Ack(seq) {
@@ -692,4 +694,10 @@ func (a *simAgent) requeueJob(id string) {
 	// Already acknowledged and finished: say so again so the server stops offering it.
 	a.queueJobUpdate(&agentv1.JobUpdate{JobId: id, State: agentv1.JobState_JOB_STATE_SUCCEEDED,
 		Result: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, DetectionPassed: true, AlreadySatisfied: true}})
+}
+
+// track remembers when an acknowledged report was sent, to measure the round trip.
+func (s *sessionState) track(seq uint64, kind string, at time.Time) {
+	s.pend[seq] = pending{kind, at}
+	s.a.f.inflight.Add(1)
 }

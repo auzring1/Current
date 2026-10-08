@@ -24,7 +24,8 @@ type Report struct {
 	ConnectedEnd int `json:"connected_end"`
 
 	Enrollment EnrollReport `json:"enrollment"`
-	RampS      float64      `json:"ramp_to_99pct_s"` // -1 when never reached
+	RampS      float64      `json:"ramp_to_99pct_s"`  // -1 when never reached
+	SyncedS    float64      `json:"ramp_to_synced_s"` // until the first inventory reports were acknowledged too
 
 	Phases []PhaseReport `json:"phases"`
 
@@ -114,13 +115,13 @@ func (r *Report) Markdown() string {
 	}
 	fmt.Fprintf(&b, "\nStarted %s, took %.0f s. Connected: peak %d, at end %d. Ramp to 99%%: ", r.StartedAt.Format(time.RFC3339), r.DurationS, r.ConnectedMax, r.ConnectedEnd)
 	if r.RampS >= 0 {
-		fmt.Fprintf(&b, "%.1f s.\n", r.RampS)
+		fmt.Fprintf(&b, "%.1f s (all initial inventory acknowledged after %.1f s).\n", r.RampS, r.SyncedS)
 	} else {
 		b.WriteString("not reached.\n")
 	}
 	fmt.Fprintf(&b, "Enrollment: %d enrolled, %d from the identity cache", r.Enrollment.Enrolled, r.Enrollment.FromCache)
 	if r.Enrollment.Latency.Count > 0 {
-		fmt.Fprintf(&b, "; enroll latency p50 %s ms, p99 %s ms", fmtMs(r.Enrollment.Latency.P50Ms), fmtMs(r.Enrollment.Latency.P99Ms))
+		fmt.Fprintf(&b, "; enroll latency p50 %s, p99 %s", fmtMs(r.Enrollment.Latency.P50Ms), fmtMs(r.Enrollment.Latency.P99Ms))
 	}
 	b.WriteString(".\n")
 	if r.ServerView != nil {
