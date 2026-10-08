@@ -135,6 +135,10 @@ func signedBytes(manifest []byte) []byte {
 	return append([]byte(Domain), manifest...)
 }
 
+// SignedBytes returns the exact bytes the release key signs for a manifest (domain prefix + manifest),
+// for external signers (KMS/HSM).
+func SignedBytes(manifest []byte) []byte { return signedBytes(manifest) }
+
 // Verify checks the signature under one of keys and returns the parsed, validated manifest.
 func Verify(keys []ed25519.PublicKey, manifest, sig []byte, keyID string) (*Manifest, error) {
 	if len(keys) == 0 {
