@@ -16,9 +16,6 @@ html:root[data-theme] {
   --mantine-color-disabled: var(--rnv-surface-sunken);
   --mantine-color-disabled-color: var(--rnv-text-muted);
   --mantine-color-disabled-border: var(--rnv-border);
-  /* Text on a filled color (buttons, badges, check marks): white on light themes, near-black on dark ones. */
-  --mantine-color-white: var(--rnv-on-solid);
-
   --mantine-primary-color-filled: var(--rnv-accent);
   --mantine-primary-color-filled-hover: var(--rnv-accent-hover);
   --mantine-primary-color-light: var(--rnv-accent-subtle);

@@ -49,21 +49,21 @@ export function UserMenu({ name, email, onSignOut }: { name: string; email: stri
         <Menu.Divider />
         <Menu.Label>Theme</Menu.Label>
         {systemOffered && (
-          <Menu.Item onClick={() => setChoice(SYSTEM_THEME)} role="menuitemradio" aria-checked={current === SYSTEM_THEME} leftSection={<I.Laptop size={16} aria-hidden />} rightSection={current === SYSTEM_THEME ? <I.Check size={16} aria-hidden /> : null}>
+          <Menu.Item onClick={() => setChoice(SYSTEM_THEME)} aria-current={current === SYSTEM_THEME ? "true" : undefined} leftSection={<I.Laptop size={16} aria-hidden />} rightSection={current === SYSTEM_THEME ? <I.Check size={16} aria-hidden /> : null}>
             Follow my device
           </Menu.Item>
         )}
         {offered.map((t) => (
-          <Menu.Item key={t.id} onClick={() => setChoice(t.id)} role="menuitemradio" aria-checked={choice === t.id || (!choice && !systemOffered && theme.id === t.id)} leftSection={<Swatch t={t} />} rightSection={choice === t.id ? <I.Check size={16} aria-hidden /> : null}>
+          <Menu.Item key={t.id} onClick={() => setChoice(t.id)} aria-current={choice === t.id || (!choice && !systemOffered && theme.id === t.id) ? "true" : undefined} leftSection={<Swatch t={t} />} rightSection={choice === t.id ? <I.Check size={16} aria-hidden /> : null}>
             {t.name}
           </Menu.Item>
         ))}
         <Menu.Divider />
         <Menu.Label>Table density</Menu.Label>
-        <Menu.Item onClick={() => setDensity("comfortable")} role="menuitemradio" aria-checked={density === "comfortable"} leftSection={<I.DensityComfortable size={16} aria-hidden />} rightSection={density === "comfortable" ? <I.Check size={16} aria-hidden /> : null}>
+        <Menu.Item onClick={() => setDensity("comfortable")} aria-current={density === "comfortable" ? "true" : undefined} leftSection={<I.DensityComfortable size={16} aria-hidden />} rightSection={density === "comfortable" ? <I.Check size={16} aria-hidden /> : null}>
           Comfortable
         </Menu.Item>
-        <Menu.Item onClick={() => setDensity("compact")} role="menuitemradio" aria-checked={density === "compact"} leftSection={<I.DensityCompact size={16} aria-hidden />} rightSection={density === "compact" ? <I.Check size={16} aria-hidden /> : null}>
+        <Menu.Item onClick={() => setDensity("compact")} aria-current={density === "compact" ? "true" : undefined} leftSection={<I.DensityCompact size={16} aria-hidden />} rightSection={density === "compact" ? <I.Check size={16} aria-hidden /> : null}>
           Compact
         </Menu.Item>
         <Menu.Divider />
