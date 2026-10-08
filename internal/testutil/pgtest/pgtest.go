@@ -1,8 +1,8 @@
 // Package pgtest creates an isolated, migrated database per test.
 //
-// Set AUZ_TEST_PG_URL to a superuser URL (e.g. postgres://postgres:pw@127.0.0.1:55432/postgres).
+// Set RENOVATIO_TEST_PG_URL to a superuser URL (e.g. postgres://postgres:pw@127.0.0.1:55432/postgres).
 // Tests that need a database are skipped when it is unset, except in CI
-// where AUZ_REQUIRE_DB=1 turns the skip into a failure.
+// where RENOVATIO_REQUIRE_DB=1 turns the skip into a failure.
 package pgtest
 
 import (
@@ -21,25 +21,25 @@ import (
 	"github.com/auzring1/renovatio/internal/server/store"
 )
 
-// AppPassword is the password of the test-only auzring_app role.
-const AppPassword = "auzring-app-test-only"
+// AppPassword is the password of the test-only renovatio_app role.
+const AppPassword = "renovatio-app-test-only"
 
 // DB is a migrated test database.
 type DB struct {
-	Pool     *pgxpool.Pool // connected as the least-privilege auzring_app role
+	Pool     *pgxpool.Pool // connected as the least-privilege renovatio_app role
 	AppURL   string
 	OwnerURL string
 }
 
-// New creates a fresh database, migrates it as the owner and connects as auzring_app.
+// New creates a fresh database, migrates it as the owner and connects as renovatio_app.
 func New(t testing.TB) *DB {
 	t.Helper()
-	base := os.Getenv("AUZ_TEST_PG_URL")
+	base := os.Getenv("RENOVATIO_TEST_PG_URL")
 	if base == "" {
-		if os.Getenv("AUZ_REQUIRE_DB") == "1" {
-			t.Fatal("AUZ_TEST_PG_URL is required")
+		if os.Getenv("RENOVATIO_REQUIRE_DB") == "1" {
+			t.Fatal("RENOVATIO_TEST_PG_URL is required")
 		}
-		t.Skip("AUZ_TEST_PG_URL not set; skipping database test")
+		t.Skip("RENOVATIO_TEST_PG_URL not set; skipping database test")
 	}
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, base)
@@ -50,21 +50,21 @@ func New(t testing.TB) *DB {
 
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "auz_t_" + hex.EncodeToString(b)
+	name := "rnv_t_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		t.Fatalf("create db: %v", err)
 	}
 	// Roles are cluster-wide; create once, tolerate races between packages.
 	_, _ = admin.Exec(ctx, `DO $$ BEGIN
-		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='auzring_app') THEN
-			CREATE ROLE auzring_app LOGIN PASSWORD '`+AppPassword+`';
+		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='renovatio_app') THEN
+			CREATE ROLE renovatio_app LOGIN PASSWORD '`+AppPassword+`';
 		END IF; END $$`)
 
 	ownerURL := withDB(t, base, name, "")
 	if err := store.Migrate(ctx, ownerURL, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	appURL := withDB(t, base, name, "auzring_app:"+AppPassword)
+	appURL := withDB(t, base, name, "renovatio_app:"+AppPassword)
 	pool, err := store.Open(ctx, appURL)
 	if err != nil {
 		t.Fatalf("open app pool: %v", err)

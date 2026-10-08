@@ -1,6 +1,6 @@
 // Package bundle encodes the enrollment string handed to `agent install --token`.
 //
-//	AURZ1.<base64url(JSON{"v":1,"gw":"host:port","root":"sha256/...","tok":"...","org":"uuid"})>
+//	RNV1.<base64url(JSON{"v":1,"gw":"host:port","root":"sha256/...","tok":"...","org":"uuid"})>
 package bundle
 
 import (
@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const prefix = "AURZ1."
+const prefix = "RNV1."
 
 // Bundle is the decoded enrollment string.
 type Bundle struct {
@@ -25,7 +25,7 @@ type Bundle struct {
 	Org     string `json:"org"`
 }
 
-// Encode returns the AURZ1.* string.
+// Encode returns the RNV1.* string.
 func (b Bundle) Encode() (string, error) {
 	if err := b.Validate(); err != nil {
 		return "", err
@@ -37,11 +37,11 @@ func (b Bundle) Encode() (string, error) {
 	return prefix + base64.RawURLEncoding.EncodeToString(j), nil
 }
 
-// Parse decodes and validates an AURZ1.* string.
+// Parse decodes and validates an RNV1.* string.
 func Parse(s string) (Bundle, error) {
 	s = strings.TrimSpace(s)
 	if !strings.HasPrefix(s, prefix) {
-		return Bundle{}, errors.New("enrollment token must start with AURZ1. (copy the full string from the console)")
+		return Bundle{}, errors.New("enrollment token must start with RNV1. (copy the full string from the console)")
 	}
 	if len(s) > 2048 {
 		return Bundle{}, errors.New("enrollment token too long")

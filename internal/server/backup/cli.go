@@ -58,7 +58,7 @@ const backupUsage = `usage:
   renovatio-server backup --out FILE|-  (--recipient age1... [--recipient ...] | --recipient-file F | --passphrase-file F)
   renovatio-server backup --verify FILE|-  (--identity-file KEY | --passphrase-file F)
 
-The passphrase file can also be named by AUZ_BACKUP_PASSPHRASE_FILE. With --out - the encrypted
+The passphrase file can also be named by RENOVATIO_BACKUP_PASSPHRASE_FILE. With --out - the encrypted
 archive goes to standard output and nothing else does (logs go to standard error).
 `
 
@@ -70,7 +70,7 @@ func passphraseFile(flagValue string, env Env) string {
 	if flagValue != "" {
 		return flagValue
 	}
-	return strings.TrimSpace(env.Getenv("AUZ_BACKUP_PASSPHRASE_FILE"))
+	return strings.TrimSpace(env.Getenv("RENOVATIO_BACKUP_PASSPHRASE_FILE"))
 }
 
 func identitiesFor(identityFile, passFile string, env Env) ([]age.Identity, error) {
@@ -242,7 +242,7 @@ const restoreUsage = `usage:
   renovatio-server restore --in FILE|-  (--identity-file KEY | --passphrase-file F)
                          [--force --wipe] [--skip-content] [--skip-kek-check]
 
-Restores into the database named by AUZ_MIGRATE_DATABASE_URL (or AUZ_DATABASE_URL), which must be empty.
+Restores into the database named by RENOVATIO_MIGRATE_DATABASE_URL (or RENOVATIO_DATABASE_URL), which must be empty.
 Stop the server first. --force --wipe DROPS everything in the public schema before restoring.
 `
 
@@ -257,7 +257,7 @@ func RunRestore(ctx context.Context, args []string, env Env) error {
 	force := fs.Bool("force", false, "allow replacing a database that already holds data (needs --wipe)")
 	wipe := fs.Bool("wipe", false, "DROP all objects in the public schema before restoring")
 	skipContent := fs.Bool("skip-content", false, "restore the database only, not the content files")
-	skipKEK := fs.Bool("skip-kek-check", false, "do not check AUZ_MASTER_KEY against the CA keys in the backup")
+	skipKEK := fs.Bool("skip-kek-check", false, "do not check RENOVATIO_MASTER_KEY against the CA keys in the backup")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

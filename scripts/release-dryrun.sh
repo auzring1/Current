@@ -85,7 +85,7 @@ mkdir -p "$w"
 "$rel" tosign --manifest "$w/manifest.json" --out "$w/tosign.bin" >/dev/null
 
 # 4a. dryrun provider
-AUZ_DRYRUN_KEY=$D/keys/release.key AUZ_RELEASE_BIN=$rel scripts/release-kms.sh dryrun sign --in "$w/tosign.bin" --out "$w/sig-dryrun.bin" >/dev/null
+RENOVATIO_DRYRUN_KEY=$D/keys/release.key RENOVATIO_RELEASE_BIN=$rel scripts/release-kms.sh dryrun sign --in "$w/tosign.bin" --out "$w/sig-dryrun.bin" >/dev/null
 pass "release-kms.sh dryrun provider signed the manifest bytes"
 
 # 4b. aws provider against a fake `aws` (checks our argument handling, base64 and SPKI parsing; NOT AWS)
@@ -107,7 +107,7 @@ while [ $# -gt 0 ]; do
 done
 if [ "$sub" = sign ]; then
   [ "$alg" = ED25519_SHA_512 ] && [ "$mtype" = RAW ] || { echo "fake aws: wrong algorithm/message type" >&2; exit 2; }
-  "$AUZ_RELEASE_BIN" sign-bytes --key "$FAKE_KEY" --in "$msg" --out "$FAKE_TMP/sig" >/dev/null
+  "$RENOVATIO_RELEASE_BIN" sign-bytes --key "$FAKE_KEY" --in "$msg" --out "$FAKE_TMP/sig" >/dev/null
   printf '{"KeyId":"fake","SigningAlgorithm":"ED25519_SHA_512","Signature":"%s"}\n' "$(base64 -w0 <"$FAKE_TMP/sig")"
 else
   spki="302a300506032b6570032100$(tr -d '[:space:]' <"${FAKE_KEY%.key}.pub")"
@@ -116,16 +116,16 @@ fi
 FAKE
 chmod +x "$D/bin/aws"
 mkdir -p "$D/faketmp"
-PATH="$D/bin:$PATH" FAKE_KEY=$D/keys/release.key FAKE_TMP=$D/faketmp AUZ_RELEASE_BIN=$rel AUZ_RELEASE_KMS_KEY_ID=alias/fake \
+PATH="$D/bin:$PATH" FAKE_KEY=$D/keys/release.key FAKE_TMP=$D/faketmp RENOVATIO_RELEASE_BIN=$rel RENOVATIO_RELEASE_KMS_KEY_ID=alias/fake \
   scripts/release-kms.sh aws sign --in "$w/tosign.bin" --out "$w/sig-aws.bin" >/dev/null
 cmp "$w/sig-dryrun.bin" "$w/sig-aws.bin"
-fakepub=$(PATH="$D/bin:$PATH" FAKE_KEY=$D/keys/release.key AUZ_RELEASE_KMS_KEY_ID=alias/fake scripts/release-kms.sh aws pubkey)
+fakepub=$(PATH="$D/bin:$PATH" FAKE_KEY=$D/keys/release.key RENOVATIO_RELEASE_KMS_KEY_ID=alias/fake scripts/release-kms.sh aws pubkey)
 [ "$fakepub" = "$pub" ] || { echo "aws pubkey parsing returned $fakepub, want $pub" >&2; exit 1; }
 pass "release-kms.sh aws provider (against a fake aws CLI): same Ed25519 signature, SPKI parsed to the compiled-in key"
 
 # 4c. attach / verify / negative tests
-"$rel" attach --manifest "$w/manifest.json" --signature "$w/sig-aws.bin" --pub "$pub" --out "$w/renovatio-agent_${v}_windows_amd64.azr" >/dev/null
-if "$rel" attach --manifest "$w/manifest.json" --signature "$w/sig-aws.bin" --pub "$D/keys/other.pub" --out "$w/wrong.azr" >/dev/null 2>&1; then
+"$rel" attach --manifest "$w/manifest.json" --signature "$w/sig-aws.bin" --pub "$pub" --out "$w/renovatio-agent_${v}_windows_amd64.rnr" >/dev/null
+if "$rel" attach --manifest "$w/manifest.json" --signature "$w/sig-aws.bin" --pub "$D/keys/other.pub" --out "$w/wrong.rnr" >/dev/null 2>&1; then
   echo "attach accepted a signature from the wrong key" >&2; exit 1
 fi
 pass "attach refuses a signature that does not verify under the given key"
@@ -139,16 +139,16 @@ fi
 "$built" manifest --exe "$signed/$(basename "$agent")" --version "$v" --authenticode-subject "Renovatio Dry Run" --out "$w/good.json" >/dev/null
 pass "a manifest pinning a signer that is not compiled in is refused by the release build"
 echo "$pub" >"$w/pub.hex"
-"$rel" verify --bundle "$w/renovatio-agent_${v}_windows_amd64.azr" --exe "$signed/$(basename "$agent")" --pub "$w/pub.hex" >/dev/null
+"$rel" verify --bundle "$w/renovatio-agent_${v}_windows_amd64.rnr" --exe "$signed/$(basename "$agent")" --pub "$w/pub.hex" >/dev/null
 cp "$signed/$(basename "$agent")" "$w/tampered.exe"
 printf 'X' >>"$w/tampered.exe"
-if "$rel" verify --bundle "$w/renovatio-agent_${v}_windows_amd64.azr" --exe "$w/tampered.exe" --pub "$w/pub.hex" >/dev/null 2>&1; then
+if "$rel" verify --bundle "$w/renovatio-agent_${v}_windows_amd64.rnr" --exe "$w/tampered.exe" --pub "$w/pub.hex" >/dev/null 2>&1; then
   echo "verify accepted a tampered binary" >&2; exit 1
 fi
 pass "self-update manifest round trip: manifest -> tosign -> KMS signature -> attach -> verify; a tampered binary is refused"
 "$rel" sign --key "$D/keys/release.key" --exe "$signed/$(basename "$agent")" --version "$v" --os windows --arch amd64 \
-  --authenticode-subject "Renovatio Dry Run" --released-at "$sde" --out "$w/direct.azr" >/dev/null
-cmp "$w/direct.azr" "$w/renovatio-agent_${v}_windows_amd64.azr"
+  --authenticode-subject "Renovatio Dry Run" --released-at "$sde" --out "$w/direct.rnr" >/dev/null
+cmp "$w/direct.rnr" "$w/renovatio-agent_${v}_windows_amd64.rnr"
 pass "the external-signer path and one-step 'sign' produce byte-identical bundles"
 
 # --- 5. final directory + verify-release ------------------------------------------------------------
@@ -157,7 +157,7 @@ final=$D/final
 mkdir -p "$final"
 cp "$D"/out/* "$final/"
 cp "$signed"/* "$final/"
-cp "$w/renovatio-agent_${v}_windows_amd64.azr" "$final/"
+cp "$w/renovatio-agent_${v}_windows_amd64.rnr" "$final/"
 scripts/release-checksums.sh "$final" >/dev/null
 scripts/verify-release.sh --dir "$final" --skip-cosign --skip-attestations --pub "$pub" | sed 's/^/   /'
 pass "verify-release.sh: SHA256SUMS, vendor bundle, SBOM shape"
@@ -197,7 +197,7 @@ fi
 if [ "$with_image" = 1 ]; then
   step "container image (OCI archive)"
   if docker info >/dev/null 2>&1; then
-    AUZ_RELEASE_PUBKEYS=$pub scripts/build-image.sh --version "$v" --commit "$(git rev-parse --short=12 HEAD)" --source-date-epoch "$sde" \
+    RENOVATIO_RELEASE_PUBKEYS=$pub scripts/build-image.sh --version "$v" --commit "$(git rev-parse --short=12 HEAD)" --source-date-epoch "$sde" \
       --require-authenticode true --authenticode-subjects "Renovatio Dry Run" --oci-out "$D/server-image.oci.tar" --digest-file "$D/image-digest.txt"
     pass "image builds from deploy/Dockerfile.server; digest $(cat "$D/image-digest.txt")"
   else

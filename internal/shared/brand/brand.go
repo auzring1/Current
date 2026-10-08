@@ -21,15 +21,30 @@ const (
 	Slug = "renovatio"
 )
 
-// Compatibility identifiers. They contain the previous product name on purpose: machines and databases that
-// exist already depend on them, so they are not renamed (see RENAME-PLAN.md, group B). New code must not
-// add to this list without a reason of the same kind.
+// Names of what the agent leaves on a machine. They are derived from Name so that they cannot drift apart.
 const (
-	// InstalledAgentExe is the agent's file name inside its slot directories and in the service image path.
-	InstalledAgentExe = "auzring-agent.exe"
-	// VersionBanner is what `<agent> version` prints before the version number. Agents that are installed
-	// already read it from a freshly staged binary during self-update.
-	VersionBanner = "auzring-agent"
+	// ServiceName is the Windows service.
+	ServiceName = Name + "Agent"
+	// FolderName is the folder under Program Files (the agent's program) and under ProgramData (its data).
+	FolderName = Name
+	// StageFolderName is the ProgramData folder where installers are staged for per-user installs.
+	StageFolderName = Name + "Stage"
+	// SetupFolderName is the folder where the MSI stages the agent executable before it runs the installer step.
+	SetupFolderName = Name + "Setup"
+	// RollbackTask is the scheduled task that restores the previous version after a failed self-update.
+	RollbackTask = `\` + Name + `\rollback-check`
+	// KeyPrefix prefixes the names of the device keys in the Windows key store.
+	KeyPrefix = Name + "-Agent-Device-"
+)
+
+// File and protocol names derived from Slug. The agent's executable has the same name wherever it is
+// (downloaded, installed in its slot directories, started by the service).
+const (
+	// AgentExe is the agent's file name.
+	AgentExe = Slug + "-agent.exe"
+	// VersionBanner is what `<agent> version` prints before the version number. An agent reads it from a freshly
+	// staged binary during self-update, so it is part of the update protocol.
+	VersionBanner = Slug + "-agent"
 	// ManifestProduct is the "product" value of a signed agent release manifest.
-	ManifestProduct = "auzring-agent"
+	ManifestProduct = Slug + "-agent"
 )

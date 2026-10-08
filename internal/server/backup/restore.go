@@ -138,7 +138,7 @@ func Restore(ctx context.Context, o RestoreOptions) (*RestoreResult, error) {
 		return res, fmt.Errorf("the data was restored at schema version %d, but migrating forward failed (run `renovatio-server migrate` after fixing it): %w", hdr.SchemaVersion, err)
 	}
 	res.SchemaVersion = latest
-	conn, err := connect(ctx, o.DatabaseURL, "auzring-restore")
+	conn, err := connect(ctx, o.DatabaseURL, "renovatio-restore")
 	if err != nil {
 		return res, err
 	}
@@ -164,12 +164,12 @@ func Restore(ctx context.Context, o RestoreOptions) (*RestoreResult, error) {
 	return res, nil
 }
 
-var errNoContentDir = errors.New("the backup contains content files but AUZ_CONTENT_DIR is not set; set it, or pass --skip-content to restore the database only")
+var errNoContentDir = errors.New("the backup contains content files but RENOVATIO_CONTENT_DIR is not set; set it, or pass --skip-content to restore the database only")
 
 // prepareTarget checks the database is fit to receive the backup, wipes it
 // if asked to, and creates the schema at the backup's version.
 func prepareTarget(ctx context.Context, o *RestoreOptions, hdr *Header, log *slog.Logger) (wiped bool, err error) {
-	conn, err := connect(ctx, o.DatabaseURL, "auzring-restore")
+	conn, err := connect(ctx, o.DatabaseURL, "renovatio-restore")
 	if err != nil {
 		return false, err
 	}
@@ -344,7 +344,7 @@ func (h *restoreHandler) OnFile(rel string, size int64, r io.Reader) error {
 
 // loadData runs the single restore transaction and returns the verified manifest.
 func loadData(ctx context.Context, o *RestoreOptions, w *walker, hdr *Header, log *slog.Logger) (*Manifest, error) {
-	conn, err := connect(ctx, o.DatabaseURL, "auzring-restore")
+	conn, err := connect(ctx, o.DatabaseURL, "renovatio-restore")
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func checkMasterKey(ctx context.Context, q querier, key []byte) error {
 			purpose = kek.PurposeJobSigningKey
 		}
 		if _, err := s.Open(purpose, v.enc); err != nil {
-			return fmt.Errorf("the master key (AUZ_MASTER_KEY_FILE) cannot open the %s key stored in this backup: %w. Restore with the master key that was in use when the backup was made (deploy/secrets/master_key), or pass --skip-kek-check", v.kind, err)
+			return fmt.Errorf("the master key (RENOVATIO_MASTER_KEY_FILE) cannot open the %s key stored in this backup: %w. Restore with the master key that was in use when the backup was made (deploy/secrets/master_key), or pass --skip-kek-check", v.kind, err)
 		}
 	}
 	return nil

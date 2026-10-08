@@ -96,11 +96,11 @@ CREATE TABLE groups (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'auzring_app') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             software_titles, software_installs, software_history, device_users, groups
-        TO auzring_app;
-        GRANT USAGE ON SEQUENCE software_history_id_seq TO auzring_app;
+        TO renovatio_app;
+        GRANT USAGE ON SEQUENCE software_history_id_seq TO renovatio_app;
     END IF;
 END
 $$;

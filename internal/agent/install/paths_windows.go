@@ -14,7 +14,7 @@ func programDir() string {
 	if pf == "" {
 		pf = `C:\Program Files`
 	}
-	return filepath.Join(pf, "Auzring", "Agent")
+	return filepath.Join(pf, brand.FolderName, "Agent")
 }
 
 // DataDir is the protected state directory.
@@ -23,8 +23,8 @@ func DataDir() string {
 	if pd == "" {
 		pd = `C:\ProgramData`
 	}
-	return filepath.Join(pd, "Auzring")
+	return filepath.Join(pd, brand.FolderName)
 }
 
 // BinaryPath is where the installed agent lives (slot A; slot B is for Phase 5 self-update).
-func BinaryPath() string { return filepath.Join(programDir(), "slot-a", brand.InstalledAgentExe) }
+func BinaryPath() string { return filepath.Join(programDir(), "slot-a", brand.AgentExe) }

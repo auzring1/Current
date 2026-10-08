@@ -42,7 +42,7 @@ func New(key []byte) (*Sealer, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(append([]byte("auzring/kek-id/v1\x00"), key...))
+	sum := sha256.Sum256(append([]byte("renovatio/kek-id/v1\x00"), key...))
 	s := &Sealer{aead: aead}
 	copy(s.keyID[:], sum[:4])
 	return s, nil
@@ -80,5 +80,5 @@ func (s *Sealer) Open(purpose string, sealed []byte) ([]byte, error) {
 }
 
 func (s *Sealer) aad(purpose string) []byte {
-	return append([]byte("auzring/kek/v1\x00"), purpose...)
+	return append([]byte("renovatio/kek/v1\x00"), purpose...)
 }

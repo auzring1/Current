@@ -1,6 +1,6 @@
 -- +goose Up
 -- Phase 1 foundations. See docs/DATA_MODEL.md.
--- Runs as the schema owner (auzring_owner). Runtime uses auzring_app (DML only).
+-- Runs as the schema owner (renovatio_owner). Runtime uses renovatio_app (DML only).
 
 CREATE EXTENSION IF NOT EXISTS citext;
 
@@ -206,14 +206,14 @@ CREATE TRIGGER audit_log_no_truncate
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'auzring_app') THEN
-        GRANT USAGE ON SCHEMA public TO auzring_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
+        GRANT USAGE ON SCHEMA public TO renovatio_app;
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             organizations, sites, users, user_identities, mfa_totp, mfa_recovery_codes,
             role_bindings, sessions, setup_state, pki_material, enrollment_tokens,
             devices, device_certs
-        TO auzring_app;
-        GRANT SELECT, INSERT ON audit_log TO auzring_app;
+        TO renovatio_app;
+        GRANT SELECT, INSERT ON audit_log TO renovatio_app;
     END IF;
 END
 $$;

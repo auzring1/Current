@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
@@ -194,7 +195,7 @@ func HelperMain(args []string) error {
 	}
 	sid := u.User.Sid.String()
 	plat := &winPlatform{}
-	env := HelperEnv{CurrentSID: sid, StageRoot: filepath.Join(programData(), "AuzringStage", sid),
+	env := HelperEnv{CurrentSID: sid, StageRoot: filepath.Join(programData(), brand.StageFolderName, sid),
 		Run:        func(ctx context.Context, s RunSpec) (RunResult, error) { return runInJob(ctx, s, 0) },
 		OpenLocked: plat.OpenLocked}
 	ctx, cancel := context.WithTimeout(context.Background(), MaxTimeout+5*time.Minute)

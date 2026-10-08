@@ -24,14 +24,14 @@ var totpOut, apiTokenOut, licenseFile *string
 var maxUses *int
 
 func main() {
-	base := flag.String("url", "http://localhost:18080", "server base URL (must equal AUZ_PUBLIC_URL)")
+	base := flag.String("url", "http://localhost:18080", "server base URL (must equal RENOVATIO_PUBLIC_URL)")
 	setupTok := flag.String("setup-token", "", "one-time setup token from the server log")
 	email := flag.String("email", "admin@example.com", "admin email")
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "admin password")
 	approval := flag.Bool("require-approval", false, "token requires approval")
 	totpOut = flag.String("totp-out", "", "write the administrator's TOTP secret to this file (for later scripted logins)")
 	apiTokenOut = flag.String("api-token-out", "", "also create an API token (enrollment, devices, updates, reports scopes) and write it to this file (mode 0600)")
-	licenseFile = flag.String("license-file", "", "install this license (AZL1...) after setup; an unlicensed server enrolls at most 25 devices")
+	licenseFile = flag.String("license-file", "", "install this license (RNL1...) after setup; an unlicensed server enrolls at most 25 devices")
 	maxUses = flag.Int("max-uses", 5, "uses of the enrollment token")
 	flag.Parse()
 	if err := run(*base, *setupTok, *email, *password, *approval); err != nil {

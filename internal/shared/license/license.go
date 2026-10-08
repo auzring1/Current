@@ -1,7 +1,7 @@
 // Package license defines the vendor-signed, offline-verifiable license document.
 //
 // A license is a small strict-JSON document signed with an Ed25519 vendor LICENSE key. The public half
-// is compiled into the server (and may be extended with AUZ_LICENSE_PUBLIC_KEYS for test and demo keys).
+// is compiled into the server (and may be extended with RENOVATIO_LICENSE_PUBLIC_KEYS for test and demo keys).
 // Verification never contacts anybody: there is no phone-home of any kind (decision O9).
 //
 // The license key is a different key from the release key and signs under its own domain separator,
@@ -9,7 +9,7 @@
 //
 // Text form, suitable for pasting into the console or an e-mail:
 //
-//	AZL1.<base64url(document)>.<base64url(signature)>
+//	RNL1.<base64url(document)>.<base64url(signature)>
 package license
 
 import (
@@ -30,11 +30,11 @@ import (
 )
 
 // Domain separates license signatures from every other Ed25519 signature in the product
-// (in particular from release signatures, which use "auzring/release/v1\x00").
-const Domain = "auzring/license/v1\x00"
+// (in particular from release signatures, which use "renovatio/release/v1\x00").
+const Domain = "renovatio/license/v1\x00"
 
 // Prefix starts every license blob and names its encoding version.
-const Prefix = "AZL1"
+const Prefix = "RNL1"
 
 // Limits on attacker-influenced input (a license is pasted by an administrator, but is parsed with
 // the same care as anything that crosses a trust boundary).
@@ -170,7 +170,7 @@ func Decode(blob string) (doc, sig []byte, err error) {
 	}, blob)
 	parts := strings.Split(blob, ".")
 	if len(parts) != 3 || parts[0] != Prefix {
-		return nil, nil, errors.New("license: not a license (expected AZL1.<document>.<signature>)")
+		return nil, nil, errors.New("license: not a license (expected RNL1.<document>.<signature>)")
 	}
 	enc := base64.RawURLEncoding.Strict()
 	if doc, err = enc.DecodeString(parts[1]); err != nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"os"
 	"regexp"
 	"strconv"
@@ -270,8 +271,8 @@ func TestInstallUninstallSequencing(t *testing.T) {
 }
 
 func TestStagingDirectoryIsOutsideTheAgentTree(t *testing.T) {
-	// `renovatio-agent uninstall` removes %ProgramFiles%\Auzring entirely and defers file removal to the
-	// next reboot when it runs from below %ProgramFiles%\Auzring\Agent. The staged copy must therefore
+	// `renovatio-agent uninstall` removes %ProgramFiles%\Renovatio entirely and defers file removal to the
+	// next reboot when it runs from below %ProgramFiles%\Renovatio\Agent. The staged copy must therefore
 	// live elsewhere.
 	root := pkg(t)
 	var dirs []node
@@ -285,7 +286,10 @@ func TestStagingDirectoryIsOutsideTheAgentTree(t *testing.T) {
 	}
 	for _, d := range dirs {
 		name := strings.ToLower(d.attr("Name"))
-		if name == "auzring" || name == "agent" || strings.Contains(name, `\`) || strings.Contains(name, "/") {
+		if name == "$(setupfolder)" { // resolved from the brand package by the build
+			name = strings.ToLower(brand.SetupFolderName)
+		}
+		if name == strings.ToLower(brand.FolderName) || name == "agent" || strings.Contains(name, `\`) || strings.Contains(name, "/") {
 			t.Errorf("SetupDir name %q would put the staged exe inside the tree that `uninstall` deletes", name)
 		}
 	}
@@ -370,7 +374,7 @@ func TestLaunchConditionsFitAndCoverTheDenyList(t *testing.T) {
 	}
 	shape := map[string]func(c string) string{ // a value that passes the shape checks except for the character c
 		"SERVER":      func(c string) string { return "host" + c + "x:8443" },
-		"TOKEN":       func(c string) string { return "AURZ1." + c + "x" },
+		"TOKEN":       func(c string) string { return "RNV1." + c + "x" },
 		"ALLOWEDJOBS": func(c string) string { return "inventory" + c + "x" },
 	}
 	// "[" and "]" are not tested in conditions ("[" is special in MSI formatted text); the agent rejects them.
@@ -412,7 +416,7 @@ func fillRequired(env map[string]string, skip string) {
 		env["SERVER"] = "renovatio.example.com:8443"
 	}
 	if skip != "TOKEN" {
-		env["TOKEN"] = "AURZ1.eyJ2IjoxfQ"
+		env["TOKEN"] = "RNV1.eyJ2IjoxfQ"
 	}
 }
 
@@ -445,39 +449,39 @@ func TestLaunchConditionBehaviour(t *testing.T) {
 		}
 		return e
 	}
-	good := []string{"SERVER", "renovatio.example.com:8443", "TOKEN", "AURZ1.eyJ0b2tlbiI6IngifQ-_x", "ALLOWEDJOBS", "inventory,wu_scan"}
+	good := []string{"SERVER", "renovatio.example.com:8443", "TOKEN", "RNV1.eyJ0b2tlbiI6IngifQ-_x", "ALLOWEDJOBS", "inventory,wu_scan"}
 	cases := []tc{
 		{"fresh install with all properties", with(good...), true},
-		{"fresh install without ALLOWEDJOBS", with("SERVER", "10.0.0.5:8443", "TOKEN", "AURZ1.abc"), true},
-		{"IPv6 server", with("SERVER", "[::1]:8443", "TOKEN", "AURZ1.abc"), true},
-		{"missing SERVER", with("TOKEN", "AURZ1.abc"), false},
+		{"fresh install without ALLOWEDJOBS", with("SERVER", "10.0.0.5:8443", "TOKEN", "RNV1.abc"), true},
+		{"IPv6 server", with("SERVER", "[::1]:8443", "TOKEN", "RNV1.abc"), true},
+		{"missing SERVER", with("TOKEN", "RNV1.abc"), false},
 		{"missing TOKEN", with("SERVER", "a.example:8443"), false},
 		{"nothing at all on a fresh machine", with(), false},
-		{"upgrade of an enrolled machine needs nothing", with("AGENTSERVICEPATH", `"C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" service`), true},
+		{"upgrade of an enrolled machine needs nothing", with("AGENTSERVICEPATH", `"C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" service`), true},
 		{"uninstall needs nothing", with("Installed", "1"), true},
-		{"SERVER without port", with("SERVER", "renovatio.example.com", "TOKEN", "AURZ1.abc"), false},
+		{"SERVER without port", with("SERVER", "renovatio.example.com", "TOKEN", "RNV1.abc"), false},
 		{"TOKEN not an enrollment string", with("SERVER", "a:1", "TOKEN", "hello"), false},
-		{"quote injection in SERVER", with("SERVER", `a:1"`, "TOKEN", "AURZ1.abc"), false},
-		{"space in TOKEN", with("SERVER", "a:1", "TOKEN", "AURZ1.a b"), false},
-		{"chained command in ALLOWEDJOBS", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "ALLOWEDJOBS", "inventory&calc"), false},
-		{"extra argument in SERVER", with("SERVER", "a:1 --data-dir", "TOKEN", "AURZ1.abc"), false},
-		{"Windows 10 1803", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WINBUILD", "17134"), false},
-		{"Windows 10 1809 / Server 2019", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WINBUILD", "17763"), true},
-		{"Windows 8.1", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "VersionNT", "603", "WINBUILD", "9600"), false},
+		{"quote injection in SERVER", with("SERVER", `a:1"`, "TOKEN", "RNV1.abc"), false},
+		{"space in TOKEN", with("SERVER", "a:1", "TOKEN", "RNV1.a b"), false},
+		{"chained command in ALLOWEDJOBS", with("SERVER", "a:1", "TOKEN", "RNV1.abc", "ALLOWEDJOBS", "inventory&calc"), false},
+		{"extra argument in SERVER", with("SERVER", "a:1 --data-dir", "TOKEN", "RNV1.abc"), false},
+		{"Windows 10 1803", with("SERVER", "a:1", "TOKEN", "RNV1.abc", "WINBUILD", "17134"), false},
+		{"Windows 10 1809 / Server 2019", with("SERVER", "a:1", "TOKEN", "RNV1.abc", "WINBUILD", "17763"), true},
+		{"Windows 8.1", with("SERVER", "a:1", "TOKEN", "RNV1.abc", "VersionNT", "603", "WINBUILD", "9600"), false},
 		// Windows Installer itself reports 603 / 9600 on some Windows 10/11 machines; the registry build number decides.
-		{"Windows 11 as reported by a shimmed installer", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "VersionNT", "603", "VersionNT64", "603", "WindowsBuild", "9600", "WINBUILD", "26100"), true},
+		{"Windows 11 as reported by a shimmed installer", with("SERVER", "a:1", "TOKEN", "RNV1.abc", "VersionNT", "603", "VersionNT64", "603", "WindowsBuild", "9600", "WINBUILD", "26100"), true},
 		{"build number not readable", func() map[string]string {
-			e := with("SERVER", "a:1", "TOKEN", "AURZ1.abc")
+			e := with("SERVER", "a:1", "TOKEN", "RNV1.abc")
 			delete(e, "WINBUILD")
 			return e
 		}(), false},
 		{"32-bit Windows", func() map[string]string {
-			e := with("SERVER", "a:1", "TOKEN", "AURZ1.abc")
+			e := with("SERVER", "a:1", "TOKEN", "RNV1.abc")
 			delete(e, "VersionNT64")
 			return e
 		}(), false},
 		{"not elevated", func() map[string]string {
-			e := with("SERVER", "a:1", "TOKEN", "AURZ1.abc")
+			e := with("SERVER", "a:1", "TOKEN", "RNV1.abc")
 			delete(e, "Privileged")
 			return e
 		}(), false},

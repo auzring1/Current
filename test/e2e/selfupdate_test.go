@@ -142,7 +142,7 @@ func TestAgentSelfUpdateEndToEnd(t *testing.T) {
 	if _, err := selfupdate.Load(dir); err == nil {
 		t.Fatal("update state not cleared")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", strings.TrimSuffix(brand.InstalledAgentExe, ".exe"))); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "slots", "slot-b", strings.TrimSuffix(brand.AgentExe, ".exe"))); err != nil {
 		t.Fatalf("new binary not staged: %v", err)
 	}
 

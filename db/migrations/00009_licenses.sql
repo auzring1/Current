@@ -8,7 +8,7 @@ CREATE TABLE licenses (
     org_id       uuid NOT NULL REFERENCES organizations(id),
     license_id   text NOT NULL CHECK (length(license_id) BETWEEN 1 AND 64),
     key_id       text NOT NULL,                 -- which vendor key verified it at install time
-    blob         text NOT NULL CHECK (length(blob) <= 16384),   -- AZL1.<document>.<signature>
+    blob         text NOT NULL CHECK (length(blob) <= 16384),   -- RNL1.<document>.<signature>
     installed_by uuid REFERENCES users(id) ON DELETE SET NULL,
     installed_at timestamptz NOT NULL
 );
@@ -24,9 +24,9 @@ CREATE TABLE license_clock (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'auzring_app') THEN
-        GRANT SELECT, INSERT ON licenses TO auzring_app;
-        GRANT SELECT, INSERT, UPDATE ON license_clock TO auzring_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
+        GRANT SELECT, INSERT ON licenses TO renovatio_app;
+        GRANT SELECT, INSERT, UPDATE ON license_clock TO renovatio_app;
     END IF;
 END
 $$;

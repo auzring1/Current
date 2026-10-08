@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package auzring.agent.v1;
+package renovatio.agent.v1;
 
-option go_package = "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1;agentv1";
+option go_package = "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1";
 
 // Enrollment is served on the gateway listener WITHOUT a client certificate.
 // See docs/PROTOCOL.md §4.1.

@@ -168,12 +168,12 @@ CREATE INDEX job_events_job ON job_events (job_id, id);
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'auzring_app') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             group_members, catalog_packages, catalog_versions, catalog_installers, package_overrides,
             org_settings, content_blobs, deployments, jobs, job_events
-        TO auzring_app;
-        GRANT USAGE ON SEQUENCE job_events_id_seq TO auzring_app;
+        TO renovatio_app;
+        GRANT USAGE ON SEQUENCE job_events_id_seq TO renovatio_app;
     END IF;
 END
 $$;

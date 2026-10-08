@@ -4,7 +4,7 @@ package install
 
 import "golang.org/x/sys/windows/svc/mgr"
 
-// serviceRegistered reports whether the AuzringAgent service exists (running or not).
+// serviceRegistered reports whether the RenovatioAgent service exists (running or not).
 func serviceRegistered() bool {
 	m, err := mgr.Connect()
 	if err != nil {

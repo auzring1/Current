@@ -9,10 +9,10 @@
 //	renovatio-license verify --license license.txt (--pub license.pub | --pub-hex HEX)
 //	renovatio-license show --license license.txt [--pub license.pub]
 //
-// DATE is YYYY-MM-DD (UTC) or RFC 3339. A license file holds one line, AZL1.<document>.<signature>.
+// DATE is YYYY-MM-DD (UTC) or RFC 3339. A license file holds one line, RNL1.<document>.<signature>.
 //
 // The private key never leaves the signer. With a cloud KMS use `payload`, sign the contents of the
-// .tosign file (it already starts with the domain separator "auzring/license/v1\x00") with Ed25519,
+// .tosign file (it already starts with the domain separator "renovatio/license/v1\x00") with Ed25519,
 // then run `attach`. The license key is NOT the release key: never use one for the other; the
 // signatures are domain-separated, so a mix-up fails verification instead of silently working.
 //
@@ -86,7 +86,7 @@ func keygen(args []string) error {
 		return err
 	}
 	fmt.Printf("private key: %s (keep it offline or in a KMS; never commit it)\npublic key:  %s\nkey id:      %s\n"+
-		"public key hex (for -ldflags ...license.PublicKeysHex=, or AUZ_LICENSE_PUBLIC_KEYS for a test server): %s\n",
+		"public key hex (for -ldflags ...license.PublicKeysHex=, or RENOVATIO_LICENSE_PUBLIC_KEYS for a test server): %s\n",
 		*out, pubPath, license.KeyID(pub), hex.EncodeToString(pub))
 	return nil
 }

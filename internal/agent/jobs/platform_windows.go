@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
@@ -85,7 +86,7 @@ func (p *winPlatform) StagingDir(scope installer.Scope, sid, jobID string) (stri
 		if !strings.HasPrefix(sid, "S-1-") || strings.ContainsAny(sid, `\/:*?"<>|`) {
 			return "", errors.New("bad SID")
 		}
-		root := filepath.Join(programData(), "AuzringStage")
+		root := filepath.Join(programData(), brand.StageFolderName)
 		if err := ensureDir(root, sddlRootTrav); err != nil {
 			return "", err
 		}

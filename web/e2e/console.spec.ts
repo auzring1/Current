@@ -5,15 +5,15 @@ import { join } from "node:path";
 import { expect, request, test, type Page } from "@playwright/test";
 import { totp } from "./totp";
 
-const setupToken = process.env.AUZ_SETUP_TOKEN ?? "";
-const agentBin = process.env.AUZ_AGENT_BIN ?? "";
-const gateway = process.env.AUZ_GATEWAY ?? "127.0.0.1:18443";
-const shots = process.env.AUZ_SCREENSHOTS ?? "";
+const setupToken = process.env.RENOVATIO_SETUP_TOKEN ?? "";
+const agentBin = process.env.RENOVATIO_AGENT_BIN ?? "";
+const gateway = process.env.RENOVATIO_GATEWAY ?? "127.0.0.1:18443";
+const shots = process.env.RENOVATIO_SCREENSHOTS ?? "";
 // The license tool and a key whose public half the server trusts (scripts/gui-e2e.sh makes both for this run).
-const licenseTool = process.env.AUZ_LICENSE_TOOL ?? "";
-const licenseKey = process.env.AUZ_LICENSE_KEY ?? "";
+const licenseTool = process.env.RENOVATIO_LICENSE_TOOL ?? "";
+const licenseKey = process.env.RENOVATIO_LICENSE_KEY ?? "";
 
-/** Signs a demo license with the run's key; returns the pasteable AZL1 text. */
+/** Signs a demo license with the run's key; returns the pasteable RNL1 text. */
 function signLicense(key: string, args: string[]): string {
   return execFileSync(licenseTool, ["sign", "--key", key, ...args], { encoding: "utf8" }).trim();
 }
@@ -30,7 +30,7 @@ async function typeCode(page: Page, code: string) {
 }
 
 test("first-run setup, MFA login, enrollment, live device, revoke, audit", async ({ page, browser }) => {
-  expect(setupToken, "AUZ_SETUP_TOKEN must be set").not.toBe("");
+  expect(setupToken, "RENOVATIO_SETUP_TOKEN must be set").not.toBe("");
   // Record every CSP violation; the console must run under the strict policy.
   const violations: string[] = [];
   page.on("console", (m) => {
@@ -92,7 +92,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   let agent: ChildProcess | undefined;
   const agentDirs: string[] = [];
   if (agentBin) {
-    const dir = mkdtempSync(join(tmpdir(), "auz-agent-"));
+    const dir = mkdtempSync(join(tmpdir(), "rnv-agent-"));
     agentDirs.push(dir);
     agent = spawn(agentBin, ["run", "--data-dir", dir, "--server", gateway, "--token", enrollment], { stdio: "ignore" });
   }
@@ -362,7 +362,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Create token" }).click();
   await expect(page.getByText("Copy the token now")).toBeVisible();
   const apiToken = (await page.getByRole("alert").locator("pre").first().innerText()).trim();
-  expect(apiToken).toMatch(/^azt_/);
+  expect(apiToken).toMatch(/^rnt_/);
   await shot(page, "21-account-security");
   const bare = await request.newContext({ baseURL: origin });
   expect((await bare.get("/api/v1/devices", { headers: { Authorization: `Bearer ${apiToken}` } })).status()).toBe(200);
@@ -406,7 +406,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
     await shot(page, "24-license-unlicensed");
 
     // A license signed by some other key is refused with a clear message.
-    const otherDir = mkdtempSync(join(tmpdir(), "auz-lic-"));
+    const otherDir = mkdtempSync(join(tmpdir(), "rnv-lic-"));
     execFileSync(licenseTool, ["keygen", "--out", join(otherDir, "other.key")], { stdio: "ignore" });
     const forged = signLicense(join(otherDir, "other.key"), ["--licensee", "Mallory", "--max-devices", "100000"]);
     await page.getByTestId("license-input").fill(forged);

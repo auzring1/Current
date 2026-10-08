@@ -20,7 +20,7 @@ param(
   [Parameter(Mandatory)] [string] $TotpFile,
   [Parameter(Mandatory)] [string] $Os,
   [string] $Email = "admin@example.com",
-  [string] $Password = $env:AUZ_ADMIN_PASSWORD,
+  [string] $Password = $env:RENOVATIO_ADMIN_PASSWORD,
   [string] $Matrix = "$PSScriptRoot\matrix.json",
   [string] $Results = "$PSScriptRoot\results.json",
   [string] $Only = ""

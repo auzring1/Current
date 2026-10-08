@@ -32,7 +32,7 @@ func asApp(t testing.TB, ownerURL string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.User = url.UserPassword("auzring_app", pgtest.AppPassword)
+	u.User = url.UserPassword("renovatio_app", pgtest.AppPassword)
 	return u.String()
 }
 

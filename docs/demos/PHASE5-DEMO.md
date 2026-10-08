@@ -4,7 +4,7 @@ Goal: see the agent update itself from a vendor-signed release (and roll itself 
 
 You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEMO.md](PHASE4-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine **that you can revert** (a VM snapshot). The examples assume the server name `renovatio.lab`.
 
-**Be honest about what is new:** the Windows side of self-update (switching the service to the other slot, the SYSTEM scheduled task that rolls back, the deliberate service restart, the Authenticode comparison) and the MSI have only been compiled for Windows and tested against a simulated platform on Linux. This is the first time they run on a real machine. If something fails here, keep `C:\ProgramData\Auzring\logs\agent.log`, `rollback-check.log` and the job's log tail.
+**Be honest about what is new:** the Windows side of self-update (switching the service to the other slot, the SYSTEM scheduled task that rolls back, the deliberate service restart, the Authenticode comparison) and the MSI have only been compiled for Windows and tested against a simulated platform on Linux. This is the first time they run on a real machine. If something fails here, keep `C:\ProgramData\Renovatio\logs\agent.log`, `rollback-check.log` and the job's log tail.
 
 ---
 
@@ -18,37 +18,37 @@ You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEM
    ```
    ✅ The server is `healthy`. The menu has new entries: **Users**, **Sites**, **Agent updates**, **Software policies**, **Reports**, **Audit log**.
 
-2. **Build the demo releases.** This makes a throw-away release key in `dist-demo/` (git-ignored) and three agents: 0.9.0 (install first), 0.9.1 (good), 0.9.2 (deliberately broken), plus signed `.azr` bundles for 0.9.1 and 0.9.2.
+2. **Build the demo releases.** This makes a throw-away release key in `dist-demo/` (git-ignored) and three agents: 0.9.0 (install first), 0.9.1 (good), 0.9.2 (deliberately broken), plus signed `.rnr` bundles for 0.9.1 and 0.9.2.
    ```bash
    scripts/release-demo.sh
    ```
-   It prints a line `AUZ_RELEASE_PUBLIC_KEYS=<hex>`. Add that line to `deploy/.env` and recreate the server: `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d server`. ✅ Still healthy. (An official build carries the vendor key inside it; this only exists because you are testing with your own key. **Never use the demo key for real machines.**)
+   It prints a line `RENOVATIO_RELEASE_PUBLIC_KEYS=<hex>`. Add that line to `deploy/.env` and recreate the server: `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d server`. ✅ Still healthy. (An official build carries the vendor key inside it; this only exists because you are testing with your own key. **Never use the demo key for real machines.**)
 
 ## Part B: Self-update, the good release (about 25 minutes)
 
 3. **Install agent 0.9.0.** Copy `dist-demo/renovatio-agent-0.9.0.exe` to `C:\Temp` on the Windows machine and, from an elevated PowerShell, with a fresh token from **Enrollment → New token**:
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall    # skip if never installed
-   .\renovatio-agent-0.9.0.exe install --server renovatio.lab:8443 --token AURZ1.....
+   & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall    # skip if never installed
+   .\renovatio-agent-0.9.0.exe install --server renovatio.lab:8443 --token RNV1.....
    ```
    Approve the device if asked. ✅ Online; the device page says agent version **0.9.0**.
    *(Agents from before Phase 5 cannot update themselves, which is why you reinstall.)*
 
-4. **Publish 0.9.1.** **Agent updates → Upload a release**: choose `renovatio-agent-0.9.1.exe` and `renovatio-agent-0.9.1.azr`. ✅ The release is listed with its version, size, hash and key id. Try uploading the `.exe` with the `.azr` of 0.9.2: ✅ it is refused (hash mismatch). Upload a copy of the `.azr` edited in a text editor: ✅ refused (bad signature).
+4. **Publish 0.9.1.** **Agent updates → Upload a release**: choose `renovatio-agent-0.9.1.exe` and `renovatio-agent-0.9.1.rnr`. ✅ The release is listed with its version, size, hash and key id. Try uploading the `.exe` with the `.rnr` of 0.9.2: ✅ it is refused (hash mismatch). Upload a copy of the `.rnr` edited in a text editor: ✅ refused (bad signature).
 
 5. **Roll it out.** In **Rollout**, pick 0.9.1 as the target release, leave pilot groups empty, soak 0, and save. Within about a minute ✅ a job "Update the agent to 0.9.1" appears on the device's **Jobs** tab and goes `sent → accepted → running`.
-   🔍 On the machine: `Get-Service AuzringAgent` — the service restarts once. `dir "C:\Program Files\Auzring\Agent"` shows both `slot-a` and `slot-b`; `Get-Content C:\ProgramData\Auzring\update.json` shows the state moving `switching → healthy`.
-   ✅ After the restart the job ends **succeeded** (it is completed by the new agent when it has connected), the device page says **0.9.1**, and `schtasks /query /tn "\Auzring\rollback-check"` says the task no longer exists (it is cancelled once the new version is confirmed healthy).
+   🔍 On the machine: `Get-Service RenovatioAgent` — the service restarts once. `dir "C:\Program Files\Renovatio\Agent"` shows both `slot-a` and `slot-b`; `Get-Content C:\ProgramData\Renovatio\update.json` shows the state moving `switching → healthy`.
+   ✅ After the restart the job ends **succeeded** (it is completed by the new agent when it has connected), the device page says **0.9.1**, and `schtasks /query /tn "\Renovatio\rollback-check"` says the task no longer exists (it is cancelled once the new version is confirmed healthy).
 
 6. ✅ The **Agent updates** page shows 1 device on 0.9.1, 0 failed. **Audit log** has `agent.update_job` entries.
 
 ## Part C: The broken release rolls itself back (about 20 minutes)
 
-7. **Shorten the wait.** The rollback check normally runs 10 minutes after the switch. For the demo, set `"update_rollback_minutes": 2` in `C:\ProgramData\Auzring\config.json` (valid range 1 to 60) and restart the service: `Restart-Service AuzringAgent`.
+7. **Shorten the wait.** The rollback check normally runs 10 minutes after the switch. For the demo, set `"update_rollback_minutes": 2` in `C:\ProgramData\Renovatio\config.json` (valid range 1 to 60) and restart the service: `Restart-Service RenovatioAgent`.
 
-8. Upload `renovatio-agent-0.9.2.exe` + `.azr` and make 0.9.2 the target release. ✅ The device updates to 0.9.2, which starts but **never connects** (it is a build that stays silent on purpose).
-   ✅ About 2 minutes later the scheduled task `\Auzring\rollback-check` runs the *old* binary, which puts slot-a/0.9.1 back and restarts the service. The device is **online with version 0.9.1** again, and the job ends **failed: did not become healthy** (visible on the Jobs tab and in `rollback-check.log`).
+8. Upload `renovatio-agent-0.9.2.exe` + `.rnr` and make 0.9.2 the target release. ✅ The device updates to 0.9.2, which starts but **never connects** (it is a build that stays silent on purpose).
+   ✅ About 2 minutes later the scheduled task `\Renovatio\rollback-check` runs the *old* binary, which puts slot-a/0.9.1 back and restarts the service. The device is **online with version 0.9.1** again, and the job ends **failed: did not become healthy** (visible on the Jobs tab and in `rollback-check.log`).
    ✅ Because it was the first release to fail, the rollout does **not** keep retrying forever: the device is retried at most 3 times; **Withdraw** the 0.9.2 release afterwards (it is never offered again).
 
 9. Optional, for a pilot: create two groups, set **pilot groups** and a soak of 1 hour with 90% success. ✅ Devices outside the pilot show "waiting for pilot". With the broken release, ✅ the rollout pauses itself (banner "put on hold", audit `agent.rollout_hold`) as soon as the pilot device fails.
@@ -60,9 +60,9 @@ You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEM
 
 11. **Security key.** As yourself, **Account security → Add security key**. ✅ The browser asks for the key; it is listed. Sign out and in again: ✅ you can use the key instead of the authenticator code. (Works at `https://` addresses and `localhost`; the key is bound to the hostname.)
 
-12. **API token.** **Account security → API tokens → New token**, scope *devices:read*, 30 days. Copy the `azt_…` token (shown once).
+12. **API token.** **Account security → API tokens → New token**, scope *devices:read*, 30 days. Copy the `rnt_…` token (shown once).
     ```bash
-    curl -s --cacert <your CA> -H "Authorization: Bearer azt_..." https://renovatio.lab/api/v1/devices | head -c 300
+    curl -s --cacert <your CA> -H "Authorization: Bearer rnt_..." https://renovatio.lab/api/v1/devices | head -c 300
     ```
     ✅ Device list. Try `POST /api/v1/users` with the same token: ✅ 403 (tokens never manage users). Revoke the token in the console and repeat: ✅ 401. The audit log marks the calls made with the token (`via_api_token`).
 
@@ -112,9 +112,9 @@ You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEM
     ✅ `renovatio-agent-0.9.1-x64.msi` is produced and ICE validation passes. (WiX needs its EULA accepted once — see the README.)
 24. On the test VM (elevated) with a fresh token:
     ```powershell
-    msiexec /i renovatio-agent-0.9.1-x64.msi /qn SERVER=renovatio.lab:8443 TOKEN=AURZ1..... /l*v C:\Windows\Temp\renovatio-msi.log
+    msiexec /i renovatio-agent-0.9.1-x64.msi /qn SERVER=renovatio.lab:8443 TOKEN=RNV1..... /l*v C:\Windows\Temp\renovatio-msi.log
     ```
-    ✅ Exit code 0 (`$LASTEXITCODE`), service `AuzringAgent` running, the device appears. In the log the token shows as `***`.
+    ✅ Exit code 0 (`$LASTEXITCODE`), service `RenovatioAgent` running, the device appears. In the log the token shows as `***`.
     Run the same command again: ✅ exit 0 and **no** second enrollment (the device identity is unchanged). Run it with an empty `TOKEN=`: ✅ exit 1603 with the launch-condition message. `msiexec /x renovatio-agent-0.9.1-x64.msi /qn` removes everything; revoke the device in the console.
 
 ## What to send back

@@ -341,7 +341,7 @@ func (s *server) uploadContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Catalog.Content == nil {
-		writeError(w, http.StatusServiceUnavailable, "no_storage", "Custom packages are disabled: AUZ_CONTENT_DIR is not set.")
+		writeError(w, http.StatusServiceUnavailable, "no_storage", "Custom packages are disabled: RENOVATIO_CONTENT_DIR is not set.")
 		return
 	}
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/octet-stream") {

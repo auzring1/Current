@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 	"github.com/auzring1/renovatio/internal/shared/installer"
 )
 
@@ -224,7 +225,7 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 }
 
 // installPortable copies a single portable executable into the machine-wide
-// legacy "Auzring" portable directory (the folder name is kept, see RENAME-PLAN.md B2).
+// legacy "Renovatio" portable directory (the folder name is kept, see RENAME-PLAN.md B2).
 func (e *Engine) installPortable(b *agentv1.InstallBody, file string) (string, error) {
 	root := e.P.Env(installer.Machine, "", "PROGRAMFILES")
 	if root == "" {
@@ -234,7 +235,7 @@ func (e *Engine) installPortable(b *agentv1.InstallBody, file string) (string, e
 	if id == "" {
 		return "", errors.New("portable package needs a package identifier")
 	}
-	dest := filepath.Join(root, "Auzring", "Portable", id)
+	dest := filepath.Join(root, brand.FolderName, "Portable", id)
 	if err := os.MkdirAll(dest, 0o755); err != nil { // #nosec G301 -- machine-wide, administrator-owned parent
 		return "", err
 	}

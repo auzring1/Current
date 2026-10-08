@@ -44,7 +44,7 @@ func signed(t *testing.T, d *Document) (ed25519.PublicKey, ed25519.PrivateKey, s
 
 func TestRoundTrip(t *testing.T) {
 	pub, _, blob := signed(t, doc())
-	if !strings.HasPrefix(blob, "AZL1.") || strings.Count(blob, ".") != 2 {
+	if !strings.HasPrefix(blob, "RNL1.") || strings.Count(blob, ".") != 2 {
 		t.Fatalf("blob shape: %q", blob)
 	}
 	v, err := Verify([]ed25519.PublicKey{pub}, blob)
@@ -93,17 +93,17 @@ func TestRefuses(t *testing.T) {
 	if tampered == string(docB) {
 		t.Fatal("test bug: nothing replaced")
 	}
-	if _, err := Verify(keys, "AZL1."+base64.RawURLEncoding.EncodeToString([]byte(tampered))+"."+parts[2]); err == nil {
+	if _, err := Verify(keys, "RNL1."+base64.RawURLEncoding.EncodeToString([]byte(tampered))+"."+parts[2]); err == nil {
 		t.Fatal("tampered document accepted")
 	}
 	// Flip a bit in the signature.
 	sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
 	sig[0] ^= 1
-	if _, err := Verify(keys, "AZL1."+parts[1]+"."+base64.RawURLEncoding.EncodeToString(sig)); err == nil {
+	if _, err := Verify(keys, "RNL1."+parts[1]+"."+base64.RawURLEncoding.EncodeToString(sig)); err == nil {
 		t.Fatal("tampered signature accepted")
 	}
 	// Wrong domain: signed without the separator, or with the release domain.
-	for _, dom := range []string{"", release.Domain, "auzring/license/v2\x00", "auzring/license/v1"} {
+	for _, dom := range []string{"", release.Domain, "renovatio/license/v2\x00", "renovatio/license/v1"} {
 		bad := ed25519.Sign(priv, append([]byte(dom), docB...))
 		if _, err := Verify(keys, Encode(docB, bad)); err == nil {
 			t.Fatalf("signature under domain %q accepted", dom)
@@ -116,13 +116,13 @@ func TestRefuses(t *testing.T) {
 	// Structure.
 	for name, in := range map[string]string{
 		"empty":        "",
-		"prefix":       "AZL2." + parts[1] + "." + parts[2],
-		"two parts":    "AZL1." + parts[1],
+		"prefix":       "RNL2." + parts[1] + "." + parts[2],
+		"two parts":    "RNL1." + parts[1],
 		"four parts":   blob + ".x",
-		"padding":      "AZL1." + parts[1] + "=." + parts[2],
-		"std alphabet": "AZL1." + strings.NewReplacer("-", "+", "_", "/").Replace(parts[1]) + "+." + parts[2],
-		"short sig":    "AZL1." + parts[1] + "." + base64.RawURLEncoding.EncodeToString(sig[:10]),
-		"huge":         "AZL1." + strings.Repeat("A", MaxBlobBytes) + "." + parts[2],
+		"padding":      "RNL1." + parts[1] + "=." + parts[2],
+		"std alphabet": "RNL1." + strings.NewReplacer("-", "+", "_", "/").Replace(parts[1]) + "+." + parts[2],
+		"short sig":    "RNL1." + parts[1] + "." + base64.RawURLEncoding.EncodeToString(sig[:10]),
+		"huge":         "RNL1." + strings.Repeat("A", MaxBlobBytes) + "." + parts[2],
 	} {
 		if _, err := Verify(keys, in); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -258,8 +258,8 @@ func FuzzVerify(f *testing.F) {
 	blob := Encode(b, Sign(priv, b))
 	f.Add(blob)
 	f.Add("")
-	f.Add("AZL1..")
-	f.Add("AZL1.e30.AAAA")
+	f.Add("RNL1..")
+	f.Add("RNL1.e30.AAAA")
 	f.Add(blob[:len(blob)/2])
 	f.Add(blob + " \n" + blob)
 	keys := []ed25519.PublicKey{pub}
@@ -280,8 +280,8 @@ func FuzzVerify(f *testing.F) {
 }
 
 func FuzzDecode(f *testing.F) {
-	f.Add("AZL1.e30.AAAA")
-	f.Add("AZL1.....")
+	f.Add("RNL1.e30.AAAA")
+	f.Add("RNL1.....")
 	f.Fuzz(func(t *testing.T, in string) {
 		_, _, _ = Decode(in)
 		_, _ = ParseUnverified(in)

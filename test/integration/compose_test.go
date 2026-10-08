@@ -91,9 +91,9 @@ func up(t *testing.T) *stack {
 	run(t, dir, "bash", "scripts/init-secrets.sh")
 	run(t, dir, "mv", "deploy/secrets", "secrets")
 	env := strings.Join([]string{
-		"AUZ_HOSTNAME=localhost", "AUZ_CADDY_TLS=internal", "AUZ_HTTP_PORT=28080", "AUZ_HTTPS_PORT=" + httpsPort,
-		"AUZ_PUBLIC_PORT_SUFFIX=:" + httpsPort, "AUZ_GATEWAY_PORT=" + gwPort, "AUZ_FRONTEND_SUBNET=172.31.251.0/24",
-		"AUZ_CADDY_IP=172.31.251.10",
+		"RENOVATIO_HOSTNAME=localhost", "RENOVATIO_CADDY_TLS=internal", "RENOVATIO_HTTP_PORT=28080", "RENOVATIO_HTTPS_PORT=" + httpsPort,
+		"RENOVATIO_PUBLIC_PORT_SUFFIX=:" + httpsPort, "RENOVATIO_GATEWAY_PORT=" + gwPort, "RENOVATIO_FRONTEND_SUBNET=172.31.251.0/24",
+		"RENOVATIO_CADDY_IP=172.31.251.10",
 	}, "\n") + "\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o644); err != nil {
 		t.Fatal(err)

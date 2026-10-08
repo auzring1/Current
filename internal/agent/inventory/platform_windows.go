@@ -5,6 +5,7 @@ package inventory
 import (
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
@@ -233,7 +234,7 @@ func hiveTempRoot() string {
 	if pd == "" {
 		pd = `C:\ProgramData`
 	}
-	return filepath.Join(pd, "Auzring", "tmp")
+	return filepath.Join(pd, brand.FolderName, "tmp")
 }
 
 // tempHive is a loaded private copy; Close unloads it and deletes the copy.

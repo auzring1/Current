@@ -35,7 +35,7 @@ export function AgentUpdatesPage() {
     <Stack>
       <Title order={2}>Agent updates</Title>
       <Text size="sm" c="dimmed">
-        Agents update themselves to a release published by the vendor. Upload a release (the binary and its signed <code>.azr</code> bundle), choose it as the target, and the agents move over in batches: a pilot group first, then everyone. An agent verifies the vendor signature itself, switches to the new copy and goes back to the old one automatically if the new one does not connect within ten minutes.
+        Agents update themselves to a release published by the vendor. Upload a release (the binary and its signed <code>.rnr</code> bundle), choose it as the target, and the agents move over in batches: a pilot group first, then everyone. An agent verifies the vendor signature itself, switches to the new copy and goes back to the old one automatically if the new one does not connect within ten minutes.
       </Text>
       {q.isLoading && <Loader />}
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
@@ -126,7 +126,7 @@ function UploadCard({ onDone }: { onDone: () => void }) {
     <Stack gap="xs" maw={560} mt="md">
       <Title order={4}>Upload a release</Title>
       <FileInput label="Agent binary" placeholder="renovatio-agent.exe" value={bin} onChange={setBin} />
-      <FileInput label="Signed bundle (.azr)" placeholder="renovatio-agent-1.2.3.azr" value={bundle} onChange={setBundle} accept=".azr,application/json" />
+      <FileInput label="Signed bundle (.rnr)" placeholder="renovatio-agent-1.2.3.rnr" value={bundle} onChange={setBundle} accept=".rnr,application/json" />
       {error && <Alert color="red">{error}</Alert>}
       <Button onClick={() => up.mutate()} loading={up.isPending} disabled={!bin || !bundle} w="fit-content">
         Upload

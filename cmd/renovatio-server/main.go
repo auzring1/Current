@@ -102,7 +102,7 @@ func migrate() error {
 }
 
 func healthcheck() error {
-	addr := os.Getenv("AUZ_HTTP_ADDR")
+	addr := os.Getenv("RENOVATIO_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"
 	}

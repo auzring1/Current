@@ -31,12 +31,12 @@ var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 // newEmptyDB creates an empty database (no schema at all) and returns its owner URL.
 func newEmptyDB(t testing.TB) string {
 	t.Helper()
-	base := os.Getenv("AUZ_TEST_PG_URL")
+	base := os.Getenv("RENOVATIO_TEST_PG_URL")
 	if base == "" {
-		if os.Getenv("AUZ_REQUIRE_DB") == "1" {
-			t.Fatal("AUZ_TEST_PG_URL is required")
+		if os.Getenv("RENOVATIO_REQUIRE_DB") == "1" {
+			t.Fatal("RENOVATIO_TEST_PG_URL is required")
 		}
-		t.Skip("AUZ_TEST_PG_URL not set; skipping database test")
+		t.Skip("RENOVATIO_TEST_PG_URL not set; skipping database test")
 	}
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, base)
@@ -46,13 +46,13 @@ func newEmptyDB(t testing.TB) string {
 	defer func() { _ = admin.Close(ctx) }()
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "auz_b_" + hex.EncodeToString(b)
+	name := "rnv_b_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		t.Fatal(err)
 	}
 	_, _ = admin.Exec(ctx, `DO $$ BEGIN
-		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='auzring_app') THEN
-			CREATE ROLE auzring_app LOGIN PASSWORD '`+pgtest.AppPassword+`';
+		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='renovatio_app') THEN
+			CREATE ROLE renovatio_app LOGIN PASSWORD '`+pgtest.AppPassword+`';
 		END IF; END $$`)
 	t.Cleanup(func() {
 		c, err := pgx.Connect(context.Background(), base)

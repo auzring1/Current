@@ -42,7 +42,7 @@ func (s *server) putLicense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(in.License) == "" {
-		badRequest(w, "Paste the license text (it starts with AZL1.).")
+		badRequest(w, "Paste the license text (it starts with RNL1.).")
 		return
 	}
 	p := principalFrom(r)

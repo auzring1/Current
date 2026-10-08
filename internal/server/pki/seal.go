@@ -67,7 +67,7 @@ func SealWithPassphrase(passphrase string, key crypto.Signer) ([]byte, error) {
 	}
 	out := append([]byte{passFormatV1}, salt...)
 	out = append(out, nonce...)
-	return aead.Seal(out, nonce, der, []byte("auzring/root-key/v1")), nil
+	return aead.Seal(out, nonce, der, []byte("renovatio/root-key/v1")), nil
 }
 
 // OpenWithPassphrase unlocks the root key.
@@ -79,7 +79,7 @@ func OpenWithPassphrase(passphrase string, sealed []byte) (crypto.Signer, error)
 	if err != nil {
 		return nil, err
 	}
-	der, err := aead.Open(nil, sealed[17:29], sealed[29:], []byte("auzring/root-key/v1"))
+	der, err := aead.Open(nil, sealed[17:29], sealed[29:], []byte("renovatio/root-key/v1"))
 	if err != nil {
 		return nil, errors.New("wrong root passphrase")
 	}

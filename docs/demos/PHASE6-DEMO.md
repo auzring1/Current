@@ -8,6 +8,14 @@ You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): 
 
 ---
 
+## Before you start: this build is a fresh install
+
+This script describes the `rename-renovatio` branch, where **everything is called Renovatio**: the service (`RenovatioAgent`), the folders (`C:\Program Files\Renovatio`, `C:\ProgramData\Renovatio`), the environment variables (`RENOVATIO_...`), the database and its roles, the enrollment strings (`RNV1.`), licenses (`RNL1.`) and API tokens (`rnt_`), and the signing contexts. Nothing from an earlier build carries over, so start clean:
+
+1. **Remove the old server stack** (from the old checkout, so the old compose project is found): `docker compose -f deploy/docker-compose.yml down -v`, then delete `deploy/secrets/` and `deploy/.env`. The secrets contain the old database and role names.
+2. **Remove the old agent** on the test machine and the VM, with the *old* executable: `& "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall`, then delete `C:\Program Files\Auzring`, `C:\Program Files\AuzringSetup`, `C:\ProgramData\Auzring` and `C:\ProgramData\AuzringStage` if they are still there. Revoke or delete the old devices if you keep the server. <!-- old-name -->
+3. Check out the branch, run `./scripts/init-secrets.sh`, copy `deploy/.env.example` to `deploy/.env` (set `RENOVATIO_HOSTNAME`), and bring the stack up as in [PHASE1-DEMO.md](PHASE1-DEMO.md). Enroll the machines again.
+
 ## Part A: Upgrade the stack (about 15 minutes)
 
 Phase 6 changes how the database credentials are handed out. **Read the second paragraph before you restart.**
@@ -53,7 +61,7 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
    ```bash
    mkdir -p dist-demo && go run ./cmd/renovatio-license keygen --out dist-demo/license.key
    ```
-   It prints `public key hex …`. Put `AUZ_LICENSE_PUBLIC_KEYS=<that hex>` in `deploy/.env` and recreate the server (`up -d server`). Open **License** (administrators only). ✅ State **Unlicensed (evaluation)**, "0 of 25 devices".
+   It prints `public key hex …`. Put `RENOVATIO_LICENSE_PUBLIC_KEYS=<that hex>` in `deploy/.env` and recreate the server (`up -d server`). Open **License** (administrators only). ✅ State **Unlicensed (evaluation)**, "0 of 25 devices".
 
 6. **The evaluation cap.** If you have 25 or fewer devices nothing happens; to see the cap you can lower it by installing a small license below. Sign a license for 3 devices, valid 30 days:
    ```bash
@@ -61,12 +69,12 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
        --expires "$(date -u -d '+30 days' +%F)" --out dist-demo/three.lic
    cat dist-demo/three.lic
    ```
-   Paste the text (it starts with `AZL1.`) into **License → Install license**. ✅ State **Licensed**, "N of 3 devices", the history shows one entry, the audit log has `license.install`.
+   Paste the text (it starts with `RNL1.`) into **License → Install license**. ✅ State **Licensed**, "N of 3 devices", the history shows one entry, the audit log has `license.install`.
 
 7. **What a full license does and does not do.** With 3 devices already enrolled, create an enrollment token and try to enroll a 4th machine (or a test VM).
    ✅ The installer prints `device limit reached: … An administrator can install a license under License …`; the agent service keeps retrying every 15 minutes. A pending device cannot be approved (the console says why). ✅ **Everything else keeps working**: the 3 enrolled devices stay online and can be patched, deployments and sign-in work, and revoking a device frees its slot. Re-enrolling a known machine (same hardware) is always allowed.
 
-8. **Refusals.** Try pasting `AZL1.garbage.garbage`, and a license signed by another key (`keygen --out dist-demo/other.key` and sign with that). ✅ Both are refused with a reason and audited (`license.invalid`); the installed license is untouched. Install a bigger license (`--max-devices 100`, new run of `sign`): ✅ the waiting 4th machine enrolls by itself within 15 minutes, or at once if you restart its service.
+8. **Refusals.** Try pasting `RNL1.garbage.garbage`, and a license signed by another key (`keygen --out dist-demo/other.key` and sign with that). ✅ Both are refused with a reason and audited (`license.invalid`); the installed license is untouched. Install a bigger license (`--max-devices 100`, new run of `sign`): ✅ the waiting 4th machine enrolls by itself within 15 minutes, or at once if you restart its service.
 
 9. **Update period.** Sign a license with `--updates-until 2026-01-01` and try to upload or roll out an agent release from [PHASE5-DEMO.md](PHASE5-DEMO.md) (released after that date). ✅ "License: updates ended" — and Windows, driver and software updates are unaffected.
 
@@ -75,13 +83,13 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
 10. **MSI retest.** The first MSI build refused to install on Windows 11 (it believed it was Windows 8.1). Rebuild it from this branch (see `installer/windows/README.md`) and repeat step 24 of [PHASE5-DEMO.md](PHASE5-DEMO.md):
     ```powershell
     (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber    # 17763 or higher
-    msiexec /i renovatio-agent-0.9.1-x64.msi /qn SERVER=renovatio.lab:8443 TOKEN=AURZ1..... /l*v C:\Windows\Temp\renovatio-msi.log
+    msiexec /i renovatio-agent-0.9.1-x64.msi /qn SERVER=renovatio.lab:8443 TOKEN=RNV1..... /l*v C:\Windows\Temp\renovatio-msi.log
     ```
-    ✅ Exit code 0, service running, device online. If it fails again, `renovatio-msi.log` and `C:\ProgramData\Auzring\logs\agent.log` are what I need.
+    ✅ Exit code 0, service running, device online. If it fails again, `renovatio-msi.log` and `C:\ProgramData\Renovatio\logs\agent.log` are what I need.
 
-11. **Folder squatting.** Before installing, as a **standard (non-admin) user** create the data folder: `mkdir C:\ProgramData\Auzring`. Then, as Administrator, run `renovatio-agent.exe install …`.
-    ✅ It refuses: "`C:\ProgramData\Auzring` already exists and is owned by <user>, not SYSTEM or Administrators; inspect it, remove it and run install again". Remove the folder as Administrator and install again: ✅ it works, and `icacls C:\ProgramData\Auzring` shows only SYSTEM and Administrators.
-    (Also try a junction: `mklink /J C:\ProgramData\Auzring C:\Temp`. ✅ Refused as "not a plain directory".)
+11. **Folder squatting.** Before installing, as a **standard (non-admin) user** create the data folder: `mkdir C:\ProgramData\Renovatio`. Then, as Administrator, run `renovatio-agent.exe install …`.
+    ✅ It refuses: "`C:\ProgramData\Renovatio` already exists and is owned by <user>, not SYSTEM or Administrators; inspect it, remove it and run install again". Remove the folder as Administrator and install again: ✅ it works, and `icacls C:\ProgramData\Renovatio` shows only SYSTEM and Administrators.
+    (Also try a junction: `mklink /J C:\ProgramData\Renovatio C:\Temp`. ✅ Refused as "not a plain directory".)
 
 12. **Account lockout counts MFA mistakes.** In a private window, sign in with the right password and give 10 wrong authenticator codes in a row (you will be sent back to the sign-in page after each fifth). ✅ The account locks for 15 minutes ("locked"), and the audit log has `auth.lockout`. To continue before the 15 minutes are up, run `docker compose -f deploy/docker-compose.yml exec server /renovatio-server admin unlock --email you@example.com`. (Before Phase 6 this took about 50 wrong codes.)
 
@@ -91,7 +99,7 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
 
 14. Start a local database that the script may create databases on, then run a small and a larger test:
     ```bash
-    make dev-db        # prints: export AUZ_TEST_PG_URL=...   (copy the line it prints and run it)
+    make dev-db        # prints: export RENOVATIO_TEST_PG_URL=...   (copy the line it prints and run it)
     scripts/loadtest.sh --agents 1000 --scenarios "steady storm" --duration 2m
     ```
     ✅ The script builds everything, signs itself a throw-away license, starts a server, enrolls 1,000 simulated agents (real enrollment, mTLS, inventory, heartbeats and jobs) and writes `loadtest-results/<time>/summary.md`. A "storm" drops every connection at once and measures the time to recover. Our sandbox numbers are in [../LOADTEST.md](../LOADTEST.md), section 7; compare yours.
@@ -111,15 +119,15 @@ You act as the vendor. The demo uses a throw-away license key; real keys are an 
 
 ## Part G: The rename to Renovatio (about 20 minutes, Windows)
 
-The product is now called **Renovatio** (the company stays Auzring; DECISIONS D89 and D90). These checks are about what you can see on a machine and what must **not** have changed.
+The product is **Renovatio**; the company is Auzring (DECISIONS D89, D91).
 
-18. **Names you can see.** Build the agent from this branch and install it (step 3 of [PHASE5-DEMO.md](PHASE5-DEMO.md), with `renovatio-agent.exe`). ✅ `services.msc` shows **Renovatio Agent**; right-click `renovatio-agent.exe` → Properties → Details shows product name *Renovatio*, description *Renovatio Agent*, company *Auzring* (the version fields say 0.0.0.0 for now; the release pipeline does not yet stamp the real version into them). The console title, sign-in page and authenticator entry say Renovatio.
+18. **Names you can see.** Install the agent from this branch (step 3 of [PHASE5-DEMO.md](PHASE5-DEMO.md), with `renovatio-agent.exe`). ✅ `services.msc` shows **Renovatio Agent** with the service name `RenovatioAgent` (`Get-Service RenovatioAgent`); the program is in `C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe` and the data in `C:\ProgramData\Renovatio`. Right-click the exe → Properties → Details: product name *Renovatio*, description *Renovatio Agent*, company *Auzring* (the version fields say 0.0.0.0 for now; the release pipeline does not stamp the real version into them yet). The console title, sign-in page and the authenticator entry say Renovatio.
 
-19. **Names that must not have changed.** ✅ The service is still called `AuzringAgent` (`Get-Service AuzringAgent`), the folders are still `C:\Program Files\Auzring\Agent` and `C:\ProgramData\Auzring`, and the installed file is still `...\slot-a\auzring-agent.exe`. That is deliberate: agents that are already installed depend on those names.
+19. **Nothing of the old name is left on the machine.** ✅ `Get-ChildItem 'C:\Program Files','C:\ProgramData' | Where-Object Name -like '*Auzring*'` returns nothing, and `Get-Service | Where-Object Name -like '*Auzring*'` returns nothing (after step 2 of "Before you start"). <!-- old-name -->
 
-20. **An older agent updates to a renamed one.** On a machine with an agent installed from the **Phase 6** build, roll out a release built from this branch (the "good" release in [PHASE5-DEMO.md](PHASE5-DEMO.md) Part B, built with `scripts/release-demo.sh`). ✅ The job succeeds and the device reports the new version. (This is the compatibility that the unchanged `version` output and manifest product value protect; it is the one rename risk I could not test on Windows.)
+20. **Self-update still works under the new names.** Roll out the "good" release from [PHASE5-DEMO.md](PHASE5-DEMO.md) Part B, built with `scripts/release-demo.sh` from this branch. ✅ Both slot folders appear under `C:\Program Files\Renovatio\Agent`, the service restarts once, and the job succeeds; the scheduled task `\Renovatio\rollback-check` exists only while an update is being confirmed.
 
-21. **MSI upgrade.** If you installed with the Phase 6 MSI, install the one built from this branch over it. ✅ One entry **Renovatio Agent** (the company, Auzring, as publisher) in Apps & features, no duplicate, device identity unchanged (the MSI's UpgradeCode did not change).
+21. **MSI.** Build the MSI from this branch and install it on a clean machine (step 24 of [PHASE5-DEMO.md](PHASE5-DEMO.md)). ✅ One entry **Renovatio Agent** (the company, Auzring, as publisher) in Apps & features; `msiexec /x` removes the service and both folders. (The MSI's upgrade code is unchanged, but its service and folder names are not, so do not install it over an agent from an earlier build.)
 
 ## What to send back
 

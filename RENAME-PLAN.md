@@ -1,6 +1,8 @@
 # Rename plan: Auzring → Renovatio
 
-> **Status: stage 2 done (branch `rename-renovatio`).** Decisions taken: keep the group-B identifiers listed under "Keep" in section 3; rename B16, B17 (image), B24, B25; add the Windows version resource (B6); the software is **Renovatio**, the agent **Renovatio Agent**, the company stays **Auzring**; rename the GitHub repository and Go module path to `renovatio` (the repository rename itself is done in GitHub's settings; the organisation `auzring1` stays); example host names change. See DECISIONS D89 and D90.
+> **Status: stages 2 and 3 done (branch `rename-renovatio`).** Stage 3 (DECISIONS D91): because only a test machine and a VM exist, the group-B identifiers listed below as "keep" were renamed as well, and nothing of the old name remains except the company name and the GitHub organisation. The recommendations in sections 2 and 3 are therefore historical.
+>
+> Stage 2 decisions: Decisions taken: keep the group-B identifiers listed under "Keep" in section 3; rename B16, B17 (image), B24, B25; add the Windows version resource (B6); the software is **Renovatio**, the agent **Renovatio Agent**, the company stays **Auzring**; rename the GitHub repository and Go module path to `renovatio` (the repository rename itself is done in GitHub's settings; the organisation `auzring1` stays); example host names change. See DECISIONS D89 and D90.
 
 Stage 1 (below) was a survey and a set of recommendations, written before any change.
 

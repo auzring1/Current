@@ -17,7 +17,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
    git fetch origin && git checkout phase-3
    docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
    docker compose -f deploy/docker-compose.yml logs server | grep -i migrat
-   docker compose -f deploy/docker-compose.yml exec server ls -ld /var/lib/auzring/content
+   docker compose -f deploy/docker-compose.yml exec server ls -ld /var/lib/renovatio/content
    ```
    ✅ The migration is applied and the server is `healthy`. The console shows new menu entries **Catalog**, **Deployments** and **Settings**.
 
@@ -32,11 +32,11 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 3. On the Windows machine, **PowerShell as Administrator**:
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall      # skip if never installed
+   & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall      # skip if never installed
    ```
    In the console: **Enrollment → New token**, then
    ```powershell
-   .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
+   .\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.....
    ```
    Approve the device if it asks (same hardware re-enrolls as *pending*; approving retires the old identity). ✅ The device is **online** and its Software tab is filled.
 
@@ -61,7 +61,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
    On the Windows machine:
    ```powershell
    Test-Path "C:\Program Files\7-Zip\7z.exe"                       # True
-   Get-Content C:\ProgramData\Auzring\logs\agent.log -Tail 30       # job accepted, hash verified, signature, exit code 0, detection passed
+   Get-Content C:\ProgramData\Renovatio\logs\agent.log -Tail 30       # job accepted, hash verified, signature, exit code 0, detection passed
    ```
    ✅ After about a minute the device's **Software** tab (Phase 2) lists 7-Zip, and the deployment page says **completed**.
 
@@ -89,7 +89,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 10. **Retry** is shown after the failure in Part H (Step 16): a failed, expired, rejected or cancelled job has a **Retry** button that creates a new attempt.
 
-11. **Offline device.** On the Windows machine run `Stop-Service AuzringAgent`. In the console wait until the device shows offline, then deploy 7-Zip to it. ✅ The job sits in `queued`. Run `Start-Service AuzringAgent`: ✅ the job is offered as soon as the device reconnects and completes.
+11. **Offline device.** On the Windows machine run `Stop-Service RenovatioAgent`. In the console wait until the device shows offline, then deploy 7-Zip to it. ✅ The job sits in `queued`. Run `Start-Service RenovatioAgent`: ✅ the job is offered as soon as the device reconnects and completes.
 
 12. **Maintenance window.** **New deployment → Only run inside a maintenance window**: tick today's weekday, set **Starts** to about 10 minutes from now (device time) and 30 minutes duration. ✅ The job reaches `waiting` (reason `waiting_not_before`/outside window) and runs only when the window opens. The window is evaluated **on the device**, so it works even if the server is down at that moment (try `docker compose ... stop server` after the job shows `waiting`, then start it again later).
 
@@ -106,12 +106,12 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 ## Part H: Prove a bad installer is refused (about 10 minutes, important)
 
-16. **Wrong signer.** Upload `renovatio-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\AuzCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
-    ✅ The job ends `failed` with "the installer's signature does not match the pinned signer" and **never runs** (nothing starts; no `AuzCheck` folder). The agent also reports a security event.
+16. **Wrong signer.** Upload `renovatio-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\RnvCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
+    ✅ The job ends `failed` with "the installer's signature does not match the pinned signer" and **never runs** (nothing starts; no `RnvCheck` folder). The agent also reports a security event.
     Click **Retry** on the job ✅ a second attempt (`attempt 2`) is queued, runs and fails the same way: a retry is a brand-new signed job, never a re-run of the old one.
 17. **Tampered file.** (Needs shell access to the server.) Upload any small installer as a custom package, deploy it once successfully, then corrupt the stored file and deploy again:
     ```bash
-    docker compose -f deploy/docker-compose.yml exec server sh -c 'ls /var/lib/auzring/content/*'
+    docker compose -f deploy/docker-compose.yml exec server sh -c 'ls /var/lib/renovatio/content/*'
     ```
     The server container is read-only and distroless (no shell), so instead run
     `docker run --rm -v <project>_content:/c alpine sh -c "echo x >> /c/*/<hash>"` against the volume (use `docker volume ls` to find its name). Deploy again. ✅ The device refuses it: the downloaded bytes do not match the SHA-256 signed into the job, and nothing runs.
@@ -131,7 +131,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 You should have the second user `demo2` from Part B and have signed in as them once.
 
 22. **Per-user install.** Sign in to the Windows machine as **demo2** and stay signed in (switch users). In the console import `Microsoft.VisualStudioCode`, then **New deployment → Install, Scope: Per user**, your device.
-    ✅ The plan lists one job **per user profile** on the device (you and demo2). The demo2 job runs **inside demo2's session** (look in `C:\ProgramData\Auzring\logs\agent.log` for the helper starting). Verify as demo2: `Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe"` → True. The job for the user who is **signed out** shows **waiting for user logon**; sign that user in ✅ and it runs without anything else being clicked.
+    ✅ The plan lists one job **per user profile** on the device (you and demo2). The demo2 job runs **inside demo2's session** (look in `C:\ProgramData\Renovatio\logs\agent.log` for the helper starting). Verify as demo2: `Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe"` → True. The job for the user who is **signed out** shows **waiting for user logon**; sign that user in ✅ and it runs without anything else being clicked.
     🔒 *Check:* the installer ran as demo2, not as SYSTEM: `Get-CimInstance Win32_Process -Filter "Name='Code.exe'" | % { (Invoke-CimMethod -InputObject $_ -MethodName GetOwner).User }` shows `demo2`.
 
 23. **Per-user policy.** With VS Code installed for demo2 (per user), open **Settings** and leave the default **Report only**. Run **Install, Machine-wide** of VS Code to the device.
@@ -147,14 +147,14 @@ You should have the second user `demo2` from Part B and have signed in as them o
 
 ## Clean up
 ```powershell
-& "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall
+& "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall
 net user demo2 /delete
 # remove any leftovers: C:\Program Files\7-Zip, VS Code, the test installers in C:\Temp
 ```
 Revoke the device in the console. Revert the VM snapshot if you used one.
 
 ## What to tell me
-- Any job that failed, with its **Details** log and `C:\ProgramData\Auzring\logs\agent.log` around it.
+- Any job that failed, with its **Details** log and `C:\ProgramData\Renovatio\logs\agent.log` around it.
 - Whether Part K worked at all (the helper starting in demo2's session, the logon queue, the dependent removal), and what the Task Manager "Users" tab showed for the installer processes.
 - Whether any installer needed a silent switch the importer did not know (the package page shows "not deployable" or the install hung).
 - How long a deployment took from **Start** to **succeeded** on an online device (I expect seconds plus the installer's own time).

@@ -9,8 +9,8 @@ func FuzzParse(f *testing.F) {
 	if s, err := good.Encode(); err == nil {
 		f.Add(s)
 	}
-	f.Add("AURZ1.")
-	f.Add("AURZ1.e30")
+	f.Add("RNV1.")
+	f.Add("RNV1.e30")
 	f.Fuzz(func(t *testing.T, s string) {
 		b, err := Parse(s)
 		if err != nil {

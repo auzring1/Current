@@ -304,7 +304,7 @@ func TestInstallRefusals(t *testing.T) {
 			d.NotBefore = t0.Add(-200 * 24 * time.Hour).Unix()
 			d.IssuedAt = d.NotBefore
 		}),
-		"tampered": strings.Replace(f.issue(nil), "AZL1.", "AZL1.A", 1),
+		"tampered": strings.Replace(f.issue(nil), "RNL1.", "RNL1.A", 1),
 	}
 	for name, blob := range cases {
 		_, err := f.svc.Install(ctx, f.actor(), blob)
@@ -367,7 +367,7 @@ func TestNoKeyMeansUnlicensed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = owner.Close(context.Background()) }()
-	if _, err := owner.Exec(context.Background(), "UPDATE licenses SET blob = replace(blob, 'AZL1.', 'AZL1.A')"); err != nil {
+	if _, err := owner.Exec(context.Background(), "UPDATE licenses SET blob = replace(blob, 'RNL1.', 'RNL1.A')"); err != nil {
 		t.Fatal(err)
 	}
 	if st := f.status(); st.State != Invalid || st.MaxDevices != 25 {

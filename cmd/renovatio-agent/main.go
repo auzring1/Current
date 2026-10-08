@@ -1,9 +1,9 @@
 // Command renovatio-agent is the Renovatio endpoint agent.
 //
-//	renovatio-agent install --server HOST:PORT --token AURZ1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
+//	renovatio-agent install --server HOST:PORT --token RNV1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
 //	renovatio-agent uninstall
 //	renovatio-agent status
-//	renovatio-agent run [--data-dir DIR] [--server HOST:PORT --token AURZ1....]   (foreground; development)
+//	renovatio-agent run [--data-dir DIR] [--server HOST:PORT --token RNV1....]   (foreground; development)
 //	renovatio-agent version
 //
 // When started by the Windows Service Control Manager it runs as a service.
@@ -87,7 +87,7 @@ func main() {
 
 func usage() {
 	fmt.Fprint(os.Stderr, `Usage:
-  renovatio-agent install --server HOST:PORT --token AURZ1....   Install and enroll (Administrator)
+  renovatio-agent install --server HOST:PORT --token RNV1....   Install and enroll (Administrator)
   renovatio-agent uninstall                                      Remove the agent (Administrator)
   renovatio-agent status                                         Show enrollment/connection state
   renovatio-agent run [--data-dir DIR] [--server S --token T]    Run in the foreground (development)
@@ -98,7 +98,7 @@ func usage() {
 func cmdInstall(args []string) error {
 	fl := flag.NewFlagSet("install", flag.ContinueOnError)
 	server := fl.String("server", "", "gateway address host:port (defaults to the address inside the token)")
-	token := fl.String("token", "", "enrollment string from the console (AURZ1....)")
+	token := fl.String("token", "", "enrollment string from the console (RNV1....)")
 	allowed := fl.String("allowed-jobs", "", "optional local ceiling of allowed job types (comma-separated)")
 	wait := fl.Duration("wait", 90*time.Second, "how long to wait for enrollment to finish")
 	ifNot := fl.Bool("if-not-installed", false, "exit 0 without changes when the agent is already installed and configured (used by the MSI)")

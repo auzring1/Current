@@ -71,7 +71,7 @@ func (a *API) do(ctx context.Context, method, path string, in, out any) error {
 }
 
 // MintEnrollmentToken creates a no-approval enrollment token good for uses devices and returns the
-// AURZ1 enrollment string.
+// RNV1 enrollment string.
 func (a *API) MintEnrollmentToken(ctx context.Context, name string, uses int, ttl time.Duration) (string, error) {
 	var out struct {
 		Enrollment string `json:"enrollment_string"`

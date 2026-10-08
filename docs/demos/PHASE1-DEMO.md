@@ -19,7 +19,7 @@ The examples below use the server name `renovatio.lab`. Use a real DNS name, or 
    git clone -b phase-1 https://github.com/auzring1/renovatio.git && cd renovatio
    ./scripts/init-secrets.sh
    cp deploy/.env.example deploy/.env
-   sed -i 's/^AUZ_HOSTNAME=.*/AUZ_HOSTNAME=renovatio.lab/' deploy/.env      # keep AUZ_CADDY_TLS=internal for a lab
+   sed -i 's/^RENOVATIO_HOSTNAME=.*/RENOVATIO_HOSTNAME=renovatio.lab/' deploy/.env      # keep RENOVATIO_CADDY_TLS=internal for a lab
    ```
    ✅ `deploy/secrets/` contains 5 files, and `ls -ld deploy/secrets` shows `drwx------`.
 
@@ -35,7 +35,7 @@ The examples below use the server name `renovatio.lab`. Use a real DNS name, or 
    docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
    ```
 
-4. **Trust the lab certificate in your browser** (only needed with `AUZ_CADDY_TLS=internal`).
+4. **Trust the lab certificate in your browser** (only needed with `RENOVATIO_CADDY_TLS=internal`).
    ```bash
    docker compose -f deploy/docker-compose.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
    ```
@@ -70,38 +70,38 @@ The examples below use the server name `renovatio.lab`. Use a real DNS name, or 
 14. On the VM, open **PowerShell as Administrator**:
     ```powershell
     cd C:\Temp
-    .\renovatio-agent.exe install --server renovatio.lab:8443 --token AURZ1.....
+    .\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.....
     ```
     ✅ The output ends with "Enrolled; waiting for an administrator to approve device ...".
 15. In the console under **Devices**, ✅ the VM appears **without refreshing the page**, with status **pending**. Click it, then **Approve**.
 16. Within about a minute, ✅ the device is **active** and **online**. Click it to see the OS and build, manufacturer and model, serial, CPU, memory, disks, network interfaces and logged-on user, plus the client certificate (90-day validity).
 17. On the VM:
     ```powershell
-    & "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" status          # state: connected
-    Get-Service AuzringAgent                                                      # Running
-    (Get-Acl C:\ProgramData\Auzring).Access | ft IdentityReference,FileSystemRights   # only SYSTEM + Administrators
-    Get-Content C:\ProgramData\Auzring\config.json                                # NO enrollment_token any more
-    Get-NetTCPConnection -State Listen | ? OwningProcess -eq (Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'").ProcessId   # nothing: no listening ports
-    Get-Process -Id (Get-CimInstance Win32_Service -Filter "Name='AuzringAgent'").ProcessId | Select WS   # working set (target < 30 MB)
+    & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" status          # state: connected
+    Get-Service RenovatioAgent                                                      # Running
+    (Get-Acl C:\ProgramData\Renovatio).Access | ft IdentityReference,FileSystemRights   # only SYSTEM + Administrators
+    Get-Content C:\ProgramData\Renovatio\config.json                                # NO enrollment_token any more
+    Get-NetTCPConnection -State Listen | ? OwningProcess -eq (Get-CimInstance Win32_Service -Filter "Name='RenovatioAgent'").ProcessId   # nothing: no listening ports
+    Get-Process -Id (Get-CimInstance Win32_Service -Filter "Name='RenovatioAgent'").ProcessId | Select WS   # working set (target < 30 MB)
     certutil -csp "Microsoft Platform Crypto Provider" -key 2>$null | Select-String Renovatio          # device key in the TPM, if the VM has a vTPM
     certutil -csp "Microsoft Software Key Storage Provider" -key 2>$null | Select-String Renovatio     # otherwise here (non-exportable)
     ```
-    - 🔒 *Check:* as a **standard (non-admin) user**, `Stop-Service AuzringAgent` is denied, and `Get-ChildItem C:\ProgramData\Auzring` is denied.
+    - 🔒 *Check:* as a **standard (non-admin) user**, `Stop-Service RenovatioAgent` is denied, and `Get-ChildItem C:\ProgramData\Renovatio` is denied.
 
 ## Part E: Live status, revocation and audit (about 5 minutes)
 
-18. **Live offline/online:** on the VM, run `Restart-Service AuzringAgent`. ✅ In the console the device goes **offline**, then **online** again within seconds.
+18. **Live offline/online:** on the VM, run `Restart-Service RenovatioAgent`. ✅ In the console the device goes **offline**, then **online** again within seconds.
 19. **Re-enrollment protection (optional):** run `.\renovatio-agent.exe uninstall`, then `install` again with the same token. ✅ The new enrollment is **pending** and says it re-enrolls known hardware. Approving it revokes the old identity.
 20. **Revoke:** in the console, open the device, click **Revoke**, enter the reason "demo", and confirm.
     ✅ Within a second the device shows **revoked** and **offline**.
     ✅ On the VM, `renovatio-agent.exe status` shows `rejected`: "This device was revoked by an administrator."
-    ✅ The agent log `C:\ProgramData\Auzring\logs\agent.log` shows `"reason":"revoked"`, and the agent does not reconnect.
+    ✅ The agent log `C:\ProgramData\Renovatio\logs\agent.log` shows `"reason":"revoked"`, and the agent does not reconnect.
 21. **Audit:** open the **Audit log**. ✅ It shows `setup.complete`, `auth.login`, `enrollment_token.create`, `device.enroll`, `device.approve`, `device.certificate_issue` and `device.revoke`, with actor, IP and time.
     ```bash
     docker compose -f deploy/docker-compose.yml exec server /renovatio-server admin verify-audit
     # -> audit chain intact: N entries verified
     ```
-22. **Clean up the VM:** run `.\renovatio-agent.exe uninstall`. ✅ The service is gone, `C:\ProgramData\Auzring` is gone, and the device key is deleted.
+22. **Clean up the VM:** run `.\renovatio-agent.exe uninstall`. ✅ The service is gone, `C:\ProgramData\Renovatio` is gone, and the device key is deleted.
 
 ## Optional security spot checks
 - `curl -sI https://renovatio.lab/ --cacert caddy-root.crt` shows the `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY` and `X-Content-Type-Options` headers.

@@ -14,7 +14,7 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/auzring/agent/v1"
+	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
 )
 
 // Windows Update Agent over COM (https://learn.microsoft.com/windows/win32/wua_sdk/). COM objects

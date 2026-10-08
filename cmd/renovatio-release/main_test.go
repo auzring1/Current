@@ -48,24 +48,24 @@ func TestExternalSignerRoundTrip(t *testing.T) {
 	if err := keygen([]string{"--out", p("other.key")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("other.pub"), "--out", p("wrong.azr")}); err == nil {
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("other.pub"), "--out", p("wrong.rnr")}); err == nil {
 		t.Fatal("attach accepted a signature that does not verify under the given public key")
 	}
-	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("release.pub"), "--out", p("external.azr")}); err != nil {
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--pub", p("release.pub"), "--out", p("external.rnr")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--key-id", kid, "--out", p("byid.azr")}); err != nil {
+	if err := attach([]string{"--manifest", p("manifest.json"), "--signature", p("sig.bin"), "--key-id", kid, "--out", p("byid.rnr")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := verify([]string{"--bundle", p("external.azr"), "--exe", exe, "--pub", p("release.pub")}); err != nil {
+	if err := verify([]string{"--bundle", p("external.rnr"), "--exe", exe, "--pub", p("release.pub")}); err != nil {
 		t.Fatalf("external-signed bundle does not verify: %v", err)
 	}
 	// One-step `sign` with the same fixed released-at gives the same bundle (Ed25519 is deterministic).
-	if err := sign(append([]string{"--key", p("release.key"), "--out", p("direct.azr")}, common...)); err != nil {
+	if err := sign(append([]string{"--key", p("release.key"), "--out", p("direct.rnr")}, common...)); err != nil {
 		t.Fatal(err)
 	}
-	a, _ := os.ReadFile(p("external.azr"))
-	b, _ := os.ReadFile(p("direct.azr"))
+	a, _ := os.ReadFile(p("external.rnr"))
+	b, _ := os.ReadFile(p("direct.rnr"))
 	if !bytes.Equal(a, b) {
 		t.Fatal("manifest/tosign/attach and sign disagree")
 	}

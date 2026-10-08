@@ -23,7 +23,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(s, "AURZ1.") {
+	if !strings.HasPrefix(s, "RNV1.") {
 		t.Fatal(s)
 	}
 	got, err := Parse("  " + s + "\n")
@@ -48,7 +48,7 @@ func TestRejects(t *testing.T) {
 			t.Errorf("%s: expected error", name)
 		}
 	}
-	for _, s := range []string{"", "AURZ2.abc", "AURZ1.!!!", "AURZ1." + base64.RawURLEncoding.EncodeToString([]byte(`{"v":1,"extra":1}`))} {
+	for _, s := range []string{"", "RNV2.abc", "RNV1.!!!", "RNV1." + base64.RawURLEncoding.EncodeToString([]byte(`{"v":1,"extra":1}`))} {
 		if _, err := Parse(s); err == nil {
 			t.Errorf("Parse(%q): expected error", s)
 		}
