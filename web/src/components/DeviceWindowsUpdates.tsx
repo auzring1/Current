@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, Tooltip } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Alert, Button, Group, Modal, NumberInput, Select, Stack, Text, Tooltip } from "@mantine/core";
 import { api, errorMessage, type DeviceWindowsUpdates, type RestartPolicy } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
-import { DecisionBadge, severityColor } from "../pages/UpdatesPage";
 import { PRODUCT_NAME } from "../brand.generated";
+import { DataTable, EmptyState, Icons, SeverityBadge, StatusPill, TableSkeleton, toast, type Column, type PillKind } from "../ui";
+import { DecisionPill } from "../ui/DecisionPill";
 
 const doneStates = ["succeeded", "succeeded_reboot", "failed", "expired", "cancelled", "rejected"];
 
@@ -19,8 +19,9 @@ async function waitForJob(jobID: string, seconds: number): Promise<string> {
   return "timeout";
 }
 
-const stateColor: Record<string, string> = { missing: "blue", downloaded: "cyan", hidden: "violet", pending_reboot: "orange", failed: "red" };
-const stateLabel: Record<string, string> = { missing: "missing", downloaded: "downloaded", hidden: "hidden", pending_reboot: "needs restart", failed: "failed" };
+const stateKind: Record<string, PillKind> = { missing: "info", downloaded: "info", hidden: "neutral", pending_reboot: "warning", failed: "danger" };
+const stateLabel: Record<string, string> = { missing: "Missing", downloaded: "Downloaded", hidden: "Hidden", pending_reboot: "Needs restart", failed: "Failed" };
+const stateIcon: Record<string, typeof Icons.Info> = { missing: Icons.ArrowDown, downloaded: Icons.Download, hidden: Icons.EyeOff, pending_reboot: Icons.Restart, failed: Icons.Danger };
 
 type Item = DeviceWindowsUpdates["items"][number];
 
@@ -28,8 +29,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
   const { can } = useSession();
   const qc = useQueryClient();
   const canAct = can("updates:write") && active;
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [installOpen, setInstallOpen] = useState(false);
+  const [installFor, setInstallFor] = useState<{ items: Item[]; clear: () => void } | null>(null);
   const [restartOpen, setRestartOpen] = useState(false);
   const q = useQuery({ queryKey: ["updates", "device", id], queryFn: () => api<DeviceWindowsUpdates>("GET", `/devices/${id}/windows-updates`) });
   const done = () => {
@@ -43,46 +43,112 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
     },
     onSuccess: (s) => {
       done();
-      notifications.show(s === "succeeded" ? { color: "green", message: "Scan finished." } : s === "timeout" ? { color: "yellow", message: "The scan is still running. The list updates when the device reports." } : { color: "red", message: `The scan ended as ${s}. See the Jobs tab.` });
+      if (s === "succeeded") toast.success("Scan finished.");
+      else if (s === "timeout") toast.warning("The scan is still running. The list updates when the device reports.");
+      else toast.error(`The scan ended as ${s}. See the Jobs tab.`);
     },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const install = useMutation({
     mutationFn: ({ ids, restart }: { ids: string[]; restart: RestartPolicy }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/install`, { update_ids: ids, restart }),
-    onSuccess: () => (setInstallOpen(false), setSelected(new Set()), done(), notifications.show({ color: "green", message: "Install queued. Follow it on the Jobs tab." })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (installFor?.clear(), setInstallFor(null), done(), toast.success("Install queued. Follow it on the Jobs tab.")),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const hide = useMutation({
-    mutationFn: ({ ids, hide }: { ids: string[]; hide: boolean }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/hide`, { update_ids: ids, hide }),
-    onSuccess: (_, v) => (setSelected(new Set()), done(), notifications.show({ color: "green", message: v.hide ? "Hide queued." : "Unhide queued." })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    mutationFn: ({ ids, hide }: { ids: string[]; hide: boolean; clear: () => void }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/hide`, { update_ids: ids, hide }),
+    onSuccess: (_, v) => (v.clear(), done(), toast.success(v.hide ? "Hide queued." : "Unhide queued.")),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const reboot = useMutation({
     mutationFn: (minutes: number) => api<{ job_id: string }>("POST", `/devices/${id}/reboot`, { minutes, reason: "Restart requested by an administrator" }),
-    onSuccess: () => (setRestartOpen(false), done(), notifications.show({ color: "green", message: "Restart queued. Signed-in users see a countdown." })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (setRestartOpen(false), done(), toast.success("Restart queued. Signed-in users see a countdown.")),
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (q.isLoading) return <Loader />;
-  if (q.error) return <Alert color="red">{errorMessage(q.error)}</Alert>;
+  const columns = useMemo<Column<Item>[]>(
+    () => [
+      {
+        id: "title",
+        header: "Update",
+        value: (i) => `${i.title} ${(i.kb ?? []).join(" ")}`,
+        required: true,
+        wrap: true,
+        width: 380,
+        csv: (i) => i.title,
+        cell: (i) => (
+          <>
+            <div>{i.title}</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4, alignItems: "center" }}>
+              {(i.kb ?? []).map((k) => (
+                <StatusPill key={k} kind="neutral" size="sm" icon={null}>
+                  KB{k.replace(/^KB/i, "")}
+                </StatusPill>
+              ))}
+              {i.is_driver && (
+                <StatusPill kind="info" size="sm" icon={Icons.Server}>
+                  Driver
+                </StatusPill>
+              )}
+              {i.classification && <span className="rnv-muted" style={{ fontSize: "var(--rnv-text-xs)" }}>{i.classification}</span>}
+            </div>
+          </>
+        ),
+      },
+      {
+        id: "state",
+        header: "State",
+        value: (i) => i.state,
+        width: 150,
+        filter: { type: "select", options: Object.entries(stateLabel).map(([value, label]) => ({ value, label })) },
+        cell: (i) => (
+          <Tooltip label={i.last_error || ""} disabled={!i.last_error}>
+            <span>
+              <StatusPill kind={stateKind[i.state] ?? "neutral"} size="sm" icon={stateIcon[i.state]}>
+                {stateLabel[i.state] ?? i.state}
+              </StatusPill>
+            </span>
+          </Tooltip>
+        ),
+      },
+      {
+        id: "severity",
+        header: "Severity",
+        value: (i) => i.severity ?? "",
+        width: 130,
+        cell: (i) => (i.severity ? <SeverityBadge severity={i.severity} size="sm" /> : <span className="rnv-muted">—</span>),
+        filter: { type: "select", options: ["Critical", "Important", "Moderate", "Low"].map((v) => ({ value: v, label: v })) },
+      },
+      { id: "approval", header: "Approval", value: (i) => i.decision ?? "", width: 140, cell: (i) => <DecisionPill decision={i.decision ?? ""} size="sm" /> },
+      {
+        id: "rollout",
+        header: "Rollout",
+        value: (i) => i.attempt_state ?? "",
+        width: 160,
+        cell: (i) => (
+          <>
+            {i.attempt_state || "—"}
+            {(i.attempt_failures ?? 0) > 0 && (
+              <span className="rnv-dt__cell-sub" style={{ color: "var(--rnv-danger-fg)" }}>
+                {i.attempt_failures} failed attempt{i.attempt_failures === 1 ? "" : "s"}
+              </span>
+            )}
+          </>
+        ),
+      },
+    ],
+    [],
+  );
+
+  if (q.isLoading) return <TableSkeleton rows={4} cols={5} />;
+  if (q.error) return <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>{errorMessage(q.error)}</Alert>;
   const d = q.data!;
-  const items = d.items;
-  const sel = items.filter((i) => selected.has(i.update_id));
-  const installable = sel.filter((i) => i.state !== "hidden" && i.state !== "pending_reboot");
-  const toggle = (u: string) =>
-    setSelected((cur) => {
-      const n = new Set(cur);
-      if (n.has(u)) n.delete(u);
-      else n.add(u);
-      return n;
-    });
   const p = d.policy;
   const managed = p && (p.wsus_configured || p.wufb_deferrals || p.no_auto_update || p.wu_service_disabled);
 
   return (
     <Stack>
       {managed && (
-        <Alert color="yellow" title="Windows updates on this device are managed by another policy">
+        <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Windows updates on this device are managed by another policy">
           <Text size="sm">
             Effective source: <b>{p.effective_source || "unknown"}</b>
             {p.wsus_configured && p.wsus_server ? ` (${p.wsus_server})` : ""}.
@@ -102,7 +168,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
         </Alert>
       )}
       {d.reboot_required && (
-        <Alert color="orange" title="This device is waiting for a restart">
+        <Alert color="orange" icon={<Icons.Restart size={18} aria-hidden />} title="This device is waiting for a restart">
           <Group justify="space-between">
             <Text size="sm">Windows needs a restart to finish installing updates.</Text>
             {canAct && (
@@ -114,116 +180,58 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
         </Alert>
       )}
       {d.scan_error && (
-        <Alert color="red" title="The last scan failed">
+        <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />} title="The last scan failed">
           {d.scan_error}
         </Alert>
       )}
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          {d.scanned_at ? `Last scan ${dateTime(d.scanned_at)}` : "This device has not reported a scan yet."}
-          {d.truncated ? " The list is cut off; the device has more updates than it reports." : ""}
-        </Text>
-        <Group>
-          {canAct && sel.length > 0 && (
+      <DataTable<Item>
+        id="device-windows-updates"
+        label="Windows updates on this device"
+        data={d.items}
+        columns={columns}
+        rowId={(i) => i.update_id}
+        rowLabel={(i) => i.title}
+        searchPlaceholder="Search updates or KB numbers"
+        exportName="windows-updates"
+        selectable={canAct}
+        empty={
+          <EmptyState
+            icon={d.scanned_at ? <Icons.Success size={26} /> : <Icons.Clock size={26} />}
+            title={d.scanned_at ? "Nothing is missing on this device" : "No scan reported yet"}
+            description={d.scanned_at ? `Last scan ${dateTime(d.scanned_at)}.` : "This device has not reported a scan yet."}
+          />
+        }
+        toolbar={
+          <>
+            <span className="rnv-muted" style={{ fontSize: "var(--rnv-text-sm)" }}>
+              {d.scanned_at ? `Last scan ${dateTime(d.scanned_at)}` : "This device has not reported a scan yet."}
+              {d.truncated ? " The list is cut off; the device has more updates than it reports." : ""}
+            </span>
+            {canAct && (
+              <Button variant="default" onClick={() => scan.mutate()} loading={scan.isPending} leftSection={<Icons.NavAgentUpdates size={16} aria-hidden />}>
+                Scan now
+              </Button>
+            )}
+          </>
+        }
+        bulkActions={(rows, clear) => {
+          const installable = rows.filter((i) => i.state !== "hidden" && i.state !== "pending_reboot");
+          return (
             <>
-              <Button size="xs" onClick={() => setInstallOpen(true)} disabled={installable.length === 0}>
+              <Button size="compact-sm" onClick={() => setInstallFor({ items: installable, clear })} disabled={installable.length === 0}>
                 Install selected
               </Button>
-              <Button size="xs" variant="default" onClick={() => hide.mutate({ ids: sel.filter((i) => i.state !== "hidden").map((i) => i.update_id), hide: true })} disabled={sel.every((i) => i.state === "hidden")}>
+              <Button size="compact-sm" variant="default" onClick={() => hide.mutate({ ids: rows.filter((i) => i.state !== "hidden").map((i) => i.update_id), hide: true, clear })} disabled={rows.every((i) => i.state === "hidden")}>
                 Hide
               </Button>
-              <Button size="xs" variant="default" onClick={() => hide.mutate({ ids: sel.filter((i) => i.state === "hidden").map((i) => i.update_id), hide: false })} disabled={!sel.some((i) => i.state === "hidden")}>
+              <Button size="compact-sm" variant="default" onClick={() => hide.mutate({ ids: rows.filter((i) => i.state === "hidden").map((i) => i.update_id), hide: false, clear })} disabled={!rows.some((i) => i.state === "hidden")}>
                 Unhide
               </Button>
             </>
-          )}
-          {canAct && (
-            <Button size="xs" variant="default" onClick={() => scan.mutate()} loading={scan.isPending}>
-              Scan now
-            </Button>
-          )}
-        </Group>
-      </Group>
-      {d.scanned_at && items.length === 0 && <Alert color="green">Nothing is missing on this device.</Alert>}
-      {items.length > 0 && (
-        <Table.ScrollContainer minWidth={760}>
-          <Table highlightOnHover verticalSpacing="xs" fz="sm" aria-label="Windows updates on this device">
-            <Table.Thead>
-              <Table.Tr>
-                {canAct && (
-                  <Table.Th w={36}>
-                    <Checkbox aria-label="Select all" checked={sel.length === items.length} onChange={() => setSelected(sel.length === items.length ? new Set() : new Set(items.map((i) => i.update_id)))} />
-                  </Table.Th>
-                )}
-                <Table.Th>Update</Table.Th>
-                <Table.Th>State</Table.Th>
-                <Table.Th>Severity</Table.Th>
-                <Table.Th>Approval</Table.Th>
-                <Table.Th>Rollout</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {items.map((i) => (
-                <Table.Tr key={i.update_id}>
-                  {canAct && (
-                    <Table.Td>
-                      <Checkbox aria-label={`Select ${i.title}`} checked={selected.has(i.update_id)} onChange={() => toggle(i.update_id)} />
-                    </Table.Td>
-                  )}
-                  <Table.Td>
-                    <Text size="sm">{i.title}</Text>
-                    <Group gap={4}>
-                      {(i.kb ?? []).map((k) => (
-                        <Badge key={k} size="xs" variant="outline" color="gray">
-                          KB{k.replace(/^KB/i, "")}
-                        </Badge>
-                      ))}
-                      {i.is_driver && (
-                        <Badge size="xs" variant="light" color="grape">
-                          driver
-                        </Badge>
-                      )}
-                      {i.classification && (
-                        <Text size="xs" c="dimmed">
-                          {i.classification}
-                        </Text>
-                      )}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Tooltip label={i.last_error || ""} disabled={!i.last_error}>
-                      <Badge variant="light" color={stateColor[i.state] ?? "gray"}>
-                        {stateLabel[i.state] ?? i.state}
-                      </Badge>
-                    </Tooltip>
-                  </Table.Td>
-                  <Table.Td>
-                    {i.severity ? (
-                      <Badge variant="light" color={severityColor[i.severity] ?? "gray"}>
-                        {i.severity}
-                      </Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <DecisionBadge u={{ decision: (i.decision ?? "") as "" | "approved" | "declined" | "hidden", decision_source: "" }} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="xs">{i.attempt_state || "—"}</Text>
-                    {(i.attempt_failures ?? 0) > 0 && (
-                      <Text size="xs" c="red">
-                        {i.attempt_failures} failed attempt{i.attempt_failures === 1 ? "" : "s"}
-                      </Text>
-                    )}
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
-      {installOpen && <InstallModal items={installable} busy={install.isPending} onCancel={() => setInstallOpen(false)} onConfirm={(restart) => install.mutate({ ids: installable.map((i) => i.update_id), restart })} />}
+          );
+        }}
+      />
+      {installFor && <InstallModal items={installFor.items} busy={install.isPending} onCancel={() => setInstallFor(null)} onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart })} />}
       {restartOpen && <RestartModal busy={reboot.isPending} onCancel={() => setRestartOpen(false)} onConfirm={(m) => reboot.mutate(m)} />}
     </Stack>
   );
