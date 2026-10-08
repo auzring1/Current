@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { licenseBanner, type LicenseStatus } from "../api/license";
 import { useSession } from "../api/session";
+import { Icons } from "../ui";
 
 /** Shown on the Devices page when the device cap is reached or the license is ending. */
 export function LicenseBanner() {
@@ -16,8 +17,10 @@ export function LicenseBanner() {
   });
   const b = licenseBanner(q.data);
   if (!b) return null;
+  // Status is never color alone: the icon and the title say it too.
+  const icon = b.color === "red" ? <Icons.Danger size={18} aria-hidden /> : <Icons.Warning size={18} aria-hidden />;
   return (
-    <Alert color={b.color} title={b.title} mb="md" data-testid="license-banner">
+    <Alert color={b.color} icon={icon} title={b.title} data-testid="license-banner">
       {b.text}{" "}
       {canOrg("license:write") && (
         <Anchor component={Link} to="/license">
