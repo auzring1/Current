@@ -29,7 +29,7 @@ type fixture struct {
 	key    ed25519.PrivateKey
 }
 
-func newFixture(t *testing.T) fixture {
+func newFixture(t testing.TB) fixture {
 	t.Helper()
 	rk, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	rt := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "root"},

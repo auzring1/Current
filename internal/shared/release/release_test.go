@@ -165,3 +165,22 @@ func FuzzVerify(f *testing.F) {
 		}
 	})
 }
+
+// FuzzBundle: the .azr file and the manifest inside it arrive from an upload (server) or from a job
+// (agent). Parsing must never panic, and a manifest that ParseUnverified accepts must be one that
+// Marshal accepts too (the signer and the verifier agree on what is valid).
+func FuzzBundle(f *testing.F) {
+	f.Add([]byte(`{"manifest":"e30=","signature":"AA==","key_id":"00"}`))
+	f.Add([]byte(`{"format":1,"product":"auzring-agent","version":"1.2.3","os":"windows","arch":"amd64","sha256":"` + strings.Repeat("a", 64) + `","size":10}`))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = DecodeBundle(data)
+		m, err := ParseUnverified(data)
+		if err != nil {
+			return
+		}
+		if _, err := Marshal(m); err != nil {
+			t.Fatalf("ParseUnverified accepted a manifest that Marshal rejects: %v", err)
+		}
+		_ = m.CheckApplicable("1.0.0", "windows", "amd64")
+	})
+}
