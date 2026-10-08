@@ -14,12 +14,13 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/auzring1/auzring/internal/server/auth"
 )
 
-var totpOut, apiTokenOut *string
+var totpOut, apiTokenOut, licenseFile *string
 var maxUses *int
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	approval := flag.Bool("require-approval", false, "token requires approval")
 	totpOut = flag.String("totp-out", "", "write the administrator's TOTP secret to this file (for later scripted logins)")
 	apiTokenOut = flag.String("api-token-out", "", "also create an API token (enrollment, devices, updates, reports scopes) and write it to this file (mode 0600)")
+	licenseFile = flag.String("license-file", "", "install this license (AZL1...) after setup; an unlicensed server enrolls at most 25 devices")
 	maxUses = flag.Int("max-uses", 5, "uses of the enrollment token")
 	flag.Parse()
 	if err := run(*base, *setupTok, *email, *password, *approval); err != nil {
@@ -42,9 +44,9 @@ func run(base, setupTok, email, password string, approval bool) error {
 	jar, _ := cookiejar.New(nil)
 	c := &http.Client{Jar: jar, Timeout: 30 * time.Second}
 	csrf := ""
-	call := func(path string, body any, out any) error {
+	do := func(method, path string, body any, out any) error {
 		b, _ := json.Marshal(body)
-		req, _ := http.NewRequest("POST", base+"/api/v1"+path, bytes.NewReader(b))
+		req, _ := http.NewRequest(method, base+"/api/v1"+path, bytes.NewReader(b))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Origin", base)
 		if csrf != "" {
@@ -65,6 +67,7 @@ func run(base, setupTok, email, password string, approval bool) error {
 		}
 		return nil
 	}
+	call := func(path string, body any, out any) error { return do("POST", path, body, out) }
 	var begin struct {
 		TOTPSecret string `json:"totp_secret"`
 	}
@@ -94,6 +97,15 @@ func run(base, setupTok, email, password string, approval bool) error {
 		return err
 	}
 	csrf = mfa.CSRF
+	if *licenseFile != "" {
+		lic, err := os.ReadFile(*licenseFile)
+		if err != nil {
+			return err
+		}
+		if err := do("PUT", "/license", map[string]any{"license": strings.TrimSpace(string(lic))}, nil); err != nil {
+			return err
+		}
+	}
 	var tok struct {
 		Enrollment string `json:"enrollment_string"`
 	}
