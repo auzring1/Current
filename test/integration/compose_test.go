@@ -356,4 +356,28 @@ func TestComposeStack(t *testing.T) {
 		t.Fatalf("verify-audit: %s", out)
 	}
 	fmt.Println(strings.TrimSpace(out))
+
+	// --- The long-running server must not hold the schema-owner credential (SECURITY.md T-SRV-4) ---
+	secrets := inspect("server", "{{json .Mounts}}")
+	if strings.Contains(secrets, "migrate_database_url") || strings.Contains(secrets, "postgres_") {
+		t.Errorf("server container has owner/superuser secrets mounted: %s", secrets)
+	}
+	// ... while the one-shot maintenance service can still back the stack up and verify the archive.
+	passFile := filepath.Join(s.dir, "backup-pass")
+	if err := os.WriteFile(passFile, []byte("integration-test-passphrase-123"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	base := []string{"compose", "-p", project, "-f", filepath.Join(s.dir, "docker-compose.yml"), "--env-file", filepath.Join(s.dir, ".env"),
+		"run", "--rm", "--no-deps", "-T", "-v", passFile + ":/pass:ro", "maintenance"}
+	bk := exec.Command("docker", append(append([]string{}, base...), "backup", "--out", "-", "--passphrase-file", "/pass")...)
+	var archive, bkErr bytes.Buffer
+	bk.Stdout, bk.Stderr = &archive, &bkErr
+	if err := bk.Run(); err != nil || archive.Len() < 1000 {
+		t.Fatalf("backup via maintenance: %v (%d bytes)\n%s", err, archive.Len(), bkErr.String())
+	}
+	vf := exec.Command("docker", append(append([]string{}, base...), "backup", "--verify", "-", "--passphrase-file", "/pass")...)
+	vf.Stdin = bytes.NewReader(archive.Bytes())
+	if vout, err := vf.CombinedOutput(); err != nil {
+		t.Fatalf("backup --verify: %v\n%s", err, vout)
+	}
 }
