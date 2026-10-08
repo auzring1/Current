@@ -1,0 +1,50 @@
+/* Global element styles built on the tokens. */
+:root {
+  color-scheme: var(--rnv-scheme, light);
+  font-family: var(--rnv-font-sans);
+  font-feature-settings: "cv11", "ss01"; /* Inter: single-storey a, open digits */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html body {
+  background: var(--rnv-bg);
+  color: var(--rnv-text);
+  font-family: var(--rnv-font-sans);
+  font-size: var(--rnv-text-md);
+  line-height: var(--rnv-leading-normal);
+  margin: 0;
+}
+
+code, kbd, samp, pre { font-family: var(--rnv-font-mono); }
+::selection { background: var(--rnv-accent-subtle); color: var(--rnv-accent-subtle-text); }
+
+/* Visible keyboard focus everywhere, in every theme. */
+:where(a, button, input, select, textarea, summary, [tabindex], [role="button"], [role="tab"], [role="menuitem"], [role="option"]):focus-visible,
+.mantine-focus-auto:focus-visible,
+.mantine-focus-always:focus {
+  outline: 2px solid var(--rnv-focus);
+  outline-offset: 2px;
+  border-radius: var(--rnv-radius-sm);
+}
+:where(input, select, textarea):focus-visible { outline-offset: 0; }
+
+/* Thin themed scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: var(--rnv-border-strong) transparent; }
+
+.rnv-visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.rnv-skip-link {
+  position: absolute; left: var(--rnv-space-3); top: -48px; z-index: calc(var(--rnv-z-overlay) + 10);
+  background: var(--rnv-accent); color: var(--rnv-on-accent); padding: var(--rnv-space-2) var(--rnv-space-4);
+  border-radius: var(--rnv-radius-md); font-weight: var(--rnv-weight-semibold);
+  transition: top var(--rnv-motion-fast) var(--rnv-ease);
+}
+.rnv-skip-link:focus { top: var(--rnv-space-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

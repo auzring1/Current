@@ -117,6 +117,7 @@ export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "S
 export type PublicBranding = components["schemas"]["PublicBranding"];
 export type BrandingView = components["schemas"]["BrandingView"];
 export type BrandingSettings = components["schemas"]["BrandingSettings"];
+export type Preferences = components["schemas"]["Preferences"];
 export type BrandingAssetKind = components["schemas"]["BrandingAssetKind"];
 
 /** Uploads one branding image as a raw PNG/JPEG body. The server re-encodes it; the result is the new view. */

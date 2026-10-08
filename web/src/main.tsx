@@ -10,6 +10,9 @@ import { App } from "./App";
 import { ApiError } from "./api/client";
 import { SessionProvider } from "./api/session";
 import { BrandingProvider } from "./branding/BrandingProvider";
+import "./design/themes-entry";
+import { AppearanceProvider } from "./design/AppearanceProvider";
+import { ConfirmProvider } from "./ui";
 
 // Per-request CSP nonce injected by the server (see internal/server/webui).
 const nonce = document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content ?? "";
@@ -29,11 +32,15 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrandingProvider nonce={nonce}>
-        <Notifications />
+      <BrandingProvider>
         <BrowserRouter>
           <SessionProvider>
-            <App />
+            <AppearanceProvider nonce={nonce}>
+              <Notifications position="top-right" />
+              <ConfirmProvider>
+                <App />
+              </ConfirmProvider>
+            </AppearanceProvider>
           </SessionProvider>
         </BrowserRouter>
       </BrandingProvider>

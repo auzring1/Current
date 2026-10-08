@@ -5099,7 +5099,9 @@ export interface components {
                 [key: string]: {
                     id: string;
                     name: string;
-                    state: Record<string, never>;
+                    state: {
+                        [key: string]: unknown;
+                    };
                 }[];
             };
         };

@@ -2273,7 +2273,7 @@ components:
               properties:
                 id: { type: string }
                 name: { type: string, maxLength: 60 }
-                state: { type: object }
+                state: { type: object, additionalProperties: true }
     BrandingAssetKind:
       type: string
       enum: [logo_light, logo_dark, icon, favicon, report_logo]

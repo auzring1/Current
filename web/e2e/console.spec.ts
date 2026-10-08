@@ -27,6 +27,15 @@ async function shot(page: Page, name: string) {
   if (shots) await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 }
 
+/** The account menu (top right) holds the account page, theme choice and sign out. */
+async function openAccountMenu(page: Page) {
+  await page.getByTestId("user-menu").click();
+}
+async function signOut(page: Page) {
+  await openAccountMenu(page);
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+}
+
 async function typeCode(page: Page, code: string) {
   await page.getByLabel("Authenticator code").fill(code);
 }
@@ -364,7 +373,8 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await cdp.send("WebAuthn.addVirtualAuthenticator", {
     options: { protocol: "ctap2", transport: "usb", hasResidentKey: false, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
-  await page.getByRole("link", { name: "Ada Admin" }).click();
+  await openAccountMenu(page);
+  await page.getByRole("menuitem", { name: "Account and security" }).click();
   await expect(page.getByRole("heading", { name: "Account security" })).toBeVisible();
   await page.getByLabel("Name for a new key").fill("Test key");
   await page.getByRole("button", { name: "Add security key" }).click();
@@ -382,7 +392,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await bare.dispose();
 
   // Sign out and back in with the security key instead of an authenticator code.
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel(/^Email/).fill(email);
   await page.locator('input[type="password"]').fill(password);
@@ -546,7 +556,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await shot(page, "06-audit");
 
   // --- Sign out ---
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login$/);
   // The signed-out sign-in page carries the deployment's branding.
   await expect(page.getByTestId("login-headline")).toHaveText("Welcome to Example Clinic IT");

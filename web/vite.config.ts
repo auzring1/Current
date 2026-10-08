@@ -13,6 +13,12 @@ export default defineConfig({
         ctx.server
           ? html.replace("<!--BRAND_HEAD-->", `<title>${PRODUCT_NAME}</title><link rel="icon" href="/favicon.svg" />`)
           : html,
+    },
+    {
+      // A blocking script, placed after the stylesheet so it can read the themes: it applies the saved theme before
+      // the first paint (see public/theme-init.js). The CSP allows it as a same-origin script.
+      name: "theme-init",
+      transformIndexHtml: { order: "post", handler: (html: string) => html.replace("</head>", '  <script src="/theme-init.js"></script>\n  </head>') },
     }],
   build: {
     outDir: "../internal/server/webui/dist",
@@ -29,5 +35,6 @@ export default defineConfig({
     proxy: { "/api": { target: "http://localhost:8080", changeOrigin: false } },
   },
   // Unit tests only; the Playwright browser test in e2e/ runs via scripts/gui-e2e.sh.
-  test: { environment: "node", include: ["src/**/*.test.ts"] },
+  // The theme registry reads the theme CSS files as raw text, so vitest must not blank them.
+  test: { environment: "node", include: ["src/**/*.test.ts", "src/**/*.test.tsx"], css: { include: [/src\/design\/themes\/.*\.css/] } },
 });
