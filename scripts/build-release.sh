@@ -131,7 +131,7 @@ if [ "$skip_web" = 0 ]; then
   echo "== web bundle (node $have_node)"
   (cd web && npm ci --ignore-scripts --no-audit --no-fund >/dev/null && npm run build >/dev/null)
   [ -f internal/server/webui/dist/index.html ] || die "web build produced no index.html"
-  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner --format=gnu \
+  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' --format=gnu \
       --exclude=dist/.keep -cf - -C internal/server/webui dist | gzip -n -9 >"$webtar"
 fi
 
