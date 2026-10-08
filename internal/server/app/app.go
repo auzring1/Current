@@ -29,6 +29,7 @@ import (
 	"github.com/auzring1/auzring/internal/server/events"
 	"github.com/auzring1/auzring/internal/server/gateway"
 	"github.com/auzring1/auzring/internal/server/kek"
+	"github.com/auzring1/auzring/internal/server/licensing"
 	"github.com/auzring1/auzring/internal/server/pki"
 	"github.com/auzring1/auzring/internal/server/policies"
 	"github.com/auzring1/auzring/internal/server/store"
@@ -50,6 +51,8 @@ type App struct {
 	Releases *agentrel.Service
 	Policies *policies.Service
 	Catalog  *catalog.Service
+	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
+	Licensing *licensing.Service
 
 	authority atomic.Pointer[pki.Authority]
 
@@ -94,6 +97,13 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	if extra, err := release.ParseKeys(cfg.ReleasePublicKeys); err == nil && len(extra) > 0 {
 		a.Releases.Keys = append(release.TrustedKeys(), extra...)
 	}
+	lic, err := licensing.New(pool, cfg.LicensePublicKeys, log.With("component", "licensing"))
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	a.Licensing = lic
+	a.Releases.Licensing = lic
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
 		a.Updates.AfterJob(ctx, j, status, u)
@@ -200,7 +210,7 @@ func (a *App) Handler() http.Handler {
 	}
 	return api.NewHandler(api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing,
 	}, webui.Handler())
 }
 
@@ -279,7 +289,7 @@ func (a *App) startGateway() error {
 	}
 	ctx := a.runCtx
 	gw := gateway.New(gateway.Options{Config: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Authority: a.Authority(),
-		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Updates: a.Updates, Content: a.Catalog.Content})
+		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Updates: a.Updates, Content: a.Catalog.Content, Licensing: a.Licensing})
 	if err := gw.RefreshCertificate(ctx); err != nil {
 		return fmt.Errorf("gateway certificate: %w", err)
 	}
@@ -311,6 +321,7 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Deploy.Sweep(ctx)
 			a.Updates.Tick(ctx)
 			a.Releases.Tick(ctx)
+			a.Licensing.Tick(ctx)
 			if n%5 == 0 {
 				a.Policies.Tick(ctx)
 			}

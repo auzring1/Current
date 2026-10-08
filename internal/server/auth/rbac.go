@@ -34,6 +34,8 @@ const (
 	PermPoliciesRead     = "policies:read"
 	PermPoliciesWrite    = "policies:write" // auto-update policies and baselines
 	PermReportsRead      = "reports:read"
+	PermLicenseRead      = "license:read"  // the installed license, device usage and history
+	PermLicenseWrite     = "license:write" // install a license (administrators only)
 )
 
 // Roles.
@@ -54,10 +56,11 @@ var rolePerms = map[string][]string{
 		PermGroupsRead, PermGroupsWrite, PermInventoryExport,
 		PermCatalogRead, PermCatalogWrite, PermCatalogOverride, PermDeploymentsRead, PermDeploymentsWrite, PermSettingsWrite,
 		PermUpdatesRead, PermUpdatesWrite, PermUpdatesPolicy, PermReleasesRead, PermReleasesWrite,
-		PermSitesRead, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesRead, PermPoliciesWrite, PermReportsRead},
+		PermSitesRead, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesRead, PermPoliciesWrite, PermReportsRead,
+		PermLicenseRead, PermLicenseWrite},
 	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermGroupsRead, PermGroupsWrite, PermInventoryExport,
 		PermCatalogRead, PermCatalogWrite, PermDeploymentsRead, PermDeploymentsWrite, PermUpdatesRead, PermUpdatesWrite, PermReleasesRead,
-		PermSitesRead, PermPoliciesRead, PermReportsRead},
+		PermSitesRead, PermPoliciesRead, PermReportsRead, PermLicenseRead},
 	RoleReadOnly: {PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead, PermReleasesRead,
 		PermSitesRead, PermPoliciesRead, PermReportsRead},
 }
