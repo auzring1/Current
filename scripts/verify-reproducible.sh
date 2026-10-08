@@ -48,7 +48,7 @@ build() { # name checkout-dir tz locale umask
     git -C "$dir" checkout -q --detach "$rev"
     export TZ="$tz" LC_ALL="$loc" GOCACHE="$work/gocache-$name" GOMODCACHE="$gomod" npm_config_cache="$work/npmcache-$name"
     cd "$dir"
-    scripts/build-release.sh --version "$version" --release-pubkeys "$key" --out "$work/out-$name" ${extra[@]+"${extra[@]}"} >"$work/log-$name.txt" 2>&1
+    scripts/build-release.sh --version "$version" --release-pubkeys "$key" --authenticode-subjects "Auzring Repro Test" --out "$work/out-$name" ${extra[@]+"${extra[@]}"} >"$work/log-$name.txt" 2>&1
   ) || { tail -30 "$work/log-$name.txt" >&2; echo "build $name failed" >&2; exit 2; }
 }
 

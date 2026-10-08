@@ -28,6 +28,10 @@
 #                            non-comment lines of release/release-public-keys.txt. No key = refuse (see --allow-no-release-key)
 #   --allow-no-release-key   build without any compiled-in release key (agents then refuse all updates; development only)
 #   --require-authenticode B true (default, release) or false: sets release.RequireAuthenticode
+#   --authenticode-subjects L "|"-separated signer CNs compiled into agent and server as the only subjects a release
+#                            may pin (default: $AUZ_AUTHENTICODE_SUBJECTS). Required when --require-authenticode is true,
+#                            unless --allow-no-subject-pin: otherwise a stolen release key could pin any certificate (D83)
+#   --allow-no-subject-pin   development/rehearsal builds only
 #   --with-arm64             also build the windows/arm64 agent (builds, but is unsupported and untested; MSI is x64 only)
 #   --skip-web               do not build the web bundle (server then embeds no console; tests only)
 #   --skip-sbom              do not write SBOMs
@@ -44,6 +48,7 @@ AGENT_MAX_BYTES=15728640
 die() { echo "build-release: $*" >&2; exit 1; }
 
 version="" commit="HEAD" out="" pubkeys="${AUZ_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
+subjects="${AUZ_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
 with_arm64=0 skip_web=0 skip_sbom=0 want_image=0 allow_dirty=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,6 +58,8 @@ while [ $# -gt 0 ]; do
     --release-pubkeys) pubkeys=${2:?}; shift 2 ;;
     --allow-no-release-key) allow_no_key=1; shift ;;
     --require-authenticode) req_auth=${2:?}; shift 2 ;;
+    --authenticode-subjects) subjects=${2:?}; shift 2 ;;
+    --allow-no-subject-pin) allow_no_pin=1; shift ;;
     --with-arm64) with_arm64=1; shift ;;
     --skip-web) skip_web=1; shift ;;
     --skip-sbom) skip_sbom=1; shift ;;
@@ -92,6 +99,12 @@ elif [ "$allow_no_key" = 0 ]; then
   die "no vendor release public key: pass --release-pubkeys, set AUZ_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
 fi
 
+if [ -n "$subjects" ]; then
+  case "$subjects" in *\'*|*\"*|*\\*|*$'\n'*) die "--authenticode-subjects must not contain quotes, backslashes or newlines" ;; esac
+elif [ "$req_auth" = true ] && [ "$allow_no_pin" = 0 ]; then
+  die "no compiled-in Authenticode subject: pass --authenticode-subjects \"<signer CN>\" (or AUZ_AUTHENTICODE_SUBJECTS); see docs/DECISIONS.md D83"
+fi
+
 # --- toolchains ------------------------------------------------------------------------------------
 want_go=$(awk '$1=="toolchain"{print $2}' go.mod)
 [ -n "$want_go" ] || want_go="go$(awk '$1=="go"{print $2}' go.mod)"
@@ -118,6 +131,8 @@ trap 'rm -rf "$work"' EXIT
 pkg=github.com/auzring1/auzring/internal/shared
 ldflags="-s -w -buildid= -X $pkg/version.Version=$v -X $pkg/version.Commit=$short"
 ldflags="$ldflags -X $pkg/release.PublicKeysHex=$pubkeys -X $pkg/release.RequireAuthenticode=$req_auth"
+# the subject list may contain spaces: single-quote the whole -X argument for the go tool's ldflags parser
+ldflags="$ldflags -X '$pkg/release.AuthenticodeSubjects=$subjects'"
 
 echo "== build-release $v from $short, SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH, $have_go"
 
@@ -174,7 +189,7 @@ image_digest=""
 if [ "$want_image" = 1 ]; then
   echo "== container image"
   AUZ_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
-      --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --go-version "${want_go#go}" \
+      --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --authenticode-subjects "$subjects" --go-version "${want_go#go}" \
       --oci-out "$out/auzring-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
   image_digest=$(cat "$out/image-digest.txt")
   rm -f "$out/image-digest.txt"
@@ -190,6 +205,7 @@ fi
   echo "go_sum_sha256:         $(sha256sum go.sum | cut -d' ' -f1)"
   echo "require_authenticode:  $req_auth"
   echo "release_public_keys:   ${pubkeys:-none}"
+  echo "authenticode_subjects: ${subjects:-none}"
   echo "go build flags:        -trimpath -buildvcs=false CGO_ENABLED=0 GOFLAGS=-mod=readonly"
   echo "ldflags:               $ldflags"
   [ -z "$image_digest" ] || echo "image_oci_index_digest: $image_digest"

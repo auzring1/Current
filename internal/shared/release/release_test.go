@@ -121,6 +121,26 @@ func TestRequireAuthenticode(t *testing.T) {
 	}
 }
 
+// A stolen release key must not be enough to pin a certificate of the attacker's choosing.
+func TestAuthenticodeSubjectsCompiledIn(t *testing.T) {
+	AuthenticodeSubjects = "Example Vendor Ltd|Example Vendor Ltd (2027)"
+	defer func() { AuthenticodeSubjects = "" }()
+	for _, bad := range []string{"", "Evil Corp", "Example Vendor"} {
+		m := manifest("1.0.0")
+		m.AuthenticodeSubject = bad
+		if _, err := Marshal(m); err == nil {
+			t.Errorf("subject %q accepted by a build that trusts only the compiled-in subjects", bad)
+		}
+	}
+	for _, good := range []string{"Example Vendor Ltd", "example vendor ltd (2027)"} {
+		m := manifest("1.0.0")
+		m.AuthenticodeSubject = good
+		if _, err := Marshal(m); err != nil {
+			t.Errorf("subject %q refused: %v", good, err)
+		}
+	}
+}
+
 func TestKeysAndBundle(t *testing.T) {
 	pub, priv := key(t)
 	keys, err := ParseKeys(hex.EncodeToString(pub) + " , ")

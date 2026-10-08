@@ -59,7 +59,7 @@ if [ -n "$(git status --porcelain)" ]; then
   echo "note: the working tree is dirty; building with --allow-dirty (a real release never does)"
   dirty=(--allow-dirty)
 fi
-scripts/build-release.sh --version "$version" --release-pubkeys "$pub" --out "$D/out" ${dirty[@]+"${dirty[@]}"} >"$D/build.log" 2>&1 || { tail -30 "$D/build.log"; exit 1; }
+scripts/build-release.sh --version "$version" --release-pubkeys "$pub" --authenticode-subjects "Auzring Dry Run" --out "$D/out" ${dirty[@]+"${dirty[@]}"} >"$D/build.log" 2>&1 || { tail -30 "$D/build.log"; exit 1; }
 tail -n +1 "$D/out/unsigned-SHA256SUMS" | sed 's/^/   /'
 pass "reproducible build: agent (windows/amd64), server, auzring-release, web bundle, SBOMs"
 v=${version#v}
@@ -129,6 +129,15 @@ if "$rel" attach --manifest "$w/manifest.json" --signature "$w/sig-aws.bin" --pu
   echo "attach accepted a signature from the wrong key" >&2; exit 1
 fi
 pass "attach refuses a signature that does not verify under the given key"
+# The release build compiles the allowed Authenticode signer into the tools (and agent/server): a manifest pinning
+# any other signer is refused even though its signature would be valid (a stolen release key is not enough, D83).
+built=$D/out/auzring-release_${v}_linux_amd64
+chmod +x "$built"
+if "$built" manifest --exe "$signed/$(basename "$agent")" --version "$v" --authenticode-subject "Evil Corp" --out "$w/evil.json" >/dev/null 2>&1; then
+  echo "the release build accepted a manifest pinning a foreign signer" >&2; exit 1
+fi
+"$built" manifest --exe "$signed/$(basename "$agent")" --version "$v" --authenticode-subject "Auzring Dry Run" --out "$w/good.json" >/dev/null
+pass "a manifest pinning a signer that is not compiled in is refused by the release build"
 echo "$pub" >"$w/pub.hex"
 "$rel" verify --bundle "$w/auzring-agent_${v}_windows_amd64.azr" --exe "$signed/$(basename "$agent")" --pub "$w/pub.hex" >/dev/null
 cp "$signed/$(basename "$agent")" "$w/tampered.exe"
@@ -189,7 +198,7 @@ if [ "$with_image" = 1 ]; then
   step "container image (OCI archive)"
   if docker info >/dev/null 2>&1; then
     AUZ_RELEASE_PUBKEYS=$pub scripts/build-image.sh --version "$v" --commit "$(git rev-parse --short=12 HEAD)" --source-date-epoch "$sde" \
-      --require-authenticode true --oci-out "$D/server-image.oci.tar" --digest-file "$D/image-digest.txt"
+      --require-authenticode true --authenticode-subjects "Auzring Dry Run" --oci-out "$D/server-image.oci.tar" --digest-file "$D/image-digest.txt"
     pass "image builds from deploy/Dockerfile.server; digest $(cat "$D/image-digest.txt")"
   else
     skipped+=("image build (no Docker daemon)")

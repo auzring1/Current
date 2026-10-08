@@ -11,6 +11,8 @@
 # Repository variables (Settings > Secrets and variables > Actions > Variables), see docs/RUNBOOK.md:
 #   AUZ_AUTHENTICODE_PROVIDER   azure-artifact-signing | signtool
 #   AUZ_AUTHENTICODE_SUBJECT    the signer CN agents must see (pinned into the vendor manifest)
+#   AUZ_AUTHENTICODE_SUBJECTS   optional, '|'-separated CNs compiled into agent and server as the ONLY pinnable signers
+#                               (default: AUZ_AUTHENTICODE_SUBJECT; list old and new CN while rotating the certificate)
 #   AUZ_AZURE_CLIENT_ID, AUZ_AZURE_TENANT_ID, AUZ_AZURE_SUBSCRIPTION_ID     (OIDC federated credential, no secret)
 #   AUZ_ARTIFACT_SIGNING_ENDPOINT, AUZ_ARTIFACT_SIGNING_ACCOUNT, AUZ_ARTIFACT_SIGNING_PROFILE
 #   AUZ_SIGNTOOL_ARGS           certificate selection arguments for the signtool provider (names, not secrets)
@@ -110,6 +112,7 @@ jobs:
       contents: read
     outputs:
       pubkeys: ${{ steps.keys.outputs.pubkeys }}
+      subjects: ${{ steps.keys.outputs.subjects }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -121,9 +124,12 @@ jobs:
         id: keys
         env:
           DRY: ${{ needs.prepare.outputs.dry_run }}
+          SUBJECT: ${{ vars.AUZ_AUTHENTICODE_SUBJECT }}
+          SUBJECTS: ${{ vars.AUZ_AUTHENTICODE_SUBJECTS }}
         run: |
           set -euo pipefail
           if [ "$DRY" = true ]; then
+            subjects="Auzring Dry Run"
             mkdir -p "$RUNNER_TEMP/dryrun-key"
             go run ./cmd/auzring-release keygen --out "$RUNNER_TEMP/dryrun-key/release.key" >/dev/null
             pub=$(tr -d '[:space:]' < "$RUNNER_TEMP/dryrun-key/release.pub")
@@ -131,8 +137,12 @@ jobs:
           else
             pub=$(grep -Ev '^[[:space:]]*(#|$)' release/release-public-keys.txt | tr -d '[:space:]' | paste -sd, - || true)
             [ -n "$pub" ] || { echo "::error::release/release-public-keys.txt has no key: finish the key ceremony (docs/RUNBOOK.md) first"; exit 1; }
+            # The signer names compiled into agent and server: the allow-list variable, else the current signer.
+            subjects=${SUBJECTS:-$SUBJECT}
+            [ -n "$subjects" ] || { echo "::error::set AUZ_AUTHENTICODE_SUBJECT (and optionally AUZ_AUTHENTICODE_SUBJECTS, '|'-separated) before releasing"; exit 1; }
           fi
           echo "pubkeys=$pub" >> "$GITHUB_OUTPUT"
+          echo "subjects=$subjects" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: needs.prepare.outputs.dry_run == 'true'
         with: { name: dryrun-key, path: "${{ runner.temp }}/dryrun-key/", retention-days: 1 }
@@ -140,7 +150,8 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           PUBKEYS: ${{ steps.keys.outputs.pubkeys }}
-        run: scripts/build-release.sh --version "$VERSION" --release-pubkeys "$PUBKEYS" --out "$PWD/dist-release/out"
+          SUBJECTS: ${{ steps.keys.outputs.subjects }}
+        run: scripts/build-release.sh --version "$VERSION" --release-pubkeys "$PUBKEYS" --authenticode-subjects "$SUBJECTS" --out "$PWD/dist-release/out"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: unsigned, path: dist-release/out/, retention-days: 14 }
 
@@ -164,9 +175,10 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           PUBKEYS: ${{ needs.build.outputs.pubkeys }}
+          SUBJECTS: ${{ needs.build.outputs.subjects }}
         run: |
           set -euo pipefail
-          scripts/build-release.sh --version "$VERSION" --release-pubkeys "$PUBKEYS" --out "$RUNNER_TEMP/second-build"
+          scripts/build-release.sh --version "$VERSION" --release-pubkeys "$PUBKEYS" --authenticode-subjects "$SUBJECTS" --out "$RUNNER_TEMP/second-build"
           if diff -u "$GITHUB_WORKSPACE/first-build/unsigned-SHA256SUMS" "$RUNNER_TEMP/second-build/unsigned-SHA256SUMS"; then
             echo "::notice::reproducible: the independent rebuild matches the first build"
           else
@@ -404,6 +416,7 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       DRY: ${{ needs.prepare.outputs.dry_run }}
       AUZ_RELEASE_PUBKEYS: ${{ needs.build.outputs.pubkeys }}
+      SUBJECTS: ${{ needs.build.outputs.subjects }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -416,7 +429,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts/build-image.sh --version "$VERSION" --commit "${GITHUB_SHA:0:12}" --source-date-epoch "$(git log -1 --format=%ct)" \
-            --require-authenticode true --go-version "$GO_VERSION" \
+            --require-authenticode true --authenticode-subjects "$SUBJECTS" --go-version "$GO_VERSION" \
             --oci-out "$RUNNER_TEMP/server-image.oci.tar" --digest-file "$RUNNER_TEMP/digest.txt"
           echo "::notice::DRY RUN image digest $(cat "$RUNNER_TEMP/digest.txt") (not pushed)"
       - name: Build and push the image
@@ -430,7 +443,7 @@ jobs:
           image="ghcr.io/${GITHUB_REPOSITORY,,}-server"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
           scripts/build-image.sh --version "$VERSION" --commit "${GITHUB_SHA:0:12}" --source-date-epoch "$(git log -1 --format=%ct)" \
-            --require-authenticode true --go-version "$GO_VERSION" \
+            --require-authenticode true --authenticode-subjects "$SUBJECTS" --go-version "$GO_VERSION" \
             --push "$image:$VERSION" --digest-file "$RUNNER_TEMP/digest.txt"
           digest=$(cat "$RUNNER_TEMP/digest.txt")
           { echo "image=$image"; echo "digest=$digest"; } >> "$GITHUB_OUTPUT"
