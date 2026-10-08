@@ -92,8 +92,8 @@ func (p *procSampler) run(ctx context.Context, f *fleet, every time.Duration) {
 			return
 		case <-t.C:
 			// Time the reading itself: a tick can be delivered late when the host is saturated.
+			now := time.Now() // the reading starts with /proc/<pid>/stat; the slow descriptor count comes after it
 			ticks, rss, th, fds, ok := procInfo(p.pid)
-			now := time.Now()
 			if !ok {
 				continue
 			}
@@ -192,8 +192,8 @@ func (d *dbSampler) run(ctx context.Context, f *fleet, every time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			cur, be, act, lw, itx, err := read()
 			now := time.Now()
+			cur, be, act, lw, itx, err := read()
 			if err != nil {
 				continue
 			}
