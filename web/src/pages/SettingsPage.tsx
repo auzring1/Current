@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Loader, Select, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Alert, Button, Select, Tabs, Text } from "@mantine/core";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { notifications } from "@mantine/notifications";
 import { api, errorMessage, type OrgSettings } from "../api/client";
 import { useSession } from "../api/session";
+import { Card, Icons, Page, PageHeader, Skel, toast } from "../ui";
 
 const options = [
   { value: "report_only", label: "Report only: show per-user installs, never change them (default)" },
@@ -20,16 +20,22 @@ export function SettingsLayout() {
   const loc = useLocation();
   const tab = loc.pathname.startsWith("/settings/branding") ? "branding" : "general";
   return (
-    <Stack>
-      <Title order={2}>Settings</Title>
+    <Page>
+      <PageHeader title="Settings" description="How this deployment behaves and how it looks." />
       <Tabs value={tab} onChange={(v) => nav(v === "branding" ? "/settings/branding" : "/settings")}>
-        <Tabs.List>
-          <Tabs.Tab value="general">General</Tabs.Tab>
-          {can("branding:write") && <Tabs.Tab value="branding">Branding</Tabs.Tab>}
+        <Tabs.List aria-label="Settings sections">
+          <Tabs.Tab value="general" leftSection={<Icons.NavSettings size={16} aria-hidden />}>
+            General
+          </Tabs.Tab>
+          {can("branding:write") && (
+            <Tabs.Tab value="branding" leftSection={<Icons.Palette size={16} aria-hidden />}>
+              Branding
+            </Tabs.Tab>
+          )}
         </Tabs.List>
       </Tabs>
       <Outlet />
-    </Stack>
+    </Page>
   );
 }
 
@@ -43,16 +49,42 @@ export function SettingsPage() {
   }, [q.data]);
   const save = useMutation({
     mutationFn: () => api("PUT", "/settings", { user_scope_policy: policy }),
-    onSuccess: () => (notifications.show({ color: "green", message: "Settings saved." }), qc.invalidateQueries({ queryKey: ["settings"] })),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => (toast.success("Settings saved."), qc.invalidateQueries({ queryKey: ["settings"] })),
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const editable = can("settings:write");
   return (
-    <Stack maw={720}>
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
+    <div style={{ maxWidth: 760 }}>
+      {q.isLoading && (
+        <Card>
+          <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+            <Skel w="35%" h={16} />
+            <Skel h={36} />
+            <Skel w="70%" h={12} />
+          </div>
+        </Card>
+      )}
+      {q.error && (
+        <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+          {errorMessage(q.error)}
+        </Alert>
+      )}
       {q.data && (
-        <>
+        <Card
+          title="Per-user installs"
+          description="Per-user changes run in the signed-in user's own context, never as the system, and only for users whose profile is present on the device."
+          footer={
+            editable ? (
+              <Button onClick={() => save.mutate()} loading={save.isPending} disabled={policy === q.data.user_scope_policy} leftSection={<Icons.Save size={16} aria-hidden />}>
+                Save
+              </Button>
+            ) : (
+              <Text size="sm" c="dimmed">
+                Only administrators can change settings.
+              </Text>
+            )
+          }
+        >
           <Select
             label="Default policy for per-user installs"
             description="What a deployment does about copies of an app that users installed for themselves. Individual packages can override this on their catalog page."
@@ -62,20 +94,8 @@ export function SettingsPage() {
             disabled={!editable}
             allowDeselect={false}
           />
-          <Text size="sm" c="dimmed">
-            Per-user changes run in the signed-in user's own context, never as the system, and only for users whose profile is present on the device.
-          </Text>
-          {editable ? (
-            <Button w={160} onClick={() => save.mutate()} loading={save.isPending} disabled={policy === q.data.user_scope_policy}>
-              Save
-            </Button>
-          ) : (
-            <Text size="sm" c="dimmed">
-              Only administrators can change settings.
-            </Text>
-          )}
-        </>
+        </Card>
       )}
-    </Stack>
+    </div>
   );
 }

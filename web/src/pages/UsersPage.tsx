@@ -1,33 +1,62 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Group, Loader, Menu, Modal, Select, Stack, Table, Tabs, Text, TextInput, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { ActionIcon, Alert, Button, Group, Menu, Modal, Select, Stack, Tabs, Text, TextInput } from "@mantine/core";
 import { api, errorMessage, type ApiToken, type Site, type UserAccount } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { CopyText } from "../components/common";
+import { RowButtons } from "../ui/admin-kit";
+import { DataTable, EmptyState, Icons, Page, PageHeader, Status, StatusPill, toast, useConfirm, type Column, type PillKind } from "../ui";
 
 const roleLabel: Record<string, string> = { admin: "Administrator", operator: "Operator", readonly: "Read-only" };
+const roleLook: Record<string, { kind: PillKind; icon: typeof Icons.User }> = {
+  admin: { kind: "info", icon: Icons.NavUpdates },
+  operator: { kind: "neutral", icon: Icons.User },
+  readonly: { kind: "neutral", icon: Icons.Eye },
+};
+
+type Kind = "disable" | "enable" | "reset-password" | "reset-mfa" | "delete";
+const done: Record<Kind, string> = {
+  disable: "User disabled.",
+  enable: "User enabled.",
+  "reset-password": "Temporary password set.",
+  "reset-mfa": "Second factor reset. They set up a new one at the next sign-in.",
+  delete: "User deleted.",
+};
+
+function RolePill({ role }: { role: string }) {
+  const look = roleLook[role] ?? { kind: "neutral" as PillKind, icon: Icons.User };
+  return (
+    <StatusPill kind={look.kind} icon={look.icon} size="sm">
+      {roleLabel[role] ?? role}
+    </StatusPill>
+  );
+}
 
 export function UsersPage() {
   const { session, canOrg } = useSession();
   const canWrite = canOrg("users:write");
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<{ items: UserAccount[] }>("GET", "/users") });
   const sites = useQuery({ queryKey: ["sites"], queryFn: () => api<{ items: Site[] }>("GET", "/sites") });
   const tokens = useQuery({ queryKey: ["all-api-tokens"], queryFn: () => api<{ items: ApiToken[] }>("GET", "/api-tokens") });
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<UserAccount | null>(null);
   const [secret, setSecret] = useState<{ email: string; password: string } | null>(null);
-  const siteName = (id: string) => sites.data?.items.find((s) => s.id === id)?.name ?? id.slice(0, 8);
+  const siteList = sites.data?.items;
+  const siteName = (id: string) => siteList?.find((s) => s.id === id)?.name ?? id.slice(0, 8);
   const refresh = () => void qc.invalidateQueries({ queryKey: ["users"] });
   const revokeToken = useMutation({
     mutationFn: (id: string) => api("DELETE", `/api-tokens/${id}`),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["all-api-tokens"] }),
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: () => {
+      toast.success("Token revoked.");
+      void qc.invalidateQueries({ queryKey: ["all-api-tokens"] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
   const act = useMutation({
-    mutationFn: async (a: { u: UserAccount; kind: "disable" | "enable" | "reset-password" | "reset-mfa" | "delete" }) => {
+    mutationFn: async (a: { u: UserAccount; kind: Kind }) => {
       const { u, kind } = a;
       if (kind === "disable" || kind === "enable") return api("PUT", `/users/${u.id}`, { display_name: u.display_name, status: kind === "disable" ? "disabled" : "active" });
       if (kind === "reset-password") {
@@ -38,161 +67,322 @@ export function UsersPage() {
       if (kind === "reset-mfa") return api("POST", `/users/${u.id}/reset-mfa`, {});
       return api("DELETE", `/users/${u.id}`);
     },
-    onSuccess: refresh,
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
+    onSuccess: (_d, v) => {
+      toast.success(done[v.kind]);
+      refresh();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
+  const doAct = act.mutate;
+  const myId = session?.user.id;
+
+  const userColumns = useMemo<Column<UserAccount>[]>(() => {
+    const scopeText = (b: UserAccount["bindings"][number]) => (b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`);
+    const run = async (u: UserAccount, kind: Kind) => {
+      if (kind === "reset-mfa") {
+        const ok = await confirm({
+          title: `Reset the second factor of ${u.email}?`,
+          message: "All of their authenticators and security keys are removed. They set up a new one at the next sign-in.",
+          confirmLabel: "Reset second factor",
+          danger: true,
+        });
+        if (!ok) return;
+      }
+      if (kind === "delete") {
+        const ok = await confirm({ title: `Delete ${u.email}?`, message: "The account and its sessions are removed. This cannot be undone.", confirmLabel: "Delete user", danger: true });
+        if (!ok) return;
+      }
+      doAct({ u, kind });
+    };
+    return [
+      {
+        id: "user",
+        header: "User",
+        value: (u) => `${u.display_name} ${u.email}`,
+        primary: true,
+        required: true,
+        width: 220,
+        cell: (u) => (
+          <>
+            {u.display_name}
+            <span className="rnv-dt__cell-sub">{u.email}</span>
+          </>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        value: (u) => u.status,
+        width: 170,
+        wrap: true,
+        cell: (u) => (
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+            {u.status === "disabled" ? (
+              <StatusPill kind="neutral" size="sm" icon={Icons.Pause}>
+                Disabled
+              </StatusPill>
+            ) : (
+              <Status value="active" size="sm" />
+            )}
+            {u.must_change_password && (
+              <StatusPill kind="warning" size="sm" icon={Icons.Lock}>
+                Must change password
+              </StatusPill>
+            )}
+          </span>
+        ),
+        filter: {
+          type: "select",
+          options: [
+            { value: "active", label: "Active" },
+            { value: "disabled", label: "Disabled" },
+          ],
+        },
+        csv: (u) => u.status,
+      },
+      {
+        id: "roles",
+        header: "Roles",
+        value: (u) => u.bindings.map((b) => `${roleLabel[b.role] ?? b.role} ${scopeText(b)}`).join("; "),
+        width: 260,
+        wrap: true,
+        cell: (u) => (
+          <span style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+            {u.bindings.map((b) => (
+              <span key={b.id}>
+                <RolePill role={b.role} />
+                <span className="rnv-muted"> — {scopeText(b)}</span>
+              </span>
+            ))}
+          </span>
+        ),
+      },
+      {
+        id: "factor",
+        header: "Second factor",
+        value: (u) => [u.has_totp ? "authenticator" : "", u.security_keys > 0 ? `${u.security_keys} security key${u.security_keys === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "to be set up at next sign-in",
+        width: 190,
+        wrap: true,
+        cell: (u) =>
+          !u.has_totp && u.security_keys === 0 ? (
+            <StatusPill kind="warning" size="sm" icon={Icons.Clock}>
+              To be set up at next sign-in
+            </StatusPill>
+          ) : (
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+              {u.has_totp && (
+                <StatusPill kind="success" size="sm">
+                  Authenticator
+                </StatusPill>
+              )}
+              {u.security_keys > 0 && (
+                <StatusPill kind="success" size="sm" icon={Icons.NavEnrollment}>
+                  {u.security_keys} security key{u.security_keys === 1 ? "" : "s"}
+                </StatusPill>
+              )}
+            </span>
+          ),
+      },
+      {
+        id: "last",
+        header: "Last sign-in",
+        value: (u) => (u.last_login_at ? new Date(u.last_login_at).getTime() : 0),
+        width: 130,
+        wrap: true,
+        cell: (u) => dateTime(u.last_login_at),
+        csv: (u) => u.last_login_at ?? "",
+      },
+      {
+        id: "created",
+        header: "Created",
+        value: (u) => new Date(u.created_at).getTime(),
+        width: 150,
+        defaultHidden: true,
+        cell: (u) => new Date(u.created_at).toLocaleDateString(),
+        csv: (u) => u.created_at,
+      },
+      ...(canWrite
+        ? [
+            {
+              id: "actions",
+              header: "Actions",
+              required: true,
+              csv: false as const,
+              align: "right" as const,
+              width: 84,
+              cell: (u: UserAccount) => (
+                <RowButtons>
+                <Menu position="bottom-end" shadow="md" withinPortal>
+                  <Menu.Target>
+                    <ActionIcon variant="subtle" color="gray" size="sm" aria-label={`Actions for ${u.email}`}>
+                      <Icons.More size={16} aria-hidden />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item leftSection={<Icons.Edit size={15} aria-hidden />} onClick={() => setEditing(u)}>
+                      Roles…
+                    </Menu.Item>
+                    <Menu.Item leftSection={<Icons.NavEnrollment size={15} aria-hidden />} onClick={() => void run(u, "reset-password")}>
+                      Set a temporary password
+                    </Menu.Item>
+                    <Menu.Item leftSection={<Icons.Restore size={15} aria-hidden />} onClick={() => void run(u, "reset-mfa")}>
+                      Reset second factor
+                    </Menu.Item>
+                    {u.id !== myId && (
+                      <>
+                        <Menu.Divider />
+                        <Menu.Item
+                          leftSection={u.status === "active" ? <Icons.Pause size={15} aria-hidden /> : <Icons.Play size={15} aria-hidden />}
+                          onClick={() => void run(u, u.status === "active" ? "disable" : "enable")}
+                        >
+                          {u.status === "active" ? "Disable" : "Enable"}
+                        </Menu.Item>
+                        <Menu.Item color="red" leftSection={<Icons.Trash size={15} aria-hidden />} onClick={() => void run(u, "delete")}>
+                          Delete
+                        </Menu.Item>
+                      </>
+                    )}
+                  </Menu.Dropdown>
+                </Menu>
+                </RowButtons>
+              ),
+            },
+          ]
+        : []),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canWrite, myId, siteList, confirm, doAct]);
+
+  const tokenColumns = useMemo<Column<ApiToken>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Name",
+        value: (t) => `${t.name} ${t.prefix}`,
+        primary: true,
+        required: true,
+        width: 240,
+        cell: (t) => (
+          <>
+            {t.name}
+            <span className="rnv-dt__cell-sub rnv-mono">{t.prefix}…</span>
+          </>
+        ),
+      },
+      { id: "owner", header: "Owner", value: (t) => t.owner, width: 200 },
+      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="rnv-mono">{t.scopes.join(", ")}</span> },
+      {
+        id: "expires",
+        header: "Expires",
+        value: (t) => (t.revoked_at ? 0 : t.expires_at ? new Date(t.expires_at).getTime() : 0),
+        width: 170,
+        cell: (t) => (t.revoked_at ? <Status value="revoked" size="sm" /> : dateTime(t.expires_at)),
+        csv: (t) => (t.revoked_at ? "revoked" : (t.expires_at ?? "")),
+      },
+      { id: "used", header: "Last used", value: (t) => (t.last_used_at ? new Date(t.last_used_at).getTime() : 0), width: 170, cell: (t) => dateTime(t.last_used_at), csv: (t) => t.last_used_at ?? "" },
+      ...(canWrite
+        ? [
+            {
+              id: "actions",
+              header: "Actions",
+              required: true,
+              csv: false as const,
+              align: "right" as const,
+              width: 110,
+              cell: (t: ApiToken) => (
+                <RowButtons>
+                  {t.revoked_at ? null : (
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="red"
+                    leftSection={<Icons.Close size={12} aria-hidden />}
+                    onClick={async () => {
+                      const ok = await confirm({ title: `Revoke the token "${t.name}"?`, message: "Anything using it stops working at once. This cannot be undone.", confirmLabel: "Revoke token", danger: true });
+                      if (ok) revokeToken.mutate(t.id);
+                    }}
+                  >
+                    Revoke
+                  </Button>
+                  )}
+                </RowButtons>
+              ),
+            },
+          ]
+        : []),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canWrite, confirm, revokeToken.mutate],
+  );
 
   return (
-    <>
-      <Group justify="space-between" mb="xs">
-        <Title order={2}>Users</Title>
-        {canWrite && <Button onClick={() => setCreating(true)}>Add user</Button>}
-      </Group>
-      <Text size="sm" c="dimmed" mb="md">
-        Everyone signs in with a password and a second factor. A role can apply to the whole organization or to a single site; a site role lets someone manage the devices of that site from their pages and nothing else.
-      </Text>
-      <Tabs defaultValue="users">
+    <Page>
+      <PageHeader
+        title="Users"
+        description="Everyone signs in with a password and a second factor. A role can apply to the whole organization or to a single site; a site role lets someone manage the devices of that site from their pages and nothing else."
+        actions={
+          canWrite ? (
+            <Button leftSection={<Icons.Plus size={16} aria-hidden />} onClick={() => setCreating(true)}>
+              Add user
+            </Button>
+          ) : undefined
+        }
+      />
+      <Tabs defaultValue="users" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="users">Users</Tabs.Tab>
           <Tabs.Tab value="tokens">API tokens</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="users" pt="md">
-          {users.isLoading && <Loader />}
-          {users.error && <Alert color="red">{errorMessage(users.error)}</Alert>}
-          {users.data && (
-            <Table.ScrollContainer minWidth={820}>
-              <Table verticalSpacing="xs" fz="sm" aria-label="Users">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>User</Table.Th>
-                    <Table.Th>Roles</Table.Th>
-                    <Table.Th>Second factor</Table.Th>
-                    <Table.Th>Last sign-in</Table.Th>
-                    <Table.Th />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {users.data.items.map((u) => (
-                    <Table.Tr key={u.id} data-testid="user-row" opacity={u.status === "disabled" ? 0.55 : 1}>
-                      <Table.Td>
-                        <Text size="sm">{u.display_name}</Text>
-                        <Text size="xs" c="dimmed">
-                          {u.email}
-                        </Text>
-                        {u.status === "disabled" && (
-                          <Badge size="xs" color="gray">
-                            disabled
-                          </Badge>
-                        )}
-                        {u.must_change_password && (
-                          <Badge size="xs" color="yellow" ml={4}>
-                            must change password
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        {u.bindings.map((b) => (
-                          <div key={b.id}>
-                            {roleLabel[b.role] ?? b.role}
-                            <Text span c="dimmed" size="xs">
-                              {" "}
-                              — {b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`}
-                            </Text>
-                          </div>
-                        ))}
-                      </Table.Td>
-                      <Table.Td>
-                        {u.has_totp ? "authenticator" : ""}
-                        {u.has_totp && u.security_keys > 0 ? ", " : ""}
-                        {u.security_keys > 0 ? `${u.security_keys} security key${u.security_keys === 1 ? "" : "s"}` : ""}
-                        {!u.has_totp && u.security_keys === 0 ? "to be set up at next sign-in" : ""}
-                      </Table.Td>
-                      <Table.Td>{dateTime(u.last_login_at)}</Table.Td>
-                      <Table.Td>
-                        {canWrite && (
-                          <Menu position="bottom-end">
-                            <Menu.Target>
-                              <Button size="compact-xs" variant="default" aria-label={`Actions for ${u.email}`}>
-                                ⋮
-                              </Button>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                              <Menu.Item onClick={() => setEditing(u)}>Roles…</Menu.Item>
-                              <Menu.Item onClick={() => act.mutate({ u, kind: "reset-password" })}>Set a temporary password</Menu.Item>
-                              <Menu.Item onClick={() => window.confirm(`Remove all second factors of ${u.email}? They will set up a new one at the next sign-in.`) && act.mutate({ u, kind: "reset-mfa" })}>
-                                Reset second factor
-                              </Menu.Item>
-                              {u.id !== session?.user.id && (
-                                <>
-                                  <Menu.Item onClick={() => act.mutate({ u, kind: u.status === "active" ? "disable" : "enable" })}>{u.status === "active" ? "Disable" : "Enable"}</Menu.Item>
-                                  <Menu.Item color="red" onClick={() => window.confirm(`Delete ${u.email}? This cannot be undone.`) && act.mutate({ u, kind: "delete" })}>
-                                    Delete
-                                  </Menu.Item>
-                                </>
-                              )}
-                            </Menu.Dropdown>
-                          </Menu>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          )}
+          <DataTable<UserAccount>
+            id="users"
+            label="Users"
+            data={users.data?.items}
+            loading={users.isLoading}
+            error={users.error}
+            columns={userColumns}
+            rowId={(u) => u.id}
+            rowTestId="user-row"
+            rowLabel={(u) => u.email}
+            searchPlaceholder="Search people, e-mail addresses, roles…"
+            exportName="users"
+            initialSort={{ id: "user" }}
+            empty={<EmptyState icon={<Icons.NavUsers size={26} />} title="No users" description="People you add appear here." />}
+          />
         </Tabs.Panel>
         <Tabs.Panel value="tokens" pt="md">
           <Text size="sm" c="dimmed" mb="sm">
             Tokens created by anyone in the organization. A token can do no more than its owner and its scopes allow, and stops working when its owner is disabled.
           </Text>
-          {tokens.data && tokens.data.items.length === 0 && <Text size="sm">No API tokens.</Text>}
-          {tokens.data && tokens.data.items.length > 0 && (
-            <Table verticalSpacing="xs" fz="sm" aria-label="API tokens of the organization">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Name</Table.Th>
-                  <Table.Th>Owner</Table.Th>
-                  <Table.Th>Scopes</Table.Th>
-                  <Table.Th>Expires</Table.Th>
-                  <Table.Th>Last used</Table.Th>
-                  <Table.Th />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {tokens.data.items.map((t) => (
-                  <Table.Tr key={t.id} opacity={t.revoked_at ? 0.5 : 1}>
-                    <Table.Td>
-                      {t.name} <Text span c="dimmed" size="xs">{t.prefix}…</Text>
-                    </Table.Td>
-                    <Table.Td>{t.owner}</Table.Td>
-                    <Table.Td>{t.scopes.join(", ")}</Table.Td>
-                    <Table.Td>{t.revoked_at ? "revoked" : dateTime(t.expires_at)}</Table.Td>
-                    <Table.Td>{dateTime(t.last_used_at)}</Table.Td>
-                    <Table.Td>
-                      {canWrite && !t.revoked_at && (
-                        <Button size="compact-xs" variant="default" color="red" onClick={() => window.confirm(`Revoke the token "${t.name}"?`) && revokeToken.mutate(t.id)}>
-                          Revoke
-                        </Button>
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          )}
+          <DataTable<ApiToken>
+            id="org-api-tokens"
+            label="API tokens of the organization"
+            data={tokens.data?.items}
+            loading={tokens.isLoading}
+            error={tokens.error}
+            columns={tokenColumns}
+            rowId={(t) => t.id}
+            rowLabel={(t) => t.name}
+            searchPlaceholder="Search tokens…"
+            exportName="api-tokens"
+            initialSort={{ id: "name" }}
+            empty={<EmptyState icon={<Icons.NavEnrollment size={26} />} title="No API tokens" description="Tokens that people create under Account and security appear here." />}
+          />
         </Tabs.Panel>
       </Tabs>
-      {creating && <CreateUserModal sites={sites.data?.items ?? []} orgId={session?.org.id ?? ""} onClose={() => setCreating(false)} onCreated={(email, pw) => (refresh(), pw && setSecret({ email, password: pw }))} />}
-      {editing && <RolesModal user={users.data?.items.find((u) => u.id === editing.id) ?? editing} sites={sites.data?.items ?? []} orgId={session?.org.id ?? ""} onClose={() => setEditing(null)} />}
+      {creating && <CreateUserModal sites={siteList ?? []} orgId={session?.org.id ?? ""} onClose={() => setCreating(false)} onCreated={(email, pw) => (refresh(), toast.success(`${email} was added.`), pw && setSecret({ email, password: pw }))} />}
+      {editing && <RolesModal user={users.data?.items.find((u) => u.id === editing.id) ?? editing} sites={siteList ?? []} orgId={session?.org.id ?? ""} onClose={() => setEditing(null)} />}
       <Modal opened={!!secret} onClose={() => setSecret(null)} title="Temporary password">
         {secret && (
           <Stack>
-            <Alert color="yellow">Shown only once. Give it to {secret.email} privately; they must choose their own password at the first sign-in.</Alert>
+            <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />}>
+              Shown only once. Give it to {secret.email} privately; they must choose their own password at the first sign-in.
+            </Alert>
             <CopyText value={secret.password} label="Copy password" />
           </Stack>
         )}
       </Modal>
-    </>
+    </Page>
   );
 }
 
@@ -225,10 +415,19 @@ function CreateUserModal({ sites, orgId, onClose, onCreated }: { sites: Site[]; 
           <Text size="xs" c="dimmed">
             A temporary password is generated. The user must change it at the first sign-in and then set up a second factor.
           </Text>
-          {error && <Alert color="red">{error}</Alert>}
-          <Button type="submit" loading={create.isPending}>
-            Create user
-          </Button>
+          {error && (
+            <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+              {error}
+            </Alert>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={create.isPending}>
+              Create user
+            </Button>
+          </Group>
         </Stack>
       </form>
     </Modal>
@@ -246,12 +445,12 @@ function RolesModal({ user, sites, orgId, onClose }: { user: UserAccount; sites:
       const [scope_type, scope_id] = (scope ?? "").split(":");
       return api("POST", `/users/${user.id}/roles`, { role, scope_type, scope_id });
     },
-    onSuccess: () => (setError(""), done()),
+    onSuccess: () => (setError(""), done(), toast.success("Role added.")),
     onError: (e) => setError(errorMessage(e)),
   });
   const remove = useMutation({
     mutationFn: (bid: string) => api("DELETE", `/users/${user.id}/roles/${bid}`),
-    onSuccess: () => (setError(""), done()),
+    onSuccess: () => (setError(""), done(), toast.success("Role removed.")),
     onError: (e) => setError(errorMessage(e)),
   });
   const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? id.slice(0, 8);
@@ -259,11 +458,11 @@ function RolesModal({ user, sites, orgId, onClose }: { user: UserAccount; sites:
     <Modal opened onClose={onClose} title={`Roles of ${user.display_name}`}>
       <Stack>
         {user.bindings.map((b) => (
-          <Group key={b.id} justify="space-between">
-            <Text size="sm">
-              {roleLabel[b.role] ?? b.role} — {b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`}
+          <Group key={b.id} justify="space-between" wrap="nowrap">
+            <Text size="sm" style={{ minWidth: 0 }}>
+              <RolePill role={b.role} /> <span className="rnv-muted">— {b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`}</span>
             </Text>
-            <Button size="compact-xs" variant="default" color="red" onClick={() => remove.mutate(b.id)} aria-label={`Remove ${b.role} ${b.scope_type}`}>
+            <Button size="compact-xs" variant="default" color="red" leftSection={<Icons.Trash size={12} aria-hidden />} onClick={() => remove.mutate(b.id)} aria-label={`Remove ${b.role} ${b.scope_type}`}>
               Remove
             </Button>
           </Group>
@@ -275,7 +474,11 @@ function RolesModal({ user, sites, orgId, onClose }: { user: UserAccount; sites:
             Add
           </Button>
         </Group>
-        {error && <Alert color="red">{error}</Alert>}
+        {error && (
+          <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
+            {error}
+          </Alert>
+        )}
       </Stack>
     </Modal>
   );

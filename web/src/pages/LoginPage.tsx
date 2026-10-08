@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, Anchor, Button, Center, Paper, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Button, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { api, errorMessage, setCsrf } from "../api/client";
 import { useSession } from "../api/session";
 import { CodeInput, RecoveryCodes, TotpQR } from "../components/common";
 import { getAssertion, webauthnSupported } from "../api/webauthn";
-import { BrandMark, useBranding, useDocumentTitle } from "../branding/BrandingProvider";
+import { useBranding, useDocumentTitle } from "../branding/BrandingProvider";
+import { Icons } from "../ui";
+import { AuthBrand, AuthShell } from "../ui/admin-kit";
 
 type Stage =
   | { kind: "password" }
@@ -94,98 +96,99 @@ export function LoginPage() {
   const enroll = () => run(async () => finish(await api("POST", "/auth/mfa/enroll", { code })));
 
   return (
-    <Center mih="100vh" p="md">
-      <Stack align="center" gap="md" maw="100%">
-      <Paper withBorder p="xl" radius="md" w={440} maw="100%">
-        <Stack>
-          <BrandMark height={48} />
-          <Title order={2} data-testid="login-headline">
-            {brand.login_headline || `Sign in to ${brand.product_name}`}
-          </Title>
-          {brand.org_name && (
-            <Text c="dimmed" size="sm" data-testid="login-org">
-              {brand.org_name}
-            </Text>
-          )}
-          {brand.login_message && (
-            <Text size="sm" style={{ whiteSpace: "pre-line" }} data-testid="login-message">
-              {brand.login_message}
-            </Text>
-          )}
-          {stage.kind === "password" && (
-            <form onSubmit={(e) => (e.preventDefault(), void login())}>
-              <Stack>
-                <TextInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} autoComplete="username" required autoFocus />
-                <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" required />
-                <Button type="submit" loading={busy}>
-                  Continue
-                </Button>
-              </Stack>
-            </form>
-          )}
-          {stage.kind === "change_password" && (
-            <form onSubmit={(e) => (e.preventDefault(), void changePassword())}>
-              <Stack>
-                <Alert color="blue">An administrator set a temporary password for you. Choose your own to continue.</Alert>
-                <PasswordInput label="New password" value={newPassword} onChange={(e) => setNewPassword(e.currentTarget.value)} autoComplete="new-password" required autoFocus />
-                <PasswordInput label="Repeat the new password" value={newPassword2} onChange={(e) => setNewPassword2(e.currentTarget.value)} autoComplete="new-password" required />
-                <Button type="submit" loading={busy}>
-                  Change password
-                </Button>
-              </Stack>
-            </form>
-          )}
-          {stage.kind === "verify" && (
-            <form onSubmit={(e) => (e.preventDefault(), void verify())}>
-              <Stack>
-                {stage.methods.includes("webauthn") && webauthnSupported() && (
-                  <Button variant="default" onClick={() => void useKey()} loading={busy}>
-                    Use a security key
-                  </Button>
-                )}
-                {useRecovery ? (
-                  <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="off" autoFocus />
-                ) : (
-                  <>
-                    <Text size="sm">Enter the 6-digit code from your authenticator app.</Text>
-                    <CodeInput autoFocus value={code} onChange={setCode} />
-                  </>
-                )}
-                <Button type="submit" loading={busy} disabled={!code} style={{ display: stage.methods.includes("totp") || useRecovery ? undefined : "none" }}>
-                  Verify
-                </Button>
-                <Anchor component="button" type="button" size="sm" onClick={() => (setUseRecovery(!useRecovery), setCode(""))}>
-                  {useRecovery ? "Use authenticator code" : "Use a recovery code instead"}
-                </Anchor>
-              </Stack>
-            </form>
-          )}
-          {stage.kind === "enroll" && (
-            <Stack>
-              <Alert color="yellow">Your multi-factor authentication was reset. Set up an authenticator to continue.</Alert>
-              <TotpQR uri={stage.uri} secret={stage.secret} />
-              <CodeInput value={code} onChange={setCode} />
-              <Button onClick={enroll} loading={busy} disabled={code.length !== 6}>
-                Confirm
-              </Button>
-            </Stack>
-          )}
-          {stage.kind === "codes" && (
-            <Stack>
-              <RecoveryCodes codes={stage.codes} />
-              <Button onClick={() => void refresh().then(() => nav("/", { replace: true }))}>I have saved them, continue</Button>
-            </Stack>
-          )}
-          {err && (
-            <Alert color="red" role="alert">
-              {err}
-            </Alert>
-          )}
-        </Stack>
-      </Paper>
-      <LoginFooter />
+    <AuthShell below={<LoginFooter />}>
+      <Stack gap="xs">
+        <AuthBrand />
+        <h1 className="rnv-auth__title" data-testid="login-headline">
+          {brand.login_headline || `Sign in to ${brand.product_name}`}
+        </h1>
+        {brand.org_name && (
+          <p className="rnv-auth__org" data-testid="login-org">
+            {brand.org_name}
+          </p>
+        )}
+        {brand.login_message && (
+          <p className="rnv-auth__msg" data-testid="login-message">
+            {brand.login_message}
+          </p>
+        )}
       </Stack>
-    </Center>
+      {stage.kind === "password" && (
+        <form onSubmit={(e) => (e.preventDefault(), void login())}>
+          <Stack>
+            <TextInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} autoComplete="username" required autoFocus />
+            <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" required />
+            <Button type="submit" loading={busy} fullWidth>
+              Continue
+            </Button>
+          </Stack>
+        </form>
+      )}
+      {stage.kind === "change_password" && (
+        <form onSubmit={(e) => (e.preventDefault(), void changePassword())}>
+          <Stack>
+            <Alert color="blue" icon={<Icons.Info size={18} aria-hidden />}>
+              An administrator set a temporary password for you. Choose your own to continue.
+            </Alert>
+            <PasswordInput label="New password" value={newPassword} onChange={(e) => setNewPassword(e.currentTarget.value)} autoComplete="new-password" required autoFocus />
+            <PasswordInput label="Repeat the new password" value={newPassword2} onChange={(e) => setNewPassword2(e.currentTarget.value)} autoComplete="new-password" required />
+            <Button type="submit" loading={busy} fullWidth>
+              Change password
+            </Button>
+          </Stack>
+        </form>
+      )}
+      {stage.kind === "verify" && (
+        <form onSubmit={(e) => (e.preventDefault(), void verify())}>
+          <Stack>
+            {stage.methods.includes("webauthn") && webauthnSupported() && (
+              <Button variant="default" onClick={() => void useKey()} loading={busy} leftSection={<Icons.NavEnrollment size={16} aria-hidden />} fullWidth>
+                Use a security key
+              </Button>
+            )}
+            {useRecovery ? (
+              <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" value={code} onChange={(e) => setCode(e.currentTarget.value)} autoComplete="off" autoFocus />
+            ) : (
+              <>
+                <Text size="sm">Enter the 6-digit code from your authenticator app.</Text>
+                <CodeInput autoFocus value={code} onChange={setCode} />
+              </>
+            )}
+            <Button type="submit" loading={busy} disabled={!code} fullWidth style={{ display: stage.methods.includes("totp") || useRecovery ? undefined : "none" }}>
+              Verify
+            </Button>
+            <Anchor component="button" type="button" size="sm" onClick={() => (setUseRecovery(!useRecovery), setCode(""))}>
+              {useRecovery ? "Use authenticator code" : "Use a recovery code instead"}
+            </Anchor>
+          </Stack>
+        </form>
+      )}
+      {stage.kind === "enroll" && (
+        <Stack>
+          <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />}>
+            Your multi-factor authentication was reset. Set up an authenticator to continue.
+          </Alert>
+          <TotpQR uri={stage.uri} secret={stage.secret} />
+          <CodeInput value={code} onChange={setCode} />
+          <Button onClick={enroll} loading={busy} disabled={code.length !== 6} fullWidth>
+            Confirm
+          </Button>
+        </Stack>
+      )}
+      {stage.kind === "codes" && (
+        <Stack>
+          <RecoveryCodes codes={stage.codes} />
+          <Button onClick={() => void refresh().then(() => nav("/", { replace: true }))} fullWidth>
+            I have saved them, continue
+          </Button>
+        </Stack>
+      )}
+      {err && (
+        <Alert color="red" role="alert" icon={<Icons.Danger size={18} aria-hidden />}>
+          {err}
+        </Alert>
+      )}
+    </AuthShell>
   );
 }
 
@@ -194,33 +197,21 @@ function LoginFooter() {
   const { login_footer: footer, support } = useBranding();
   if (!footer && !support.email && !support.phone && !support.url) return null;
   return (
-    <Stack gap={4} align="center" w={440} maw="100%" data-testid="login-footer">
-      {footer && (
-        <Text size="xs" c="dimmed" ta="center" style={{ whiteSpace: "pre-line" }}>
-          {footer}
-        </Text>
-      )}
+    <Stack gap={4} align="center" data-testid="login-footer">
+      {footer && <p className="rnv-auth__foot">{footer}</p>}
       {(support.email || support.phone || support.url) && (
-        <Text size="xs" ta="center">
+        <p className="rnv-auth__help">
           Need help?{" "}
-          {support.email && (
-            <Anchor href={`mailto:${support.email}`} size="xs">
-              {support.email}
-            </Anchor>
-          )}
+          {support.email && <a href={`mailto:${support.email}`}>{support.email}</a>}
           {support.email && (support.phone || support.url) && " · "}
-          {support.phone && (
-            <Anchor href={`tel:${support.phone.replace(/[^0-9+]/g, "")}`} size="xs">
-              {support.phone}
-            </Anchor>
-          )}
+          {support.phone && <a href={`tel:${support.phone.replace(/[^0-9+]/g, "")}`}>{support.phone}</a>}
           {support.phone && support.url && " · "}
           {support.url && (
-            <Anchor href={support.url} size="xs" target="_blank" rel="noopener noreferrer">
+            <a href={support.url} target="_blank" rel="noopener noreferrer">
               Support site
-            </Anchor>
+            </a>
           )}
-        </Text>
+        </p>
       )}
     </Stack>
   );
