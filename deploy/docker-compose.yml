@@ -68,6 +68,7 @@ services:
       AUZ_CONTENT_DIR: /var/lib/auzring/content
       AUZ_WINGET_SOURCE: ${AUZ_WINGET_SOURCE:-github}
       AUZ_RELEASE_PUBLIC_KEYS: ${AUZ_RELEASE_PUBLIC_KEYS:-}
+      AUZ_LICENSE_PUBLIC_KEYS: ${AUZ_LICENSE_PUBLIC_KEYS:-}
     volumes:
       - content:/var/lib/auzring/content
     secrets: [database_url, master_key]

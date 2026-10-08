@@ -138,7 +138,7 @@ I stop for review after each phase.
 - Security review against SECURITY.md, plus fuzzing of the protocol, manifest and uninstall-string parsers.
 - Load test with 10k simulated agents (`cmd/auzring-loadsim`), including a reconnect-storm scenario.
 - Release pipeline: reproducible builds, SBOMs, cosign and Authenticode signing. *(Written: `.github/workflows/release.yml`, `scripts/build-release.sh`, `scripts/verify-reproducible.sh`, `cmd/auzring-sbom`, `docs/VERIFYING_RELEASES.md`, RUNBOOK 9, DECISIONS D79-D84, SECURITY 9e. Local dry run and reproducibility check pass; the GitHub, Azure/AWS, cosign and MSI steps have never run, and nothing can ship until the owner settles O5 and O7.)*
-- Offline-verifiable license keys: Ed25519-signed license documents, checked by the server with no phone-home.
+- Offline-verifiable license keys: Ed25519-signed license documents, checked by the server with no phone-home. *(Mechanism implemented: `internal/shared/license`, `internal/server/licensing`, `cmd/auzring-license`, the License page; see DECISIONS D85-D88 and SECURITY §9g. Default policy: 25-device evaluation, 30-day grace, the cap blocks only new enrollments. The business model, O8, is still open.)*
 - Final documentation pass.
 
 ## 5. Biggest risks I see up front

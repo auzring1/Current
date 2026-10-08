@@ -317,6 +317,21 @@ type JobEvent struct {
 	Data    []byte
 }
 
+type License struct {
+	ID          uuid.UUID
+	OrgID       uuid.UUID
+	LicenseID   string
+	KeyID       string
+	Blob        string
+	InstalledBy *uuid.UUID
+	InstalledAt time.Time
+}
+
+type LicenseClock struct {
+	Singleton bool
+	HighWater time.Time
+}
+
 type MfaRecoveryCode struct {
 	ID       uuid.UUID
 	UserID   uuid.UUID
