@@ -92,7 +92,7 @@ func TestPublicInterfaceIsOnlyServerTokenAllowedjobs(t *testing.T) {
 	want := map[string]bool{"SERVER": true, "TOKEN": true, "ALLOWEDJOBS": true}
 	// Other upper-case property names are public on the msiexec command line too; these are the ones
 	// that exist for a reason and take no part in the agent command line.
-	other := map[string]bool{"AGENTSERVICEPATH": true, "DQ": true, "ARPNOMODIFY": true, "ARPCOMMENTS": true}
+	other := map[string]bool{"AGENTSERVICEPATH": true, "WINBUILD": true, "DQ": true, "ARPNOMODIFY": true, "ARPCOMMENTS": true}
 	got := map[string]node{}
 	for _, p := range pkg(t).find("Property") {
 		id := p.attr("Id")
@@ -403,7 +403,7 @@ func TestLaunchConditionsFitAndCoverTheDenyList(t *testing.T) {
 }
 
 func baseEnv() map[string]string {
-	return map[string]string{"VersionNT64": "1000", "VersionNT": "1000", "WindowsBuild": "19045", "Privileged": "1", "DQ": `"`}
+	return map[string]string{"VersionNT64": "1000", "VersionNT": "1000", "WINBUILD": "19045", "Privileged": "1", "DQ": `"`}
 }
 
 // fillRequired sets valid values for the required properties other than skip, so that a test isolates one property.
@@ -461,9 +461,16 @@ func TestLaunchConditionBehaviour(t *testing.T) {
 		{"space in TOKEN", with("SERVER", "a:1", "TOKEN", "AURZ1.a b"), false},
 		{"chained command in ALLOWEDJOBS", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "ALLOWEDJOBS", "inventory&calc"), false},
 		{"extra argument in SERVER", with("SERVER", "a:1 --data-dir", "TOKEN", "AURZ1.abc"), false},
-		{"Windows 10 1803", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WindowsBuild", "17134"), false},
-		{"Windows 10 1809 / Server 2019", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WindowsBuild", "17763"), true},
-		{"Windows 8.1", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "VersionNT", "603"), false},
+		{"Windows 10 1803", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WINBUILD", "17134"), false},
+		{"Windows 10 1809 / Server 2019", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "WINBUILD", "17763"), true},
+		{"Windows 8.1", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "VersionNT", "603", "WINBUILD", "9600"), false},
+		// Windows Installer itself reports 603 / 9600 on some Windows 10/11 machines; the registry build number decides.
+		{"Windows 11 as reported by a shimmed installer", with("SERVER", "a:1", "TOKEN", "AURZ1.abc", "VersionNT", "603", "VersionNT64", "603", "WindowsBuild", "9600", "WINBUILD", "26100"), true},
+		{"build number not readable", func() map[string]string {
+			e := with("SERVER", "a:1", "TOKEN", "AURZ1.abc")
+			delete(e, "WINBUILD")
+			return e
+		}(), false},
 		{"32-bit Windows", func() map[string]string {
 			e := with("SERVER", "a:1", "TOKEN", "AURZ1.abc")
 			delete(e, "VersionNT64")
