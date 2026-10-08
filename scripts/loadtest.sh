@@ -169,7 +169,7 @@ if [ -f "$OUT/server.log" ]; then
     echo
     echo "Lines by level and message (top 15):"
     echo '```'
-    grep -E "level=(WARN|ERROR)" "$OUT/server.log" | sed -E 's/^time=[^ ]+ //; s/(device|job|id)=[0-9a-f-]{36}//g; s/ip=[0-9.:]+//; s/err="([^"]{0,90}).*/err="\1"/' | sort | uniq -c | sort -rn | head -15 || true
+    grep -E "\"level\":\"(WARN|ERROR)\"" "$OUT/server.log" | sed -E "s/\"time\":\"[^\"]*\",//; s/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ID/g; s/\"(ip|prev_ip)\":\"[^\"]*\",?//g" | cut -c1-220 | sort | uniq -c | sort -rn | head -15 || true
     echo '```'
   } >>"$OUT/summary.md"
 fi
