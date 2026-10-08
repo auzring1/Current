@@ -81,6 +81,8 @@ export interface DataTableProps<T> {
   initialSort?: { id: string; desc?: boolean };
   /** First column stays in view when scrolling sideways. */
   stickyFirst?: boolean;
+  /** data-testid of each body row (default "row"). */
+  rowTestId?: string;
   /** Called with the rows that are currently shown after filtering (for tiles that mirror the table). */
   onVisibleRows?: (rows: T[]) => void;
 }
@@ -503,7 +505,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                   {shown.map((row) => {
                     const href = p.rowHref?.(row.original);
                     return (
-                      <tr key={row.id} aria-selected={row.getIsSelected()} data-clickable={p.onRowClick ? "true" : undefined} onClick={(e) => rowClick(row.original, e)} data-testid="row">
+                      <tr key={row.id} aria-selected={row.getIsSelected()} data-clickable={p.onRowClick ? "true" : undefined} onClick={(e) => rowClick(row.original, e)} data-testid={p.rowTestId ?? "row"}>
                         {row.getVisibleCells().map((cell, idx) => {
                           const meta = cell.column.columnDef.meta as Column<T> | undefined;
                           const sticky = p.stickyFirst && idx === (p.selectable ? 1 : 0) ? "true" : undefined;

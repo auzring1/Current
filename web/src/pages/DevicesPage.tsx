@@ -1,31 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, SegmentedControl, Stack, Table, Text, Title } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { Link, useNavigate } from "react-router-dom";
+import { Button, SegmentedControl } from "@mantine/core";
 import { useSession } from "../api/session";
-import { api, errorMessage, type Device } from "../api/client";
+import { api, errorMessage, type Device, type ReportOverview } from "../api/client";
 import { ago } from "../api/format";
-import { OnlineDot, StatusBadge } from "../components/common";
 import { LicenseBanner } from "../components/LicenseBanner";
+import { DataTable, EmptyState, Icons, IconButton, Page, PageHeader, StatGrid, StatTile, Status, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
 
 export function DevicesPage() {
   const [status, setStatus] = useState("all");
-  const nav = useNavigate();
   const { can } = useSession();
   const qc = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [confirm, setConfirm] = useState(false);
-  const del = useMutation({
-    mutationFn: (ids: string[]) => api<{ deleted: number; skipped: number }>("POST", "/devices/delete", { ids }),
-    onSuccess: (r) => {
-      notifications.show({ color: "green", message: `Deleted ${r.deleted} device${r.deleted === 1 ? "" : "s"}${r.skipped ? `; ${r.skipped} skipped (only revoked devices can be deleted)` : ""}.` });
-      setSelected(new Set());
-      setConfirm(false);
-      void qc.invalidateQueries({ queryKey: ["devices"] });
-    },
-    onError: (e) => notifications.show({ color: "red", message: errorMessage(e) }),
-  });
+  const confirm = useConfirm();
+  const nav = useNavigate();
+
   const q = useQuery({
     queryKey: ["devices", status],
     queryFn: () => api<{ items: Device[]; total: number }>("GET", `/devices?limit=500${status === "all" ? "" : `&status=${status}`}`),
@@ -35,131 +24,196 @@ export function DevicesPage() {
     queryKey: ["devices", "pending-count"],
     queryFn: () => api<{ total: number }>("GET", "/devices?status=pending&limit=1"),
   });
+  // Fleet-wide numbers for the tiles (people who can open Reports see them).
+  const overview = useQuery({ queryKey: ["report-overview"], queryFn: () => api<ReportOverview>("GET", "/reports/overview"), enabled: can("reports:read"), refetchInterval: 60_000 });
+
+  const del = useMutation({
+    mutationFn: (ids: string[]) => api<{ deleted: number; skipped: number }>("POST", "/devices/delete", { ids }),
+    onSuccess: (r) => {
+      toast.success(`Deleted ${r.deleted} device${r.deleted === 1 ? "" : "s"}${r.skipped ? `; ${r.skipped} skipped (only revoked devices can be deleted)` : ""}.`);
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const refresh = useMutation({
+    mutationFn: (id: string) => api("POST", `/devices/${id}/refresh`, {}),
+    onSuccess: () => toast.info("Refresh requested. The device reports back within a minute."),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const columns = useMemo<Column<Device>[]>(
+    () => [
+      {
+        id: "hostname",
+        header: "Device",
+        value: (d) => d.hostname,
+        primary: true,
+        required: true,
+        width: 220,
+        cell: (d) => (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span>{d.hostname}</span>
+            {d.pending_reboot && (
+              <StatusPill kind="warning" size="sm" icon={Icons.Restart}>
+                Restart pending
+              </StatusPill>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        value: (d) => d.status,
+        width: 130,
+        cell: (d) => <Status value={d.status} size="sm" />,
+        filter: { type: "select", options: ["active", "pending", "revoked", "retired"].map((v) => ({ value: v, label: v[0]!.toUpperCase() + v.slice(1) })) },
+      },
+      {
+        id: "connection",
+        header: "Connection",
+        value: (d) => (d.status === "active" ? (d.online ? "online" : "offline") : ""),
+        width: 130,
+        cell: (d) => (d.status === "active" ? <Status value={d.online ? "online" : "offline"} size="sm" /> : <span className="rnv-muted">—</span>),
+        filter: {
+          type: "select",
+          options: [
+            { value: "online", label: "Online" },
+            { value: "offline", label: "Offline" },
+          ],
+        },
+        csv: (d) => (d.status === "active" ? (d.online ? "online" : "offline") : ""),
+      },
+      {
+        id: "os",
+        header: "Operating system",
+        value: (d) => d.os_caption ?? "",
+        width: 230,
+        cell: (d) => (
+          <>
+            {d.os_caption || "—"}
+            {d.os_build && <span className="rnv-dt__cell-sub rnv-mono">{d.os_build}</span>}
+          </>
+        ),
+        filter: { type: "text" },
+      },
+      { id: "model", header: "Model", value: (d) => [d.manufacturer, d.model].filter(Boolean).join(" "), width: 190 },
+      { id: "user", header: "User", value: (d) => d.logged_on_user ?? "", width: 140 },
+      { id: "software", header: "Software", value: (d) => d.software_count ?? 0, align: "right", width: 100, cell: (d) => <span className="rnv-num">{d.software_count || "—"}</span> },
+      {
+        id: "seen",
+        header: "Last seen",
+        value: (d) => (d.last_seen_at ? new Date(d.last_seen_at).getTime() : 0),
+        width: 130,
+        cell: (d) => <span title={d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ""}>{d.online ? "now" : ago(d.last_seen_at)}</span>,
+        csv: (d) => d.last_seen_at ?? "",
+      },
+      { id: "agent", header: "Agent", value: (d) => d.agent_version ?? "", width: 110, cell: (d) => <span className="rnv-mono">{d.agent_version || "—"}</span> },
+    ],
+    [],
+  );
+
+  const o = overview.data;
+  const active = o?.devices.active ?? 0;
+  const online = o?.devices.online ?? 0;
+  const canDelete = can("devices:write");
 
   return (
-    <>
+    <Page>
       <LicenseBanner />
-      <Group justify="space-between" mb="md">
-        <Title order={2}>Devices</Title>
-        <SegmentedControl
-          value={status}
-          onChange={(v) => (setStatus(v), setSelected(new Set()))}
-          data={[
-            { value: "all", label: "All" },
-            { value: "pending", label: `Pending${pending.data?.total ? ` (${pending.data.total})` : ""}` },
-            { value: "active", label: "Active" },
-            { value: "revoked", label: "Revoked" },
-          ]}
-        />
-      </Group>
-      {can("devices:write") && selected.size > 0 && (
-        <Group mb="sm">
-          <Button color="red" variant="light" onClick={() => setConfirm(true)}>
+      <PageHeader
+        title="Devices"
+        description="Every Windows device that reports to this server, with its health at a glance."
+        actions={
+          can("enrollment:write") ? (
+            <Button component={Link} to="/enrollment" leftSection={<Icons.Plus size={16} aria-hidden />}>
+              Add devices
+            </Button>
+          ) : undefined
+        }
+      />
+      {overview.isLoading ? (
+        <TileSkeleton count={5} />
+      ) : o ? (
+        <StatGrid label="Fleet summary">
+          <StatTile label="Active devices" value={active} kind="accent" icon={<Icons.NavDevices size={16} aria-hidden />} onClick={() => setStatus("active")} selected={status === "active"} hint={`${o.devices.pending ?? 0} pending, ${o.devices.revoked ?? 0} revoked`} />
+          <StatTile label="Online now" value={online} kind="success" icon={<Icons.Online size={16} aria-hidden />} hint={active ? `${Math.round((100 * online) / active)}% of active devices` : undefined} />
+          <StatTile label="Offline" value={Math.max(active - online, 0)} kind="neutral" icon={<Icons.Offline size={16} aria-hidden />} hint={`${o.devices.not_seen_for_a_week ?? 0} not seen for a week`} />
+          <StatTile label="Waiting for approval" value={pending.data?.total ?? o.devices.pending ?? 0} kind="warning" icon={<Icons.Clock size={16} aria-hidden />} onClick={() => setStatus("pending")} selected={status === "pending"} />
+          <StatTile label="Waiting for a restart" value={o.devices.reboot_pending ?? 0} kind={(o.devices.reboot_pending ?? 0) > 0 ? "warning" : "neutral"} icon={<Icons.Restart size={16} aria-hidden />} />
+          <StatTile label="Not patch compliant" value={o.compliance.non_compliant ?? 0} kind={(o.compliance.non_compliant ?? 0) > 0 ? "danger" : "success"} icon={<Icons.NavUpdates size={16} aria-hidden />} to="/reports" hint="Open the patch compliance report" />
+        </StatGrid>
+      ) : null}
+      <DataTable<Device>
+        id="devices"
+        label="Devices"
+        data={q.data?.items}
+        loading={q.isLoading}
+        error={q.error}
+        columns={columns}
+        rowId={(d) => d.id}
+        rowHref={(d) => `/devices/${d.id}`}
+        onRowClick={(d) => nav(`/devices/${d.id}`)}
+        rowTestId="device-row"
+        rowLabel={(d) => d.hostname}
+        searchPlaceholder="Search devices, users, models…"
+        exportName="devices"
+        initialSort={{ id: "hostname" }}
+        selectable={canDelete ? (d) => d.status === "revoked" : false}
+        toolbar={
+          <SegmentedControl
+            aria-label="Show devices by status"
+            value={status}
+            onChange={setStatus}
+            data={[
+              { value: "all", label: "All" },
+              { value: "pending", label: `Pending${pending.data?.total ? ` (${pending.data.total})` : ""}` },
+              { value: "active", label: "Active" },
+              { value: "revoked", label: "Revoked" },
+            ]}
+          />
+        }
+        bulkActions={(rows, clear) => (
+          <Button
+            color="red"
+            variant="light"
+            size="compact-sm"
+            leftSection={<Icons.Trash size={14} aria-hidden />}
+            loading={del.isPending}
+            onClick={async () => {
+              const ok = await confirm({
+                title: `Delete ${rows.length} device${rows.length === 1 ? "" : "s"}?`,
+                message: "Each device and everything stored about it (hardware, software inventory, jobs, certificates) is removed permanently. The audit log keeps the record. Only revoked devices can be deleted.",
+                confirmLabel: "Delete permanently",
+                danger: true,
+              });
+              if (ok) {
+                del.mutate(rows.map((r) => r.id));
+                clear();
+              }
+            }}
+          >
             Delete selected
           </Button>
-          <Text size="sm" c="dimmed">
-            {selected.size} device{selected.size === 1 ? "" : "s"} selected
-          </Text>
-        </Group>
-      )}
-      {q.isLoading && <Loader />}
-      {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
-      {q.data && q.data.items.length === 0 && (
-        <Alert color="blue" title="No devices yet">
-          Create an enrollment token under <b>Enrollment</b> and run the install command on a Windows device.
-        </Alert>
-      )}
-      {q.data && q.data.items.length > 0 && (
-        <Table.ScrollContainer minWidth={900}>
-          <Table highlightOnHover verticalSpacing="xs" aria-label="Devices">
-            <Table.Thead>
-              <Table.Tr>
-                {can("devices:write") && status === "revoked" && (
-                  <Table.Th w={36}>
-                    <Checkbox
-                      aria-label="Select all revoked devices"
-                      checked={q.data.items.length > 0 && q.data.items.every((d) => selected.has(d.id))}
-                      onChange={() => setSelected(q.data.items.every((d) => selected.has(d.id)) ? new Set() : new Set(q.data.items.map((d) => d.id)))}
-                    />
-                  </Table.Th>
-                )}
-                <Table.Th>Device</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Connection</Table.Th>
-                <Table.Th>Operating system</Table.Th>
-                <Table.Th>Model</Table.Th>
-                <Table.Th>User</Table.Th>
-                <Table.Th>Software</Table.Th>
-                <Table.Th>Last seen</Table.Th>
-                <Table.Th>Agent</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {q.data.items.map((d) => (
-                <Table.Tr key={d.id} onClick={() => nav(`/devices/${d.id}`)} style={{ cursor: "pointer" }} data-testid="device-row">
-                  {can("devices:write") && status === "revoked" && (
-                    <Table.Td onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        aria-label={`Select ${d.hostname}`}
-                        checked={selected.has(d.id)}
-                        onChange={() =>
-                          setSelected((cur) => {
-                            const n = new Set(cur);
-                            if (n.has(d.id)) n.delete(d.id);
-                            else n.add(d.id);
-                            return n;
-                          })
-                        }
-                      />
-                    </Table.Td>
-                  )}
-                  <Table.Td>
-                    <Text fw={500}>{d.hostname}</Text>
-                    {d.pending_reboot && (
-                      <Badge size="xs" color="orange" variant="light">
-                        reboot pending
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <StatusBadge status={d.status} />
-                  </Table.Td>
-                  <Table.Td>{d.status === "active" ? <OnlineDot online={d.online} /> : "—"}</Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{d.os_caption || "—"}</Text>
-                    <Text size="xs" c="dimmed">
-                      {d.os_build}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{[d.manufacturer, d.model].filter(Boolean).join(" ") || "—"}</Text>
-                  </Table.Td>
-                  <Table.Td>{d.logged_on_user || "—"}</Table.Td>
-                  <Table.Td>{d.software_count || "—"}</Table.Td>
-                  <Table.Td>{d.online ? "now" : ago(d.last_seen_at)}</Table.Td>
-                  <Table.Td>{d.agent_version || "—"}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
-      <Modal opened={confirm} onClose={() => setConfirm(false)} title={`Delete ${selected.size} device${selected.size === 1 ? "" : "s"}?`}>
-        <Stack>
-          <Text size="sm">
-            Each device and everything stored about it (hardware, software inventory, jobs, certificates) is removed permanently. The audit log keeps the record. Only
-            revoked devices can be deleted.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirm(false)}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={() => del.mutate([...selected])} loading={del.isPending}>
-              Delete permanently
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
+        )}
+        rowActions={(d) =>
+          can("devices:write") && d.status === "active" ? (
+            <IconButton label={`Refresh ${d.hostname}`} icon={<Icons.NavAgentUpdates size={16} aria-hidden />} size="sm" onClick={() => refresh.mutate(d.id)} />
+          ) : null
+        }
+        empty={
+          <EmptyState
+            icon={<Icons.NavDevices size={26} />}
+            title="No devices yet"
+            description="Create an enrollment token under Enrollment and run the install command on a Windows device. It appears here within a minute."
+            actions={
+              <Button component={Link} to="/enrollment">
+                Go to Enrollment
+              </Button>
+            }
+          />
+        }
+      />
+    </Page>
   );
 }
