@@ -62,6 +62,11 @@ type harness struct {
 func newHarness(t *testing.T) *harness { return newHarnessWith(t, 90*24*time.Hour) }
 
 func newHarnessWith(t *testing.T, certLife time.Duration) *harness {
+	return newHarnessCfg(t, certLife, nil)
+}
+
+// newHarnessCfg is newHarnessWith with a hook to adjust the server configuration.
+func newHarnessCfg(t *testing.T, certLife time.Duration, mod func(*sconfig.Config)) *harness {
 	t.Helper()
 	db := pgtest.New(t)
 	key := make([]byte, 32)
@@ -75,6 +80,9 @@ func newHarnessWith(t *testing.T, certLife time.Duration) *harness {
 		EnrollPollInterval: time.Second, HeartbeatInterval: 2 * time.Second,
 		SessionIdleTimeout: 30 * time.Minute, SessionAbsTimeout: 12 * time.Hour, LogLevel: "warn",
 		ContentDir: t.TempDir(), WingetSource: "off",
+	}
+	if mod != nil {
+		mod(cfg)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if testing.Verbose() {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -172,7 +173,12 @@ func convertItems(items []*agentv1.SoftwareItem) ([]itemRow, error) {
 	return out, nil
 }
 
-// titleIDs upserts the titles for rows and returns normalized key -> id.
+// titleIDs makes sure the titles for rows exist and returns normalized key -> id.
+//
+// New titles are inserted in sorted key order with ON CONFLICT DO NOTHING and read back by a second
+// statement. The earlier single "upsert" updated existing rows, which locked every title the device
+// has until commit, in map-iteration (random) order: concurrent ingests of devices with common software
+// deadlocked (found by cmd/auzring-loadsim) and otherwise queued behind each other.
 func titleIDs(ctx context.Context, q *dbq.Queries, org uuid.UUID, rows []itemRow) (map[[2]string]uuid.UUID, error) {
 	type pair = [2]string
 	seen := map[pair]itemRow{}
@@ -181,19 +187,33 @@ func titleIDs(ctx context.Context, q *dbq.Queries, org uuid.UUID, rows []itemRow
 			seen[pair{r.nn, r.np}] = r
 		}
 	}
-	p := dbq.UpsertSoftwareTitlesParams{OrgID: org}
-	for k, r := range seen {
+	keys := make([]pair, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b pair) int {
+		if c := strings.Compare(a[0], b[0]); c != 0 {
+			return c
+		}
+		return strings.Compare(a[1], b[1])
+	})
+	out := make(map[pair]uuid.UUID, len(seen))
+	if len(keys) == 0 {
+		return out, nil
+	}
+	p := dbq.InsertSoftwareTitlesParams{OrgID: org}
+	for _, k := range keys {
+		r := seen[k]
 		p.Ids = append(p.Ids, uuid.New())
 		p.NormalizedNames = append(p.NormalizedNames, k[0])
 		p.NormalizedPublishers = append(p.NormalizedPublishers, k[1])
 		p.DisplayNames = append(p.DisplayNames, r.dn)
 		p.DisplayPublishers = append(p.DisplayPublishers, r.dp)
 	}
-	out := make(map[pair]uuid.UUID, len(seen))
-	if len(p.Ids) == 0 {
-		return out, nil
+	if err := q.InsertSoftwareTitles(ctx, p); err != nil {
+		return nil, err
 	}
-	got, err := q.UpsertSoftwareTitles(ctx, p)
+	got, err := q.GetSoftwareTitleIDs(ctx, dbq.GetSoftwareTitleIDsParams{OrgID: org, NormalizedNames: p.NormalizedNames, NormalizedPublishers: p.NormalizedPublishers})
 	if err != nil {
 		return nil, err
 	}
