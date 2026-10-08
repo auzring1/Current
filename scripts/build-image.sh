@@ -21,13 +21,14 @@ cd "$(dirname "$0")/.."
 
 die() { echo "build-image: $*" >&2; exit 1; }
 
-version="" commit="unknown" sde="" req_auth="" go_version="" oci="" push="" digest_file=""
+version="" commit="unknown" sde="" req_auth="" subjects="" go_version="" oci="" push="" digest_file=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version=${2:?}; shift 2 ;;
     --commit) commit=${2:?}; shift 2 ;;
     --source-date-epoch) sde=${2:?}; shift 2 ;;
     --require-authenticode) req_auth=${2:?}; shift 2 ;;
+    --authenticode-subjects) subjects=${2:?}; shift 2 ;;
     --go-version) go_version=${2:?}; shift 2 ;;
     --oci-out) oci=${2:?}; shift 2 ;;
     --push) push=${2:?}; shift 2 ;;
@@ -51,7 +52,7 @@ fi
 
 args=(buildx build --builder "$builder" -f deploy/Dockerfile.server
   --build-arg "VERSION=$version" --build-arg "COMMIT=$commit"
-  --build-arg "RELEASE_PUBLIC_KEYS=${AUZ_RELEASE_PUBKEYS:-}" --build-arg "REQUIRE_AUTHENTICODE=$req_auth"
+  --build-arg "RELEASE_PUBLIC_KEYS=${AUZ_RELEASE_PUBKEYS:-}" --build-arg "REQUIRE_AUTHENTICODE=$req_auth" --build-arg "AUTHENTICODE_SUBJECTS=$subjects"
   --build-arg "SOURCE_DATE_EPOCH=$sde"
   --provenance=false --sbom=false)
 [ -z "$go_version" ] || args+=(--build-arg "EXPECT_GO_VERSION=$go_version")

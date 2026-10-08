@@ -46,6 +46,13 @@ var PublicKeysHex = ""
 // set it to "true" with -ldflags -X; development builds leave it empty so unsigned test binaries work.
 var RequireAuthenticode = ""
 
+// AuthenticodeSubjects is a "|"-separated list of the signer names (certificate CN, as the agent reads it)
+// a release may pin. Release builds set it with -ldflags -X. Without it the pinned subject is whatever the
+// vendor-signed manifest says, so whoever holds the release key could pin a certificate of their own;
+// with it, a stolen release key alone is not enough (the attacker would also need our code-signing
+// certificate). Development builds leave it empty (docs/DECISIONS.md D83).
+var AuthenticodeSubjects = ""
+
 // Manifest describes one agent binary. Unknown fields are rejected so a newer vendor cannot
 // smuggle meaning past an older agent.
 type Manifest struct {
@@ -206,6 +213,17 @@ func (m *Manifest) validate() error {
 	}
 	if RequireAuthenticode == "true" && m.AuthenticodeSubject == "" {
 		return errors.New("release: this build requires a pinned Authenticode subject")
+	}
+	if AuthenticodeSubjects != "" {
+		ok := false
+		for _, allowed := range strings.Split(AuthenticodeSubjects, "|") {
+			if allowed != "" && strings.EqualFold(allowed, m.AuthenticodeSubject) {
+				ok = true
+			}
+		}
+		if !ok {
+			return errors.New("release: the pinned Authenticode subject is not one this build trusts")
+		}
 	}
 	return nil
 }
