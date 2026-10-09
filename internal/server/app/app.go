@@ -130,6 +130,11 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 			return p.OrgName, p.ProductName, p.AccentColor
 		}
 		return "", brand.Name, "#1971c2"
+	}, Logo: func(ctx context.Context, org uuid.UUID) []byte {
+		if rb, err := a.Branding.ForReport(ctx, org); err == nil {
+			return rb.LogoPNG
+		}
+		return nil
 	}}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Updates.OnHold = func(ctx context.Context, org uuid.UUID, title, ring, reason string) {

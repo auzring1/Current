@@ -597,6 +597,7 @@ type ReportBrand struct {
 	OrgName     string
 	Footer      string
 	LogoDataURI string // empty without a logo
+	LogoPNG     []byte // the same image as PNG bytes (for PDF reports); empty without a logo
 	AccentColor string
 }
 
@@ -616,6 +617,7 @@ func (s *Service) ForReport(ctx context.Context, org uuid.UUID) (ReportBrand, er
 			return rb, err
 		}
 		rb.LogoDataURI = "data:image/png;base64," + base64.StdEncoding.EncodeToString(a.Content)
+		rb.LogoPNG = a.Content
 		break
 	}
 	return rb, nil

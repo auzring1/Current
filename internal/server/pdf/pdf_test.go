@@ -3,6 +3,9 @@ package pdf
 import (
 	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	stdpng "image/png"
 	"os"
 	"os/exec"
 	"strconv"
@@ -79,5 +82,36 @@ func TestEmptyTableAndHostileText(t *testing.T) {
 	}
 	if got := len(d.Table(nil, nil)); got == 0 {
 		t.Fatal("an empty document still renders")
+	}
+}
+
+func TestLogoIsEmbeddedAndHostileImagesAreIgnored(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 60, 20))
+	for x := 0; x < 60; x++ {
+		for y := 0; y < 20; y++ {
+			img.Set(x, y, color.NRGBA{R: 200, G: 30, B: 30, A: uint8(x * 4)})
+		}
+	}
+	var png bytes.Buffer
+	if err := stdpng.Encode(&png, img); err != nil {
+		t.Fatal(err)
+	}
+	d := Doc{OrgName: "Example Clinic", ProductName: "Renovatio", Title: "T", LogoPNG: png.Bytes()}
+	b := d.Table([]Column{{"A", 5}}, [][]string{{"x"}})
+	if !bytes.Contains(b, []byte("/Subtype /Image")) || !bytes.Contains(b, []byte("/Im1 Do")) {
+		t.Fatal("the logo should be in the PDF")
+	}
+	if _, err := exec.LookPath("pdftoppm"); err == nil {
+		f := t.TempDir() + "/l.pdf"
+		_ = os.WriteFile(f, b, 0o600)
+		if out, err := exec.Command("pdftoppm", "-r", "30", "-png", f, t.TempDir()+"/p").CombinedOutput(); err != nil {
+			t.Fatalf("a real renderer refused the PDF: %v %s", err, out)
+		}
+	}
+	for name, junk := range map[string][]byte{"empty": nil, "text": []byte("not a png"), "truncated": png.Bytes()[:30]} {
+		bad := Doc{Title: "T", LogoPNG: junk}.Table([]Column{{"A", 5}}, nil)
+		if bytes.Contains(bad, []byte("/Im1")) {
+			t.Errorf("%s: a broken image must be ignored", name)
+		}
 	}
 }
