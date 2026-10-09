@@ -92,7 +92,7 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 | ID | Threat | Mitigation | Phase |
 |---|---|---|---|
 | T-SUP-1 | Download replaced at the vendor URL | SHA-256 from the catalog is in the signed job. A mismatch blocks the install and raises an alert. | 3 ✅ |
-| T-SUP-2 | Malicious manifest in the winget community repository | Signer pins come from administrator input (the winget manifest carries none); the `verified` overlay is not populated. **Not implemented:** index MSIX signature verification and automatic signer-change detection. New versions held for a configurable delay in auto-update rings. Unverified packages warned about and role-gated. | 3, 5 ✅ / ⚠ residual |
+| T-SUP-2 | Malicious manifest in the winget community repository | Signer pins come from administrator input (the winget manifest carries none); the `verified` overlay is not populated. **Not implemented:** index MSIX signature verification (the index is fetched over TLS from Microsoft's CDN and only suggests matches; nothing installs without an audited administrator action, D98) and automatic signer-change detection. New versions held for a configurable delay in auto-update rings. Unverified packages warned about and role-gated. | 3, 5 ✅ / ⚠ residual |
 | T-SUP-3 | SSRF through server-side fetching (catalog sync, content caching of admin-given URLs) | The server fetches only fixed GitHub hosts, never an administrator-supplied URL (so there is nothing to point at internal addresses); https only, size and time caps, redirects re-checked. Agents fetch vendor URLs themselves, https only | 3 ✅ |
 
 ### TB1/TB2: Web GUI and API

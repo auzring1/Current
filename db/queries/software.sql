@@ -170,17 +170,18 @@ WHERE si.device_id = $1 AND si.source = $2 AND si.scope = $3 AND si.user_sid = $
 
 -- name: ListDeviceInstallRows :many
 -- Everything a device reports that could be matched to a catalog package (for "missing updates").
-SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, si.publisher, si.product_code, st.normalized_name
 FROM software_installs si JOIN software_titles st ON st.id = si.title_id
 WHERE si.device_id = $1 AND NOT si.system_component
 ORDER BY lower(si.name), si.scope, si.user_sid, si.item_key;
 
 -- name: ListFleetInstallRows :many
--- Installed programs on every active device whose normalized name matches one of the given catalog package names
--- (for the fleet-wide "Software updates" page).
-SELECT si.device_id, d.hostname, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+-- Installed programs on every active device that could be matched to a catalog or winget package (for the fleet-wide
+-- "Software updates" page). Store apps and portable programs are left out: neither can be updated by an installer.
+SELECT si.device_id, d.hostname, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key,
+       si.publisher, si.product_code, st.normalized_name
 FROM software_installs si
 JOIN software_titles st ON st.id = si.title_id
 JOIN devices d ON d.id = si.device_id
-WHERE d.org_id = sqlc.arg(org_id) AND d.status = 'active' AND NOT si.system_component AND st.normalized_name = ANY(sqlc.arg(names)::text[])
+WHERE d.org_id = $1 AND d.status = 'active' AND NOT si.system_component AND si.source NOT IN ('appx', 'portable')
 ORDER BY lower(d.hostname), lower(si.name), si.scope, si.user_sid, si.item_key;

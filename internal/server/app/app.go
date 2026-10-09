@@ -44,6 +44,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/store"
 	"github.com/auzring1/renovatio/internal/server/updates"
 	"github.com/auzring1/renovatio/internal/server/webui"
+	"github.com/auzring1/renovatio/internal/server/wingetindex"
 	"github.com/auzring1/renovatio/internal/shared/release"
 )
 
@@ -65,6 +66,9 @@ type App struct {
 	Maint     *maintenance.Service
 	Sched     *reportsched.Service
 	Catalog   *catalog.Service
+	// Winget keeps the winget community index (what installed programs are and their newest versions); nil when
+	// RENOVATIO_WINGET_SOURCE=off.
+	Winget *wingetindex.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
 	// Branding holds the per-deployment names, colors, login texts and images.
@@ -109,6 +113,11 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Deploy = &deploy.Service{Pool: pool, Authority: a.Authority, Dispatcher: a.Hub, Events: a.Events, Log: log.With("component", "deploy")}
 	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
 	a.Catalog = newCatalog(cfg, pool)
+	if cfg.WingetSource == "github" {
+		a.Winget = &wingetindex.Service{Pool: pool, URL: cfg.WingetIndexURL, Log: log.With("component", "winget-index")}
+		a.Deploy.Winget = a.Winget
+	}
+	a.Deploy.Overlay = a.Catalog.Overlay
 	a.Releases = &agentrel.Service{Pool: pool, Deploy: a.Deploy, Content: a.Catalog.Content, Events: a.Events, Log: log.With("component", "agentrel")}
 	if extra, err := release.ParseKeys(cfg.ReleasePublicKeys); err == nil && len(extra) > 0 {
 		a.Releases.Keys = append(release.TrustedKeys(), extra...)
@@ -256,7 +265,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))
@@ -290,6 +299,9 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 	go a.housekeeping(ctx)
+	if a.Winget != nil {
+		go a.Winget.Run(ctx)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

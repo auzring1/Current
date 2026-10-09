@@ -14,6 +14,7 @@ import {
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
 import { PRODUCT_NAME } from "../brand.generated";
+import { deployUpdate } from "./updateDeploy";
 import { Card, DataTable, EmptyState, Icons, IconButton, StatusPill, toast, type Column } from "../ui";
 
 const rowKey = (s: { source: string; scope: string; user_sid?: string; item_key?: string }) => `${s.source}|${s.scope}|${s.user_sid ?? ""}|${s.item_key ?? ""}`;
@@ -32,20 +33,13 @@ function useUpdates(id: string) {
 function useDeployUpdates(deviceId: string, hostname: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ items, confirm }: { items: AvailableUpdate[]; confirm: boolean }) => {
+    mutationFn: async ({ items, confirm, force }: { items: AvailableUpdate[]; confirm: boolean; force?: boolean }) => {
       const groups = new Map<string, AvailableUpdate>();
-      for (const u of items) groups.set(`${u.package_id}|${u.scope}`, u);
+      for (const u of items) groups.set(`${u.package_id}|${u.winget_id ?? ""}|${u.scope}`, u);
       const results: { name: string; plan?: DeploymentPlan; error?: string }[] = [];
       for (const u of groups.values()) {
         try {
-          const plan = await api<DeploymentPlan>("POST", "/deployments", {
-            name: `Update ${u.package_name} on ${hostname}`,
-            action: "update",
-            package_id: u.package_id,
-            scope: u.scope,
-            device_ids: [deviceId],
-            unverified_confirmed: confirm,
-          });
+          const plan = await deployUpdate({ update: u, name: `Update ${u.package_name} on ${hostname}`, scope: u.scope, deviceIds: [deviceId], confirmUnverified: confirm, force });
           results.push({ name: u.package_name, plan });
         } catch (e) {
           results.push({ name: u.package_name, error: errorMessage(e) });
@@ -59,13 +53,17 @@ function useDeployUpdates(deviceId: string, hostname: string) {
         else toast.success( `${r.name}: update queued (${r.plan?.jobs ?? 0} job${r.plan?.jobs === 1 ? "" : "s"}). Follow it on the Jobs tab.`);
       }
       void qc.invalidateQueries({ queryKey: ["device-jobs", deviceId] });
+      void qc.invalidateQueries({ queryKey: ["device", deviceId, "updates"] });
+      void qc.invalidateQueries({ queryKey: ["software-updates"] });
       void qc.invalidateQueries({ queryKey: ["deployments"] });
+      void qc.invalidateQueries({ queryKey: ["catalog"] });
     },
   });
 }
 
-function UpdateConfirm({ items, onCancel, onConfirm, busy }: { items: AvailableUpdate[]; onCancel: () => void; onConfirm: (confirmed: boolean) => void; busy: boolean }) {
+function UpdateConfirm({ items, force, onCancel, onConfirm, busy }: { items: AvailableUpdate[]; force?: boolean; onCancel: () => void; onConfirm: (confirmed: boolean) => void; busy: boolean }) {
   const unverified = items.filter((u) => !u.verified);
+  const toAdd = items.filter((u) => u.in_catalog === false);
   const [ok, setOk] = useState(false);
   return (
     <Modal opened onClose={onCancel} title={`Deploy ${items.length} update${items.length === 1 ? "" : "s"}`}>
@@ -85,6 +83,16 @@ function UpdateConfirm({ items, onCancel, onConfirm, busy }: { items: AvailableU
         <Text size="sm" c="dimmed">
           Older copies the new installer does not replace by itself are removed first. Each update becomes a signed job on this device.
         </Text>
+        {toAdd.length > 0 && (
+          <Alert color="blue" icon={<Icons.Info size={18} aria-hidden />} title="Added to your catalog first">
+            {[...new Set(toAdd.map((u) => u.package_name))].join(", ")} {toAdd.length === 1 ? "is" : "are"} not in your catalog yet. {PRODUCT_NAME} adds {toAdd.length === 1 ? "it" : "them"} from the winget repository now; the installer is downloaded from the vendor by the device and checked against the published SHA-256.
+          </Alert>
+        )}
+        {force && (
+          <Alert color="orange" icon={<Icons.Warning size={18} aria-hidden />} title="This app normally updates itself">
+            {PRODUCT_NAME} leaves updates to the vendor's own updater by default. Continuing sets the package to push updates anyway (you can change this on its catalog page).
+          </Alert>
+        )}
         {unverified.length > 0 && (
           <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Unverified packages">
             <Checkbox
@@ -139,7 +147,7 @@ function UninstallConfirm({ rows, hostname, onCancel, onConfirm, busy }: { rows:
 
 const updatePill = (u: AvailableUpdate | undefined) =>
   u ? (
-    <Tooltip label={u.deployable ? `${u.package_name} ${u.latest_version} is in the catalog` : (u.reason ?? "")}>
+    <Tooltip label={u.deployable ? (u.in_catalog === false ? `${u.package_name} ${u.latest_version} was found in the winget repository and is added to your catalog when you deploy it` : `${u.package_name} ${u.latest_version} is in the catalog`) : (u.reason ?? "")}>
       <span>
         <StatusPill kind={u.deployable ? "warning" : "neutral"} size="sm" icon={u.deployable ? Icons.ArrowUp : Icons.Info}>
           {u.deployable ? `Update to ${u.latest_version}` : "Vendor updates"}
@@ -151,7 +159,8 @@ const updatePill = (u: AvailableUpdate | undefined) =>
   );
 
 export function SoftwareTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
-  const { can } = useSession();
+  const { can, canOrg } = useSession();
+  const canAddToCatalog = canOrg("catalog:write"); // an update found in the winget index adds its package to the catalog first
   const qc = useQueryClient();
   const [system, setSystem] = useState(false);
   const [history, setHistory] = useState(false);
@@ -245,7 +254,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
           </Group>
         }
         bulkActions={(rows, clr) => {
-          const ups = rows.map((s) => updateByRow.get(rowKey(s))).filter((u): u is AvailableUpdate => !!u && u.deployable);
+          const ups = rows.map((s) => updateByRow.get(rowKey(s))).filter((u): u is AvailableUpdate => !!u && u.deployable && (u.in_catalog !== false || canAddToCatalog));
           return (
             <>
               <Button size="compact-sm" disabled={ups.length === 0} onClick={() => (setClear(() => clr), setConfirmUpdate(ups))}>
@@ -267,7 +276,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
                       <IconButton label={`Actions for ${s.name}`} icon={<Icons.More size={16} aria-hidden />} size="sm" />
                     </Menu.Target>
                     <Menu.Dropdown>
-                      {u?.deployable && <Menu.Item onClick={() => setConfirmUpdate([u])}>Deploy update to {u.latest_version}</Menu.Item>}
+                      {u?.deployable && (u.in_catalog !== false || canAddToCatalog) && <Menu.Item onClick={() => setConfirmUpdate([u])}>Deploy update to {u.latest_version}</Menu.Item>}
                       <Menu.Item color="red" onClick={() => setConfirmUninstall([s])}>
                         Uninstall Software
                       </Menu.Item>
@@ -316,12 +325,17 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
 }
 
 export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
-  const { can } = useSession();
+  const { can, canOrg } = useSession();
   const q = useUpdates(id);
-  const [confirm, setConfirm] = useState<AvailableUpdate[] | null>(null);
+  const [confirm, setConfirm] = useState<{ items: AvailableUpdate[]; force: boolean } | null>(null);
   const [clear, setClear] = useState<(() => void) | null>(null);
   const deploy = useDeployUpdates(id, hostname);
   const canAct = active && can("deployments:write");
+  // An update that comes from the winget index adds its package to the catalog first, which needs catalog:write; pushing the
+  // update of an app that updates itself also needs catalog:override.
+  const canAdd = canOrg("catalog:write");
+  const canForce = canAdd && canOrg("catalog:override");
+  const startable = (u: AvailableUpdate) => (u.in_catalog !== false || canAdd) && u.deployable;
   const columns = useMemo<Column<AvailableUpdate>[]>(
     () => [
       { id: "name", header: "Name", value: (u) => u.name, required: true, width: 240 },
@@ -334,9 +348,20 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
         width: 230,
         cell: (u) => (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Anchor component={Link} to={`/catalog/${u.package_id}`} size="sm">
-              {u.package_name}
-            </Anchor>
+            {u.in_catalog === false ? (
+              <Tooltip label={`${u.winget_id}: from the winget repository, added to your catalog when you deploy it${u.matched_by ? ` (recognised by ${u.matched_by === "product_code" ? "its product code" : "its name and publisher"})` : ""}`}>
+                <span style={{ fontSize: "var(--rnv-text-sm)" }}>{u.package_name}</span>
+              </Tooltip>
+            ) : (
+              <Anchor component={Link} to={`/catalog/${u.package_id}`} size="sm">
+                {u.package_name}
+              </Anchor>
+            )}
+            {u.in_catalog === false && (
+              <StatusPill kind="info" size="sm">
+                Not in catalog yet
+              </StatusPill>
+            )}
             {!u.verified && (
               <StatusPill kind="warning" size="sm">
                 Unverified
@@ -359,7 +384,7 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
   return (
     <Stack>
       <Text size="sm" c="dimmed">
-        Updates come from packages you imported in the <Anchor component={Link} to="/catalog">Catalog</Anchor>.
+        Updates come from your <Anchor component={Link} to="/catalog">Catalog</Anchor> and from the winget repository: programs that are not in the catalog yet are recognised automatically and added when you deploy them.
       </Text>
       <DataTable<AvailableUpdate>
         id="device-software-updates"
@@ -373,10 +398,10 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
         rowLabel={(u) => u.name}
         searchPlaceholder="Search updates"
         exportName={`${hostname}-software-updates`}
-        selectable={canAct ? (u) => u.deployable : false}
+        selectable={canAct ? startable : false}
         empty={<EmptyState icon={<Icons.Success size={26} />} title="No missing updates" description="Every installed program that is in your catalog is at its newest allowed version." />}
         bulkActions={(rows, clr) => (
-          <Button size="compact-sm" onClick={() => (setClear(() => clr), setConfirm(rows.filter((u) => u.deployable)))}>
+          <Button size="compact-sm" onClick={() => (setClear(() => clr), setConfirm({ items: rows.filter(startable), force: false }))}>
             Deploy Updates
           </Button>
         )}
@@ -388,9 +413,12 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
                     <IconButton label={`Actions for ${u.name}`} icon={<Icons.More size={16} aria-hidden />} size="sm" />
                   </Menu.Target>
                   <Menu.Dropdown>
-                    <Menu.Item disabled={!u.deployable} onClick={() => setConfirm([u])}>
+                    <Menu.Item disabled={!startable(u)} onClick={() => setConfirm({ items: [u], force: false })}>
                       Deploy update to {u.latest_version}
                     </Menu.Item>
+                    {!u.deployable && canForce && (
+                      <Menu.Item onClick={() => setConfirm({ items: [u], force: true })}>Update anyway (the app updates itself)…</Menu.Item>
+                    )}
                   </Menu.Dropdown>
                 </Menu>
               )
@@ -399,10 +427,11 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
       />
       {confirm && (
         <UpdateConfirm
-          items={confirm}
+          items={confirm.items}
+          force={confirm.force}
           onCancel={() => setConfirm(null)}
           busy={deploy.isPending}
-          onConfirm={(c) => deploy.mutate({ items: confirm, confirm: c }, { onSettled: () => (setConfirm(null), clear?.()) })}
+          onConfirm={(c) => deploy.mutate({ items: confirm.items, confirm: c, force: confirm.force }, { onSettled: () => (setConfirm(null), clear?.()) })}
         />
       )}
     </Stack>

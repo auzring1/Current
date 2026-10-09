@@ -5225,6 +5225,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/catalog/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State of the winget index the server matches installed programs against (requires catalog:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WingetIndexStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/index/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Download the winget index now (requires catalog:write; audited as catalog.index_refresh) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WingetIndexStatus"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                502: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog/search": {
         parameters: {
             query?: never;
@@ -5256,6 +5330,13 @@ export interface paths {
                                 identifier: string;
                                 self_updating: boolean;
                                 note?: string;
+                            }[];
+                            /** @description Packages of the winget index that match the words typed (present when the index has been downloaded) */
+                            index?: {
+                                identifier: string;
+                                name: string;
+                                latest_version: string;
+                                in_catalog: boolean;
                             }[];
                             probe?: {
                                 identifier: string;
@@ -6238,12 +6319,34 @@ export interface components {
             self_updating?: boolean;
             deployable: boolean;
             reason?: string;
+            /** @description false when the update comes from the winget index only (package_id is then the nil UUID and winget_id names the package) */
+            in_catalog?: boolean;
+            winget_id?: string;
+            /** @enum {string} */
+            matched_by?: "product_code" | "name";
+        };
+        WingetIndexStatus: {
+            enabled: boolean;
+            url: string;
+            package_count: number;
+            /** Format: date-time */
+            fetched_at?: string | null;
+            /** Format: date-time */
+            source_updated_at?: string | null;
+            /** Format: date-time */
+            checked_at?: string | null;
+            error?: string;
         };
         FleetUpdate: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description the nil UUID when the package is only known from the winget index
+             */
             package_id: string;
             package_name: string;
             identifier?: string;
+            winget_id?: string;
+            in_catalog: boolean;
             latest_version: string;
             verified?: boolean;
             self_updating?: boolean;
@@ -6256,6 +6359,8 @@ export interface components {
                 installed_version: string;
                 /** @enum {string} */
                 scope: "machine" | "user";
+                /** @enum {string} */
+                matched_by?: "product_code" | "name";
             }[];
         };
         WindowsUpdate: {
