@@ -156,7 +156,7 @@ function Palette({ opened, onClose }: { opened: boolean; onClose: () => void }) 
   const busy = devices.isFetching || updates.isFetching || (q.trim().length >= 2 && dq !== q.trim());
   let last = "";
   return (
-    <Modal opened={opened} onClose={onClose} withCloseButton={false} padding={0} size={560} yOffset="12vh" aria-label="Search" trapFocus returnFocus classNames={{ content: "rnv-palette" }}>
+    <Modal opened={opened} onClose={onClose} withCloseButton={false} padding={0} size={560} yOffset="12vh" title="Search" trapFocus returnFocus classNames={{ content: "rnv-palette", header: "rnv-visually-hidden" }}>
       <div className="rnv-palette__field">
         <I.Search size={18} aria-hidden />
         <input
