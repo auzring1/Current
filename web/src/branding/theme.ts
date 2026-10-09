@@ -54,6 +54,8 @@ export function buildTheme({ accent, secondary }: ThemeInput) {
       Textarea: { defaultProps: { size: "sm" } },
       NumberInput: { defaultProps: { size: "sm" } },
       Paper: { defaultProps: { radius: "lg" } },
+      // Every toast, however it is raised, gets a named close button.
+      Notification: { defaultProps: { closeButtonProps: { "aria-label": "Dismiss notification" } } },
     },
   });
 }
