@@ -5,7 +5,12 @@ package pdf
 
 import (
 	"bytes"
+	"compress/zlib"
 	"fmt"
+	"image"
+	"image/color"
+	_ "image/png" // the logo is a PNG re-encoded by the server
+
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -36,6 +41,8 @@ type Doc struct {
 	Footer      string
 	Accent      [3]float64
 	Generated   time.Time
+	// LogoPNG, if it decodes, is drawn at the right of the header (on white, so transparency is flattened).
+	LogoPNG []byte
 }
 
 func latin1(s string) string {
@@ -143,11 +150,27 @@ func (d Doc) Table(cols []Column, rows [][]string) []byte {
 	add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
 	add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
 	add("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>")
+	logoObj, logoW, logoH := 0, 0.0, 0.0
+	if img := decodeLogo(d.LogoPNG); img != nil {
+		var raw bytes.Buffer
+		zw := zlib.NewWriter(&raw)
+		_, _ = zw.Write(img.rgb)
+		_ = zw.Close()
+		logoObj = add(fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n%s\nendstream", img.w, img.h, raw.Len(), raw.String()))
+		logoH = 40
+		logoW = logoH * float64(img.w) / float64(img.h)
+		if logoW > 160 {
+			logoW, logoH = 160, 160*float64(img.h)/float64(img.w)
+		}
+	}
 	var kids []string
 	for p := 0; p < pages; p++ {
 		var c bytes.Buffer
 		// Header bar in the brand color, then the names and the title.
 		fmt.Fprintf(&c, "%.3f %.3f %.3f rg %.1f %.1f %.1f %.1f re f\n", d.Accent[0], d.Accent[1], d.Accent[2], margin, pageH-margin-6, pageW-2*margin, 6.0)
+		if logoObj != 0 {
+			fmt.Fprintf(&c, "q %.1f 0 0 %.1f %.1f %.1f cm /Im1 Do Q\n", logoW, logoH, pageW-margin-logoW, pageH-margin-14-logoH)
+		}
 		fmt.Fprintf(&c, "0.1 0.1 0.1 rg BT /F2 16 Tf %.1f %.1f Td %s Tj ET\n", margin, pageH-margin-30, esc(orDefault(d.OrgName, d.ProductName)))
 		if d.OrgName != "" && d.ProductName != "" {
 			fmt.Fprintf(&c, "0.35 0.35 0.35 rg BT /F1 9 Tf %.1f %.1f Td %s Tj ET\n", margin, pageH-margin-43, esc(d.ProductName))
@@ -171,7 +194,7 @@ func (d Doc) Table(cols []Column, rows [][]string) []byte {
 		fmt.Fprintf(&c, "0.35 0.35 0.35 rg BT /F1 8 Tf %.1f %.1f Td %s Tj ET\n", margin, margin-4, esc(fmt.Sprintf("%s   Page %d of %d", foot, p+1, pages)))
 		content := c.String()
 		cn := add(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content))
-		pn := add(fmt.Sprintf("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.0f %.0f] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents %d 0 R >>", pageW, pageH, cn))
+		pn := add(fmt.Sprintf("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.0f %.0f] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> %s >> /Contents %d 0 R >>", pageW, pageH, xobj(logoObj), cn))
 		kids = append(kids, fmt.Sprintf("%d 0 R", pn))
 	}
 	objs[1] = []byte(fmt.Sprintf("<< /Type /Pages /Kids [%s] /Count %d >>", strings.Join(kids, " "), pages))
@@ -206,4 +229,42 @@ func ParseHexColor(s string) [3]float64 {
 		return [3]float64{0.1, 0.44, 0.76}
 	}
 	return [3]float64{float64(r) / 255, float64(g) / 255, float64(b) / 255}
+}
+
+func xobj(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("/XObject << /Im1 %d 0 R >>", n)
+}
+
+type rgbImage struct {
+	w, h int
+	rgb  []byte
+}
+
+// decodeLogo decodes a PNG into 8-bit RGB composited on white. It returns nil for anything that is not a sane PNG.
+func decodeLogo(b []byte) *rgbImage {
+	if len(b) == 0 {
+		return nil
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(b))
+	if err != nil || cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 2048 || cfg.Height > 2048 {
+		return nil
+	}
+	img, _, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil
+	}
+	bnd := img.Bounds()
+	out := &rgbImage{w: bnd.Dx(), h: bnd.Dy(), rgb: make([]byte, 0, bnd.Dx()*bnd.Dy()*3)}
+	for y := bnd.Min.Y; y < bnd.Max.Y; y++ {
+		for x := bnd.Min.X; x < bnd.Max.X; x++ {
+			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+			a := uint32(c.A)
+			mix := func(v uint8) byte { return byte((uint32(v)*a + 255*(255-a)) / 255) } // #nosec G115 -- the result is at most 255
+			out.rgb = append(out.rgb, mix(c.R), mix(c.G), mix(c.B))
+		}
+	}
+	return out
 }

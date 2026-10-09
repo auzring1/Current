@@ -51,3 +51,9 @@ export function ruleTemplates(u: U): RuleTemplate[] {
     delay_days: typeof t["delay_days"] === "number" ? (t["delay_days"] as number) : 0,
   }));
 }
+
+/** The week's days in the organization's order: [0..6] (0 = Sunday) rotated to start at the chosen first day. */
+export function weekOrder(first: string | undefined): number[] {
+  const start = first === "sunday" ? 0 : first === "saturday" ? 6 : 1;
+  return Array.from({ length: 7 }, (_, i) => (start + i) % 7);
+}

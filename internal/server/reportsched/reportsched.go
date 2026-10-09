@@ -36,12 +36,16 @@ type Sender interface {
 // Names gives the header of a report: organization name, product name and accent color.
 type Names func(ctx context.Context) (org, product, accent string)
 
+// Logo gives the report logo as PNG bytes, or nil.
+type Logo func(ctx context.Context, org uuid.UUID) []byte
+
 // Service runs the schedules.
 type Service struct {
 	Pool     *pgxpool.Pool
 	Settings *settings.Service
 	Mail     Sender
 	Names    Names
+	Logo     Logo
 	Log      *slog.Logger
 	Now      func() time.Time
 }
@@ -305,6 +309,9 @@ func (s *Service) Build(ctx context.Context, org uuid.UUID, kind, format string)
 		return b.Bytes(), stem + ".csv", "text/csv; charset=utf-8", w.Error()
 	}
 	doc := pdf.Doc{OrgName: orgName, ProductName: product, Title: reportTitle(kind), Note: note, Footer: strings.TrimSpace(orgName + " " + product), Accent: pdf.ParseHexColor(accent), Generated: s.now()}
+	if s.Logo != nil {
+		doc.LogoPNG = s.Logo(ctx, org)
+	}
 	return doc.Table(t.cols, t.rows), stem + ".pdf", "application/pdf", nil
 }
 

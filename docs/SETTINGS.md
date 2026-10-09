@@ -27,7 +27,7 @@ go run ./internal/server/settings/gen. Edit the registry, not this file. A test 
   administrator permission `settings:write`. API tokens cannot hold settings permissions (except the older `settings:write`).
   Site-scoped roles never grant 
 * **Effect.** "in effect": the server or console acts on it now. "starting value": used when someone creates a ring or a
-  rule; existing ones are not changed. "stored only": saved and validated, nothing uses it yet (the first day of the week).
+  rule; existing ones are not changed. "stored only": saved and validated, nothing uses it yet (nothing at the moment).
 
 ## Appearance
 
@@ -209,8 +209,7 @@ Permission: `settings:integrations`. Outgoing webhooks and the reference for wha
 ## Not done yet (honest list)
 
 * The audit log is never pruned: it is append-only and hash-chained, and verification starts at the first entry. Retention for it needs a checkpoint design.
-* Scheduled reports embed no logo (the PDF header carries the organization and product names and the brand color); the PDF uses a monospaced table layout.
+* Scheduled report PDFs use a monospaced table layout (the header carries the report logo, names and brand color).
 * Custom device fields are text, choice and date; numbers and multi-select are not supported, and group filters treat all of them as text.
-* The first day of the week is stored only: nothing in the console shows a calendar yet.
 * "Language" sets number and date formatting only; the console's text is English.
 * Maintenance windows and restart policy defaults pre-fill new update rings; there is no organization-wide window that overrides rings.

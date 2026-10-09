@@ -7,7 +7,7 @@ import { hhmm, parseHHMM } from "../api/format";
 import { useSession } from "../api/session";
 import { PRODUCT_NAME } from "../brand.generated";
 import { HoldsCard } from "../components/Holds";
-import { ringDefaults, ruleDefaults, ruleTemplates } from "../settings/updateDefaults";
+import { ringDefaults, ruleDefaults, ruleTemplates, weekOrder } from "../settings/updateDefaults";
 import { useEffective } from "../settings/useEffective";
 import { Card, DataTable, EmptyState, IconButton, Icons, Page, PageHeader, SeverityBadge, StatusPill, toast, useConfirm, type Column } from "../ui";
 
@@ -195,7 +195,9 @@ function RingsCard({ canEdit }: { canEdit: boolean }) {
 function RingModal({ ring, nextOrdinal, groups, onClose }: { ring?: UpdateRing; nextOrdinal: number; groups: Grp[]; onClose: () => void }) {
   const qc = useQueryClient();
   // A new ring starts from the organization's update defaults (Settings > Update defaults); an existing one shows its own values.
-  const dflt = ringDefaults(useEffective().data?.updates);
+  const eff = useEffective().data;
+  const dflt = ringDefaults(eff?.updates);
+  const dayData = weekOrder(eff?.appearance.first_day_of_week).map((i) => ({ value: String(i), label: dayNames[i]! }));
   const [name, setName] = useState(ring?.name ?? "");
   const [ordinal, setOrdinal] = useState<number | string>(ring?.ordinal ?? nextOrdinal);
   const [groupIDs, setGroupIDs] = useState<string[]>(ring?.group_ids ?? []);
@@ -249,7 +251,7 @@ function RingModal({ ring, nextOrdinal, groups, onClose }: { ring?: UpdateRing; 
         <Checkbox label="Only install inside a maintenance window (device-local time)" checked={useWindow} onChange={(e) => setUseWindow(e.currentTarget.checked)} />
         {useWindow && (
           <Group align="flex-end">
-            <MultiSelect label="Days" data={dayNames.map((n, i) => ({ value: String(i), label: n }))} value={days} onChange={setDays} w={240} placeholder="Every day" />
+            <MultiSelect label="Days" data={dayData} value={days} onChange={setDays} w={240} placeholder="Every day" />
             <TextInput label="Starts" value={start} onChange={(e) => setStart(e.currentTarget.value)} w={90} aria-label="Window start" />
             <NumberInput label="Minutes" min={1} max={1440} value={mins} onChange={setMins} w={110} />
           </Group>

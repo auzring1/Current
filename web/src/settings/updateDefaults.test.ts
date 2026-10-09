@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ringDefaults, ruleDefaults, ruleTemplates } from "./updateDefaults";
+import { ringDefaults, ruleDefaults, ruleTemplates, weekOrder } from "./updateDefaults";
 
 describe("update defaults", () => {
   it("turns the settings into the ring form's values", () => {
@@ -14,5 +14,14 @@ describe("update defaults", () => {
   it("reads templates", () => {
     const t = ruleTemplates({ rule_templates: [{ id: "a", name: "Security", classifications: ["Security Updates"], severities: [], include_drivers: false, delay_days: 7 }] });
     expect(t[0]).toEqual({ id: "a", name: "Security", classifications: ["Security Updates"], severities: [], include_drivers: false, delay_days: 7 });
+  });
+});
+
+describe("week order", () => {
+  it("starts on the chosen day", () => {
+    expect(weekOrder("monday")).toEqual([1, 2, 3, 4, 5, 6, 0]);
+    expect(weekOrder("sunday")).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(weekOrder("saturday")).toEqual([6, 0, 1, 2, 3, 4, 5]);
+    expect(weekOrder(undefined)).toEqual([1, 2, 3, 4, 5, 6, 0]);
   });
 });
