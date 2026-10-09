@@ -1021,6 +1021,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/software/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog packages that are out of date on at least one active device, with those devices (requires deployments:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["FleetUpdate"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/software/{id}": {
         parameters: {
             query?: never;
@@ -6200,6 +6238,25 @@ export interface components {
             self_updating?: boolean;
             deployable: boolean;
             reason?: string;
+        };
+        FleetUpdate: {
+            /** Format: uuid */
+            package_id: string;
+            package_name: string;
+            identifier?: string;
+            latest_version: string;
+            verified?: boolean;
+            self_updating?: boolean;
+            deployable: boolean;
+            reason?: string;
+            devices: {
+                /** Format: uuid */
+                device_id: string;
+                hostname: string;
+                installed_version: string;
+                /** @enum {string} */
+                scope: "machine" | "user";
+            }[];
         };
         WindowsUpdate: {
             /** Format: uuid */

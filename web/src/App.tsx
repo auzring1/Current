@@ -28,6 +28,7 @@ const StyleGuidePage = page(() => import("./pages/StyleGuidePage"), "StyleGuideP
 const DevicePage = page(() => import("./pages/DevicePage"), "DevicePage");
 const GroupsPage = page(() => import("./pages/GroupsPage"), "GroupsPage");
 const SoftwarePage = page(() => import("./pages/SoftwarePage"), "SoftwarePage");
+const SoftwareUpdatesPage = page(() => import("./pages/SoftwareUpdatesPage"), "SoftwareUpdatesPage");
 const TokensPage = page(() => import("./pages/TokensPage"), "TokensPage");
 const PoliciesPage = page(() => import("./pages/PoliciesPage"), "PoliciesPage");
 const ReportsPage = page(() => import("./pages/ReportsPage"), "ReportsPage");
@@ -75,6 +76,7 @@ export function App() {
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/devices/:id" element={<DevicePage />} />
         <Route path="/software" element={<SoftwarePage />} />
+        <Route path="/software-updates" element={<SoftwareUpdatesPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/catalog/:id" element={<PackagePage />} />

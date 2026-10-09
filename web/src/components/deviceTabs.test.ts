@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { availableDeviceTabs, DEVICE_TAB_ALIASES, DEVICE_TABS, resolveDeviceTab, type DeviceTabAccess } from "./deviceTabs";
 
-const all: DeviceTabAccess = { hasUpdates: true, hasJobs: true, hasActivity: true };
-const none: DeviceTabAccess = { hasUpdates: false, hasJobs: false, hasActivity: false };
+const all: DeviceTabAccess = { hasUpdates: true, hasSoftwareUpdates: true, hasJobs: true, hasActivity: true };
+const none: DeviceTabAccess = { hasUpdates: false, hasSoftwareUpdates: false, hasJobs: false, hasActivity: false };
 
 describe("resolveDeviceTab", () => {
   it("keeps every valid tab the person may see", () => {
@@ -10,7 +10,8 @@ describe("resolveDeviceTab", () => {
   });
 
   it("maps the old tab values", () => {
-    for (const k of ["missing", "missing-updates", "windows-updates", "winupdates", "wu"]) expect(resolveDeviceTab(k, all)).toBe("updates");
+    for (const k of ["windows-updates", "winupdates", "wu"]) expect(resolveDeviceTab(k, all)).toBe("updates");
+    for (const k of ["missing", "missing-updates", "program-updates", "software_updates"]) expect(resolveDeviceTab(k, all)).toBe("software-updates");
     expect(resolveDeviceTab("users", all)).toBe("overview");
     expect(resolveDeviceTab("certificates", all)).toBe("hardware");
     expect(resolveDeviceTab("certs", all)).toBe("hardware");
@@ -36,6 +37,9 @@ describe("resolveDeviceTab", () => {
     expect(resolveDeviceTab("jobs", { ...all, hasJobs: false })).toBe("overview");
     expect(resolveDeviceTab("activity", { ...all, hasActivity: false })).toBe("overview");
     expect(resolveDeviceTab("updates", none)).toBe("overview");
+    expect(resolveDeviceTab("software-updates", none)).toBe("overview");
+    expect(resolveDeviceTab("software-updates", { ...all, hasSoftwareUpdates: false })).toBe("overview");
+    expect(resolveDeviceTab("updates", { ...all, hasUpdates: false })).toBe("overview");
     expect(resolveDeviceTab("missing", none)).toBe("overview");
     expect(resolveDeviceTab("users", none)).toBe("overview");
     expect(resolveDeviceTab("certs", none)).toBe("hardware");
@@ -45,8 +49,8 @@ describe("resolveDeviceTab", () => {
 
 describe("availableDeviceTabs", () => {
   it("keeps the display order", () => {
-    expect(availableDeviceTabs(all)).toEqual(["overview", "hardware", "software", "updates", "jobs", "activity"]);
+    expect(availableDeviceTabs(all)).toEqual(["overview", "hardware", "software", "software-updates", "updates", "jobs", "activity"]);
     expect(availableDeviceTabs(none)).toEqual(["overview", "hardware", "software"]);
-    expect(availableDeviceTabs({ hasUpdates: true, hasJobs: false, hasActivity: true })).toEqual(["overview", "hardware", "software", "updates", "activity"]);
+    expect(availableDeviceTabs({ hasUpdates: true, hasSoftwareUpdates: false, hasJobs: false, hasActivity: true })).toEqual(["overview", "hardware", "software", "updates", "activity"]);
   });
 });
