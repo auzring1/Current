@@ -10,7 +10,7 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 | DNS | One name for the server, e.g. `renovatio.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
 | Inbound firewall to the server | 443/tcp (console). 80/tcp only for Let's Encrypt HTTP challenges. 8443/tcp from every managed endpoint (agent gateway). |
 | Outbound from endpoints | 8443/tcp to the server. To install **winget-catalog** packages, also HTTPS to the vendors' download hosts (the URLs inside each manifest). Custom (uploaded) packages need only the server. |
-| Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**. Set `RENOVATIO_WINGET_SOURCE=off` to disable it (custom uploads still work). |
+| Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**, and to `cdn.winget.microsoft.com` once a day for the winget index (3.7 MB; see *Software updates without a catalog*, 5a). Set `RENOVATIO_WINGET_SOURCE=off` to disable both (custom uploads still work). |
 | Endpoints | Windows 10 1809+, Windows 11, Server 2019+, x64. |
 
 **TLS-inspecting proxies must exempt the gateway host:port.** Agents use mutual TLS and pin the server's own CA, so interception breaks the connection by design. That is the protection working, not a bug.
@@ -191,10 +191,21 @@ Configuration (all optional, set in the server's environment):
 | Variable | Meaning |
 |---|---|
 | `RENOVATIO_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/renovatio/content`). Empty disables custom packages. |
-| `RENOVATIO_WINGET_SOURCE` | `github` (default) or `off`. |
+| `RENOVATIO_WINGET_SOURCE` | `github` (default) or `off`. `off` also stops the winget index download. |
+| `RENOVATIO_WINGET_INDEX_URL` | Where the winget index is downloaded from (https only). Empty = Microsoft's winget CDN. For an internal mirror. |
 | `RENOVATIO_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
 | `RENOVATIO_LICENSE_PUBLIC_KEYS` | Extra vendor license public keys (hex, comma-separated). Only for testing licensing with a key made by `renovatio-license keygen`; official builds carry the vendor key inside them. |
 | `RENOVATIO_GITHUB_TOKEN` / `RENOVATIO_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
+
+**Software updates without a catalog (decision D98).** The server keeps a copy of the winget community index (the file the winget client itself uses; about 15,000 packages with their newest version, the Windows product codes and the normalized names that identify them), downloaded from Microsoft's CDN a few seconds after the server starts and then once a day (**Updates → Software updates** shows its age and has **Refresh now**). Every installed program is checked against it: first by its product code or uninstall-key name, then by normalized name **and** publisher; a program that matches several packages equally well, or only a name with no matching publisher, is not matched. The result:
+
+- **Updates → Software updates** (all devices) and the device's **Software updates** tab list a program with a newer version even though nobody imported it. Such a row says **Not in catalog yet**; hover for the winget identifier and how it was recognised.
+- **Deploy** adds the package to the catalog first (the same import as **Catalog → Import from winget**, audited as `catalog.import`; needs `catalog:write`), then creates the usual deployment. The installer is still downloaded by each device from the vendor and checked against the SHA-256 in the manifest, and an untested package still asks for the audited confirmation.
+- A package already in the catalog keeps its own rules: its pin, exclusion and self-update policy decide, and the index never overrides them.
+- Apps that update themselves (Chrome, Edge, Firefox, Teams, ...) are listed as **Vendor updates** and left alone. **Update anyway…** (needs `catalog:write` and `catalog:override`) adds the package, turns on "push updates even though the app updates itself" for it, and deploys.
+- **Catalog → Import from winget** now searches the index by name, so you do not have to know the identifier.
+- Not matched: Microsoft Store apps and portable programs, and programs winget does not know (for those, add a custom package).
+- If the server cannot reach the CDN the last downloaded copy keeps working (it is stored in the database), and the Software updates page shows why the last attempt failed. Trust: the index is fetched over TLS; the package signature inside it is **not** verified by the server (T-SUP-2). The index only suggests; it never installs anything by itself.
 
 ### 5b. Windows updates (Phase 4)
 

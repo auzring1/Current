@@ -203,6 +203,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
       api<{
         imported: Pkg[];
         suggestions: { identifier: string; self_updating: boolean; note?: string }[];
+        index?: { identifier: string; name: string; latest_version: string; in_catalog: boolean }[];
         probe?: { identifier: string; versions?: string[]; error?: string };
       }>("GET", `/catalog/search?q=${encodeURIComponent(id)}`),
     enabled: id.trim().length >= 2,
@@ -220,8 +221,8 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
     <Modal opened onClose={onClose} title="Import from winget" size="lg">
       <Stack>
         <TextInput
-          label="Winget package identifier"
-          description="Exactly as in the winget-pkgs repository, for example 7zip.7zip"
+          label="Search winget by name, or enter a package identifier"
+          description="For example 7-Zip or 7zip.7zip. Pick a result below, or type the identifier exactly as in the winget-pkgs repository."
           value={id}
           onChange={(e) => (setId(e.currentTarget.value), setError(""))}
           data-autofocus
@@ -234,6 +235,18 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
               </Button>
             ))}
           </Group>
+        ) : null}
+        {search.data?.index?.length ? (
+          <Stack gap={4} role="list" aria-label="Packages in the winget index">
+            {search.data.index.map((p) => (
+              <Button key={p.identifier} role="listitem" size="compact-sm" variant="subtle" justify="space-between" fullWidth disabled={p.in_catalog} onClick={() => setId(p.identifier)}>
+                <span>
+                  {p.name} <span className="rnv-muted rnv-mono">{p.identifier}</span>
+                </span>
+                <span className="rnv-mono">{p.in_catalog ? "in catalog" : p.latest_version}</span>
+              </Button>
+            ))}
+          </Stack>
         ) : null}
         {search.data?.probe && (
           <Text size="sm" c={search.data.probe.error ? "red" : "dimmed"}>

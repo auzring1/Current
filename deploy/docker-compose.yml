@@ -75,6 +75,7 @@ services:
       # Uploaded (custom) installers; winget packages are never stored here.
       RENOVATIO_CONTENT_DIR: /var/lib/renovatio/content
       RENOVATIO_WINGET_SOURCE: ${RENOVATIO_WINGET_SOURCE:-github}
+      RENOVATIO_WINGET_INDEX_URL: ${RENOVATIO_WINGET_INDEX_URL:-}
       RENOVATIO_RELEASE_PUBLIC_KEYS: ${RENOVATIO_RELEASE_PUBLIC_KEYS:-}
       RENOVATIO_LICENSE_PUBLIC_KEYS: ${RENOVATIO_LICENSE_PUBLIC_KEYS:-}
     volumes:
