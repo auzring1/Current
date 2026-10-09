@@ -379,6 +379,66 @@ func (q *Queries) ListDeviceUsers(ctx context.Context, deviceID uuid.UUID) ([]De
 	return items, nil
 }
 
+const listFleetInstallRows = `-- name: ListFleetInstallRows :many
+SELECT si.device_id, d.hostname, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+FROM software_installs si
+JOIN software_titles st ON st.id = si.title_id
+JOIN devices d ON d.id = si.device_id
+WHERE d.org_id = $1 AND d.status = 'active' AND NOT si.system_component AND st.normalized_name = ANY($2::text[])
+ORDER BY lower(d.hostname), lower(si.name), si.scope, si.user_sid, si.item_key
+`
+
+type ListFleetInstallRowsParams struct {
+	OrgID uuid.UUID
+	Names []string
+}
+
+type ListFleetInstallRowsRow struct {
+	DeviceID       uuid.UUID
+	Hostname       string
+	Source         string
+	Scope          string
+	UserSid        string
+	ItemKey        string
+	Name           string
+	Version        string
+	VersionKey     []byte
+	NormalizedName string
+}
+
+// Installed programs on every active device whose normalized name matches one of the given catalog package names
+// (for the fleet-wide "Software updates" page).
+func (q *Queries) ListFleetInstallRows(ctx context.Context, arg ListFleetInstallRowsParams) ([]ListFleetInstallRowsRow, error) {
+	rows, err := q.db.Query(ctx, listFleetInstallRows, arg.OrgID, arg.Names)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFleetInstallRowsRow{}
+	for rows.Next() {
+		var i ListFleetInstallRowsRow
+		if err := rows.Scan(
+			&i.DeviceID,
+			&i.Hostname,
+			&i.Source,
+			&i.Scope,
+			&i.UserSid,
+			&i.ItemKey,
+			&i.Name,
+			&i.Version,
+			&i.VersionKey,
+			&i.NormalizedName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTitleInstalls = `-- name: ListTitleInstalls :many
 SELECT d.id AS device_id, d.hostname, d.online, si.version, si.scope, si.user_sid, si.source,
        si.install_date, si.install_location, si.last_seen_at,

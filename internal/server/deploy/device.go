@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/inventory"
 	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 )
 
 // Device-level actions that are not part of a catalog deployment: refresh a device, remove a
@@ -230,6 +232,75 @@ type AvailableUpdate struct {
 	Reason     string `json:"reason,omitempty"`
 }
 
+// latestVersion is the newest version of a catalog package that an organization allows.
+type latestVersion struct {
+	ver      *dbq.CatalogVersion
+	excluded bool
+	enforce  bool
+}
+
+// catalogMatcher matches installed programs to imported catalog packages (by normalized name) and decides whether a
+// program is older than the newest version its package's pin allows.
+type catalogMatcher struct {
+	ctx    context.Context
+	q      *dbq.Queries
+	org    uuid.UUID
+	byName map[string][]dbq.CatalogPackage
+	cache  map[uuid.UUID]latestVersion
+}
+
+func (s *Service) newCatalogMatcher(ctx context.Context, org uuid.UUID) (*catalogMatcher, error) {
+	q := dbq.New(s.Pool)
+	pkgs, err := q.ListAllOrgPackages(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	m := &catalogMatcher{ctx: ctx, q: q, org: org, byName: map[string][]dbq.CatalogPackage{}, cache: map[uuid.UUID]latestVersion{}}
+	for _, p := range pkgs {
+		n := inventory.NormalizeName(p.Name, "")
+		m.byName[n] = append(m.byName[n], p)
+	}
+	return m, nil
+}
+
+// names lists the normalized package names, for narrowing a database query.
+func (m *catalogMatcher) names() []string {
+	out := make([]string, 0, len(m.byName))
+	for n := range m.byName {
+		out = append(out, n)
+	}
+	return out
+}
+
+func (m *catalogMatcher) latest(p dbq.CatalogPackage) latestVersion {
+	if l, ok := m.cache[p.ID]; ok {
+		return l
+	}
+	var l latestVersion
+	pin := ""
+	if ov, err := m.q.GetPackageOverride(m.ctx, dbq.GetPackageOverrideParams{OrgID: m.org, PackageID: p.ID}); err == nil {
+		pin, l.excluded, l.enforce = ov.Pin, ov.Excluded, ov.SelfUpdatePolicy == "enforce"
+	}
+	if vs, err := m.q.ListPackageVersions(m.ctx, p.ID); err == nil {
+		l.ver, _ = catalog.ChooseVersion(vs, "", pin)
+	}
+	m.cache[p.ID] = l
+	return l
+}
+
+// outdated returns the package that has a newer allowed version than the installed one (the first match wins: one
+// package per installed program).
+func (m *catalogMatcher) outdated(normalizedName string, versionKey []byte) (dbq.CatalogPackage, latestVersion, bool) {
+	for _, p := range m.byName[normalizedName] {
+		l := m.latest(p)
+		if l.ver == nil || l.excluded || versionKey == nil || bytes.Compare(versionKey, l.ver.VersionKey) >= 0 {
+			continue
+		}
+		return p, l, true
+	}
+	return dbq.CatalogPackage{}, latestVersion{}, false
+}
+
 // DeviceUpdates matches a device's installed programs to imported catalog packages (by normalized
 // name) and returns those that are older than the newest version the package's pin allows.
 func (s *Service) DeviceUpdates(ctx context.Context, org, device uuid.UUID) ([]AvailableUpdate, error) {
@@ -238,53 +309,93 @@ func (s *Service) DeviceUpdates(ctx context.Context, org, device uuid.UUID) ([]A
 	if err != nil {
 		return nil, err
 	}
-	pkgs, err := q.ListAllOrgPackages(ctx, org)
+	m, err := s.newCatalogMatcher(ctx, org)
 	if err != nil {
 		return nil, err
 	}
-	byName := map[string][]dbq.CatalogPackage{}
-	for _, p := range pkgs {
-		n := inventory.NormalizeName(p.Name, "")
-		byName[n] = append(byName[n], p)
-	}
-	type latest struct {
-		ver      *dbq.CatalogVersion
-		excluded bool
-		enforce  bool
-	}
-	cache := map[uuid.UUID]latest{}
-	resolve := func(p dbq.CatalogPackage) latest {
-		if l, ok := cache[p.ID]; ok {
-			return l
-		}
-		var l latest
-		pin := ""
-		if ov, err := q.GetPackageOverride(ctx, dbq.GetPackageOverrideParams{OrgID: org, PackageID: p.ID}); err == nil {
-			pin, l.excluded, l.enforce = ov.Pin, ov.Excluded, ov.SelfUpdatePolicy == "enforce"
-		}
-		if vs, err := q.ListPackageVersions(ctx, p.ID); err == nil {
-			l.ver, _ = catalog.ChooseVersion(vs, "", pin)
-		}
-		cache[p.ID] = l
-		return l
-	}
 	out := []AvailableUpdate{}
 	for _, r := range rows {
-		for _, p := range byName[r.NormalizedName] {
-			l := resolve(p)
-			if l.ver == nil || l.excluded || r.VersionKey == nil || bytes.Compare(r.VersionKey, l.ver.VersionKey) >= 0 {
-				continue
-			}
-			u := AvailableUpdate{Name: r.Name, InstalledVersion: r.Version, Source: r.Source, Scope: r.Scope, UserSID: r.UserSid, ItemKey: r.ItemKey,
-				PackageID: p.ID, PackageName: p.Name, Identifier: p.Identifier, LatestVersion: l.ver.Version, Verified: p.Verified,
-				SelfUpdating: p.SelfUpdating, Deployable: true}
-			if p.SelfUpdating && !l.enforce {
-				u.Deployable, u.Reason = false, "updates itself; left to the vendor's updater"
-			}
-			out = append(out, u)
-			break // one package per row
+		p, l, ok := m.outdated(r.NormalizedName, r.VersionKey)
+		if !ok {
+			continue
 		}
+		u := AvailableUpdate{Name: r.Name, InstalledVersion: r.Version, Source: r.Source, Scope: r.Scope, UserSID: r.UserSid, ItemKey: r.ItemKey,
+			PackageID: p.ID, PackageName: p.Name, Identifier: p.Identifier, LatestVersion: l.ver.Version, Verified: p.Verified,
+			SelfUpdating: p.SelfUpdating, Deployable: true}
+		if p.SelfUpdating && !l.enforce {
+			u.Deployable, u.Reason = false, "updates itself; left to the vendor's updater"
+		}
+		out = append(out, u)
 	}
+	return out, nil
+}
+
+// FleetUpdateDevice is one device that has an older version of a package installed.
+type FleetUpdateDevice struct {
+	DeviceID         uuid.UUID `json:"device_id"`
+	Hostname         string    `json:"hostname"`
+	InstalledVersion string    `json:"installed_version"`
+	Scope            string    `json:"scope"`
+}
+
+// FleetUpdate is a catalog package that is out of date on at least one active device.
+type FleetUpdate struct {
+	PackageID     uuid.UUID `json:"package_id"`
+	PackageName   string    `json:"package_name"`
+	Identifier    string    `json:"identifier"`
+	LatestVersion string    `json:"latest_version"`
+	Verified      bool      `json:"verified"`
+	SelfUpdating  bool      `json:"self_updating"`
+	// Deployable is false when Renovatio leaves this update to the vendor (a self-updating app).
+	Deployable bool                `json:"deployable"`
+	Reason     string              `json:"reason,omitempty"`
+	Devices    []FleetUpdateDevice `json:"devices"`
+}
+
+// FleetUpdates lists, per catalog package, the active devices that have an older version installed. Packages that are
+// current everywhere are left out. Most devices first.
+func (s *Service) FleetUpdates(ctx context.Context, org uuid.UUID) ([]FleetUpdate, error) {
+	m, err := s.newCatalogMatcher(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	names := m.names()
+	if len(names) == 0 {
+		return []FleetUpdate{}, nil
+	}
+	rows, err := dbq.New(s.Pool).ListFleetInstallRows(ctx, dbq.ListFleetInstallRowsParams{OrgID: org, Names: names})
+	if err != nil {
+		return nil, err
+	}
+	byPkg := map[uuid.UUID]*FleetUpdate{}
+	var order []uuid.UUID
+	for _, r := range rows {
+		p, l, ok := m.outdated(r.NormalizedName, r.VersionKey)
+		if !ok {
+			continue
+		}
+		f := byPkg[p.ID]
+		if f == nil {
+			f = &FleetUpdate{PackageID: p.ID, PackageName: p.Name, Identifier: p.Identifier, LatestVersion: l.ver.Version, Verified: p.Verified,
+				SelfUpdating: p.SelfUpdating, Deployable: true, Devices: []FleetUpdateDevice{}}
+			if p.SelfUpdating && !l.enforce {
+				f.Deployable, f.Reason = false, "updates itself; left to the vendor's updater"
+			}
+			byPkg[p.ID] = f
+			order = append(order, p.ID)
+		}
+		f.Devices = append(f.Devices, FleetUpdateDevice{DeviceID: r.DeviceID, Hostname: r.Hostname, InstalledVersion: r.Version, Scope: r.Scope})
+	}
+	out := make([]FleetUpdate, 0, len(order))
+	for _, id := range order {
+		out = append(out, *byPkg[id])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if len(out[i].Devices) != len(out[j].Devices) {
+			return len(out[i].Devices) > len(out[j].Devices)
+		}
+		return strings.ToLower(out[i].PackageName) < strings.ToLower(out[j].PackageName)
+	})
 	return out, nil
 }
 

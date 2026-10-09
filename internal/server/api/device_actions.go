@@ -74,3 +74,15 @@ func (s *server) deviceUpdates(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
+
+// fleetSoftwareUpdates: GET /software/updates. The catalog packages that are out of date on at least one active
+// device, with the devices that have an older version.
+func (s *server) fleetSoftwareUpdates(w http.ResponseWriter, r *http.Request) {
+	items, err := s.Deploy.FleetUpdates(r.Context(), principalFrom(r).OrgID)
+	if err != nil {
+		s.Log.Error("fleet software updates", "err", err)
+		internalError(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
