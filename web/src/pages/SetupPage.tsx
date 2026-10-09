@@ -101,6 +101,7 @@ export function SetupPage() {
               placeholder="Choose a logo"
               accept="image/png,image/jpeg"
               clearable
+              clearButtonProps={{ "aria-label": "Remove the chosen logo" }}
               onChange={(file) => {
                 setLogoErr("");
                 if (!file) return setLogo(null);
