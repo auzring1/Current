@@ -47,3 +47,19 @@ func TestEnrollRateLimitsRejectNonsense(t *testing.T) {
 		}
 	}
 }
+
+func TestTrustedProxiesAcceptCommasAndSpaces(t *testing.T) {
+	env := baseEnv()
+	env["RENOVATIO_TRUSTED_PROXIES"] = "172.31.250.10/32,172.31.250.0/24 192.168.1.50/32"
+	c, err := load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.TrustedProxies) != 3 || c.TrustedProxies[2].String() != "192.168.1.50/32" {
+		t.Fatalf("trusted proxies = %v", c.TrustedProxies)
+	}
+	env["RENOVATIO_TRUSTED_PROXIES"] = "172.31.250.10/32 not-a-cidr"
+	if _, err := load(env); err == nil || !strings.Contains(err.Error(), "RENOVATIO_TRUSTED_PROXIES") {
+		t.Fatalf("a bad entry must be refused, got %v", err)
+	}
+}
