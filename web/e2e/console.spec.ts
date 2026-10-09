@@ -35,8 +35,17 @@ async function a11y(page: Page, name: string) {
 }
 
 async function shot(page: Page, name: string) {
-  if (shots) await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
-  await a11y(page, name);
+  await a11y(page, name); // with any toast still showing, as a person would see it
+  if (!shots) return;
+  // For the picture: top of the page, no toasts.
+  for (let i = 0; i < 8; i++) {
+    const close = page.getByRole("button", { name: "Dismiss notification" }).first();
+    if (!(await close.isVisible().catch(() => false))) break;
+    await close.click().catch(() => undefined);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 }
 
 /** The main navigation (left column or drawer). */
