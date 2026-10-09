@@ -28,7 +28,13 @@ const fixture = (name: string) => join(process.cwd(), "e2e", "fixtures", name);
 // end with the full list, so one run shows everything.
 const a11yIssues: string[] = [];
 async function a11y(page: Page, name: string) {
-  const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  await page.waitForTimeout(450); // let dialogs and toasts finish fading in: axe would measure a half-transparent surface
+  // With a dialog or panel open, the page behind it is covered by the overlay and not available to the user, so only the
+  // dialog is scanned (the page itself was scanned in its own screenshot).
+  const open = await page.locator('[role="dialog"]:visible').count();
+  let b = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]);
+  if (open > 0) b = b.include('[role="dialog"]');
+  const r = await b.analyze();
   for (const v of r.violations) {
     a11yIssues.push(`${name}: ${v.id} (${v.impact}) x${v.nodes.length}: ${v.help} :: ${v.nodes.slice(0, 2).map((n) => n.target.join(" ") + " :: " + (n.any[0]?.message ?? "")).join(" | ")}`);
   }
