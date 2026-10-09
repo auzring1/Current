@@ -28,6 +28,7 @@ import {
   type PillKind,
 } from "../ui";
 import { useDocumentTitle } from "../branding/BrandingProvider";
+import { PRODUCT_NAME } from "../brand.generated";
 
 interface Demo {
   id: string;
@@ -150,7 +151,7 @@ export function StyleGuidePage() {
               {s}
             </div>
           ))}
-          <div className="rnv-mono">Monospace: 3f9c1a — C:\Program Files\Renovatio</div>
+          <div className="rnv-mono">Monospace: 3f9c1a — C:\Program Files\{PRODUCT_NAME}</div>
         </div>
       </Section>
 
