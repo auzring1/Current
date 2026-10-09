@@ -261,6 +261,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermUsersWrite)).Delete("/api-tokens/{id}", s.revokeAnyAPIToken)
 
 	r.With(s.requireSelf).Get("/me/security", s.mySecurity)
+	r.With(s.requireSelf).Get("/dashboard", s.dashboard)
+	r.With(s.requireSelf).Get("/notifications", s.notifications)
 	r.With(s.requireSelf).Get("/me/preferences", s.getPreferences)
 	r.With(s.requireSelf).Put("/me/preferences", s.putPreferences)
 	r.With(s.requireSelf).Post("/me/api-tokens", s.createAPIToken)

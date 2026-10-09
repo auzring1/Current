@@ -1181,6 +1181,38 @@ paths:
         "200": { $ref: "#/components/responses/SessionStarted" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+  /dashboard:
+    get:
+      tags: [reports]
+      summary: The dashboard's numbers in one request (each section only when the caller may see it; site-limited callers get their sites)
+      description: >
+        Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's
+        site scope; the license, held updates and the audit activity need organization-wide rights. The compliance
+        history is one point per day from an hourly snapshot (last 30 days).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "401": { $ref: "#/components/responses/Error" }
+  /notifications:
+    get:
+      tags: [reports]
+      summary: Things that need attention now (failed jobs in the last 24 hours, held updates, license warnings), limited to what the caller may see
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+        "401": { $ref: "#/components/responses/Error" }
   /me/preferences:
     get:
       tags: [identity]
@@ -2274,6 +2306,109 @@ components:
                 id: { type: string }
                 name: { type: string, maxLength: 60 }
                 state: { type: object, additionalProperties: true }
+        nav:
+          type: object
+          description: Sidebar layout. Left out of a save, the stored value is kept.
+          additionalProperties: false
+          properties:
+            collapsed: { type: boolean, description: Narrowed to icons }
+            closed:
+              type: array
+              maxItems: 32
+              items: { type: string, pattern: "^[a-z][a-z0-9-]{0,39}$" }
+        dashboard:
+          type: object
+          description: Dashboard widget order and hidden widgets. Left out of a save, the stored value is kept.
+          additionalProperties: false
+          properties:
+            order:
+              type: array
+              maxItems: 32
+              items: { type: string, pattern: "^[a-z][a-z0-9-]{0,39}$" }
+            hidden:
+              type: array
+              maxItems: 32
+              items: { type: string, pattern: "^[a-z][a-z0-9-]{0,39}$" }
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [failed_job, held_update, license] }
+        severity: { type: string, enum: [info, warning, critical] }
+        title: { type: string }
+        detail: { type: string }
+        to: { type: string, description: A console path }
+        at: { type: string, format: date-time }
+    Dashboard:
+      type: object
+      properties:
+        generated: { type: string, format: date-time }
+        devices:
+          nullable: true
+          type: object
+          properties:
+            total: { type: integer }
+            online: { type: integer }
+            offline: { type: integer }
+            pending: { type: integer }
+        needs_restart: { type: integer, nullable: true }
+        missing_critical_devices: { type: integer, nullable: true }
+        failed_jobs_24h: { type: integer, nullable: true }
+        held_updates: { type: integer, nullable: true }
+        license:
+          nullable: true
+          type: object
+          properties:
+            state: { type: string }
+            message: { type: string }
+            used: { type: integer }
+            max: { type: integer }
+            at_capacity: { type: boolean }
+        compliance:
+          nullable: true
+          type: object
+          properties:
+            compliant: { type: integer }
+            non_compliant: { type: integer }
+            unknown: { type: integer }
+            history:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: { type: string, format: date }
+                  compliant: { type: integer }
+                  non_compliant: { type: integer }
+                  unknown: { type: integer }
+        top_missing:
+          type: array
+          items:
+            type: object
+            properties:
+              update_id: { type: string, format: uuid }
+              title: { type: string }
+              severity: { type: string }
+              classification: { type: string }
+              kb: { type: array, items: { type: string } }
+              devices: { type: integer }
+        attention:
+          type: array
+          items:
+            type: object
+            properties:
+              device_id: { type: string, format: uuid }
+              hostname: { type: string }
+              reasons: { type: array, items: { type: string, enum: [offline, reboot_pending, critical_missing, failed_updates] } }
+        activity:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEntry" }
+        agent_versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version: { type: string }
+              devices: { type: integer }
     BrandingAssetKind:
       type: string
       enum: [logo_light, logo_dark, icon, favicon, report_logo]

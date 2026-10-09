@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/renovatio/internal/server/dashboard"
 	"github.com/auzring1/renovatio/internal/server/policies"
 )
 
@@ -102,7 +103,7 @@ func (s *server) deletePolicy(w http.ResponseWriter, r *http.Request) {
 
 // ---- compliance report ----
 
-const staleAfter = 7 * 24 * time.Hour
+const staleAfter = dashboard.StaleAfter
 
 type complianceRow struct {
 	DeviceID        string     `json:"device_id"`
@@ -123,15 +124,7 @@ type complianceRow struct {
 
 // complianceState: non-compliant when an approved or critical update is missing or an install failed;
 // unknown when the device has never scanned or its scan is more than a week old; otherwise compliant.
-func complianceState(r dbq.ComplianceReportRow, now time.Time) string {
-	if r.ApprovedMissing > 0 || r.CriticalMissing > 0 || r.FailedUpdates > 0 {
-		return "non_compliant"
-	}
-	if r.WuScannedAt == nil || now.Sub(*r.WuScannedAt) > staleAfter {
-		return "unknown"
-	}
-	return "compliant"
-}
+func complianceState(r dbq.ComplianceReportRow, now time.Time) string { return dashboard.State(r, now) }
 
 func (s *server) complianceRows(r *http.Request) ([]complianceRow, error) {
 	rows, err := s.q().ComplianceReport(r.Context(), principalFrom(r).OrgID)

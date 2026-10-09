@@ -28,6 +28,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/branding"
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/renovatio/internal/server/dashboard"
 	"github.com/auzring1/renovatio/internal/server/deploy"
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/gateway"
@@ -43,17 +44,18 @@ import (
 
 // App is a running server.
 type App struct {
-	Cfg      *config.Config
-	Log      *slog.Logger
-	Pool     *pgxpool.Pool
-	Sealer   *kek.Sealer
-	Events   *events.Broker
-	Hub      *gateway.Hub
-	Deploy   *deploy.Service
-	Updates  *updates.Service
-	Releases *agentrel.Service
-	Policies *policies.Service
-	Catalog  *catalog.Service
+	Cfg       *config.Config
+	Log       *slog.Logger
+	Pool      *pgxpool.Pool
+	Sealer    *kek.Sealer
+	Events    *events.Broker
+	Hub       *gateway.Hub
+	Deploy    *deploy.Service
+	Updates   *updates.Service
+	Releases  *agentrel.Service
+	Policies  *policies.Service
+	Dashboard *dashboard.Service
+	Catalog   *catalog.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
 	// Branding holds the per-deployment names, colors, login texts and images.
@@ -110,6 +112,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Licensing = lic
 	a.Branding = &branding.Service{Pool: pool, Log: log.With("component", "branding")}
 	a.Releases.Licensing = lic
+	a.Dashboard = &dashboard.Service{Pool: pool, Log: log.With("component", "dashboard")}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
 		a.Updates.AfterJob(ctx, j, status, u)
@@ -332,8 +335,12 @@ func (a *App) housekeeping(ctx context.Context) {
 				a.Policies.Tick(ctx)
 			}
 			n++
+			if n%60 == 1 {
+				a.Dashboard.Tick(ctx) // the first minute after start, then hourly
+			}
 			if n%1440 == 0 {
 				a.Updates.Prune(ctx)
+				a.Dashboard.Prune(ctx)
 			}
 			if n%10 != 0 {
 				continue
