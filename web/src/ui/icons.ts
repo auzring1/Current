@@ -71,6 +71,7 @@ export {
   IconMenu2 as Menu,
   IconMoon as Moon,
   IconPackage as NavCatalog,
+  IconPackageImport as NavSoftwareUpdates,
   IconPalette as Palette,
   IconPencil as Edit,
   IconPlayerPause as Pause,

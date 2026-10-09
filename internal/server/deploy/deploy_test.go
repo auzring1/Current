@@ -418,6 +418,11 @@ func TestDispatchSignsVerifiableEnvelopes(t *testing.T) {
 	if env.Window == nil || env.Window.StartMinute != 22*60 || len(env.Window.Days) != 2 || len(env.Nonce) != 16 {
 		t.Fatalf("%+v", env)
 	}
+	// A job that is due now must not wait for a device whose clock is a little behind the server's: "not before" is
+	// moved back by the skew the verifier already tolerates.
+	if limit := time.Now().Add(-envelope.ClockSkew + time.Minute).Unix(); env.NotBefore > limit {
+		t.Fatalf("not_before %d is not backdated by the clock skew (limit %d)", env.NotBefore, limit)
+	}
 	// dispatching again re-signs the same job (new nonce, same job id) until the agent acknowledges it
 	f.svc.Dispatch(context.Background(), d)
 	if f.rec.count(d) != 2 {
@@ -687,6 +692,38 @@ func TestDeviceUpdatesListsOlderInstallsWithAvailableVersion(t *testing.T) {
 	f.exec("UPDATE package_overrides SET pin = ''")
 	f.exec("UPDATE catalog_packages SET self_updating = true WHERE id = $1", f.pkg.ID)
 	if ups, _ := f.svc.DeviceUpdates(context.Background(), f.org, old); len(ups) != 1 || ups[0].Deployable || ups[0].Reason == "" {
+		t.Fatalf("self-updating: %+v", ups)
+	}
+}
+
+func TestFleetUpdatesGroupsOlderInstallsByPackage(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(false) // Acme Tool 2.0
+	a, b, cur := f.device("a-pc", "amd64"), f.device("b-pc", "amd64"), f.device("cur-pc", "amd64")
+	f.install(a, "machine", "", "reg64", "AcmeTool", "1.0")
+	f.install(b, "machine", "", "reg64", "AcmeTool", "1.5")
+	f.install(cur, "machine", "", "reg64", "AcmeTool", "2.0")
+	ups, err := f.svc.FleetUpdates(context.Background(), f.org)
+	if err != nil || len(ups) != 1 {
+		t.Fatalf("%+v %v", ups, err)
+	}
+	u := ups[0]
+	if u.PackageID != f.pkg.ID || u.LatestVersion != "2.0" || !u.Deployable || len(u.Devices) != 2 || u.Devices[0].Hostname != "a-pc" || u.Devices[1].InstalledVersion != "1.5" {
+		t.Fatalf("%+v", u)
+	}
+	// Only active devices count: a revoked one is not a target.
+	f.exec("UPDATE devices SET status = 'revoked' WHERE id = $1", b)
+	if ups, _ := f.svc.FleetUpdates(context.Background(), f.org); len(ups) != 1 || len(ups[0].Devices) != 1 {
+		t.Fatalf("revoked device listed: %+v", ups)
+	}
+	// A pin below every installed version hides the package; a self-updating app is listed but not deployable.
+	f.exec("INSERT INTO package_overrides (org_id, package_id, pin) VALUES ($1,$2,'< 1.0')", f.org, f.pkg.ID)
+	if ups, _ := f.svc.FleetUpdates(context.Background(), f.org); len(ups) != 0 {
+		t.Fatalf("pin ignored: %+v", ups)
+	}
+	f.exec("UPDATE package_overrides SET pin = ''")
+	f.exec("UPDATE catalog_packages SET self_updating = true WHERE id = $1", f.pkg.ID)
+	if ups, _ := f.svc.FleetUpdates(context.Background(), f.org); len(ups) != 1 || ups[0].Deployable || ups[0].Reason == "" {
 		t.Fatalf("self-updating: %+v", ups)
 	}
 }

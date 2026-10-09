@@ -465,6 +465,20 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/SoftwareTitle" } }
                   total: { type: integer }
+  /software/updates:
+    get:
+      tags: [deployments]
+      summary: Catalog packages that are out of date on at least one active device, with those devices (requires deployments:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/FleetUpdate" } }
   /software/{id}:
     get:
       tags: [inventory]
@@ -2850,6 +2864,28 @@ components:
         self_updating: { type: boolean }
         deployable: { type: boolean }
         reason: { type: string }
+    FleetUpdate:
+      type: object
+      required: [package_id, package_name, latest_version, deployable, devices]
+      properties:
+        package_id: { type: string, format: uuid }
+        package_name: { type: string }
+        identifier: { type: string }
+        latest_version: { type: string }
+        verified: { type: boolean }
+        self_updating: { type: boolean }
+        deployable: { type: boolean }
+        reason: { type: string }
+        devices:
+          type: array
+          items:
+            type: object
+            required: [device_id, hostname, installed_version, scope]
+            properties:
+              device_id: { type: string, format: uuid }
+              hostname: { type: string }
+              installed_version: { type: string }
+              scope: { type: string, enum: [machine, user] }
     WindowsUpdate:
       type: object
       required: [update_id, title, classification, decision, devices_missing]

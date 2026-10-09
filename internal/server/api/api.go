@@ -160,6 +160,7 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/users", s.deviceUsers)
 
 	r.With(s.require(auth.PermDevicesRead)).Get("/software", s.searchSoftware)
+	r.With(s.require(auth.PermDeploymentsRead)).Get("/software/updates", s.fleetSoftwareUpdates)
 	r.With(s.require(auth.PermDevicesRead)).Get("/software/{id}", s.getSoftware)
 	r.With(s.require(auth.PermDevicesRead)).Get("/software/{id}/installs", s.titleInstalls)
 

@@ -168,7 +168,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "05-device-hardware");
 
       // Software inventory: the dev agent on Linux reports dpkg packages.
-      await page.getByRole("tab", { name: /^Software/ }).click();
+      await page.getByRole("tab", { name: /^Software(?! updates)/ }).click();
       await expect(page.getByTestId("software-row").first()).toBeVisible({ timeout: 30_000 });
       await shot(page, "05-device-software");
       await page.getByLabel("Search Installed software").fill("zzz-no-such-package");
@@ -347,9 +347,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "05-device-detail");
       await page.getByRole("button", { name: /Refresh/ }).click();
       await expect(page.getByText("Device information refreshed.")).toBeVisible({ timeout: 30_000 });
-      await page.getByRole("tab", { name: "Windows updates" }).click();
+      await page.getByRole("tab", { name: "Software updates" }).click();
       await expect(page.getByText(/No missing updates/)).toBeVisible();
-      await page.getByRole("tab", { name: /^Software/ }).click();
+      await page.getByRole("tab", { name: /^Software(?! updates)/ }).click();
       await expect(page.getByTestId("software-row").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Uninstall Software" })).toHaveCount(0); // the bulk bar appears with a selection
       await page.getByTestId("software-row").first().getByRole("checkbox").check();
@@ -419,7 +419,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await tp.getByRole("button", { name: "I have saved them, continue" }).click();
   await expect(tp.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(tp.getByRole("link", { name: "Devices", exact: true })).toBeVisible();
-  for (const hidden of ["Inventory", "Groups", "Catalog", "Deployments", "Users and roles", "Audit log", "Settings", "License"]) {
+  for (const hidden of ["Inventory", "Groups", "Catalog", "Deployments", "Software updates", "Users and roles", "Audit log", "Settings", "License"]) {
     await expect(tp.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
   }
   await shot(tp, "20-site-limited-console");
@@ -481,6 +481,11 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByTestId("nav-rail-toggle").click();
   await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true");
   await shot(page, "24-nav-rail");
+  // The same switch sits in the top bar, so people do not have to look for it at the bottom of the sidebar.
+  await page.getByTestId("topbar-nav-toggle").click();
+  await expect(page.locator(".rnv-shell")).not.toHaveAttribute("data-rail", "true");
+  await page.getByTestId("topbar-nav-toggle").click();
+  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true");
   await page.reload();
   await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true"); // remembered on the account
   await page.getByTestId("nav-rail-toggle").click();
@@ -488,6 +493,10 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
   await page.goto("/updates/held");
   await expect(page.getByRole("heading", { name: "Held updates", exact: true })).toBeVisible();
+  // Software updates: the page for programs that are out of date, between "Held updates"-style pages in the Updates group.
+  await mainNav(page).getByRole("link", { name: "Software updates", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Software updates", exact: true })).toBeVisible();
+  await a11y(page, "software-updates");
   await mainNav(page).getByRole("link", { name: "Dashboard", exact: true }).click();
 
   // --- Automation: a software policy, the reports page, and the audit chain check ---
@@ -512,6 +521,8 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   // --- Settings: sections, search, validation, unsaved changes, secrets, export ---
   await mainNav(page).getByRole("link", { name: "Settings", exact: true }).click();
   const setNav = page.getByRole("navigation", { name: "Settings sections" });
+  // The sidebar has one Settings link; the sections are listed inside the Settings page only.
+  await expect(mainNav(page).getByRole("link", { name: "Branding", exact: true })).toHaveCount(0);
   for (const name of ["General", "Branding", "Appearance", "Security", "Notifications", "Update defaults", "Device defaults", "Scheduled reports", "Data and retention", "Integrations", "About"]) {
     await expect(setNav.getByRole("link", { name, exact: true })).toBeVisible();
   }

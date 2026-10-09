@@ -32,7 +32,15 @@ describe("navigation tree", () => {
     expect(v.map((g) => g.id)).not.toContain("administration");
   });
 
-  it("offers the Settings submenu entries the person may open", () => {
+  it("lists Software updates in the Updates group, above Windows updates", () => {
+    const updates = visibleNav(everything).find((g) => g.id === "updates")!;
+    const ids = updates.items.map((i) => i.id);
+    expect(ids.slice(0, 2)).toEqual(["software-updates", "windows-updates"]);
+    expect(visibleNav(only("updates:read")).flatMap((g) => g.items.map((i) => i.id))).not.toContain("software-updates");
+    expect(locate("/software-updates")?.item.id).toBe("software-updates");
+  });
+
+  it("keeps the Settings sections for the Settings page and the command palette (the sidebar shows one Settings link)", () => {
     const settings = visibleNav(only("catalog:read")).flatMap((g) => g.items).find((i) => i.id === "settings");
     expect(settings?.children?.map((c) => c.id)).toEqual(["settings-general"]);
     const admin = visibleNav(everything).flatMap((g) => g.items).find((i) => i.id === "settings");
