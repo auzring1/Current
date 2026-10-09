@@ -12,7 +12,7 @@ const look = {
 
 function show(kind: Kind, message: string, title?: string) {
   const l = look[kind];
-  notifications.show({ color: l.color, icon: l.icon, title, message, autoClose: kind === "error" ? 8000 : 4500, withCloseButton: true });
+  notifications.show({ color: l.color, icon: l.icon, title, message, autoClose: kind === "error" ? 8000 : 4500, withCloseButton: true, closeButtonProps: { "aria-label": "Dismiss notification" } });
 }
 
 /** Toasts: icon, color and text together, so status never relies on color alone. */
