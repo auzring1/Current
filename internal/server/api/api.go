@@ -32,6 +32,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/reportsched"
 	"github.com/auzring1/renovatio/internal/server/settings"
 	"github.com/auzring1/renovatio/internal/server/updates"
+	"github.com/auzring1/renovatio/internal/server/wingetindex"
 )
 
 // SetupController is implemented by the app to drive first-run setup.
@@ -61,6 +62,7 @@ type Deps struct {
 	Authority func() *pki.Authority
 	Deploy    *deploy.Service
 	Catalog   *catalog.Service
+	Winget    *wingetindex.Service
 	Updates   *updates.Service
 	Releases  *agentrel.Service
 	Policies  *policies.Service
@@ -212,6 +214,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages", s.listPackages)
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/search", s.searchCatalog)
 	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/packages/{id}", s.getPackage)
+	r.With(s.require(auth.PermCatalogRead)).Get("/catalog/index", s.wingetIndexStatus)
+	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/index/refresh", s.refreshWingetIndex)
 	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/import", s.importPackage)
 	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/content", s.uploadContent)
 	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/custom", s.createCustom)

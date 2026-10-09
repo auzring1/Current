@@ -175,7 +175,7 @@ func (q *Queries) InsertSoftwareTitles(ctx context.Context, arg InsertSoftwareTi
 }
 
 const listDeviceInstallRows = `-- name: ListDeviceInstallRows :many
-SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+SELECT si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, si.publisher, si.product_code, st.normalized_name
 FROM software_installs si JOIN software_titles st ON st.id = si.title_id
 WHERE si.device_id = $1 AND NOT si.system_component
 ORDER BY lower(si.name), si.scope, si.user_sid, si.item_key
@@ -189,6 +189,8 @@ type ListDeviceInstallRowsRow struct {
 	Name           string
 	Version        string
 	VersionKey     []byte
+	Publisher      string
+	ProductCode    string
 	NormalizedName string
 }
 
@@ -210,6 +212,8 @@ func (q *Queries) ListDeviceInstallRows(ctx context.Context, deviceID uuid.UUID)
 			&i.Name,
 			&i.Version,
 			&i.VersionKey,
+			&i.Publisher,
+			&i.ProductCode,
 			&i.NormalizedName,
 		); err != nil {
 			return nil, err
@@ -380,18 +384,14 @@ func (q *Queries) ListDeviceUsers(ctx context.Context, deviceID uuid.UUID) ([]De
 }
 
 const listFleetInstallRows = `-- name: ListFleetInstallRows :many
-SELECT si.device_id, d.hostname, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, st.normalized_name
+SELECT si.device_id, d.hostname, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key,
+       si.publisher, si.product_code, st.normalized_name
 FROM software_installs si
 JOIN software_titles st ON st.id = si.title_id
 JOIN devices d ON d.id = si.device_id
-WHERE d.org_id = $1 AND d.status = 'active' AND NOT si.system_component AND st.normalized_name = ANY($2::text[])
+WHERE d.org_id = $1 AND d.status = 'active' AND NOT si.system_component AND si.source NOT IN ('appx', 'portable')
 ORDER BY lower(d.hostname), lower(si.name), si.scope, si.user_sid, si.item_key
 `
-
-type ListFleetInstallRowsParams struct {
-	OrgID uuid.UUID
-	Names []string
-}
 
 type ListFleetInstallRowsRow struct {
 	DeviceID       uuid.UUID
@@ -403,13 +403,15 @@ type ListFleetInstallRowsRow struct {
 	Name           string
 	Version        string
 	VersionKey     []byte
+	Publisher      string
+	ProductCode    string
 	NormalizedName string
 }
 
-// Installed programs on every active device whose normalized name matches one of the given catalog package names
-// (for the fleet-wide "Software updates" page).
-func (q *Queries) ListFleetInstallRows(ctx context.Context, arg ListFleetInstallRowsParams) ([]ListFleetInstallRowsRow, error) {
-	rows, err := q.db.Query(ctx, listFleetInstallRows, arg.OrgID, arg.Names)
+// Installed programs on every active device that could be matched to a catalog or winget package (for the fleet-wide
+// "Software updates" page). Store apps and portable programs are left out: neither can be updated by an installer.
+func (q *Queries) ListFleetInstallRows(ctx context.Context, orgID uuid.UUID) ([]ListFleetInstallRowsRow, error) {
+	rows, err := q.db.Query(ctx, listFleetInstallRows, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -427,6 +429,8 @@ func (q *Queries) ListFleetInstallRows(ctx context.Context, arg ListFleetInstall
 			&i.Name,
 			&i.Version,
 			&i.VersionKey,
+			&i.Publisher,
+			&i.ProductCode,
 			&i.NormalizedName,
 		); err != nil {
 			return nil, err

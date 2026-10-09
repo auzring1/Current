@@ -18,8 +18,10 @@ import (
 
 	"github.com/auzring1/renovatio/gen/dbq"
 	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/pki"
+	"github.com/auzring1/renovatio/internal/server/wingetindex"
 	"github.com/auzring1/renovatio/internal/shared/envelope"
 	"github.com/auzring1/renovatio/internal/shared/pkix"
 )
@@ -38,6 +40,10 @@ type Service struct {
 	Events     *events.Broker
 	Log        *slog.Logger
 	Now        func() time.Time
+	// Winget is the winget community index (installed programs the catalog does not know are matched against it) and
+	// Overlay the curated notes about well-known packages (which update themselves, which were tested). Both optional.
+	Winget  *wingetindex.Service
+	Overlay *catalog.Overlay
 
 	// AfterTerminal, if set, runs once when a job reaches a final state (Windows Update bookkeeping).
 	AfterTerminal func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate)

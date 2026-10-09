@@ -18,6 +18,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/catalog"
 	"github.com/auzring1/renovatio/internal/server/inventory"
 	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/renovatio/internal/server/wingetindex"
 	"github.com/auzring1/renovatio/internal/shared/brand"
 )
 
@@ -230,6 +231,12 @@ type AvailableUpdate struct {
 	// Deployable is false when Renovatio leaves this update to the vendor (a self-updating app).
 	Deployable bool   `json:"deployable"`
 	Reason     string `json:"reason,omitempty"`
+	// InCatalog is false when the update comes from the winget index only: PackageID is then zero and WingetID names the
+	// package, which is imported into the catalog when the update is deployed. MatchedBy says how an index package was
+	// recognised ("product_code" or "name").
+	InCatalog bool   `json:"in_catalog"`
+	WingetID  string `json:"winget_id,omitempty"`
+	MatchedBy string `json:"matched_by,omitempty"`
 }
 
 // latestVersion is the newest version of a catalog package that an organization allows.
@@ -242,11 +249,12 @@ type latestVersion struct {
 // catalogMatcher matches installed programs to imported catalog packages (by normalized name) and decides whether a
 // program is older than the newest version its package's pin allows.
 type catalogMatcher struct {
-	ctx    context.Context
-	q      *dbq.Queries
-	org    uuid.UUID
-	byName map[string][]dbq.CatalogPackage
-	cache  map[uuid.UUID]latestVersion
+	ctx     context.Context
+	q       *dbq.Queries
+	org     uuid.UUID
+	byName  map[string][]dbq.CatalogPackage
+	byIdent map[string]dbq.CatalogPackage // winget packages by lower-case identifier
+	cache   map[uuid.UUID]latestVersion
 }
 
 func (s *Service) newCatalogMatcher(ctx context.Context, org uuid.UUID) (*catalogMatcher, error) {
@@ -255,21 +263,15 @@ func (s *Service) newCatalogMatcher(ctx context.Context, org uuid.UUID) (*catalo
 	if err != nil {
 		return nil, err
 	}
-	m := &catalogMatcher{ctx: ctx, q: q, org: org, byName: map[string][]dbq.CatalogPackage{}, cache: map[uuid.UUID]latestVersion{}}
+	m := &catalogMatcher{ctx: ctx, q: q, org: org, byName: map[string][]dbq.CatalogPackage{}, byIdent: map[string]dbq.CatalogPackage{}, cache: map[uuid.UUID]latestVersion{}}
 	for _, p := range pkgs {
 		n := inventory.NormalizeName(p.Name, "")
 		m.byName[n] = append(m.byName[n], p)
+		if p.Source == "winget" {
+			m.byIdent[strings.ToLower(p.Identifier)] = p
+		}
 	}
 	return m, nil
-}
-
-// names lists the normalized package names, for narrowing a database query.
-func (m *catalogMatcher) names() []string {
-	out := make([]string, 0, len(m.byName))
-	for n := range m.byName {
-		out = append(out, n)
-	}
-	return out
 }
 
 func (m *catalogMatcher) latest(p dbq.CatalogPackage) latestVersion {
@@ -301,31 +303,130 @@ func (m *catalogMatcher) outdated(normalizedName string, versionKey []byte) (dbq
 	return dbq.CatalogPackage{}, latestVersion{}, false
 }
 
-// DeviceUpdates matches a device's installed programs to imported catalog packages (by normalized
-// name) and returns those that are older than the newest version the package's pin allows.
+// installRow is one installed program as the inventory holds it.
+type installRow struct {
+	name, version, publisher, itemKey, productCode, source, normalizedName string
+	versionKey                                                             []byte
+}
+
+// candidate is an available update for an installed program.
+type candidate struct {
+	pkgID                       uuid.UUID // zero when the package is not in the catalog yet
+	pkgName, identifier, latest string
+	verified, selfUpdating      bool
+	deployable                  bool
+	reason                      string
+	inCatalog                   bool
+	wingetID, matchedBy         string
+	catalogRow                  bool
+}
+
+// updater decides, for installed programs, whether an update exists: first against the packages the organization
+// imported (their pins and exclusions apply), then against the winget index for programs the catalog does not know.
+type updater struct {
+	s    *Service
+	m    *catalogMatcher
+	wm   *wingetindex.Matcher
+	memo map[string]findResult
+}
+
+type findResult struct {
+	m  wingetindex.Match
+	ok bool
+}
+
+func (s *Service) newUpdater(ctx context.Context, org uuid.UUID) (*updater, error) {
+	m, err := s.newCatalogMatcher(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	return &updater{s: s, m: m, wm: s.Winget.Matcher(), memo: map[string]findResult{}}, nil
+}
+
+func fromCatalog(p dbq.CatalogPackage, l latestVersion) *candidate {
+	c := &candidate{pkgID: p.ID, pkgName: p.Name, identifier: p.Identifier, latest: l.ver.Version, verified: p.Verified, selfUpdating: p.SelfUpdating,
+		deployable: true, inCatalog: true, catalogRow: true}
+	if p.Source == "winget" {
+		c.wingetID = p.Identifier
+	}
+	if p.SelfUpdating && !l.enforce {
+		c.deployable, c.reason = false, "updates itself; left to the vendor's updater"
+	}
+	return c
+}
+
+// check returns the update available for an installed program, or nil.
+func (u *updater) check(r installRow) *candidate {
+	if len(u.m.byName[r.normalizedName]) > 0 {
+		// The catalog knows this program: its decision stands (a pin, an exclusion or being current means no update).
+		if p, l, ok := u.m.outdated(r.normalizedName, r.versionKey); ok {
+			return fromCatalog(p, l)
+		}
+		return nil
+	}
+	if u.wm == nil || r.versionKey == nil {
+		return nil
+	}
+	key := r.name + "\x00" + r.publisher + "\x00" + r.itemKey + "\x00" + r.productCode + "\x00" + r.source
+	fr, seen := u.memo[key]
+	if !seen {
+		fr.m, fr.ok = u.wm.Find(wingetindex.Installed{Name: r.name, Publisher: r.publisher, ItemKey: r.itemKey, ProductCode: r.productCode, Source: r.source})
+		u.memo[key] = fr
+	}
+	if !fr.ok {
+		return nil
+	}
+	if p, imported := u.m.byIdent[strings.ToLower(fr.m.ID)]; imported { // already in the catalog under another name
+		l := u.m.latest(p)
+		if l.ver == nil || l.excluded || bytes.Compare(r.versionKey, l.ver.VersionKey) >= 0 {
+			return nil
+		}
+		c := fromCatalog(p, l)
+		c.matchedBy = fr.m.By
+		return c
+	}
+	if !fr.m.Newer(r.versionKey) {
+		return nil
+	}
+	c := &candidate{pkgName: fr.m.Name, identifier: fr.m.ID, wingetID: fr.m.ID, latest: fr.m.LatestVersion, deployable: true, matchedBy: fr.m.By}
+	if ov := u.s.overlay(); ov != nil {
+		if e, ok := ov.Entry(fr.m.ID); ok && e.SelfUpdating {
+			c.selfUpdating, c.deployable, c.reason = true, false, "updates itself; left to the vendor's updater"
+		}
+		c.verified = ov.Verified(fr.m.ID, "")
+	}
+	return c
+}
+
+func (s *Service) overlay() *catalog.Overlay {
+	if s.Overlay != nil {
+		return s.Overlay
+	}
+	return nil
+}
+
+// DeviceUpdates matches a device's installed programs to the catalog and to the winget index and returns those that
+// are older than the newest version available (for catalog packages, the newest their pin allows).
 func (s *Service) DeviceUpdates(ctx context.Context, org, device uuid.UUID) ([]AvailableUpdate, error) {
 	q := dbq.New(s.Pool)
 	rows, err := q.ListDeviceInstallRows(ctx, device)
 	if err != nil {
 		return nil, err
 	}
-	m, err := s.newCatalogMatcher(ctx, org)
+	u, err := s.newUpdater(ctx, org)
 	if err != nil {
 		return nil, err
 	}
 	out := []AvailableUpdate{}
 	for _, r := range rows {
-		p, l, ok := m.outdated(r.NormalizedName, r.VersionKey)
-		if !ok {
+		c := u.check(installRow{name: r.Name, version: r.Version, publisher: r.Publisher, itemKey: r.ItemKey, productCode: r.ProductCode, source: r.Source,
+			normalizedName: r.NormalizedName, versionKey: r.VersionKey})
+		if c == nil {
 			continue
 		}
-		u := AvailableUpdate{Name: r.Name, InstalledVersion: r.Version, Source: r.Source, Scope: r.Scope, UserSID: r.UserSid, ItemKey: r.ItemKey,
-			PackageID: p.ID, PackageName: p.Name, Identifier: p.Identifier, LatestVersion: l.ver.Version, Verified: p.Verified,
-			SelfUpdating: p.SelfUpdating, Deployable: true}
-		if p.SelfUpdating && !l.enforce {
-			u.Deployable, u.Reason = false, "updates itself; left to the vendor's updater"
-		}
-		out = append(out, u)
+		out = append(out, AvailableUpdate{Name: r.Name, InstalledVersion: r.Version, Source: r.Source, Scope: r.Scope, UserSID: r.UserSid, ItemKey: r.ItemKey,
+			PackageID: c.pkgID, PackageName: c.pkgName, Identifier: c.identifier, LatestVersion: c.latest, Verified: c.verified,
+			SelfUpdating: c.selfUpdating, Deployable: c.deployable, Reason: c.reason, InCatalog: c.inCatalog, WingetID: c.wingetID, MatchedBy: c.matchedBy})
 	}
 	return out, nil
 }
@@ -336,13 +437,18 @@ type FleetUpdateDevice struct {
 	Hostname         string    `json:"hostname"`
 	InstalledVersion string    `json:"installed_version"`
 	Scope            string    `json:"scope"`
+	MatchedBy        string    `json:"matched_by,omitempty"`
 }
 
-// FleetUpdate is a catalog package that is out of date on at least one active device.
+// FleetUpdate is a package that is out of date on at least one active device.
 type FleetUpdate struct {
+	// PackageID is the catalog package; zero when the package is only known from the winget index (it is imported when
+	// someone deploys it).
 	PackageID     uuid.UUID `json:"package_id"`
 	PackageName   string    `json:"package_name"`
 	Identifier    string    `json:"identifier"`
+	WingetID      string    `json:"winget_id,omitempty"`
+	InCatalog     bool      `json:"in_catalog"`
 	LatestVersion string    `json:"latest_version"`
 	Verified      bool      `json:"verified"`
 	SelfUpdating  bool      `json:"self_updating"`
@@ -352,43 +458,48 @@ type FleetUpdate struct {
 	Devices    []FleetUpdateDevice `json:"devices"`
 }
 
-// FleetUpdates lists, per catalog package, the active devices that have an older version installed. Packages that are
-// current everywhere are left out. Most devices first.
+// FleetUpdates lists, per package, the active devices that have an older version installed. Packages that are current
+// everywhere are left out. Most devices first.
 func (s *Service) FleetUpdates(ctx context.Context, org uuid.UUID) ([]FleetUpdate, error) {
-	m, err := s.newCatalogMatcher(ctx, org)
+	rows, err := dbq.New(s.Pool).ListFleetInstallRows(ctx, org)
 	if err != nil {
 		return nil, err
 	}
-	names := m.names()
-	if len(names) == 0 {
-		return []FleetUpdate{}, nil
-	}
-	rows, err := dbq.New(s.Pool).ListFleetInstallRows(ctx, dbq.ListFleetInstallRowsParams{OrgID: org, Names: names})
+	u, err := s.newUpdater(ctx, org)
 	if err != nil {
 		return nil, err
 	}
-	byPkg := map[uuid.UUID]*FleetUpdate{}
-	var order []uuid.UUID
+	byPkg := map[string]*FleetUpdate{}
+	seen := map[string]bool{}
+	var order []string
 	for _, r := range rows {
-		p, l, ok := m.outdated(r.NormalizedName, r.VersionKey)
-		if !ok {
+		c := u.check(installRow{name: r.Name, version: r.Version, publisher: r.Publisher, itemKey: r.ItemKey, productCode: r.ProductCode, source: r.Source,
+			normalizedName: r.NormalizedName, versionKey: r.VersionKey})
+		if c == nil {
 			continue
 		}
-		f := byPkg[p.ID]
-		if f == nil {
-			f = &FleetUpdate{PackageID: p.ID, PackageName: p.Name, Identifier: p.Identifier, LatestVersion: l.ver.Version, Verified: p.Verified,
-				SelfUpdating: p.SelfUpdating, Deployable: true, Devices: []FleetUpdateDevice{}}
-			if p.SelfUpdating && !l.enforce {
-				f.Deployable, f.Reason = false, "updates itself; left to the vendor's updater"
-			}
-			byPkg[p.ID] = f
-			order = append(order, p.ID)
+		key := strings.ToLower(c.identifier)
+		if c.pkgID != uuid.Nil {
+			key = c.pkgID.String()
 		}
-		f.Devices = append(f.Devices, FleetUpdateDevice{DeviceID: r.DeviceID, Hostname: r.Hostname, InstalledVersion: r.Version, Scope: r.Scope})
+		f := byPkg[key]
+		if f == nil {
+			f = &FleetUpdate{PackageID: c.pkgID, PackageName: c.pkgName, Identifier: c.identifier, WingetID: c.wingetID, InCatalog: c.inCatalog,
+				LatestVersion: c.latest, Verified: c.verified, SelfUpdating: c.selfUpdating, Deployable: c.deployable, Reason: c.reason, Devices: []FleetUpdateDevice{}}
+			byPkg[key] = f
+			order = append(order, key)
+		}
+		// One line per device, scope and installed version (a program can be listed by two registry views).
+		dk := key + "|" + r.DeviceID.String() + "|" + r.Scope + "|" + r.Version
+		if seen[dk] {
+			continue
+		}
+		seen[dk] = true
+		f.Devices = append(f.Devices, FleetUpdateDevice{DeviceID: r.DeviceID, Hostname: r.Hostname, InstalledVersion: r.Version, Scope: r.Scope, MatchedBy: c.matchedBy})
 	}
 	out := make([]FleetUpdate, 0, len(order))
-	for _, id := range order {
-		out = append(out, *byPkg[id])
+	for _, k := range order {
+		out = append(out, *byPkg[k])
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if len(out[i].Devices) != len(out[j].Devices) {
