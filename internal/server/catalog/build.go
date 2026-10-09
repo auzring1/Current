@@ -69,8 +69,14 @@ func BuildInstallBody(in BuildInput) (*agentv1.InstallBody, error) {
 		return nil, err
 	}
 	t := typeEnum[i.InstallerType]
+	// The agent accepts only a GUID here. Manifests of Inno, NSIS and similar installers give the name of their uninstall
+	// key instead (for example "Folge" or "{GUID}_is1"); that name is what the detection rule checks, so it is not sent.
+	productCode := ""
+	if guidRe.MatchString(i.ProductCode) {
+		productCode = i.ProductCode
+	}
 	inst := &agentv1.Installer{Type: t, NestedType: typeEnum[i.NestedType], NestedPath: i.NestedPath, Sha256: i.Sha256,
-		Size: uint64(i.Size), FileName: i.FileName, Args: args, ProductCode: i.ProductCode, // #nosec G115 -- size is non-negative
+		Size: uint64(i.Size), FileName: i.FileName, Args: args, ProductCode: productCode, // #nosec G115 -- size is non-negative
 		CodeMap: map[int32]agentv1.JobOutcome{}}
 	if i.SignerSubject != "" {
 		inst.SignerPin = &agentv1.SignerPin{Subject: i.SignerSubject}
