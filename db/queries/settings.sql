@@ -48,3 +48,32 @@ SELECT id, hostname, agent_version FROM devices WHERE org_id = $1 AND status = '
 
 -- name: PruneFinishedJobs :execrows
 DELETE FROM jobs WHERE org_id = $1 AND status IN ('succeeded', 'succeeded_reboot', 'failed', 'expired', 'cancelled', 'rejected') AND COALESCE(finished_at, created_at) < $2;
+
+-- name: ListDeviceCustomValues :many
+SELECT field_key, value FROM device_custom_values WHERE device_id = $1 ORDER BY field_key;
+
+-- name: ListCustomValuesForDevices :many
+SELECT device_id, field_key, value FROM device_custom_values WHERE device_id = ANY(@device_ids::uuid[]);
+
+-- name: UpsertDeviceCustomValue :exec
+INSERT INTO device_custom_values (device_id, field_key, value, updated_at, updated_by) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (device_id, field_key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by;
+
+-- name: DeleteDeviceCustomValue :exec
+DELETE FROM device_custom_values WHERE device_id = $1 AND field_key = $2;
+
+-- name: ListStaleDevices :many
+SELECT id, hostname FROM devices WHERE org_id = $1 AND status IN ('revoked', 'retired') AND COALESCE(last_seen_at, revoked_at, enrolled_at) < $2 ORDER BY id LIMIT 200;
+
+-- name: LastAuditByAction :one
+SELECT ts, details FROM audit_log WHERE org_id = $1 AND action = $2 ORDER BY id DESC LIMIT 1;
+
+-- name: LastBackupAudit :one
+SELECT ts, details FROM audit_log WHERE action = 'admin.backup' ORDER BY id DESC LIMIT 1;
+
+-- name: DataFootprint :one
+SELECT (SELECT count(*) FROM jobs j WHERE j.org_id = $1)::bigint AS jobs,
+       (SELECT count(*) FROM compliance_snapshots c WHERE c.org_id = $1)::bigint AS snapshots,
+       (SELECT count(*) FROM notification_outbox n WHERE n.org_id = $1)::bigint AS notifications,
+       (SELECT count(*) FROM audit_log a WHERE a.org_id = $1)::bigint AS audit_entries,
+       (SELECT min(a2.ts) FROM audit_log a2 WHERE a2.org_id = $1) AS audit_since;

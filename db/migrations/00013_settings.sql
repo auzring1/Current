@@ -40,6 +40,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
         GRANT SELECT, INSERT, UPDATE, DELETE ON settings_sections, notification_outbox TO renovatio_app;
         GRANT USAGE, SELECT ON SEQUENCE notification_outbox_id_seq TO renovatio_app;
+        GRANT SELECT ON goose_db_version TO renovatio_app; -- the About page shows the schema version
     END IF;
 END
 $$;

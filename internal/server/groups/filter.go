@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -248,10 +249,49 @@ func (c *compiler) device(n *Node) (string, error) {
 	if n.Field == "disk_bitlocker" { // any disk with the given BitLocker state
 		return c.bitlocker(n)
 	}
+	if key, ok := strings.CutPrefix(n.Field, CustomPrefix); ok {
+		return c.custom(n, key)
+	}
 	spec, ok := deviceFields[n.Field]
 	if !ok {
 		return "", invalid("unknown device field %q", n.Field)
 	}
+	return c.compare(spec, n)
+}
+
+// CustomPrefix starts the name of a custom device field in a filter ("custom.asset_tag", Settings > Device defaults).
+const CustomPrefix = "custom."
+
+var customKeyRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,29}$`)
+
+// custom compiles a comparison on an administrator-defined device field. The key is checked for shape only (a key
+// nobody defined matches no device); the value is bound like any other. "ne" means "does not have this value",
+// which includes devices where the field is empty.
+func (c *compiler) custom(n *Node, key string) (string, error) {
+	if !customKeyRe.MatchString(key) {
+		return "", invalid("unknown device field %q", n.Field)
+	}
+	spec := fieldSpec{col: "v.value", kind: kText, cmps: textCmps}
+	cmp := n.Cmp
+	neg := cmp == "ne"
+	if neg {
+		cmp = "eq"
+	}
+	inner := *n
+	inner.Cmp = cmp
+	cond, err := c.compare(spec, &inner)
+	if err != nil {
+		return "", err
+	}
+	exists := fmt.Sprintf("EXISTS (SELECT 1 FROM device_custom_values v WHERE v.device_id = d.id AND v.field_key = %s AND %s)", c.bind(key), cond)
+	if neg {
+		return "(NOT " + exists + ")", nil
+	}
+	return "(" + exists + ")", nil
+}
+
+// compare compiles one comparison of a field with a value.
+func (c *compiler) compare(spec fieldSpec, n *Node) (string, error) {
 	if !oneOf(n.Cmp, spec.cmps) {
 		return "", invalid("comparator %q not allowed for %q", n.Cmp, n.Field)
 	}

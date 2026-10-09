@@ -13,6 +13,8 @@ import { NotificationsBell } from "../ui/NotificationsBell";
 import { SiteScopeProvider } from "../ui/SiteScope";
 import { SiteSwitcher } from "../ui/SiteSwitcher";
 import { useNavLayout } from "../ui/useNavLayout";
+import { setDisplay } from "../api/format";
+import { useEffective } from "../settings/useEffective";
 import * as I from "../ui/icons";
 import { locate } from "../ui/nav";
 import { SideNav } from "../ui/SideNav";
@@ -29,6 +31,12 @@ export function Layout() {
   const [drawer, setDrawer] = useState(false);
   const { layout, setCollapsed } = useNavLayout();
   const rail = !narrow && layout.collapsed;
+  // The organization's date format, clock and time zone (Settings > Appearance). The page area is keyed by them, so a
+  // change applies at once without a reload.
+  const eff = useEffective();
+  const ap = eff.data?.appearance;
+  const displayKey = ap ? [ap.locale, ap.date_format, ap.time_format, ap.time_zone].join("|") : "";
+  if (ap) setDisplay({ locale: ap.locale, dateFormat: ap.date_format, timeFormat: ap.time_format, timeZone: ap.time_zone });
   useLiveEvents(can("devices:read"));
 
   const logout = async () => {
@@ -94,7 +102,7 @@ export function Layout() {
           <SideNav onNavigate={() => setDrawer(false)} />
         </Drawer>
       )}
-      <main id="main" className="rnv-main" tabIndex={-1}>
+      <main id="main" className="rnv-main" tabIndex={-1} key={displayKey}>
         <Outlet />
       </main>
     </div>

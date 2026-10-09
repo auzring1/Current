@@ -4,6 +4,7 @@ import { useMediaQuery } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Preferences } from "../api/client";
 import { useSession } from "../api/session";
+import { useEffective } from "../settings/useEffective";
 import { useBranding } from "../branding/BrandingProvider";
 import { buildTheme } from "../branding/theme";
 import { applyAccent } from "./accent";
@@ -79,7 +80,8 @@ export function AppearanceProvider({ nonce, children }: { nonce: string; childre
   const accountDensity = prefs ? (prefs.density ?? "") : undefined;
   const choice = accountTheme !== undefined ? accountTheme : local.theme;
   const densityChoice = accountDensity !== undefined ? accountDensity : local.density;
-  const density: Density = densityChoice === "compact" ? "compact" : "comfortable";
+  const orgDensity = useEffective().data?.appearance.default_density;
+  const density: Density = (densityChoice || orgDensity) === "compact" ? "compact" : "comfortable";
 
   const exists = useCallback((id: string) => !!findTheme(id), []);
   const effective = useMemo(

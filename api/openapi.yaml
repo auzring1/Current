@@ -1291,6 +1291,88 @@ paths:
             application/json:
               schema: { type: object, additionalProperties: true }
         "422": { $ref: "#/components/responses/Error" }
+  /devices/{id}/fields:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [devices]
+      summary: The values of the organization's custom device fields for one device
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  values: { type: object, additionalProperties: { type: string } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [devices]
+      summary: Set or clear custom field values (a null or empty value clears; keys must be fields defined under Settings > Device defaults)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values: { type: object, additionalProperties: { type: string, nullable: true } }
+      responses:
+        "200":
+          description: The values after the change
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  values: { type: object, additionalProperties: { type: string } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/about:
+    get:
+      tags: [settings]
+      summary: Version, build, database, license state and counts (administrators)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /settings/support-bundle:
+    get:
+      tags: [settings]
+      summary: A zip for support with configuration and settings but no secrets (administrators; audited)
+      description: >
+        Contains version and build information, license state, counts, the server configuration with every secret
+        replaced, the settings export, the last audit entries without their details and the last notification
+        deliveries without their content. Never contains keys, passwords, tokens, certificates or device data.
+      responses:
+        "200":
+          description: The bundle
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+  /settings/data/status:
+    get:
+      tags: [settings]
+      summary: History sizes and when the last backup, export and clean-up ran (from the audit log)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /settings/data/run-retention:
+    post:
+      tags: [settings]
+      summary: Apply the retention and clean-up settings now; returns what was removed
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
   /settings/notifications/test-email:
     post:
       tags: [settings]

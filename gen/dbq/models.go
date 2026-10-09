@@ -267,6 +267,14 @@ type DeviceCert struct {
 	RevokeReason    string
 }
 
+type DeviceCustomValue struct {
+	DeviceID  uuid.UUID
+	FieldKey  string
+	Value     string
+	UpdatedAt time.Time
+	UpdatedBy *uuid.UUID
+}
+
 type DeviceUpdate struct {
 	DeviceID  uuid.UUID
 	UpdateID  uuid.UUID

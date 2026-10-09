@@ -25,6 +25,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/kek"
 	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/maintenance"
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
@@ -66,6 +67,7 @@ type Deps struct {
 	Branding  *branding.Service
 	Settings  *settings.Service
 	Notify    *notify.Service
+	Maint     *maintenance.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -147,6 +149,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Delete("/devices/{id}", s.deleteDevice)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/fields", s.getDeviceFields)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Put("/devices/{id}/fields", s.putDeviceFields)
 	r.With(s.requireAny(auth.PermDevicesWrite)).Post("/devices/delete", s.deleteDevices)
 
 	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
@@ -272,6 +276,10 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireSelf).Put("/settings/sections/{section}", s.putSettingsSection)
 	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/export", s.exportSettings)
 	r.With(s.require(auth.PermSettingsWrite)).Post("/settings/import", s.importSettings)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/about", s.settingsAbout)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/support-bundle", s.supportBundle)
+	r.With(s.require(auth.PermSettingsData)).Get("/settings/data/status", s.dataStatus)
+	r.With(s.require(auth.PermSettingsData)).Post("/settings/data/run-retention", s.runRetention)
 	r.With(s.require(auth.PermSettingsNotifications)).Post("/settings/notifications/test-email", s.testEmail)
 	r.With(s.require(auth.PermSettingsNotifications)).Get("/settings/notifications/log", s.notificationLog)
 	r.With(s.require(auth.PermSettingsIntegrations)).Post("/settings/integrations/webhooks/{id}/test", s.testWebhook)

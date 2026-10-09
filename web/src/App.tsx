@@ -5,7 +5,8 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api/client";
 import { useSession } from "./api/session";
 import { Layout } from "./components/Layout";
-import { SettingsLayout, SettingsPage } from "./pages/SettingsPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsShell } from "./settings/SettingsShell";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 
@@ -14,6 +15,7 @@ const page = <K extends string>(load: () => Promise<Record<K, React.ComponentTyp
 const DashboardPage = page(() => import("./pages/DashboardPage"), "DashboardPage");
 const DevicesPage = page(() => import("./pages/DevicesPage"), "DevicesPage");
 const HeldUpdatesPage = page(() => import("./pages/HeldUpdatesPage"), "HeldUpdatesPage");
+const AboutPage = page(() => import("./pages/AboutPage"), "AboutPage");
 const SettingsSectionPage = page(() => import("./pages/SettingsSectionPage"), "SettingsSectionPage");
 const AuditPage = page(() => import("./pages/AuditPage"), "AuditPage");
 const CatalogPage = page(() => import("./pages/CatalogPage"), "CatalogPage");
@@ -88,9 +90,10 @@ export function App() {
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/new" element={<NewDeploymentPage />} />
         <Route path="/deployments/:id" element={<DeploymentPage />} />
-        <Route path="/settings" element={<SettingsLayout />}>
+        <Route path="/settings" element={<SettingsShell />}>
           <Route index element={<SettingsPage />} />
           <Route path="branding" element={<BrandingPage />} />
+          <Route path="about" element={<AboutPage />} />
           <Route path=":section" element={<SettingsSectionPage />} />
         </Route>
         <Route path="/license" element={<LicensePage />} />
