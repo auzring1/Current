@@ -12,7 +12,7 @@ import {
 } from "../api/client";
 import { useSession } from "../api/session";
 import { BrandPreview } from "../branding/BrandPreview";
-import { checks, colorProblems, DARK_SURFACE, DEFAULT_ACCENT, WHITE } from "../branding/contrast";
+import { ACCENT_SWATCHES, checks, colorProblems, DARK_SURFACE, DEFAULT_ACCENT, SECONDARY_SWATCHES, WHITE } from "../branding/contrast";
 import { checkImageFile, LIMITS } from "../branding/images";
 import { SYSTEM_THEME, THEMES, theme as findTheme } from "../design/themes";
 import { Card, Icons, Skel, StatusPill, toast, useConfirm } from "../ui";
@@ -194,6 +194,9 @@ export function BrandingPage() {
               onChange={(v) => setDraft({ ...draft, accent_color: v })}
               error={problems.accent ?? err("accent_color")}
               popoverProps={{ withinPortal: true }}
+              withPicker={false}
+              swatches={ACCENT_SWATCHES}
+              swatchesPerRow={6}
             />
             <ColorInput
               label="Secondary color (optional)"
@@ -204,6 +207,9 @@ export function BrandingPage() {
               onChange={(v) => setDraft({ ...draft, secondary_color: v })}
               error={problems.secondary ?? err("secondary_color")}
               popoverProps={{ withinPortal: true }}
+              withPicker={false}
+              swatches={SECONDARY_SWATCHES}
+              swatchesPerRow={6}
             />
             <ContrastTable rows={liveChecks} />
           </Stack>

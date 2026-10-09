@@ -92,3 +92,9 @@ export function colorProblems(accent: string, secondary: string): ColorProblem {
   }
   return p;
 }
+
+/** Suggested accents: each passes every check on the light, dark and stock surfaces. */
+export const ACCENT_SWATCHES = ["#1971c2", "#c92a2a", "#0b7285", "#087f5b", "#7048e8", "#d6336c"];
+/** Suggested secondary colors (graphics only, 3:1 on light and dark). */
+export const SECONDARY_SWATCHES = ["#e8590c", "#2f9e44", "#1971c2", "#d6336c", "#7048e8", "#0b7285"];
+

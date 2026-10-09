@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import vectors from "../../../internal/server/branding/testdata/contrast_vectors.json";
-import { checks, colorProblems, contrast, DEFAULT_ACCENT, isHexColor } from "./contrast";
+import { ACCENT_SWATCHES, checks, colorProblems, contrast, DEFAULT_ACCENT, isHexColor, SECONDARY_SWATCHES } from "./contrast";
 
 describe("contrast (shared vectors with the server)", () => {
   it("matches the reference ratios", () => {
@@ -33,5 +33,10 @@ describe("contrast (shared vectors with the server)", () => {
   it("validates hex syntax", () => {
     expect(isHexColor("#1971C2")).toBe(true);
     for (const bad of ["#17c", "1971c2", "#1971c2;x", "rgb(0,0,0)", ""]) expect(isHexColor(bad)).toBe(false);
+  });
+
+  it("only suggests colors that can be saved", () => {
+    for (const a of ACCENT_SWATCHES) expect(colorProblems(a, ""), a).toEqual({});
+    for (const c of SECONDARY_SWATCHES) expect(colorProblems(DEFAULT_ACCENT, c), c).toEqual({});
   });
 });
