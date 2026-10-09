@@ -159,3 +159,6 @@ html:root[data-theme] {
   --mantine-color-dark-text: var(--rnv-neutral-fg);
 
 }
+
+/* A link inside a sentence must be told apart by more than color (WCAG 1.4.1). */
+.mantine-Anchor-root:not([data-underline="never"]) { text-decoration: underline; text-underline-offset: 2px; }
