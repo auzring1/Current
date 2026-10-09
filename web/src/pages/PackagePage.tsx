@@ -43,7 +43,7 @@ export function PackagePage() {
       <PageHeader
         title={d ? d.package.name : "Package"}
         description={d ? `${d.package.identifier} · ${d.package.publisher || "unknown publisher"}` : undefined}
-        breadcrumbs={[{ label: "Catalog", to: "/catalog" }, { label: d?.package.name ?? "Package" }]}
+        crumb={d?.package.name ?? "Package"}
         actions={
           d ? (
             <>

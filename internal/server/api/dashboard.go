@@ -45,6 +45,14 @@ func (sc scope) has(site uuid.UUID) bool {
 	return false
 }
 
+// only narrows a scope to one site (the console's site switcher): nothing is left if the caller has no rights there.
+func (sc scope) only(site uuid.UUID) scope {
+	if !sc.has(site) {
+		return scope{}
+	}
+	return scope{ok: true, sites: []uuid.UUID{site}}
+}
+
 type dashDevices struct {
 	Total   int `json:"total"`
 	Online  int `json:"online"`
@@ -127,6 +135,15 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 	now := s.now()
 	out := dashboardView{Generated: now, TopMissing: []dashTopUpdate{}, Attention: []dashAttention{}, Activity: []auditView{}, AgentVersions: []dashAgentVersion{}}
 	devSc, updSc, jobSc := scopeOf(p, auth.PermDevicesRead), scopeOf(p, auth.PermUpdatesRead), scopeOf(p, auth.PermDeploymentsRead)
+	// ?site=<id> narrows every device-based section to one site (the console's site switcher).
+	if v := r.URL.Query().Get("site"); v != "" {
+		id, err := uuid.Parse(v)
+		if err != nil {
+			badRequest(w, "site must be a site id")
+			return
+		}
+		devSc, updSc, jobSc = devSc.only(id), updSc.only(id), jobSc.only(id)
+	}
 	fail := func(what string, err error) bool {
 		if err != nil {
 			s.Log.Error("dashboard "+what, "err", err)

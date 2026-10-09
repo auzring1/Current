@@ -1,16 +1,32 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, SegmentedControl } from "@mantine/core";
 import { useSession } from "../api/session";
 import { api, errorMessage, type Device, type ReportOverview } from "../api/client";
 import { ago } from "../api/format";
+import { useSiteScope } from "../ui/SiteScope";
 import { LicenseBanner } from "../components/LicenseBanner";
 import { DataTable, EmptyState, Icons, IconButton, Page, PageHeader, StatGrid, StatTile, Status, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
 
 export function DevicesPage() {
-  const [status, setStatus] = useState("all");
+  // Links from the dashboard and the command palette arrive with ?status=, ?state=online|offline, ?restart=1 or ?agent=.
+  const [params] = useSearchParams();
+  const urlStatus = params.get("status");
+  const [status, setStatus] = useState(["pending", "active", "revoked"].includes(urlStatus ?? "") ? urlStatus! : "all");
+  useEffect(() => setStatus(["pending", "active", "revoked"].includes(urlStatus ?? "") ? urlStatus! : "all"), [urlStatus]);
+  const urlState = params.get("state");
+  const urlAgent = params.get("agent");
+  const urlRestart = params.get("restart");
+  const preset = useMemo(() => {
+    const filters: { id: string; value: string }[] = [];
+    if (urlState === "online" || urlState === "offline") filters.push({ id: "connection", value: urlState });
+    if (urlAgent) filters.push({ id: "agent", value: urlAgent });
+    if (urlRestart === "1") filters.push({ id: "restart", value: "pending" });
+    return filters.length ? { filters } : undefined;
+  }, [urlState, urlAgent, urlRestart]);
   const { can } = useSession();
+  const { siteId } = useSiteScope();
   const qc = useQueryClient();
   const confirm = useConfirm();
   const nav = useNavigate();
@@ -108,11 +124,21 @@ export function DevicesPage() {
         cell: (d) => <span title={d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ""}>{d.online ? "now" : ago(d.last_seen_at)}</span>,
         csv: (d) => d.last_seen_at ?? "",
       },
-      { id: "agent", header: "Agent", value: (d) => d.agent_version ?? "", width: 110, cell: (d) => <span className="rnv-mono">{d.agent_version || "—"}</span> },
+      { id: "agent", header: "Agent", value: (d) => d.agent_version ?? "", width: 110, cell: (d) => <span className="rnv-mono">{d.agent_version || "—"}</span>, filter: { type: "text" } },
+      {
+        id: "restart",
+        header: "Restart",
+        value: (d) => (d.pending_reboot ? "pending" : ""),
+        width: 110,
+        defaultHidden: true,
+        filter: { type: "select", options: [{ value: "pending", label: "Restart pending" }] },
+        cell: (d) => (d.pending_reboot ? "Pending" : <span className="rnv-muted">—</span>),
+      },
     ],
     [],
   );
 
+  const rows = useMemo(() => (siteId ? q.data?.items.filter((d) => d.site_id === siteId) : q.data?.items), [q.data, siteId]);
   const o = overview.data;
   const active = o?.devices.active ?? 0;
   const online = o?.devices.online ?? 0;
@@ -147,7 +173,7 @@ export function DevicesPage() {
       <DataTable<Device>
         id="devices"
         label="Devices"
-        data={q.data?.items}
+        data={rows}
         loading={q.isLoading}
         error={q.error}
         columns={columns}
@@ -159,6 +185,7 @@ export function DevicesPage() {
         searchPlaceholder="Search devices, users, models…"
         exportName="devices"
         initialSort={{ id: "hostname" }}
+        preset={preset}
         selectable={canDelete ? (d) => d.status === "revoked" : false}
         toolbar={
           <SegmentedControl

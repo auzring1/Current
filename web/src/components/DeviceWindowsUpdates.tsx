@@ -23,20 +23,26 @@ const stateKind: Record<string, PillKind> = { missing: "info", downloaded: "info
 const stateLabel: Record<string, string> = { missing: "Missing", downloaded: "Downloaded", hidden: "Hidden", pending_reboot: "Needs restart", failed: "Failed" };
 const stateIcon: Record<string, typeof Icons.Info> = { missing: Icons.ArrowDown, downloaded: Icons.Download, hidden: Icons.EyeOff, pending_reboot: Icons.Restart, failed: Icons.Danger };
 
-type Item = DeviceWindowsUpdates["items"][number];
+export type Item = DeviceWindowsUpdates["items"][number];
 
-export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean }) {
-  const { can } = useSession();
+/** Invalidates what a finished action may have changed. */
+function useRefreshAfter(id: string) {
   const qc = useQueryClient();
-  const canAct = can("updates:write") && active;
-  const [installFor, setInstallFor] = useState<{ items: Item[]; clear: () => void } | null>(null);
-  const [restartOpen, setRestartOpen] = useState(false);
-  const q = useQuery({ queryKey: ["updates", "device", id], queryFn: () => api<DeviceWindowsUpdates>("GET", `/devices/${id}/windows-updates`) });
-  const done = () => {
+  return () => {
     void qc.invalidateQueries({ queryKey: ["updates"] });
     void qc.invalidateQueries({ queryKey: ["device-jobs", id] });
   };
-  const scan = useMutation({
+}
+
+export const windowsUpdatesKey = (id: string) => ["updates", "device", id] as const;
+export const fetchWindowsUpdates = (id: string) => api<DeviceWindowsUpdates>("GET", `/devices/${id}/windows-updates`);
+/** Updates that "install now" can act on: not hidden and not already waiting for a restart. */
+export const installable = (items: Item[]) => items.filter((i) => i.state !== "hidden" && i.state !== "pending_reboot");
+
+/** Asks the device to scan for Windows updates and waits for the answer. */
+export function useScanUpdates(id: string) {
+  const done = useRefreshAfter(id);
+  return useMutation({
     mutationFn: async () => {
       const { job_id } = await api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/scan`, {});
       return waitForJob(job_id, 180);
@@ -49,21 +55,43 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
-  const install = useMutation({
+}
+
+/** Installs the chosen Windows updates now. Callers close their dialog with the `mutate` callbacks. */
+export function useInstallUpdates(id: string) {
+  const done = useRefreshAfter(id);
+  return useMutation({
     mutationFn: ({ ids, restart }: { ids: string[]; restart: RestartPolicy }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/install`, { update_ids: ids, restart }),
-    onSuccess: () => (installFor?.clear(), setInstallFor(null), done(), toast.success("Install queued. Follow it on the Jobs tab.")),
+    onSuccess: () => (done(), toast.success("Install queued. Follow it on the Jobs tab.")),
     onError: (e) => toast.error(errorMessage(e)),
   });
+}
+
+/** Restarts the device after a countdown. */
+export function useRebootDevice(id: string) {
+  const done = useRefreshAfter(id);
+  return useMutation({
+    mutationFn: (minutes: number) => api<{ job_id: string }>("POST", `/devices/${id}/reboot`, { minutes, reason: "Restart requested by an administrator" }),
+    onSuccess: () => (done(), toast.success("Restart queued. Signed-in users see a countdown.")),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+}
+
+export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean }) {
+  const { can } = useSession();
+  const done = useRefreshAfter(id);
+  const canAct = can("updates:write") && active;
+  const [installFor, setInstallFor] = useState<{ items: Item[]; clear: () => void } | null>(null);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const q = useQuery({ queryKey: windowsUpdatesKey(id), queryFn: () => fetchWindowsUpdates(id) });
+  const scan = useScanUpdates(id);
+  const install = useInstallUpdates(id);
   const hide = useMutation({
     mutationFn: ({ ids, hide }: { ids: string[]; hide: boolean; clear: () => void }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/hide`, { update_ids: ids, hide }),
     onSuccess: (_, v) => (v.clear(), done(), toast.success(v.hide ? "Hide queued." : "Unhide queued.")),
     onError: (e) => toast.error(errorMessage(e)),
   });
-  const reboot = useMutation({
-    mutationFn: (minutes: number) => api<{ job_id: string }>("POST", `/devices/${id}/reboot`, { minutes, reason: "Restart requested by an administrator" }),
-    onSuccess: () => (setRestartOpen(false), done(), toast.success("Restart queued. Signed-in users see a countdown.")),
-    onError: (e) => toast.error(errorMessage(e)),
-  });
+  const reboot = useRebootDevice(id);
 
   const columns = useMemo<Column<Item>[]>(
     () => [
@@ -215,10 +243,10 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           </>
         }
         bulkActions={(rows, clear) => {
-          const installable = rows.filter((i) => i.state !== "hidden" && i.state !== "pending_reboot");
+          const ready = installable(rows);
           return (
             <>
-              <Button size="compact-sm" onClick={() => setInstallFor({ items: installable, clear })} disabled={installable.length === 0}>
+              <Button size="compact-sm" onClick={() => setInstallFor({ items: ready, clear })} disabled={ready.length === 0}>
                 Install selected
               </Button>
               <Button size="compact-sm" variant="default" onClick={() => hide.mutate({ ids: rows.filter((i) => i.state !== "hidden").map((i) => i.update_id), hide: true, clear })} disabled={rows.every((i) => i.state === "hidden")}>
@@ -231,13 +259,13 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           );
         }}
       />
-      {installFor && <InstallModal items={installFor.items} busy={install.isPending} onCancel={() => setInstallFor(null)} onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart })} />}
-      {restartOpen && <RestartModal busy={reboot.isPending} onCancel={() => setRestartOpen(false)} onConfirm={(m) => reboot.mutate(m)} />}
+      {installFor && <InstallModal items={installFor.items} busy={install.isPending} onCancel={() => setInstallFor(null)} onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart }, { onSuccess: () => (installFor.clear(), setInstallFor(null)) })} />}
+      {restartOpen && <RestartModal busy={reboot.isPending} onCancel={() => setRestartOpen(false)} onConfirm={(m) => reboot.mutate(m, { onSuccess: () => setRestartOpen(false) })} />}
     </Stack>
   );
 }
 
-function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item[]; busy: boolean; onCancel: () => void; onConfirm: (r: RestartPolicy) => void }) {
+export function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item[]; busy: boolean; onCancel: () => void; onConfirm: (r: RestartPolicy) => void }) {
   const [restart, setRestart] = useState("never");
   return (
     <Modal opened onClose={onCancel} title={`Install ${items.length} update${items.length === 1 ? "" : "s"} now`}>
@@ -273,7 +301,7 @@ function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item[]; bus
   );
 }
 
-function RestartModal({ busy, onCancel, onConfirm }: { busy: boolean; onCancel: () => void; onConfirm: (minutes: number) => void }) {
+export function RestartModal({ busy, onCancel, onConfirm }: { busy: boolean; onCancel: () => void; onConfirm: (minutes: number) => void }) {
   const [minutes, setMinutes] = useState<number | string>(15);
   return (
     <Modal opened onClose={onCancel} title="Restart this device">

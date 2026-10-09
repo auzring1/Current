@@ -43,6 +43,15 @@ func TestDashboardNotificationsAndLayoutPreferences(t *testing.T) {
 		t.Fatalf("agent versions and activity: %v", d)
 	}
 
+	// The site switcher narrows the numbers to one site; a bad id is refused.
+	_, ds := h.do("GET", "/api/v1/dashboard?site="+branch["id"].(string), nil, nil)
+	if num(ds["devices"].(map[string]any)["total"]) != 1 {
+		t.Fatalf("one site: %v", ds["devices"])
+	}
+	if st, _ := h.do("GET", "/api/v1/dashboard?site=nope", nil, nil); st != 400 {
+		t.Fatalf("bad site: %d", st)
+	}
+
 	// The hourly snapshot feeds the chart; running it again the same day overwrites the row.
 	org := uuid.MustParse(h.session()["org"].(map[string]any)["id"].(string))
 	for range 2 {

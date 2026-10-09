@@ -107,7 +107,7 @@ export function AppearanceProvider({ nonce, children }: { nonce: string; childre
     onError: (_e, _n, ctx) => ctx?.prev && qc.setQueryData(["preferences"], ctx.prev),
     onSuccess: (saved) => qc.setQueryData(["preferences"], saved),
   });
-  const current = (): Prefs => ({ theme: choice, density: densityChoice as Prefs["density"], views: prefs?.views ?? {} });
+  const current = (): Prefs => ({ ...(prefs ?? {}), theme: choice, density: densityChoice as Prefs["density"], views: prefs?.views ?? {} });
 
   const value = useMemo<Appearance>(
     () => ({

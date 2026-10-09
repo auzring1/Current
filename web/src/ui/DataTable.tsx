@@ -85,6 +85,11 @@ export interface DataTableProps<T> {
   rowTestId?: string;
   /** Called with the rows that are currently shown after filtering (for tiles that mirror the table). */
   onVisibleRows?: (rows: T[]) => void;
+  /**
+   * Filters and a search to start from, e.g. when a dashboard tile links here. While a preset is set the table
+   * adopts it and does not remember the layout (a drill-down must not become the next visit's default).
+   */
+  preset?: { filters?: { id: string; value: string }[]; search?: string };
 }
 
 interface Layout {
@@ -128,14 +133,22 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const [visibility, setVisibility] = useState<VisibilityState>(() => Object.fromEntries((saved.hidden ?? defaults.hidden).map((id) => [id, false])));
   const [order, setOrder] = useState<string[]>(saved.order ?? columns.map((c) => c.id));
   const [sizes, setSizes] = useState<ColumnSizingState>(saved.sizes ?? {});
-  const [filters, setFilters] = useState<ColumnFiltersState>(saved.filters ?? []);
-  const [search, setSearch] = useState(saved.search ?? "");
+  const [filters, setFilters] = useState<ColumnFiltersState>(p.preset ? (p.preset.filters ?? []) : (saved.filters ?? []));
+  const [search, setSearch] = useState(p.preset ? (p.preset.search ?? "") : (saved.search ?? ""));
+  const presetKey = p.preset ? JSON.stringify(p.preset) : "";
+  useEffect(() => {
+    if (!presetKey) return;
+    const x = JSON.parse(presetKey) as NonNullable<DataTableProps<T>["preset"]>;
+    setFilters(x.filters ?? []);
+    setSearch(x.search ?? "");
+  }, [presetKey]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: saved.pageSize ?? p.pageSize ?? 25 });
   const [activeView, setActiveView] = useState<string>("");
 
   // Keep the layout across visits on this device.
   useEffect(() => {
+    if (presetKey) return;
     const hidden = Object.entries(visibility).filter(([, v]) => v === false).map(([k]) => k);
     const l: Layout = { sorting, hidden, order, sizes, filters, search, pageSize: pagination.pageSize };
     try {
@@ -143,7 +156,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
     } catch {
       /* private mode */
     }
-  }, [p.id, sorting, visibility, order, sizes, filters, search, pagination.pageSize]);
+  }, [p.id, sorting, visibility, order, sizes, filters, search, pagination.pageSize, presetKey]);
 
   const isSelectable = useCallback((row: T) => (typeof p.selectable === "function" ? p.selectable(row) : !!p.selectable), [p.selectable]);
 

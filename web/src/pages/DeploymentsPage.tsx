@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Group } from "@mantine/core";
 import { api, type DeploymentSummary } from "../api/client";
 import { dateTime } from "../api/format";
@@ -51,13 +51,16 @@ const NONE: DeploymentSummary[] = [];
 export function DeploymentsPage() {
   const { can } = useSession();
   const nav = useNavigate();
+  const [urlParams, setUrlParams] = useSearchParams();
+  const onlyFailed = urlParams.get("failed") === "1"; // the dashboard's failed-jobs tile
   const [offset, setOffset] = useState(0);
   const q = useQuery({
     queryKey: ["deployments", "list", offset],
     queryFn: () => api<{ items: DeploymentSummary[] }>("GET", `/deployments?limit=${PAGE}&offset=${offset}`),
     refetchInterval: 30_000,
   });
-  const items = q.data?.items;
+  const all = q.data?.items;
+  const items = useMemo(() => (onlyFailed ? all?.filter((d) => d.jobs_failed > 0) : all), [all, onlyFailed]);
 
   const columns = useMemo<Column<DeploymentSummary>[]>(
     () => [
@@ -141,6 +144,15 @@ export function DeploymentsPage() {
           ) : undefined
         }
       />
+      {onlyFailed && (
+        <div className="rnv-chips" role="status">
+          <span>Showing</span>
+          <span className="rnv-chip rnv-chip--static">Deployments with failed jobs</span>
+          <Button size="compact-sm" variant="default" onClick={() => setUrlParams({}, { replace: true })}>
+            Show all deployments
+          </Button>
+        </div>
+      )}
       {q.isLoading ? (
         <TileSkeleton count={4} />
       ) : items && items.length > 0 ? (
@@ -179,12 +191,12 @@ export function DeploymentsPage() {
           />
         }
       />
-      {(offset > 0 || (items?.length ?? 0) === PAGE) && (
+      {(offset > 0 || (all?.length ?? 0) === PAGE) && (
         <Group>
           <Button variant="default" leftSection={<Icons.ChevronLeft size={16} aria-hidden />} disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
             Newer
           </Button>
-          <Button variant="default" rightSection={<Icons.ChevronRight size={16} aria-hidden />} disabled={(items?.length ?? 0) < PAGE} onClick={() => setOffset(offset + PAGE)}>
+          <Button variant="default" rightSection={<Icons.ChevronRight size={16} aria-hidden />} disabled={(all?.length ?? 0) < PAGE} onClick={() => setOffset(offset + PAGE)}>
             Older
           </Button>
         </Group>

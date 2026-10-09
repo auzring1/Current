@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronRight } from "./icons";
+import { trail } from "./nav";
 
 export interface Crumb {
   label: string;
@@ -28,15 +29,21 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
 interface HeaderProps {
   title: ReactNode;
   description?: ReactNode;
+  /** Replaces the automatic trail (rarely needed). */
   breadcrumbs?: Crumb[];
+  /** The name of this page below the section the navigation puts it in, e.g. a device's host name. */
+  crumb?: string;
   actions?: ReactNode;
 }
 
 /** The page's single h1, with optional breadcrumbs, a description and page-level actions. */
-export function PageHeader({ title, description, breadcrumbs, actions }: HeaderProps) {
+export function PageHeader({ title, description, breadcrumbs, crumb, actions }: HeaderProps) {
+  const { pathname } = useLocation();
+  const auto = trail(pathname);
+  const items = breadcrumbs ?? (crumb ? [...auto, { label: crumb }] : auto);
   return (
     <div>
-      {breadcrumbs && breadcrumbs.length > 1 && <Breadcrumbs items={breadcrumbs} />}
+      {items.length > 1 && <Breadcrumbs items={items} />}
       <div className="rnv-pagehead">
         <div>
           <h1 className="rnv-pagehead__title">{title}</h1>

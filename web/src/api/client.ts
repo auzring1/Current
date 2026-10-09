@@ -49,6 +49,7 @@ export type SoftwarePolicy = components["schemas"]["SoftwarePolicy"];
 export type ComplianceRow = components["schemas"]["ComplianceRow"];
 export type ReportOverview = components["schemas"]["ReportOverview"];
 export type JobDetail = components["schemas"]["JobDetail"];
+export type Dashboard = components["schemas"]["Dashboard"];
 
 let csrfToken = "";
 
@@ -118,6 +119,7 @@ export type PublicBranding = components["schemas"]["PublicBranding"];
 export type BrandingView = components["schemas"]["BrandingView"];
 export type BrandingSettings = components["schemas"]["BrandingSettings"];
 export type Preferences = components["schemas"]["Preferences"];
+export type Notification = components["schemas"]["Notification"];
 export type BrandingAssetKind = components["schemas"]["BrandingAssetKind"];
 
 /** Uploads one branding image as a raw PNG/JPEG body. The server re-encodes it; the result is the new view. */
