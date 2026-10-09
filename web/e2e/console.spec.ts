@@ -313,7 +313,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(page.getByTestId("software-row").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Uninstall Software" })).toHaveCount(0); // the bulk bar appears with a selection
       await page.getByTestId("software-row").first().getByRole("checkbox").check();
-      await expect(page.getByText("1 selected")).toBeVisible();
+      await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
       await shot(page, "14-device-software-selected");
       await page.getByRole("button", { name: "Uninstall Software" }).click();
       await expect(page.getByRole("table", { name: "Programs to uninstall" })).toBeVisible();
