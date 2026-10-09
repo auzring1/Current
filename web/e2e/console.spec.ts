@@ -41,7 +41,7 @@ async function shot(page: Page, name: string) {
   for (let i = 0; i < 8; i++) {
     const close = page.getByRole("button", { name: "Dismiss notification" }).first();
     if (!(await close.isVisible().catch(() => false))) break;
-    await close.click().catch(() => undefined);
+    await close.click({ timeout: 1500 }).catch(() => undefined);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.mouse.move(0, 0);
