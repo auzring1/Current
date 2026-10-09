@@ -131,6 +131,16 @@ func TestBuildInstallBodyFromImported(t *testing.T) {
 		body.Installer.Sources[0].Url == "" || len(body.Detection) != 1 || body.Installer.Size != 0 {
 		t.Fatalf("%+v", body)
 	}
+	// The manifest's product code of this EXE installer is an uninstall key name ("7-Zip"), which the agent refuses in a
+	// job body ("product code is not a GUID"); a GUID product code is still sent.
+	if exe.ProductCode == "" || body.Installer.ProductCode != "" {
+		t.Fatalf("a non-GUID product code must not be sent to the agent: stored %q, sent %q", exe.ProductCode, body.Installer.ProductCode)
+	}
+	msi := *exe
+	msi.ProductCode = "{23170F69-40C1-2701-2409-000001000000}"
+	if b, err := BuildInstallBody(BuildInput{Pkg: pkg, Ver: ver, Inst: msi, Scope: "machine"}); err != nil || b.Installer.ProductCode != msi.ProductCode {
+		t.Fatalf("a GUID product code is sent: %v %+v", err, b)
+	}
 	// an override replaces the switches (validated) and adds a detection rule
 	if err := s.SetOverride(ctx, org, user, pkg.ID, Override{SilentArgs: []string{"/S", "/D=C:\\Tools\\7z"},
 		ExtraDetection: []Detection{{Kind: "file", Key: `%ProgramFiles%\7-Zip\7z.exe`}}}); err != nil {
