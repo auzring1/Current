@@ -2,6 +2,7 @@ package auth
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -37,6 +38,16 @@ const (
 	PermLicenseRead      = "license:read"   // the installed license, device usage and history
 	PermLicenseWrite     = "license:write"  // install a license (administrators only)
 	PermBrandingWrite    = "branding:write" // organization name, product name, colors, login texts and images (administrators only)
+
+	// Settings sections (decision D95). Administrators hold all of them; operators the day-to-day ones.
+	PermSettingsAppearance    = "settings:appearance"
+	PermSettingsSecurity      = "settings:security"
+	PermSettingsNotifications = "settings:notifications"
+	PermSettingsUpdates       = "settings:updates"
+	PermSettingsDevices       = "settings:devices"
+	PermSettingsReports       = "settings:reports"
+	PermSettingsData          = "settings:data"
+	PermSettingsIntegrations  = "settings:integrations"
 )
 
 // Roles.
@@ -58,10 +69,12 @@ var rolePerms = map[string][]string{
 		PermCatalogRead, PermCatalogWrite, PermCatalogOverride, PermDeploymentsRead, PermDeploymentsWrite, PermSettingsWrite,
 		PermUpdatesRead, PermUpdatesWrite, PermUpdatesPolicy, PermReleasesRead, PermReleasesWrite,
 		PermSitesRead, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesRead, PermPoliciesWrite, PermReportsRead,
-		PermLicenseRead, PermLicenseWrite, PermBrandingWrite},
+		PermLicenseRead, PermLicenseWrite, PermBrandingWrite,
+		PermSettingsAppearance, PermSettingsSecurity, PermSettingsNotifications, PermSettingsUpdates, PermSettingsDevices, PermSettingsReports, PermSettingsData, PermSettingsIntegrations},
 	RoleOperator: {PermDevicesRead, PermDevicesWrite, PermEnrollmentRead, PermGroupsRead, PermGroupsWrite, PermInventoryExport,
 		PermCatalogRead, PermCatalogWrite, PermDeploymentsRead, PermDeploymentsWrite, PermUpdatesRead, PermUpdatesWrite, PermReleasesRead,
-		PermSitesRead, PermPoliciesRead, PermReportsRead, PermLicenseRead},
+		PermSitesRead, PermPoliciesRead, PermReportsRead, PermLicenseRead,
+		PermSettingsNotifications, PermSettingsDevices, PermSettingsReports},
 	RoleReadOnly: {PermDevicesRead, PermGroupsRead, PermCatalogRead, PermDeploymentsRead, PermUpdatesRead, PermReleasesRead,
 		PermSitesRead, PermPoliciesRead, PermReportsRead},
 }
@@ -77,7 +90,7 @@ var siteScopable = map[string]bool{
 // TokenScopable reports whether a permission may be put in an API token. Identity administration
 // stays interactive: tokens cannot manage users, roles or other tokens.
 func TokenScopable(perm string) bool {
-	return perm != PermUsersRead && perm != PermUsersWrite && perm != PermBrandingWrite
+	return perm != PermUsersRead && perm != PermUsersWrite && perm != PermBrandingWrite && (perm == PermSettingsWrite || !strings.HasPrefix(perm, "settings:"))
 }
 
 // AllPermissions is every permission name, sorted.

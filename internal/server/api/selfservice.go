@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -59,7 +60,7 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, "Choose a password you have not used just now.")
 		return
 	}
-	if err := auth.ValidatePassword(req.New, u.Email); err != nil {
+	if err := auth.ValidatePasswordMin(req.New, u.Email, s.secSettings(r.Context(), u.OrgID).Int("password_min_length")); err != nil {
 		badRequest(w, err.Error())
 		return
 	}
@@ -171,8 +172,12 @@ func (s *server) createAPIToken(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, "Give the token a name (1 to 100 characters).")
 		return
 	}
-	if req.ExpiresDays < 1 || req.ExpiresDays > maxTokenDays {
-		badRequest(w, "A token must expire within 1 to 365 days.")
+	maxDays := maxTokenDays
+	if v := s.secSettings(r.Context(), principalFrom(r).OrgID).Int("api_token_max_days"); v > 0 && v < maxDays {
+		maxDays = v
+	}
+	if req.ExpiresDays < 1 || req.ExpiresDays > maxDays {
+		badRequest(w, "A token must expire within 1 to "+strconv.Itoa(maxDays)+" days.")
 		return
 	}
 	if len(req.Scopes) == 0 || len(req.Scopes) > 64 {
@@ -343,6 +348,10 @@ func (s *server) beginSecurityKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := principalFrom(r)
+	if v := s.secSettings(r.Context(), p.OrgID); !v.Bool("allow_security_keys") {
+		writeError(w, http.StatusForbidden, "security_keys_off", "Your administrator has turned off adding security keys.")
+		return
+	}
 	if p.TokenID != "" {
 		writeError(w, http.StatusForbidden, "forbidden", "Use the console to manage security keys.")
 		return

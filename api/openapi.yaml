@@ -27,6 +27,7 @@ tags:
   - name: policies
   - name: license
   - name: branding
+  - name: settings
 paths:
   /setup/status:
     get:
@@ -1181,6 +1182,160 @@ paths:
         "200": { $ref: "#/components/responses/SessionStarted" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+  /auth/notice:
+    get:
+      tags: [auth]
+      summary: The notice shown on the sign-in page, if the organization set one (public)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled: { type: boolean }
+                  text: { type: string }
+                  require_ack: { type: boolean }
+  /settings/schema:
+    get:
+      tags: [settings]
+      summary: The settings sections the caller may open, with each field's label, help text, default, type and limits
+      description: >
+        Settings are declared once on the server; this is that declaration. Each section needs its own permission
+        (settings:appearance, settings:security, settings:notifications, settings:updates, settings:devices,
+        settings:reports, settings:data, settings:integrations); administrators hold all, operators the notifications,
+        devices and reports sections. API tokens cannot hold these permissions.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsSchema" }
+  /settings/effective:
+    get:
+      tags: [settings]
+      summary: The organization's display and formatting choices and the device and update defaults, for any signed-in person (no secrets, no security settings)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /settings/sections/{section}:
+    parameters:
+      - { name: section, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [settings]
+      summary: One section's saved values (defaults where nothing was saved), its revision and which secrets are set
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsDoc" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      summary: Save a section (validated on the server, audited with before and after)
+      description: >
+        Send the revision you edited (0 if never saved) and the values. Keys you leave out keep their saved values. A
+        secret is written by sending text, kept by leaving it out, and cleared with an empty string; secrets are never
+        returned or exported. A different revision answers 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, values]
+              properties:
+                revision: { type: integer, format: int64 }
+                values: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsDoc" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/export:
+    get:
+      tags: [settings]
+      summary: Every section's values as a JSON file (administrators; secrets are never included)
+      responses:
+        "200":
+          description: The settings file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsFile" }
+  /settings/import:
+    post:
+      tags: [settings]
+      summary: Apply a settings file made by export (administrators); dry_run=1 only checks it
+      parameters:
+        - { name: dry_run, in: query, required: false, schema: { type: string, enum: ["0", "1", "true", "false"] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsFile" }
+      responses:
+        "200":
+          description: Applied (or checked)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/notifications/test-email:
+    post:
+      tags: [settings]
+      summary: Send a test message with the saved mail settings and report the mail server's own error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string }
+      responses:
+        "200": { description: Sent }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/notifications/log:
+    get:
+      tags: [settings]
+      summary: Recent notification deliveries and failures
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /settings/integrations/webhooks/{id}/test:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [settings]
+      summary: Send a test event to one saved webhook
+      responses:
+        "200": { description: Delivered }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/events:
+    get:
+      tags: [settings]
+      summary: The webhook event reference, with an example payload for each event
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
   /dashboard:
     get:
       tags: [reports]
@@ -2331,6 +2486,59 @@ components:
               type: array
               maxItems: 32
               items: { type: string, pattern: "^[a-z][a-z0-9-]{0,39}$" }
+    SettingsSchema:
+      type: object
+      properties:
+        schema_version: { type: integer }
+        events: { type: array, items: { type: object, properties: { value: { type: string }, label: { type: string } } } }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/SettingsSection" }
+    SettingsSection:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        description: { type: string }
+        perm: { type: string }
+        editable: { type: boolean }
+        fields: { type: array, items: { $ref: "#/components/schemas/SettingsField" } }
+    SettingsField:
+      type: object
+      description: One setting. kind is bool, int, string, text, enum, multi, time, timezone, emails, cidrs, url, secret, list, regex or tags.
+      properties:
+        key: { type: string }
+        label: { type: string }
+        help: { type: string }
+        kind: { type: string }
+        default: {}
+        min: { type: integer }
+        max: { type: integer }
+        unit: { type: string }
+        placeholder: { type: string }
+        required: { type: boolean }
+        fixed: { type: boolean }
+        item_key: { type: string }
+        show_if: { type: string }
+        effect: { type: string, enum: [live, prefill, planned], description: "live: acted on now; prefill: used as a starting value; planned: stored only" }
+        options: { type: array, items: { type: object, properties: { value: { type: string }, label: { type: string } } } }
+        fields: { type: array, items: { $ref: "#/components/schemas/SettingsField" } }
+    SettingsDoc:
+      type: object
+      properties:
+        section: { type: string }
+        revision: { type: integer, format: int64 }
+        values: { type: object, additionalProperties: true }
+        secrets_set: { type: object, additionalProperties: { type: boolean } }
+        updated_at: { type: string, format: date-time }
+    SettingsFile:
+      type: object
+      required: [format, schema_version, sections]
+      properties:
+        format: { type: string, enum: [renovatio-settings] }
+        schema_version: { type: integer }
+        exported_at: { type: string, format: date-time }
+        sections: { type: object, additionalProperties: { type: object, additionalProperties: true } }
     Notification:
       type: object
       properties:

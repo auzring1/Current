@@ -388,6 +388,22 @@ type MfaTotp struct {
 	ConfirmedAt  time.Time
 }
 
+type NotificationOutbox struct {
+	ID        int64
+	OrgID     uuid.UUID
+	Channel   string
+	Event     string
+	Target    string
+	DedupeKey string
+	Payload   []byte
+	Status    string
+	Attempts  int32
+	NotBefore time.Time
+	LastError string
+	CreatedAt time.Time
+	SentAt    *time.Time
+}
+
 type OrgSetting struct {
 	OrgID            uuid.UUID
 	UserScopePolicy  string
@@ -457,6 +473,17 @@ type Session struct {
 	Ip             string
 	UserAgent      string
 	CsrfToken      string
+}
+
+type SettingsSection struct {
+	OrgID         uuid.UUID
+	Section       string
+	Revision      int64
+	SchemaVersion int32
+	Data          []byte
+	Secrets       []byte
+	UpdatedAt     time.Time
+	UpdatedBy     *uuid.UUID
 }
 
 type SetupState struct {
