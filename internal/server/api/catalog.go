@@ -24,22 +24,35 @@ import (
 const maxUpload = 2 << 30
 
 type packageView struct {
-	ID           uuid.UUID `json:"id"`
-	Source       string    `json:"source"`
-	Identifier   string    `json:"identifier"`
-	Name         string    `json:"name"`
-	Publisher    string    `json:"publisher"`
-	Homepage     string    `json:"homepage"`
-	License      string    `json:"license"`
-	Description  string    `json:"description"`
-	Verified     bool      `json:"verified"`
-	SelfUpdating bool      `json:"self_updating"`
-	ImportedAt   time.Time `json:"imported_at"`
-	VersionCount int32     `json:"version_count"`
+	ID          uuid.UUID `json:"id"`
+	Source      string    `json:"source"`
+	Identifier  string    `json:"identifier"`
+	Name        string    `json:"name"`
+	Publisher   string    `json:"publisher"`
+	Homepage    string    `json:"homepage"`
+	License     string    `json:"license"`
+	Description string    `json:"description"`
+	Verified    bool      `json:"verified"`
+	// VerifiedSource says why the package counts as verified: "tests" (it passed the VM test matrix) or "organization" (an
+	// administrator marked it after testing it); empty when it is not verified.
+	VerifiedSource string    `json:"verified_source"`
+	SelfUpdating   bool      `json:"self_updating"`
+	ImportedAt     time.Time `json:"imported_at"`
+	VersionCount   int32     `json:"version_count"`
+}
+
+func verifiedSourceOf(verified, byOrg bool) string {
+	switch {
+	case byOrg:
+		return "organization"
+	case verified:
+		return "tests"
+	}
+	return ""
 }
 
 func viewPackage(p dbq.CatalogPackage, versions int32) packageView {
-	return packageView{ID: p.ID, Source: p.Source, Identifier: p.Identifier, Name: p.Name, Publisher: p.Publisher, Homepage: p.Homepage,
+	return packageView{VerifiedSource: verifiedSourceOf(p.Verified, p.VerifiedByOrg), ID: p.ID, Source: p.Source, Identifier: p.Identifier, Name: p.Name, Publisher: p.Publisher, Homepage: p.Homepage,
 		License: p.License, Description: p.Description, Verified: p.Verified, SelfUpdating: p.SelfUpdating, ImportedAt: p.ImportedAt, VersionCount: versions}
 }
 
@@ -69,7 +82,7 @@ func (s *server) listPackages(w http.ResponseWriter, r *http.Request) {
 	items := make([]packageView, 0, len(rows))
 	for _, p := range rows {
 		items = append(items, packageView{ID: p.ID, Source: p.Source, Identifier: p.Identifier, Name: p.Name, Publisher: p.Publisher,
-			Homepage: p.Homepage, License: p.License, Description: p.Description, Verified: p.Verified, SelfUpdating: p.SelfUpdating,
+			Homepage: p.Homepage, License: p.License, Description: p.Description, Verified: p.Verified, VerifiedSource: verifiedSourceOf(p.Verified, p.VerifiedByOrg), SelfUpdating: p.SelfUpdating,
 			ImportedAt: p.ImportedAt, VersionCount: p.VersionCount})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
@@ -105,7 +118,7 @@ func (s *server) searchCatalog(w http.ResponseWriter, r *http.Request) {
 	for _, x := range rows {
 		have[strings.ToLower(x.Identifier)] = true
 		imported = append(imported, packageView{ID: x.ID, Source: x.Source, Identifier: x.Identifier, Name: x.Name, Publisher: x.Publisher,
-			Verified: x.Verified, SelfUpdating: x.SelfUpdating, ImportedAt: x.ImportedAt, VersionCount: x.VersionCount})
+			Verified: x.Verified, VerifiedSource: verifiedSourceOf(x.Verified, x.VerifiedByOrg), SelfUpdating: x.SelfUpdating, ImportedAt: x.ImportedAt, VersionCount: x.VersionCount})
 	}
 	sugg := []suggestionView{}
 	for _, e := range s.Catalog.Overlay.Known() {
@@ -284,8 +297,23 @@ func (s *server) getPackage(w http.ResponseWriter, r *http.Request) {
 	if ov.UserScopePolicy != "" {
 		effective, from = ov.UserScopePolicy, "this package"
 	}
+	// Who vouched for the package, when, and for which version (an administrator's mark).
+	type verView struct {
+		By      string     `json:"by,omitempty"`
+		At      *time.Time `json:"at,omitempty"`
+		Version string     `json:"version,omitempty"`
+	}
+	var ver *verView
+	if pkg.VerifiedByOrg {
+		ver = &verView{At: pkg.VerifiedAt, Version: pkg.VerifiedVersion}
+		if pkg.VerifiedBy != nil {
+			if u, err := q.GetUserInOrg(r.Context(), dbq.GetUserInOrgParams{ID: *pkg.VerifiedBy, OrgID: pkg.OrgID}); err == nil {
+				ver.By = u.DisplayName
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"package": viewPackage(pkg, int32(len(vs))), "versions": views, "override": ov, // #nosec G115 -- small
-		"effective_user_scope_policy": effective, "effective_user_scope_policy_source": from})
+		"effective_user_scope_policy": effective, "effective_user_scope_policy_source": from, "verification": ver})
 }
 
 func nzs(s []string) []string {
@@ -491,4 +519,42 @@ func (s *server) refreshWingetIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	st, _ := s.Winget.Status(r.Context())
 	writeJSON(w, http.StatusOK, st)
+}
+
+// PUT /catalog/packages/{id}/verification: an administrator marks a winget package verified after testing it, or removes
+// the mark. Verified packages deploy without the confirmation; the change is audited with its before and after.
+func (s *server) setPackageVerification(w http.ResponseWriter, r *http.Request) {
+	if !s.catalogSvc(w) {
+		return
+	}
+	pkg, ok := s.packageFromURL(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Verified bool `json:"verified"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	p := principalFrom(r)
+	ch, err := s.Catalog.SetOrgVerified(r.Context(), p.OrgID, p.UserID, pkg.ID, req.Verified)
+	if err != nil {
+		if errors.Is(err, catalog.ErrInvalid) {
+			writeError(w, http.StatusUnprocessableEntity, "invalid_verification", strings.TrimPrefix(err.Error(), catalog.ErrInvalid.Error()+": "))
+			return
+		}
+		s.Log.Error("package verification", "err", err)
+		internalError(w)
+		return
+	}
+	action := "catalog.verify"
+	if !req.Verified {
+		action = "catalog.unverify"
+	}
+	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r),
+		Action: action, TargetType: "package", TargetIDs: []string{pkg.ID.String()}, Outcome: audit.Success,
+		Details: map[string]any{"identifier": ch.Identifier, "version": ch.Version, "tests_passed": ch.TestsPassed,
+			"before": map[string]any{"verified": ch.BeforeVerified, "by_organization": ch.BeforeByOrg}, "after": map[string]any{"verified": ch.AfterVerified, "by_organization": req.Verified}}})
+	w.WriteHeader(http.StatusNoContent)
 }

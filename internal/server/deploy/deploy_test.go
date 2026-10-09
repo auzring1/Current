@@ -392,6 +392,13 @@ func TestUnverifiedWingetNeedsConfirmation(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("the confirmation must be audited (found %d)", n)
 	}
+
+	// Once an administrator has marked the package verified, no confirmation is asked for.
+	f.exec("UPDATE catalog_packages SET verified = true, verified_by_org = true WHERE id = $1", f.pkg.ID)
+	d2 := f.device("pc2", "amd64")
+	if _, err := f.create(Request{Action: "install", Scope: "machine", DeviceIDs: []uuid.UUID{d2}}); err != nil {
+		t.Fatalf("a verified package must deploy without confirmation: %v", err)
+	}
 }
 
 func TestDispatchSignsVerifiableEnvelopes(t *testing.T) {

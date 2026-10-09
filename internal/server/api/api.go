@@ -220,6 +220,7 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/content", s.uploadContent)
 	r.With(s.require(auth.PermCatalogWrite)).Post("/catalog/custom", s.createCustom)
 	r.With(s.require(auth.PermCatalogOverride)).Put("/catalog/packages/{id}/overrides", s.putOverrides)
+	r.With(s.require(auth.PermCatalogOverride)).Put("/catalog/packages/{id}/verification", s.setPackageVerification)
 	r.With(s.require(auth.PermCatalogWrite)).Delete("/catalog/packages/{id}", s.deletePackage)
 	r.With(s.require(auth.PermCatalogRead)).Get("/settings", s.getSettings)
 	r.With(s.require(auth.PermSettingsWrite)).Put("/settings", s.putSettings)
