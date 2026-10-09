@@ -509,9 +509,66 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByText("Patch compliant")).toBeVisible();
   await shot(page, "23-reports");
 
-  // --- Branding: administrators only, live contrast check, preview, images, reset ---
+  // --- Settings: sections, search, validation, unsaved changes, secrets, export ---
   await mainNav(page).getByRole("link", { name: "Settings", exact: true }).click();
-  await page.getByRole("tab", { name: "Branding" }).click();
+  const setNav = page.getByRole("navigation", { name: "Settings sections" });
+  for (const name of ["General", "Branding", "Appearance", "Security", "Notifications", "Update defaults", "Device defaults", "Scheduled reports", "Data and retention", "Integrations", "About"]) {
+    await expect(setNav.getByRole("link", { name, exact: true })).toBeVisible();
+  }
+  // Search finds a setting by what it says, and jumps to it.
+  await page.getByTestId("settings-search").fill("lockout");
+  await expect(page.getByRole("list", { name: "Search results" }).getByRole("link", { name: /Lock an account after failed sign-ins/ })).toBeVisible();
+  await page.getByRole("list", { name: "Search results" }).getByRole("link", { name: /Lock an account/ }).click();
+  await expect(page).toHaveURL(/\/settings\/security\?field=lockout_threshold/);
+  const threshold = page.getByLabel("Lock an account after failed sign-ins", { exact: true });
+  await expect(threshold).toHaveValue("10");
+  await a11y(page, "settings-security");
+  await shot(page, "25-settings-security");
+  // A value the server refuses is shown next to the field; nothing is saved.
+  await threshold.fill("99");
+  await expect(page.getByText("Enter a number from 3 to 20.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await threshold.fill("7");
+  await expect(page.getByRole("region", { name: "Unsaved changes" })).toBeVisible();
+  // Leaving with unsaved changes asks first.
+  await setNav.getByRole("link", { name: "Appearance", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Leave without saving?" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/settings\/security/);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Security settings saved.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Unsaved changes" })).toBeHidden();
+  await page.reload();
+  await expect(page.getByLabel("Lock an account after failed sign-ins", { exact: true })).toHaveValue("7");
+  // The change is in the audit log with before and after.
+  await page.goto("/audit");
+  await expect(page.getByRole("heading", { name: "Audit log", exact: true })).toBeVisible();
+  await expect(page.getByRole("row", { name: /settings\.update/ }).first()).toBeVisible();
+  // Notifications: a mail password is write-only.
+  await page.goto("/settings/notifications");
+  await page.getByLabel("Send e-mail", { exact: true }).check({ force: true });
+  await page.getByLabel("Mail server", { exact: true }).fill("smtp.example.org");
+  await page.getByLabel("From address", { exact: true }).fill("renovatio@example.org");
+  await page.getByLabel("User name", { exact: true }).fill("mailer");
+  await page.getByLabel("Password", { exact: true }).fill("a-secret-mail-password");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Notifications settings saved.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("placeholder", /Saved/);
+  await expect(page.getByText("a-secret-mail-password")).toHaveCount(0);
+  await a11y(page, "settings-notifications");
+  await shot(page, "26-settings-notifications");
+  // Integrations and Appearance render and pass the accessibility scan.
+  await setNav.getByRole("link", { name: "Integrations", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Webhook reference" })).toBeVisible();
+  await a11y(page, "settings-integrations");
+  await setNav.getByRole("link", { name: "Appearance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Themes" })).toBeVisible();
+  await a11y(page, "settings-appearance");
+
+  // --- Branding: administrators only, live contrast check, preview, images, reset ---
+  await setNav.getByRole("link", { name: "Branding", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/branding$/);
   await expect(page).toHaveTitle("Branding · Acme Corp · Renovatio");
   await expect(page.getByLabel("Organization name")).toHaveValue("Acme Corp");

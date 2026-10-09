@@ -1,7 +1,11 @@
 package e2e
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -238,5 +242,56 @@ func TestSettingsPermissionsValidationAuditAndSecrets(t *testing.T) {
 	_, ev := h.do("GET", "/api/v1/settings/events", nil, nil)
 	if len(ev["events"].([]any)) < 5 {
 		t.Fatalf("events: %v", ev)
+	}
+}
+
+func TestAboutAndSupportBundleHaveNoSecrets(t *testing.T) {
+	h := newHarness(t)
+	h.setupAndLogin()
+	op := h.orgUser("op@example.com", "operator")
+	notif := map[string]any{"email_enabled": true, "smtp_host": "smtp.example.org", "from_address": "r@example.org", "smtp_username": "mailer", "smtp_password": "hunter2-very-secret"}
+	if st, b := h.do("PUT", "/api/v1/settings/sections/notifications", map[string]any{"revision": 0, "values": notif}, nil); st != 200 {
+		t.Fatalf("notifications: %d %v", st, b)
+	}
+	if st, _ := op.do("GET", "/api/v1/settings/about", nil, nil); st != 403 {
+		t.Fatalf("operator about: %d", st)
+	}
+	if st, _, _ := op.raw("GET", "/api/v1/settings/support-bundle", "", nil); st != 403 {
+		t.Fatalf("operator bundle: %d", st)
+	}
+	st, a := h.do("GET", "/api/v1/settings/about", nil, nil)
+	if st != 200 || a["version"] == nil || a["database_migration"] == nil || a["license"] == nil {
+		t.Fatalf("about: %d %v", st, a)
+	}
+	status, hdr, body := h.raw("GET", "/api/v1/settings/support-bundle", "", nil)
+	if status != 200 || hdr.Get("Content-Type") != "application/zip" {
+		t.Fatalf("bundle: %d %s", status, hdr.Get("Content-Type"))
+	}
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	var all strings.Builder
+	for _, f := range zr.File {
+		names[f.Name] = true
+		rc, _ := f.Open()
+		b, _ := io.ReadAll(rc)
+		_ = rc.Close()
+		all.Write(b)
+	}
+	for _, want := range []string{"README.txt", "about.json", "config.json", "settings.json", "audit-tail.json"} {
+		if !names[want] {
+			t.Errorf("the bundle lacks %s: %v", want, names)
+		}
+	}
+	text := all.String()
+	for _, secret := range []string{"hunter2", os.Getenv("RENOVATIO_MASTER_KEY"), "devpostgres", "smtp_password"} {
+		if secret != "" && strings.Contains(text, secret) {
+			t.Errorf("the bundle contains %q", secret)
+		}
+	}
+	if h.auditCount("settings.support_bundle") != 1 {
+		t.Fatal("the bundle download is audited")
 	}
 }

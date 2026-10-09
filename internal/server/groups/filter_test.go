@@ -219,3 +219,29 @@ func TestEvaluateAgainstDatabase(t *testing.T) {
 }
 
 func versionKey(v string) []byte { return vercmp.Key(v) }
+
+func TestCustomFieldFilter(t *testing.T) {
+	c := mustCompile(t, `{"op":"device","field":"custom.asset_tag","cmp":"contains","value":"HQ-"}`)
+	want := "(EXISTS (SELECT 1 FROM device_custom_values v WHERE v.device_id = d.id AND v.field_key = $3 AND (strpos(lower(v.value), $2) > 0)))"
+	if c.SQL != want {
+		t.Fatalf("sql:\n got %s\nwant %s", c.SQL, want)
+	}
+	ne := mustCompile(t, `{"op":"device","field":"custom.owner","cmp":"ne","value":"alice"}`)
+	if !strings.HasPrefix(ne.SQL, "(NOT EXISTS") {
+		t.Fatalf("ne must include devices without a value: %s", ne.SQL)
+	}
+	for _, bad := range []string{`custom.`, `custom.Bad Key`, `custom.x"; drop table devices; --`, `custom.` + strings.Repeat("a", 40)} {
+		n, err := Parse([]byte(`{"op":"device","field":"` + strings.ReplaceAll(bad, `"`, `\"`) + `","cmp":"eq","value":"x"}`))
+		if err == nil {
+			_, err = Compile(n, "$1", 2)
+		}
+		if err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	if n, err := Parse([]byte(`{"op":"device","field":"custom.tier","cmp":"lt","value":"x"}`)); err == nil {
+		if _, err := Compile(n, "$1", 2); err == nil {
+			t.Error("custom fields are text: lt is not allowed")
+		}
+	}
+}

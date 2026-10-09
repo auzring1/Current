@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { Alert, Anchor, Button, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { api, errorMessage, setCsrf } from "../api/client";
@@ -30,6 +32,10 @@ export function LoginPage() {
   const [useRecovery, setUseRecovery] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const notice = useQuery({ queryKey: ["auth-notice"], queryFn: () => api<{ enabled: boolean; text: string; require_ack: boolean }>("GET", "/auth/notice"), staleTime: 60_000, retry: false });
+  const [accepted, setAccepted] = useState(false);
+  const noticeOn = !!notice.data?.enabled;
+  const mustAccept = noticeOn && !!notice.data?.require_ack && !accepted;
 
   const run = async (fn: () => Promise<void>) => {
     setErr("");
@@ -113,12 +119,18 @@ export function LoginPage() {
           </p>
         )}
       </Stack>
+      {stage.kind === "password" && noticeOn && (
+        <section className="rnv-auth__notice" aria-label="Notice" data-testid="login-notice">
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{notice.data!.text}</p>
+          {notice.data!.require_ack && <Checkbox mt="xs" label="I have read and accept this notice" checked={accepted} onChange={(e) => setAccepted(e.currentTarget.checked)} />}
+        </section>
+      )}
       {stage.kind === "password" && (
-        <form onSubmit={(e) => (e.preventDefault(), void login())}>
+        <form onSubmit={(e) => (e.preventDefault(), mustAccept ? undefined : void login())}>
           <Stack>
             <TextInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} autoComplete="username" required autoFocus />
             <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoComplete="current-password" required />
-            <Button type="submit" loading={busy} fullWidth>
+            <Button type="submit" loading={busy} disabled={mustAccept} fullWidth>
               Continue
             </Button>
           </Stack>

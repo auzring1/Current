@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePreferences } from "../design/usePreferences";
+import { useEffective } from "../settings/useEffective";
 
 export interface NavLayout {
   /** Narrowed to an icon rail. */
@@ -9,12 +10,13 @@ export interface NavLayout {
 }
 
 const KEY = "rnv-nav";
-const read = (): NavLayout => {
+const read = (): NavLayout & { chosen: boolean } => {
   try {
-    const v = JSON.parse(window.localStorage.getItem(KEY) ?? "{}") as Partial<NavLayout>;
-    return { collapsed: v.collapsed === true, closed: Array.isArray(v.closed) ? v.closed.filter((x) => typeof x === "string") : [] };
+    const raw = window.localStorage.getItem(KEY);
+    const v = JSON.parse(raw ?? "{}") as Partial<NavLayout>;
+    return { collapsed: v.collapsed === true, closed: Array.isArray(v.closed) ? v.closed.filter((x) => typeof x === "string") : [], chosen: raw !== null };
   } catch {
-    return { collapsed: false, closed: [] };
+    return { collapsed: false, closed: [], chosen: false };
   }
 };
 const write = (l: NavLayout) => {
@@ -31,13 +33,18 @@ const write = (l: NavLayout) => {
  */
 export function useNavLayout() {
   const { prefs, ready, update } = usePreferences();
-  const [local, setLocal] = useState<NavLayout>(read);
-  const layout = useMemo<NavLayout>(() => (ready && prefs?.nav ? { collapsed: prefs.nav.collapsed ?? false, closed: prefs.nav.closed ?? [] } : local), [ready, prefs?.nav, local]);
+  const [local, setLocal] = useState(read);
+  // Until the person has arranged the sidebar themselves, the organization's choice (Settings > Appearance) applies.
+  const orgRail = useEffective().data?.appearance.sidebar_style === "rail";
+  const layout = useMemo<NavLayout>(() => {
+    if (ready && prefs?.nav) return { collapsed: prefs.nav.collapsed ?? false, closed: prefs.nav.closed ?? [] };
+    return { collapsed: local.chosen ? local.collapsed : orgRail, closed: local.closed };
+  }, [ready, prefs?.nav, local, orgRail]);
 
   const save = useCallback(
     (next: NavLayout) => {
       write(next);
-      setLocal(next);
+      setLocal({ ...next, chosen: true });
       if (ready) update({ nav: next });
     },
     [ready, update],

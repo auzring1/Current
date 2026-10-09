@@ -34,7 +34,7 @@ describe("navigation tree", () => {
 
   it("offers the Settings submenu entries the person may open", () => {
     const settings = visibleNav(only("catalog:read")).flatMap((g) => g.items).find((i) => i.id === "settings");
-    expect(settings?.children?.map((c) => c.id)).toEqual(["general"]);
+    expect(settings?.children?.map((c) => c.id)).toEqual(["settings-general"]);
     const admin = visibleNav(everything).flatMap((g) => g.items).find((i) => i.id === "settings");
     expect(admin?.children?.length).toBeGreaterThan(5);
   });
@@ -47,8 +47,8 @@ describe("locate and trail", () => {
     expect(locate("/devices/3b1c")?.item.id).toBe("devices");
     expect(locate("/updates")?.item.id).toBe("windows-updates");
     expect(locate("/updates/held")?.item.id).toBe("held-updates");
-    expect(locate("/settings")?.item.id).toBe("general");
-    expect(locate("/settings/branding")?.item.id).toBe("branding");
+    expect(locate("/settings")?.item.id).toBe("settings-general");
+    expect(locate("/settings/branding")?.item.id).toBe("settings-branding");
     expect(locate("/deployments/new")?.item.id).toBe("deployments");
     expect(locate("/nowhere")).toBeUndefined();
   });

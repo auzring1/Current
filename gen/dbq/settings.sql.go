@@ -85,6 +85,49 @@ func (q *Queries) ClaimDueNotifications(ctx context.Context, arg ClaimDueNotific
 	return items, nil
 }
 
+const dataFootprint = `-- name: DataFootprint :one
+SELECT (SELECT count(*) FROM jobs j WHERE j.org_id = $1)::bigint AS jobs,
+       (SELECT count(*) FROM compliance_snapshots c WHERE c.org_id = $1)::bigint AS snapshots,
+       (SELECT count(*) FROM notification_outbox n WHERE n.org_id = $1)::bigint AS notifications,
+       (SELECT count(*) FROM audit_log a WHERE a.org_id = $1)::bigint AS audit_entries,
+       (SELECT min(a2.ts) FROM audit_log a2 WHERE a2.org_id = $1) AS audit_since
+`
+
+type DataFootprintRow struct {
+	Jobs          int64
+	Snapshots     int64
+	Notifications int64
+	AuditEntries  int64
+	AuditSince    interface{}
+}
+
+func (q *Queries) DataFootprint(ctx context.Context, orgID uuid.UUID) (DataFootprintRow, error) {
+	row := q.db.QueryRow(ctx, dataFootprint, orgID)
+	var i DataFootprintRow
+	err := row.Scan(
+		&i.Jobs,
+		&i.Snapshots,
+		&i.Notifications,
+		&i.AuditEntries,
+		&i.AuditSince,
+	)
+	return i, err
+}
+
+const deleteDeviceCustomValue = `-- name: DeleteDeviceCustomValue :exec
+DELETE FROM device_custom_values WHERE device_id = $1 AND field_key = $2
+`
+
+type DeleteDeviceCustomValueParams struct {
+	DeviceID uuid.UUID
+	FieldKey string
+}
+
+func (q *Queries) DeleteDeviceCustomValue(ctx context.Context, arg DeleteDeviceCustomValueParams) error {
+	_, err := q.db.Exec(ctx, deleteDeviceCustomValue, arg.DeviceID, arg.FieldKey)
+	return err
+}
+
 const enqueueNotification = `-- name: EnqueueNotification :exec
 INSERT INTO notification_outbox (org_id, channel, event, target, dedupe_key, payload, not_before)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -228,6 +271,102 @@ func (q *Queries) InsertSettingsSection(ctx context.Context, arg InsertSettingsS
 	return err
 }
 
+const lastAuditByAction = `-- name: LastAuditByAction :one
+SELECT ts, details FROM audit_log WHERE org_id = $1 AND action = $2 ORDER BY id DESC LIMIT 1
+`
+
+type LastAuditByActionParams struct {
+	OrgID  *uuid.UUID
+	Action string
+}
+
+type LastAuditByActionRow struct {
+	Ts      time.Time
+	Details []byte
+}
+
+func (q *Queries) LastAuditByAction(ctx context.Context, arg LastAuditByActionParams) (LastAuditByActionRow, error) {
+	row := q.db.QueryRow(ctx, lastAuditByAction, arg.OrgID, arg.Action)
+	var i LastAuditByActionRow
+	err := row.Scan(&i.Ts, &i.Details)
+	return i, err
+}
+
+const lastBackupAudit = `-- name: LastBackupAudit :one
+SELECT ts, details FROM audit_log WHERE action = 'admin.backup' ORDER BY id DESC LIMIT 1
+`
+
+type LastBackupAuditRow struct {
+	Ts      time.Time
+	Details []byte
+}
+
+func (q *Queries) LastBackupAudit(ctx context.Context) (LastBackupAuditRow, error) {
+	row := q.db.QueryRow(ctx, lastBackupAudit)
+	var i LastBackupAuditRow
+	err := row.Scan(&i.Ts, &i.Details)
+	return i, err
+}
+
+const listCustomValuesForDevices = `-- name: ListCustomValuesForDevices :many
+SELECT device_id, field_key, value FROM device_custom_values WHERE device_id = ANY($1::uuid[])
+`
+
+type ListCustomValuesForDevicesRow struct {
+	DeviceID uuid.UUID
+	FieldKey string
+	Value    string
+}
+
+func (q *Queries) ListCustomValuesForDevices(ctx context.Context, deviceIds []uuid.UUID) ([]ListCustomValuesForDevicesRow, error) {
+	rows, err := q.db.Query(ctx, listCustomValuesForDevices, deviceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCustomValuesForDevicesRow{}
+	for rows.Next() {
+		var i ListCustomValuesForDevicesRow
+		if err := rows.Scan(&i.DeviceID, &i.FieldKey, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDeviceCustomValues = `-- name: ListDeviceCustomValues :many
+SELECT field_key, value FROM device_custom_values WHERE device_id = $1 ORDER BY field_key
+`
+
+type ListDeviceCustomValuesRow struct {
+	FieldKey string
+	Value    string
+}
+
+func (q *Queries) ListDeviceCustomValues(ctx context.Context, deviceID uuid.UUID) ([]ListDeviceCustomValuesRow, error) {
+	rows, err := q.db.Query(ctx, listDeviceCustomValues, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDeviceCustomValuesRow{}
+	for rows.Next() {
+		var i ListDeviceCustomValuesRow
+		if err := rows.Scan(&i.FieldKey, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNotificationLog = `-- name: ListNotificationLog :many
 SELECT id, channel, event, target, status, attempts, last_error, created_at, sent_at FROM notification_outbox
 WHERE org_id = $1 ORDER BY id DESC LIMIT $2
@@ -270,6 +409,40 @@ func (q *Queries) ListNotificationLog(ctx context.Context, arg ListNotificationL
 			&i.CreatedAt,
 			&i.SentAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleDevices = `-- name: ListStaleDevices :many
+SELECT id, hostname FROM devices WHERE org_id = $1 AND status IN ('revoked', 'retired') AND COALESCE(last_seen_at, revoked_at, enrolled_at) < $2 ORDER BY id LIMIT 200
+`
+
+type ListStaleDevicesParams struct {
+	OrgID      uuid.UUID
+	LastSeenAt *time.Time
+}
+
+type ListStaleDevicesRow struct {
+	ID       uuid.UUID
+	Hostname string
+}
+
+func (q *Queries) ListStaleDevices(ctx context.Context, arg ListStaleDevicesParams) ([]ListStaleDevicesRow, error) {
+	rows, err := q.db.Query(ctx, listStaleDevices, arg.OrgID, arg.LastSeenAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStaleDevicesRow{}
+	for rows.Next() {
+		var i ListStaleDevicesRow
+		if err := rows.Scan(&i.ID, &i.Hostname); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -393,4 +566,28 @@ func (q *Queries) UpdateSettingsSection(ctx context.Context, arg UpdateSettingsS
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const upsertDeviceCustomValue = `-- name: UpsertDeviceCustomValue :exec
+INSERT INTO device_custom_values (device_id, field_key, value, updated_at, updated_by) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (device_id, field_key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
+`
+
+type UpsertDeviceCustomValueParams struct {
+	DeviceID  uuid.UUID
+	FieldKey  string
+	Value     string
+	UpdatedAt time.Time
+	UpdatedBy *uuid.UUID
+}
+
+func (q *Queries) UpsertDeviceCustomValue(ctx context.Context, arg UpsertDeviceCustomValueParams) error {
+	_, err := q.db.Exec(ctx, upsertDeviceCustomValue,
+		arg.DeviceID,
+		arg.FieldKey,
+		arg.Value,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	return err
 }

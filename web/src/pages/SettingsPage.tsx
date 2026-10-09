@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Select, Tabs, Text } from "@mantine/core";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Alert, Button, Select, Text } from "@mantine/core";
 import { api, errorMessage, type OrgSettings } from "../api/client";
 import { useSession } from "../api/session";
-import { Card, Icons, Page, PageHeader, Skel, toast } from "../ui";
+import { Card, Icons, Skel, toast } from "../ui";
 
 const options = [
   { value: "report_only", label: "Report only: show per-user installs, never change them (default)" },
@@ -12,32 +11,6 @@ const options = [
   { value: "convert_to_machine", label: "Convert: remove the per-user copy, then install machine-wide" },
   { value: "remove", label: "Remove per-user copies" },
 ];
-
-/** The Settings area: General (for operators and administrators) and Branding (administrators). */
-export function SettingsLayout() {
-  const { can } = useSession();
-  const nav = useNavigate();
-  const loc = useLocation();
-  const tab = loc.pathname.startsWith("/settings/branding") ? "branding" : "general";
-  return (
-    <Page>
-      <PageHeader title="Settings" description="How this deployment behaves and how it looks." />
-      <Tabs value={tab} onChange={(v) => nav(v === "branding" ? "/settings/branding" : "/settings")}>
-        <Tabs.List aria-label="Settings sections">
-          <Tabs.Tab value="general" leftSection={<Icons.NavSettings size={16} aria-hidden />}>
-            General
-          </Tabs.Tab>
-          {can("branding:write") && (
-            <Tabs.Tab value="branding" leftSection={<Icons.Palette size={16} aria-hidden />}>
-              Branding
-            </Tabs.Tab>
-          )}
-        </Tabs.List>
-      </Tabs>
-      <Outlet />
-    </Page>
-  );
-}
 
 export function SettingsPage() {
   const { can } = useSession();

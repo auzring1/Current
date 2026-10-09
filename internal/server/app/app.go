@@ -35,6 +35,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/gateway"
 	"github.com/auzring1/renovatio/internal/server/kek"
 	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/maintenance"
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
@@ -60,6 +61,7 @@ type App struct {
 	Dashboard *dashboard.Service
 	Settings  *settings.Service
 	Notify    *notify.Service
+	Maint     *maintenance.Service
 	Catalog   *catalog.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
@@ -119,6 +121,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Releases.Licensing = lic
 	a.Dashboard = &dashboard.Service{Pool: pool, Log: log.With("component", "dashboard")}
 	a.Settings = &settings.Service{Pool: pool, Sealer: sealer, Log: log.With("component", "settings")}
+	a.Maint = &maintenance.Service{Pool: pool, Settings: a.Settings, Log: log.With("component", "maintenance")}
 	a.Notify = &notify.Service{Pool: pool, Settings: a.Settings, Branding: a.Branding, Licensing: lic, Log: log.With("component", "notify")}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Updates.OnHold = func(ctx context.Context, org uuid.UUID, title, ring, reason string) {
@@ -240,7 +243,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))
@@ -364,7 +367,7 @@ func (a *App) housekeeping(ctx context.Context) {
 			}
 			if n%1440 == 0 {
 				a.Updates.Prune(ctx)
-				a.Dashboard.Prune(ctx)
+				a.Maint.Tick(ctx)
 			}
 			if n%10 != 0 {
 				continue
