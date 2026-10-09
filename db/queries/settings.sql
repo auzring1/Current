@@ -77,3 +77,23 @@ SELECT (SELECT count(*) FROM jobs j WHERE j.org_id = $1)::bigint AS jobs,
        (SELECT count(*) FROM notification_outbox n WHERE n.org_id = $1)::bigint AS notifications,
        (SELECT count(*) FROM audit_log a WHERE a.org_id = $1)::bigint AS audit_entries,
        (SELECT min(a2.ts) FROM audit_log a2 WHERE a2.org_id = $1) AS audit_since;
+
+-- name: InsertReportRun :execrows
+INSERT INTO report_runs (org_id, schedule_id, due_at, started_at, name, report, format, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;
+
+-- name: FinishReportRun :exec
+UPDATE report_runs SET status = $4, error = $5, bytes = $6, recipients = $7 WHERE org_id = $1 AND schedule_id = $2 AND due_at = $3;
+
+-- name: CountReportRuns :one
+SELECT count(*)::bigint FROM report_runs WHERE org_id = $1 AND schedule_id = $2;
+
+-- name: ListReportRuns :many
+SELECT * FROM report_runs WHERE org_id = $1 ORDER BY started_at DESC LIMIT $2;
+
+-- name: PruneReportRuns :execrows
+DELETE FROM report_runs WHERE started_at < $1;
+
+-- name: ListActiveDevicesForReport :many
+SELECT hostname, os_caption, os_build, manufacturer, model, serial, logged_on_user, online, last_seen_at, agent_version, site_id
+FROM devices WHERE org_id = $1 AND status = 'active' ORDER BY lower(hostname), id LIMIT 20000;

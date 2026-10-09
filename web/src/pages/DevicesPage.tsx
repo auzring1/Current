@@ -152,11 +152,24 @@ export function DevicesPage() {
     ],
     [namingRe],
   );
+  const customCols = useMemo<Column<Device>[]>(
+    () =>
+      (eff?.custom_fields ?? []).map((f) => ({
+        id: `custom_${f.key}`,
+        header: f.label,
+        width: 150,
+        defaultHidden: !f.show_in_list,
+        value: (d: Device) => ((d as Device & { custom?: Record<string, string> }).custom ?? {})[f.key] ?? "",
+        filter: f.type === "select" ? { type: "select" as const, options: f.options.map((o) => ({ value: o, label: o })) } : { type: "text" as const },
+      })),
+    [eff?.custom_fields],
+  );
   // The organization's default columns (Settings > Device defaults) apply until a person arranges their own.
   const cols = useMemo(() => {
     const want = eff?.default_columns;
-    return want && want.length ? columns.map((c) => ({ ...c, defaultHidden: c.required ? false : !want.includes(c.id) })) : columns;
-  }, [columns, eff?.default_columns]);
+    const all = [...columns, ...customCols];
+    return want && want.length ? all.map((c) => (c.id.startsWith("custom_") ? c : { ...c, defaultHidden: c.required ? false : !want.includes(c.id) })) : all;
+  }, [columns, customCols, eff?.default_columns]);
 
   const rows = useMemo(() => (siteId ? q.data?.items.filter((d) => d.site_id === siteId) : q.data?.items), [q.data, siteId]);
   const o = overview.data;
@@ -196,7 +209,7 @@ export function DevicesPage() {
         data={rows}
         loading={q.isLoading}
         error={q.error}
-        key={(eff?.default_columns ?? []).join(",")}
+        key={(eff?.default_columns ?? []).join(",") + (eff?.custom_fields ?? []).map((f) => f.key).join(",")}
         columns={cols}
         rowId={(d) => d.id}
         rowHref={(d) => `/devices/${d.id}`}

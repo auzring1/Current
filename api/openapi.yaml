@@ -1373,6 +1373,25 @@ paths:
           content:
             application/json:
               schema: { type: object, additionalProperties: true }
+  /settings/reports/schedules/{id}/send-now:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [settings]
+      summary: Send one saved report schedule now (to its recipients, as PDF or CSV) and record the run
+      responses:
+        "200": { description: Sent }
+        "422": { $ref: "#/components/responses/Error" }
+  /settings/reports/runs:
+    get:
+      tags: [settings]
+      summary: The history of scheduled reports (sent, failed, skipped)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
   /settings/notifications/test-email:
     post:
       tags: [settings]

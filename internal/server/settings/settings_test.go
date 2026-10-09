@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -239,3 +240,13 @@ func TestEventReferenceCoversEveryEvent(t *testing.T) {
 }
 
 func toJSON(v any) string { b, _ := jsonMarshal(v); return string(b) }
+
+func TestSettingsDocIsUpToDate(t *testing.T) {
+	b, err := os.ReadFile("../../../docs/SETTINGS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != Markdown() {
+		t.Fatal("docs/SETTINGS.md is out of date: run  go run ./internal/server/settings/gen > docs/SETTINGS.md")
+	}
+}

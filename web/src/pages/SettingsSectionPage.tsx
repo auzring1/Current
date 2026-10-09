@@ -1,7 +1,7 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { Alert } from "@mantine/core";
 import { useSession } from "../api/session";
-import { EventReference, NotificationExtras, ThemePolicyCard, WebhookTest } from "../settings/extras";
+import { DataStatusCard, EventReference, NotificationExtras, ReportRuns, ReportSendNow, ThemePolicyCard, WebhookTest } from "../settings/extras";
 import { SectionForm } from "../settings/SectionForm";
 import { useSettingsSchema } from "../settings/SettingsShell";
 import { Card, Icons, Skel } from "../ui";
@@ -35,11 +35,13 @@ export function SettingsSectionPage() {
         key={sec.id}
         section={sec}
         focus={focus}
-        itemActions={sec.id === "integrations" ? (f, item) => <WebhookTest field={f} item={item} /> : undefined}
+        itemActions={sec.id === "integrations" ? (f, item) => <WebhookTest field={f} item={item} /> : sec.id === "reports" ? (f, item) => <ReportSendNow field={f} item={item} /> : undefined}
         after={
           <>
             {sec.id === "notifications" && <NotificationExtras />}
             {sec.id === "integrations" && <EventReference />}
+            {sec.id === "reports" && <ReportRuns />}
+            {sec.id === "data" && <DataStatusCard />}
           </>
         }
       />

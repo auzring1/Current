@@ -39,6 +39,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/reportsched"
 	"github.com/auzring1/renovatio/internal/server/settings"
 	"github.com/auzring1/renovatio/internal/server/store"
 	"github.com/auzring1/renovatio/internal/server/updates"
@@ -62,6 +63,7 @@ type App struct {
 	Settings  *settings.Service
 	Notify    *notify.Service
 	Maint     *maintenance.Service
+	Sched     *reportsched.Service
 	Catalog   *catalog.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
@@ -123,6 +125,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Settings = &settings.Service{Pool: pool, Sealer: sealer, Log: log.With("component", "settings")}
 	a.Maint = &maintenance.Service{Pool: pool, Settings: a.Settings, Log: log.With("component", "maintenance")}
 	a.Notify = &notify.Service{Pool: pool, Settings: a.Settings, Branding: a.Branding, Licensing: lic, Log: log.With("component", "notify")}
+	a.Sched = &reportsched.Service{Pool: pool, Settings: a.Settings, Mail: a.Notify, Log: log.With("component", "reports"), Names: func(ctx context.Context) (string, string, string) {
+		if p, err := a.Branding.Public(ctx); err == nil {
+			return p.OrgName, p.ProductName, p.AccentColor
+		}
+		return "", "Renovatio", "#1971c2"
+	}}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Updates.OnHold = func(ctx context.Context, org uuid.UUID, title, ring, reason string) {
 		a.Notify.Emit(ctx, org, notify.Event{Name: "update_held", Key: "hold:" + title + ":" + ring, Subject: title + " is held after ring " + ring,
@@ -243,7 +251,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))
@@ -358,6 +366,7 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Releases.Tick(ctx)
 			a.Licensing.Tick(ctx)
 			a.Notify.Tick(ctx)
+			a.Sched.Tick(ctx)
 			if n%5 == 0 {
 				a.Policies.Tick(ctx)
 			}

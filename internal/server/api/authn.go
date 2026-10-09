@@ -149,7 +149,7 @@ func (s *server) recordLoginFailure(r *http.Request, u dbq.User) {
 	threshold, lockFor := int32(maxLoginFailures), lockoutDuration
 	if s.Settings != nil {
 		v := s.secSettings(r.Context(), u.OrgID)
-		threshold, lockFor = int32(v.Int("lockout_threshold")), time.Duration(v.Int("lockout_minutes"))*time.Minute
+		threshold, lockFor = int32(v.Int("lockout_threshold")), time.Duration(v.Int("lockout_minutes"))*time.Minute // #nosec G115 -- validated to 3..20
 	}
 	if failures >= threshold {
 		t := s.now().Add(lockFor)

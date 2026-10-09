@@ -245,3 +245,148 @@ export function WebhookTest({ field, item }: { field: SettingsField; item: Value
   );
 }
 
+
+/** "Send now" for one saved report schedule. */
+export function ReportSendNow({ field, item }: { field: SettingsField; item: Values }) {
+  const qc = useQueryClient();
+  const id = String(item["id"] ?? "");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const send = useMutation({
+    mutationFn: () => api("POST", `/settings/reports/schedules/${id}/send-now`, {}),
+    onSuccess: () => {
+      setMsg({ ok: true, text: "Sent. Check the recipients' inbox." });
+      void qc.invalidateQueries({ queryKey: ["settings", "report-runs"] });
+    },
+    onError: (e) => {
+      setMsg({ ok: false, text: errorMessage(e) });
+      void qc.invalidateQueries({ queryKey: ["settings", "report-runs"] });
+    },
+  });
+  if (field.key !== "schedules") return null;
+  return (
+    <>
+      {msg && (
+        <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "rnv-muted" : "rnv-set-bad"} style={{ alignSelf: "center", marginRight: "auto" }}>
+          {msg.text}
+        </span>
+      )}
+      <Button size="compact-sm" variant="default" onClick={() => (setMsg(null), send.mutate())} loading={send.isPending} disabled={id === ""} title={id ? "Sends the saved version of this schedule now" : "Save first, then send"} leftSection={<Icons.Mail size={14} aria-hidden />}>
+        Send now
+      </Button>
+    </>
+  );
+}
+
+interface RunRow {
+  schedule_id: string;
+  due_at: string;
+  started_at: string;
+  name: string;
+  report: string;
+  format: string;
+  status: string;
+  error: string;
+  bytes: number;
+  recipients: number;
+}
+
+/** What scheduled reports were sent, failed or skipped lately. */
+export function ReportRuns() {
+  const q = useQuery({ queryKey: ["settings", "report-runs"], queryFn: () => api<{ items: RunRow[] }>("GET", "/settings/reports/runs"), refetchInterval: 60_000 });
+  const columns = useMemo<Column<RunRow>[]>(
+    () => [
+      { id: "when", header: "When", width: 170, value: (r) => new Date(r.started_at).getTime(), csv: (r) => r.started_at, cell: (r) => dateTime(r.started_at) },
+      { id: "name", header: "Schedule", width: 200, value: (r) => r.name },
+      { id: "report", header: "Report", width: 140, value: (r) => `${r.report.replace(/_/g, " ")} (${r.format})` },
+      { id: "to", header: "Recipients", align: "right", width: 100, value: (r) => r.recipients },
+      {
+        id: "status",
+        header: "Result",
+        width: 110,
+        value: (r) => r.status,
+        cell: (r) => (
+          <StatusPill kind={r.status === "sent" ? "success" : r.status === "failed" ? "danger" : "neutral"} size="sm">
+            {r.status}
+          </StatusPill>
+        ),
+      },
+      { id: "error", header: "Error", width: 280, wrap: true, value: (r) => r.error },
+    ],
+    [],
+  );
+  return (
+    <Card title="Recent reports" description="Each due time is sent once. A schedule that is new, or whose time passed while the server was off for hours, is skipped rather than sent late; Send now sends one on demand.">
+      <DataTable<RunRow>
+        id="report-runs"
+        label="Recent scheduled reports"
+        data={q.data?.items}
+        loading={q.isLoading}
+        error={q.error}
+        columns={columns}
+        rowId={(r) => `${r.schedule_id}:${r.due_at}`}
+        rowLabel={(r) => r.name}
+        initialSort={{ id: "when", desc: true }}
+        empty={<EmptyState icon={<Icons.NavReports size={26} />} title="No reports yet" description="Add a schedule above. The first report goes out at its next due time." />}
+      />
+    </Card>
+  );
+}
+
+interface DataStatus {
+  backup?: { at: string; details?: { bytes?: number; content_files?: number; tables?: number } };
+  settings_export?: { at: string };
+  inventory_export?: { at: string };
+  retention?: { at: string; details?: Record<string, number> };
+  footprint?: { jobs: number; compliance_snapshots: number; notifications: number; audit_entries: number; audit_since: string | null };
+}
+
+const mb = (n?: number) => (n ? `${(n / 1048576).toFixed(1)} MB` : "");
+
+/** How much history there is, when the last backup and export happened, and a button to apply the retention limits now. */
+export function DataStatusCard() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["settings", "data-status"], queryFn: () => api<DataStatus>("GET", "/settings/data/status"), refetchInterval: 60_000 });
+  const run = useMutation({
+    mutationFn: () => api<{ jobs: number; compliance_snapshots: number; notifications: number; devices: number }>("POST", "/settings/data/run-retention", {}),
+    onSuccess: (r) => {
+      toast.success(`Removed ${r.jobs} job${r.jobs === 1 ? "" : "s"}, ${r.compliance_snapshots} compliance snapshots, ${r.notifications} notification entries and ${r.devices} stale device${r.devices === 1 ? "" : "s"}.`);
+      void qc.invalidateQueries({ queryKey: ["settings", "data-status"] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const d = q.data;
+  const row = (label: string, value: string, hint?: string) => (
+    <div key={label} className="rnv-kv-row">
+      <dt>{label}</dt>
+      <dd>
+        {value}
+        {hint && <span className="rnv-muted"> {hint}</span>}
+      </dd>
+    </div>
+  );
+  return (
+    <Card
+      title="Backup, exports and history"
+      description="Backups are made on the server with the renovatio-server backup command (see the runbook), so the last one is read from the audit log. Save the retention limits above, then use Apply now instead of waiting for the daily run."
+      footer={
+        <Button onClick={() => run.mutate()} loading={run.isPending} variant="default" leftSection={<Icons.Trash size={16} aria-hidden />}>
+          Apply the limits now
+        </Button>
+      }
+    >
+      {q.isLoading ? (
+        <span className="rnv-muted">Loading…</span>
+      ) : (
+        <dl className="rnv-kv" aria-label="Backup and history status">
+          {row("Last backup", d?.backup ? `${dateTime(d.backup.at)}${d.backup.details?.bytes ? `, ${mb(d.backup.details.bytes)}` : ""}` : "None recorded", d?.backup ? undefined : "Run renovatio-server backup, and schedule it.")}
+          {row("Last settings export", d?.settings_export ? dateTime(d.settings_export.at) : "Never")}
+          {row("Last report export", d?.inventory_export ? dateTime(d.inventory_export.at) : "Never")}
+          {row("Last clean-up that removed something", d?.retention ? dateTime(d.retention.at) : "Never")}
+          {row("Jobs kept", String(d?.footprint?.jobs ?? "—"))}
+          {row("Compliance snapshots kept", String(d?.footprint?.compliance_snapshots ?? "—"))}
+          {row("Audit entries", String(d?.footprint?.audit_entries ?? "—"), d?.footprint?.audit_since ? `since ${dateTime(d.footprint.audit_since)}; never deleted` : undefined)}
+        </dl>
+      )}
+    </Card>
+  );
+}

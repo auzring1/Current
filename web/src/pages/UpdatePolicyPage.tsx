@@ -7,6 +7,8 @@ import { hhmm, parseHHMM } from "../api/format";
 import { useSession } from "../api/session";
 import { PRODUCT_NAME } from "../brand.generated";
 import { HoldsCard } from "../components/Holds";
+import { ringDefaults, ruleDefaults, ruleTemplates } from "../settings/updateDefaults";
+import { useEffective } from "../settings/useEffective";
 import { Card, DataTable, EmptyState, IconButton, Icons, Page, PageHeader, SeverityBadge, StatusPill, toast, useConfirm, type Column } from "../ui";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -192,21 +194,23 @@ function RingsCard({ canEdit }: { canEdit: boolean }) {
 
 function RingModal({ ring, nextOrdinal, groups, onClose }: { ring?: UpdateRing; nextOrdinal: number; groups: Grp[]; onClose: () => void }) {
   const qc = useQueryClient();
+  // A new ring starts from the organization's update defaults (Settings > Update defaults); an existing one shows its own values.
+  const dflt = ringDefaults(useEffective().data?.updates);
   const [name, setName] = useState(ring?.name ?? "");
   const [ordinal, setOrdinal] = useState<number | string>(ring?.ordinal ?? nextOrdinal);
   const [groupIDs, setGroupIDs] = useState<string[]>(ring?.group_ids ?? []);
   const [delay, setDelay] = useState<number | string>(ring?.delay_days ?? 0);
   const [soak, setSoak] = useState<number | string>(ring?.soak_hours ?? 24);
   const [threshold, setThreshold] = useState<number | string>(ring?.success_threshold ?? 90);
-  const [useWindow, setUseWindow] = useState(!!ring?.window);
-  const [days, setDays] = useState<string[]>((ring?.window?.days ?? []).map(String));
-  const [start, setStart] = useState(hhmm(ring?.window?.start_minute ?? 22 * 60));
-  const [mins, setMins] = useState<number | string>(ring?.window?.duration_minutes ?? 240);
-  const [restart, setRestart] = useState<string>(ring?.restart?.allow ?? "never");
-  const [activeStart, setActiveStart] = useState(hhmm(ring?.restart?.active_start ?? 8 * 60));
-  const [activeEnd, setActiveEnd] = useState(hhmm(ring?.restart?.active_end ?? 17 * 60));
-  const [notify, setNotify] = useState<number | string>(ring?.restart?.notify_minutes ?? 15);
-  const [deadline, setDeadline] = useState<number | string>(ring?.restart?.deadline_hours ?? 24);
+  const [useWindow, setUseWindow] = useState(ring ? !!ring.window : dflt.useWindow);
+  const [days, setDays] = useState<string[]>(ring ? (ring.window?.days ?? []).map(String) : dflt.days);
+  const [start, setStart] = useState(hhmm(ring?.window?.start_minute ?? dflt.windowStart));
+  const [mins, setMins] = useState<number | string>(ring?.window?.duration_minutes ?? dflt.windowMinutes);
+  const [restart, setRestart] = useState<string>(ring?.restart?.allow ?? dflt.restart);
+  const [activeStart, setActiveStart] = useState(hhmm(ring?.restart?.active_start ?? dflt.activeStart));
+  const [activeEnd, setActiveEnd] = useState(hhmm(ring?.restart?.active_end ?? dflt.activeEnd));
+  const [notify, setNotify] = useState<number | string>(ring?.restart?.notify_minutes ?? dflt.notify);
+  const [deadline, setDeadline] = useState<number | string>(ring?.restart?.deadline_hours ?? dflt.deadline);
   const [enabled, setEnabled] = useState(ring?.enabled !== false);
   const [error, setError] = useState("");
 
@@ -378,11 +382,14 @@ function RulesCard({ canEdit }: { canEdit: boolean }) {
 
 function RuleModal({ rule, onClose }: { rule?: UpdateRule; onClose: () => void }) {
   const qc = useQueryClient();
+  const updDefaults = useEffective().data?.updates;
+  const rd = ruleDefaults(updDefaults);
+  const templates = rule ? [] : ruleTemplates(updDefaults);
   const [name, setName] = useState(rule?.name ?? "");
   const [cls, setCls] = useState<string[]>(rule?.classifications ?? []);
   const [sev, setSev] = useState<string[]>(rule?.severities ?? []);
-  const [drivers, setDrivers] = useState(!!rule?.include_drivers);
-  const [delay, setDelay] = useState<number | string>(rule?.delay_days ?? 0);
+  const [drivers, setDrivers] = useState(rule ? !!rule.include_drivers : rd.drivers);
+  const [delay, setDelay] = useState<number | string>(rule?.delay_days ?? rd.delay);
   const [enabled, setEnabled] = useState(rule?.enabled !== false);
   const [error, setError] = useState("");
   const save = useMutation({
@@ -396,6 +403,26 @@ function RuleModal({ rule, onClose }: { rule?: UpdateRule; onClose: () => void }
   return (
     <Modal opened onClose={onClose} title={rule ? `Edit rule ${rule.name}` : "Add rule"}>
       <Stack>
+        {templates.length > 0 && (
+          <Select
+            label="Start from a template"
+            description="Fills in the fields below; you can still change them. Templates are set under Settings > Update defaults."
+            data={templates.map((t) => ({ value: t.id, label: t.name }))}
+            value={null}
+            placeholder="Choose a template"
+            clearable
+            comboboxProps={{ withinPortal: true }}
+            onChange={(id) => {
+              const t = templates.find((x) => x.id === id);
+              if (!t) return;
+              setName((n) => n || t.name);
+              setCls(t.classifications);
+              setSev(t.severities);
+              setDrivers(t.include_drivers);
+              setDelay(t.delay_days);
+            }}
+          />
+        )}
         <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} data-autofocus />
         <MultiSelect label="Classifications" description="Empty = any" data={classifications} value={cls} onChange={setCls} />
         <MultiSelect label="Severities" description="Empty = any" data={severities} value={sev} onChange={setSev} />

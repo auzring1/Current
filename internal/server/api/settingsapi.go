@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -264,7 +263,7 @@ func (s *server) auditResult(r *http.Request, action string, targets []string, e
 func (s *server) notificationLog(w http.ResponseWriter, r *http.Request) {
 	limit := int32(50)
 	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 && v <= 200 {
-		limit = int32(v)
+		limit = int32(v) // #nosec G109 G115 -- bounded to 1..200 above
 	}
 	rows, err := s.q().ListNotificationLog(r.Context(), dbq.ListNotificationLogParams{OrgID: principalFrom(r).OrgID, Limit: limit})
 	if err != nil {
@@ -276,5 +275,5 @@ func (s *server) notificationLog(w http.ResponseWriter, r *http.Request) {
 
 // GET /settings/events: the webhook event reference.
 func (s *server) settingsEvents(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"events": settings.EventReference(), "signature": fmt.Sprintf("HMAC-SHA256 of \"<X-Renovatio-Timestamp>.<body>\" with the webhook's secret, sent as X-Renovatio-Signature: sha256=<hex>")})
+	writeJSON(w, http.StatusOK, map[string]any{"events": settings.EventReference(), "signature": "HMAC-SHA256 of \"<X-Renovatio-Timestamp>.<body>\" with the webhook's secret, sent as X-Renovatio-Signature: sha256=<hex>"})
 }
