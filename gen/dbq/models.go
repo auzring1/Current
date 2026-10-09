@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AgentAttempt struct {
@@ -164,6 +165,16 @@ type CatalogVersion struct {
 	VersionKey     []byte
 	ManifestSha256 []byte
 	ImportedAt     time.Time
+}
+
+type ComplianceSnapshot struct {
+	OrgID        uuid.UUID
+	SiteID       uuid.UUID
+	TakenOn      pgtype.Date
+	Compliant    int32
+	NonCompliant int32
+	Unknown      int32
+	TakenAt      time.Time
 }
 
 type ContentBlob struct {

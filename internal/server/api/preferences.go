@@ -41,11 +41,58 @@ type preferences struct {
 	Theme   string                 `json:"theme"`   // "" = the organization's default
 	Density string                 `json:"density"` // "" | comfortable | compact
 	Views   map[string][]savedView `json:"views"`   // table id -> saved views
+	// Nav and Dashboard are optional: a request that leaves them out keeps what is stored, so an older client that
+	// only knows the theme and the views cannot wipe a person's layout.
+	Nav       *navPrefs  `json:"nav,omitempty"`
+	Dashboard *dashPrefs `json:"dashboard,omitempty"`
+}
+
+// navPrefs is how a person arranged the sidebar: whether it is narrowed to icons, and which groups and submenus they
+// folded away (by id).
+type navPrefs struct {
+	Collapsed bool     `json:"collapsed"`
+	Closed    []string `json:"closed"`
+}
+
+// dashPrefs is a person's dashboard layout: the order of the widgets and which are hidden (by id).
+type dashPrefs struct {
+	Order  []string `json:"order"`
+	Hidden []string `json:"hidden"`
+}
+
+const maxLayoutIDs = 32
+
+var layoutIDRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+
+// validLayoutIDs reports whether ids is a short list of distinct, well-formed identifiers.
+func validLayoutIDs(ids []string) bool {
+	if len(ids) > maxLayoutIDs {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if !layoutIDRe.MatchString(id) || seen[id] {
+			return false
+		}
+		seen[id] = true
+	}
+	return true
 }
 
 func (p *preferences) normalize() {
 	if p.Views == nil {
 		p.Views = map[string][]savedView{}
+	}
+	if p.Nav != nil && p.Nav.Closed == nil {
+		p.Nav.Closed = []string{}
+	}
+	if p.Dashboard != nil {
+		if p.Dashboard.Order == nil {
+			p.Dashboard.Order = []string{}
+		}
+		if p.Dashboard.Hidden == nil {
+			p.Dashboard.Hidden = []string{}
+		}
 	}
 }
 
@@ -92,6 +139,12 @@ func (s *server) putPreferences(w http.ResponseWriter, r *http.Request) {
 			fields["theme"] = "Your administrator does not offer that theme."
 		}
 	}
+	if in.Nav != nil && !validLayoutIDs(in.Nav.Closed) {
+		fields["nav"] = "The navigation layout is not valid."
+	}
+	if in.Dashboard != nil && (!validLayoutIDs(in.Dashboard.Order) || !validLayoutIDs(in.Dashboard.Hidden)) {
+		fields["dashboard"] = "The dashboard layout is not valid."
+	}
 	if len(in.Views) > maxViewTables {
 		fields["views"] = "Too many tables have saved views."
 	}
@@ -118,6 +171,18 @@ func (s *server) putPreferences(w http.ResponseWriter, r *http.Request) {
 	if len(fields) > 0 {
 		writeJSON(w, http.StatusUnprocessableEntity, apiError{Error: errorBody{Code: "invalid_preferences", Message: "Some preferences are not valid.", Fields: fields}})
 		return
+	}
+	if in.Nav == nil || in.Dashboard == nil {
+		var old preferences
+		if raw, err := s.q().GetUserPreferences(r.Context(), p.UserID); err == nil {
+			_ = json.Unmarshal(raw, &old)
+		}
+		if in.Nav == nil {
+			in.Nav = old.Nav
+		}
+		if in.Dashboard == nil {
+			in.Dashboard = old.Dashboard
+		}
 	}
 	raw, err := json.Marshal(in)
 	if err != nil || len(raw) > 60<<10 {

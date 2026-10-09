@@ -2598,6 +2598,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The dashboard's numbers in one request (each section only when the caller may see it; site-limited callers get their sites)
+         * @description Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's site scope; the license, held updates and the audit activity need organization-wide rights. The compliance history is one point per day from an hourly snapshot (last 30 days).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Dashboard"];
+                    };
+                };
+                401: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Things that need attention now (failed jobs in the last 24 hours, held updates, license warnings), limited to what the caller may see */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total?: number;
+                            items?: components["schemas"]["Notification"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/preferences": {
         parameters: {
             query?: never;
@@ -5104,6 +5184,83 @@ export interface components {
                     };
                 }[];
             };
+            /** @description Sidebar layout. Left out of a save, the stored value is kept. */
+            nav?: {
+                /** @description Narrowed to icons */
+                collapsed?: boolean;
+                closed?: string[];
+            };
+            /** @description Dashboard widget order and hidden widgets. Left out of a save, the stored value is kept. */
+            dashboard?: {
+                order?: string[];
+                hidden?: string[];
+            };
+        };
+        Notification: {
+            id?: string;
+            /** @enum {string} */
+            kind?: "failed_job" | "held_update" | "license";
+            /** @enum {string} */
+            severity?: "info" | "warning" | "critical";
+            title?: string;
+            detail?: string;
+            /** @description A console path */
+            to?: string;
+            /** Format: date-time */
+            at?: string;
+        };
+        Dashboard: {
+            /** Format: date-time */
+            generated?: string;
+            devices?: {
+                total?: number;
+                online?: number;
+                offline?: number;
+                pending?: number;
+            } | null;
+            needs_restart?: number | null;
+            missing_critical_devices?: number | null;
+            failed_jobs_24h?: number | null;
+            held_updates?: number | null;
+            license?: {
+                state?: string;
+                message?: string;
+                used?: number;
+                max?: number;
+                at_capacity?: boolean;
+            } | null;
+            compliance?: {
+                compliant?: number;
+                non_compliant?: number;
+                unknown?: number;
+                history?: {
+                    /** Format: date */
+                    date?: string;
+                    compliant?: number;
+                    non_compliant?: number;
+                    unknown?: number;
+                }[];
+            } | null;
+            top_missing?: {
+                /** Format: uuid */
+                update_id?: string;
+                title?: string;
+                severity?: string;
+                classification?: string;
+                kb?: string[];
+                devices?: number;
+            }[];
+            attention?: {
+                /** Format: uuid */
+                device_id?: string;
+                hostname?: string;
+                reasons?: ("offline" | "reboot_pending" | "critical_missing" | "failed_updates")[];
+            }[];
+            activity?: components["schemas"]["AuditEntry"][];
+            agent_versions?: {
+                version?: string;
+                devices?: number;
+            }[];
         };
         /** @enum {string} */
         BrandingAssetKind: "logo_light" | "logo_dark" | "icon" | "favicon" | "report_logo";
