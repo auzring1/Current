@@ -508,3 +508,37 @@ func indexOf(s []string, x string) int {
 	}
 	return -1
 }
+
+// VerifyChange describes what an administrator's mark changed (for the audit entry).
+type VerifyChange struct {
+	Identifier     string
+	Version        string // the newest imported version, the one being vouched for
+	TestsPassed    bool   // the package passed the VM test matrix on its own
+	BeforeVerified bool
+	AfterVerified  bool
+	BeforeByOrg    bool
+}
+
+// SetOrgVerified marks a winget package as verified by the organization, or removes that mark. The package stays verified
+// if it also passed the VM test matrix. Custom packages need no verification and are refused.
+func (s *Service) SetOrgVerified(ctx context.Context, org, user, pkgID uuid.UUID, verified bool) (*VerifyChange, error) {
+	q := dbq.New(s.Pool)
+	pkg, err := q.GetCatalogPackage(ctx, dbq.GetCatalogPackageParams{ID: pkgID, OrgID: org})
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	if pkg.Source != "winget" {
+		return nil, invalid("only packages from winget need verification; your own uploads are never asked about")
+	}
+	ch := &VerifyChange{Identifier: pkg.Identifier, TestsPassed: s.overlay().Verified(pkg.Identifier, ""), BeforeVerified: pkg.Verified, BeforeByOrg: pkg.VerifiedByOrg}
+	if vs, err := q.ListPackageVersions(ctx, pkg.ID); err == nil && len(vs) > 0 {
+		ch.Version = vs[0].Version
+	}
+	ch.AfterVerified = verified || ch.TestsPassed
+	err = q.SetPackageOrgVerified(ctx, dbq.SetPackageOrgVerifiedParams{OrgID: org, ID: pkg.ID, ByOrg: verified, TestsPassed: ch.TestsPassed, By: user,
+		At: time.Now().UTC(), Version: ch.Version})
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
+}

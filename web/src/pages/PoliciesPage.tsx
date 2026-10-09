@@ -178,7 +178,7 @@ function PolicyModal({ policy, groups, onClose }: { policy?: SoftwarePolicy; gro
           <NumberInput label="Wait after a new version appears (days)" min={0} max={365} value={delay} onChange={setDelay} />
           {kind === "baseline" && <Checkbox label="Only devices enrolled after this policy was created" checked={onlyNew} onChange={(e) => setOnlyNew(e.currentTarget.checked)} />}
           {chosen && chosen.source === "winget" && !chosen.verified && (
-            <Checkbox label="I accept that this winget package has not been verified on test machines" checked={unverified} onChange={(e) => setUnverified(e.currentTarget.checked)} />
+            <Checkbox label="I accept that this winget package has not been marked as verified" checked={unverified} onChange={(e) => setUnverified(e.currentTarget.checked)} />
           )}
           <Checkbox label="Enabled" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} />
           {error && (

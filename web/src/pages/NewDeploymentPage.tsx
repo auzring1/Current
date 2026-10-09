@@ -4,7 +4,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Checkbox, Group, Loader, MultiSelect, NumberInput, SegmentedControl, Select, Stack, Table, Text, TextInput } from "@mantine/core";
 import { hhmm, parseHHMM } from "../api/format";
 import { api, errorMessage, type Device, type DeploymentPlan, type DeploymentRequest, type Group as Grp, type PackageDetail, type Pkg } from "../api/client";
-import { PRODUCT_NAME } from "../brand.generated";
 import { Card, Icons, Page, PageHeader, StatGrid, StatTile } from "../ui";
 import "./newDeployment.css";
 
@@ -140,7 +139,7 @@ export function NewDeploymentPage() {
               {needsConfirm && (
                 <Alert color="yellow" title="Unverified package" icon={<Icons.Warning size={18} aria-hidden />}>
                   <Checkbox
-                    label={`I understand this package has not been tested by ${PRODUCT_NAME} and I accept deploying it. This confirmation is recorded in the audit log.`}
+                    label={`I understand this package has not been marked as verified and I accept deploying it. This confirmation is recorded in the audit log. (After you have tested it, an administrator can mark it verified on its catalog page.)`}
                     checked={confirmed}
                     onChange={(e) => setConfirmed(e.currentTarget.checked)}
                   />

@@ -30,11 +30,11 @@ function SourcePill({ p }: { p: Pkg }) {
 function VerifiedPill({ p }: { p: Pkg }) {
   if (p.source !== "winget") return null;
   return p.verified ? (
-    <StatusPill kind="success" size="sm" title={`Passed the ${PRODUCT_NAME} VM test matrix`}>
+    <StatusPill kind="success" size="sm" title={p.verified_source === "organization" ? "Marked as verified by an administrator after testing" : `Passed the ${PRODUCT_NAME} VM test matrix`}>
       Verified
     </StatusPill>
   ) : (
-    <StatusPill kind="warning" size="sm" title={`Not yet verified by the ${PRODUCT_NAME} VM test matrix; deploying needs an explicit confirmation`}>
+    <StatusPill kind="warning" size="sm" title="Not tested yet; deploying needs an explicit confirmation. An administrator can mark it as verified after testing it.">
       Unverified
     </StatusPill>
   );
