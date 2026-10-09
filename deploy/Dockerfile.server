@@ -12,6 +12,8 @@ RUN --mount=type=secret,id=extra_ca,required=false \
     if [ -s /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi; \
     npm ci --no-audit --no-fund --ignore-scripts
 COPY api/ /src/api/
+# The web unit tests share the contrast test vectors with the server's Go tests, and `tsc -b` type-checks the tests too.
+COPY internal/server/branding/testdata/contrast_vectors.json /src/internal/server/branding/testdata/contrast_vectors.json
 COPY web/ ./
 RUN mkdir -p /src/internal/server/webui/dist && npm run build
 
