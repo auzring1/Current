@@ -33,8 +33,12 @@ services:
     environment:
       RENOVATIO_HOSTNAME: ${RENOVATIO_HOSTNAME:?set RENOVATIO_HOSTNAME in deploy/.env}
       RENOVATIO_CADDY_TLS: ${RENOVATIO_CADDY_TLS:-internal}
+      # Only used by Caddyfile.behind-proxy: the addresses whose X-Forwarded-For header Caddy believes.
+      RENOVATIO_UPSTREAM_PROXIES: ${RENOVATIO_UPSTREAM_PROXIES:-${RENOVATIO_FRONTEND_SUBNET:-172.31.250.0/24}}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # RENOVATIO_CADDYFILE=./Caddyfile.behind-proxy when your own reverse proxy (for example Synology DSM) does the
+      # browser TLS; see docs/RUNBOOK.md, "Behind your own reverse proxy".
+      - ${RENOVATIO_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     read_only: true
@@ -62,7 +66,8 @@ services:
       RENOVATIO_PUBLIC_URL: https://${RENOVATIO_HOSTNAME}${RENOVATIO_PUBLIC_PORT_SUFFIX:-}
       RENOVATIO_GATEWAY_PUBLIC_ADDR: ${RENOVATIO_GATEWAY_HOSTNAME:-${RENOVATIO_HOSTNAME}}:${RENOVATIO_GATEWAY_PORT:-8443}
       RENOVATIO_GATEWAY_SANS: ${RENOVATIO_GATEWAY_SANS:-}
-      RENOVATIO_TRUSTED_PROXIES: ${RENOVATIO_CADDY_IP:-172.31.250.10}/32
+      # Caddy, plus (behind your own reverse proxy only) the addresses of that proxy as Caddy sees them.
+      RENOVATIO_TRUSTED_PROXIES: ${RENOVATIO_CADDY_IP:-172.31.250.10}/32 ${RENOVATIO_UPSTREAM_PROXIES:-${RENOVATIO_CADDY_IP:-172.31.250.10}/32}
       RENOVATIO_DATABASE_URL_FILE: /run/secrets/database_url
       RENOVATIO_MIGRATE_ON_START: "false"
       RENOVATIO_MASTER_KEY_FILE: /run/secrets/master_key
@@ -140,7 +145,7 @@ services:
     shm_size: 256m
     networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d renovatio"]
+      test: ["CMD-SHELL", "pg_isready -U renovatio_admin -d renovatio"]
       interval: 5s
       timeout: 5s
       retries: 20

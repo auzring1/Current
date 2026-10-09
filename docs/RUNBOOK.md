@@ -42,6 +42,28 @@ docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 
 These modes only affect the console. The agent channel always uses the server's internal CA, which agents pin.
 
+### 2.1 Behind your own reverse proxy (for example the Synology DSM reverse proxy)
+
+Use this when another proxy already owns ports 80 and 443 and does the browser TLS. The console then goes browser, your proxy (HTTPS), Caddy (plain HTTP, on the same host), the server. **Agents do not use it**: they connect to the NAS on port 8443 directly, because the gateway checks each agent's client certificate itself (mTLS) and an HTTP proxy would break that. Point the agents' name (`SERVER=renovatio.example.org:8443`) at the NAS and allow port 8443 in its firewall.
+
+1. In `deploy/.env` (the commented block in `.env.example` has the same lines):
+   ```
+   RENOVATIO_HOSTNAME=renovatio.example.org
+   RENOVATIO_CADDYFILE=./Caddyfile.behind-proxy
+   RENOVATIO_HTTP_PORT=127.0.0.1:8080
+   RENOVATIO_HTTPS_PORT=8444
+   ```
+   `RENOVATIO_HTTP_PORT` with `127.0.0.1:` keeps plain HTTP reachable only from the NAS itself. `RENOVATIO_HTTPS_PORT` is published but unused in this mode; it only has to differ from the port your proxy uses. Leave `RENOVATIO_PUBLIC_PORT_SUFFIX` empty when people browse on the normal HTTPS port. `RENOVATIO_HOSTNAME` must be the name people type, because the console checks the origin of every change request against it.
+2. In DSM (Control Panel, Login Portal, Advanced, Reverse Proxy, Create): source HTTPS, your host name, port 443; destination **HTTP**, `localhost`, port 8080. Assign a certificate for that name (Control Panel, Security, Certificate). DSM adds `X-Forwarded-For`; keep any option that forwards the original Host and client address.
+3. Start the stack as in section 2. Then sign in once and open **Audit log**: the entry should show **your workstation's address**. If it shows an address inside `172.31.250.0/24` or the NAS's own address, the server did not believe the forwarded header; see below.
+4. Test an installer upload (**Catalog, Upload custom installer**) and watch the Devices page update by itself. A `413` means DSM's request-size limit is lower than the 2 GiB the console allows; raise it for this proxy rule.
+
+**Which address does the server believe?** Caddy and the server believe `X-Forwarded-For` only from the addresses in `RENOVATIO_UPSTREAM_PROXIES` (default: the Docker frontend network, `172.31.250.0/24`). With DSM forwarding to `localhost:8080`, Docker presents the connection as coming from that network, so the default is right. If the audit log shows another address (for example when DSM forwards to the NAS's LAN address), add that address: `RENOVATIO_UPSTREAM_PROXIES=172.31.250.0/24 192.168.1.50/32` (space-separated), then `docker compose ... up -d`. Anyone else's `X-Forwarded-For` is ignored, so a browser cannot choose its own address in the audit log.
+
+**Do not turn on the console IP allow-list (Settings, Security) until step 3 shows the right address.** Until then every request looks like it comes from one address, and the allow-list would admit or lock out everyone together (section 5k lists the way back in).
+
+Not verified on a Synology: the Caddy part was run with the real Caddy binary (a trusted caller's header is kept and extended, an untrusted caller's header is replaced); DSM itself and Docker on DSM were not available.
+
 ## 3. First-run setup
 1. Open `https://<RENOVATIO_HOSTNAME>`. You are sent to **Set up Renovatio**.
 2. Enter the one-time **setup token** from the server log. It changes on every restart until setup completes.

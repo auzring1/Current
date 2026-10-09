@@ -172,10 +172,8 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		c.GatewaySANs = appendUnique(c.GatewaySANs, host)
 	}
 
-	for _, s := range strings.Split(get("RENOVATIO_TRUSTED_PROXIES", ""), ",") {
-		if s = strings.TrimSpace(s); s == "" {
-			continue
-		}
+	// Commas or spaces separate the entries: the same list is handed to Caddy, which wants spaces.
+	for _, s := range strings.FieldsFunc(get("RENOVATIO_TRUSTED_PROXIES", ""), func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
 		p, perr := netip.ParsePrefix(s)
 		if perr != nil {
 			errs = append(errs, fmt.Errorf("RENOVATIO_TRUSTED_PROXIES: %w", perr))
