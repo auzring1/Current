@@ -2292,6 +2292,25 @@ paths:
         "204": { description: Saved }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /catalog/packages/{id}/verification:
+    put:
+      tags: [catalog]
+      summary: Mark a winget package verified after testing it yourself, or remove the mark (requires catalog:override, admin only; audited as catalog.verify / catalog.unverify)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [verified]
+              properties:
+                verified: { type: boolean }
+      responses:
+        "204": { description: Saved }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /catalog/import:
     post:
       tags: [catalog]
@@ -3429,7 +3448,8 @@ components:
         homepage: { type: string }
         license: { type: string }
         description: { type: string }
-        verified: { type: boolean, description: Passed the VM test matrix }
+        verified: { type: boolean, description: Counts as verified - it passed the VM test matrix or an administrator marked it after testing it }
+        verified_source: { type: string, enum: ["", tests, organization], description: Why the package counts as verified }
         self_updating: { type: boolean }
         imported_at: { type: string, format: date-time }
         version_count: { type: integer }
@@ -3479,6 +3499,14 @@ components:
               imported_at: { type: string, format: date-time }
               installers: { type: array, items: { $ref: "#/components/schemas/Installer" } }
         override: { $ref: "#/components/schemas/PackageOverride" }
+        verification:
+          description: Who marked the package verified, when and for which version (null when no administrator did)
+          type: object
+          nullable: true
+          properties:
+            by: { type: string }
+            at: { type: string, format: date-time, nullable: true }
+            version: { type: string }
         effective_user_scope_policy: { type: string }
         effective_user_scope_policy_source: { type: string }
     ImportResult:

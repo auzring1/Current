@@ -96,7 +96,7 @@ function UpdateConfirm({ items, force, onCancel, onConfirm, busy }: { items: Ava
         {unverified.length > 0 && (
           <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Unverified packages">
             <Checkbox
-              label={`${unverified.map((u) => u.package_name).join(", ")} ${unverified.length === 1 ? "has" : "have"} not been tested by ${PRODUCT_NAME}. I accept deploying ${unverified.length === 1 ? "it" : "them"}; this is recorded in the audit log.`}
+              label={`${unverified.map((u) => u.package_name).join(", ")} ${unverified.length === 1 ? "has" : "have"} not been marked as verified. I accept deploying ${unverified.length === 1 ? "it" : "them"}; this is recorded in the audit log.`}
               checked={ok}
               onChange={(e) => setOk(e.currentTarget.checked)}
             />

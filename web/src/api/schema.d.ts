@@ -5460,6 +5460,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/catalog/packages/{id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a winget package verified after testing it yourself, or remove the mark (requires catalog:override, admin only; audited as catalog.verify / catalog.unverify) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        verified: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog/import": {
         parameters: {
             query?: never;
@@ -6892,8 +6936,13 @@ export interface components {
             homepage?: string;
             license?: string;
             description?: string;
-            /** @description Passed the VM test matrix */
+            /** @description Counts as verified - it passed the VM test matrix or an administrator marked it after testing it */
             verified: boolean;
+            /**
+             * @description Why the package counts as verified
+             * @enum {string}
+             */
+            verified_source?: "" | "tests" | "organization";
             self_updating: boolean;
             /** Format: date-time */
             imported_at?: string;
@@ -6945,6 +6994,13 @@ export interface components {
                 installers: components["schemas"]["Installer"][];
             }[];
             override: components["schemas"]["PackageOverride"];
+            /** @description Who marked the package verified, when and for which version (null when no administrator did) */
+            verification?: {
+                by?: string;
+                /** Format: date-time */
+                at?: string | null;
+                version?: string;
+            } | null;
             effective_user_scope_policy: string;
             effective_user_scope_policy_source?: string;
         };

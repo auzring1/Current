@@ -143,19 +143,23 @@ type CatalogInstaller struct {
 }
 
 type CatalogPackage struct {
-	ID           uuid.UUID
-	OrgID        uuid.UUID
-	Source       string
-	Identifier   string
-	Name         string
-	Publisher    string
-	Homepage     string
-	License      string
-	Description  string
-	Verified     bool
-	SelfUpdating bool
-	ImportedAt   time.Time
-	ImportedBy   *uuid.UUID
+	ID              uuid.UUID
+	OrgID           uuid.UUID
+	Source          string
+	Identifier      string
+	Name            string
+	Publisher       string
+	Homepage        string
+	License         string
+	Description     string
+	Verified        bool
+	SelfUpdating    bool
+	ImportedAt      time.Time
+	ImportedBy      *uuid.UUID
+	VerifiedByOrg   bool
+	VerifiedBy      *uuid.UUID
+	VerifiedAt      *time.Time
+	VerifiedVersion string
 }
 
 type CatalogVersion struct {

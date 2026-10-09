@@ -56,7 +56,7 @@ func (s *server) createDeployment(w http.ResponseWriter, r *http.Request) {
 	plan, err := s.Deploy.Create(r.Context(), p.OrgID, dr)
 	switch {
 	case errors.Is(err, deploy.ErrUnverified):
-		writeError(w, http.StatusConflict, "unverified", "This package has not passed the VM test matrix. Confirm that you want to deploy it anyway.")
+		writeError(w, http.StatusConflict, "unverified", "This package has not been verified. Confirm that you want to deploy it anyway, or have an administrator mark it as verified on its catalog page after testing it.")
 		return
 	case errors.Is(err, deploy.ErrExcluded):
 		writeError(w, http.StatusConflict, "excluded", "This package is excluded by an administrator.")
