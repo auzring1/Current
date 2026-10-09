@@ -63,6 +63,8 @@ Run the web console against a local server: start the server with `RENOVATIO_DEV
 | [RUNBOOK](docs/RUNBOOK.md) | Install, operate, troubleshoot (branding: §5g) |
 | [Research: winget & user context](docs/research/winget-and-user-context.md) | Why we don't execute through winget |
 
+**Console design:** semantic design tokens, five WCAG AA themes (Light, Slate, Dark, Midnight, High contrast) plus "follow my device", per-account preferences; see [docs/ui](docs/ui/README.md) for before/after screenshots.
+
 **Branding:** the organization name, product name, logos, colors and sign-in texts are configuration, not source: set them in the first-run wizard and under Settings > Branding (administrators only).
 
 License: proprietary, all rights reserved (see [LICENSE](LICENSE)). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
