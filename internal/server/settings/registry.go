@@ -67,8 +67,6 @@ func EventReference() []EventDoc {
 	}
 }
 
-func minInt(v any, n int) bool { i, ok := toInt(v); return ok && i >= n }
-
 // Sections is the registry: every setting the product has. Add a field here and the API, validation, export/import,
 // audit trail, search and the console's form follow; a test checks that every field has a label, help and a default
 // that passes its own validation.
@@ -142,8 +140,6 @@ var security = Section{
 			Help: "People must tick a box saying they accept the notice before the sign-in form appears."},
 	},
 }
-
-var failedInstallRule = map[string]any{"event": "failed_install", "enabled": false, "email": true, "webhook": true, "recipients": []any{}, "threshold": 0, "quiet_hours": true}
 
 var notifications = Section{
 	ID: "notifications", Label: "Notifications", Perm: PermNotifications,

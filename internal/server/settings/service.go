@@ -510,17 +510,16 @@ func norm(v any) any {
 }
 
 func short(v any) any {
-	switch v.(type) {
+	switch x := v.(type) {
 	case []any, map[string]any, []string:
-		b, _ := json.Marshal(v)
+		b, _ := json.Marshal(x)
 		if len(b) > maxAuditValue {
 			return string(b[:maxAuditValue]) + "…"
 		}
 		return string(b)
 	case string:
-		s := v.(string)
-		if len(s) > maxAuditValue {
-			return s[:maxAuditValue] + "…"
+		if len(x) > maxAuditValue {
+			return x[:maxAuditValue] + "…"
 		}
 	}
 	return v

@@ -29,6 +29,7 @@ import (
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/reportsched"
 	"github.com/auzring1/renovatio/internal/server/settings"
 	"github.com/auzring1/renovatio/internal/server/updates"
 )
@@ -68,6 +69,7 @@ type Deps struct {
 	Settings  *settings.Service
 	Notify    *notify.Service
 	Maint     *maintenance.Service
+	Sched     *reportsched.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -280,6 +282,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/support-bundle", s.supportBundle)
 	r.With(s.require(auth.PermSettingsData)).Get("/settings/data/status", s.dataStatus)
 	r.With(s.require(auth.PermSettingsData)).Post("/settings/data/run-retention", s.runRetention)
+	r.With(s.require(auth.PermSettingsReports)).Post("/settings/reports/schedules/{id}/send-now", s.sendReportNow)
+	r.With(s.require(auth.PermSettingsReports)).Get("/settings/reports/runs", s.reportRuns)
 	r.With(s.require(auth.PermSettingsNotifications)).Post("/settings/notifications/test-email", s.testEmail)
 	r.With(s.require(auth.PermSettingsNotifications)).Get("/settings/notifications/log", s.notificationLog)
 	r.With(s.require(auth.PermSettingsIntegrations)).Post("/settings/integrations/webhooks/{id}/test", s.testWebhook)

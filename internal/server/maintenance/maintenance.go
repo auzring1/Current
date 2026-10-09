@@ -73,6 +73,7 @@ func (s *Service) Run(ctx context.Context, org uuid.UUID) (Result, error) {
 			return res, err
 		}
 		res.Notifications = n
+		_, _ = q.PruneReportRuns(ctx, now.AddDate(0, 0, -days)) // the history of scheduled reports follows the same limit
 	}
 	if days := s.Settings.Values(ctx, org, "devices").Int("stale_cleanup_days"); days > 0 {
 		n, err := s.deleteStale(ctx, org, now.AddDate(0, 0, -days), days)

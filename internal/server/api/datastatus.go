@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"time"
 
@@ -56,4 +59,32 @@ func (s *server) runRetention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"jobs": res.Jobs, "compliance_snapshots": res.Snapshots, "notifications": res.Notifications, "devices": res.Devices})
+}
+
+// POST /settings/reports/schedules/{id}/send-now
+func (s *server) sendReportNow(w http.ResponseWriter, r *http.Request) {
+	if s.Sched == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Scheduled reports are not available.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	defer cancel()
+	id := chi.URLParam(r, "id")
+	err := s.Sched.SendNow(ctx, principalFrom(r).OrgID, id)
+	_ = s.auditResult(r, "settings.report_send_now", []string{id}, err)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "send_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// GET /settings/reports/runs
+func (s *server) reportRuns(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.q().ListReportRuns(r.Context(), dbq.ListReportRunsParams{OrgID: principalFrom(r).OrgID, Limit: 50})
+	if err != nil {
+		internalError(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": rows})
 }

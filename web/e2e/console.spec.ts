@@ -546,7 +546,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByRole("row", { name: /settings\.update/ }).first()).toBeVisible();
   // Notifications: a mail password is write-only.
   await page.goto("/settings/notifications");
-  await page.getByLabel("Send e-mail", { exact: true }).check({ force: true });
+  await page.getByRole("switch", { name: /^Send e-mail/ }).check({ force: true });
   await page.getByLabel("Mail server", { exact: true }).fill("smtp.example.org");
   await page.getByLabel("From address", { exact: true }).fill("renovatio@example.org");
   await page.getByLabel("User name", { exact: true }).fill("mailer");
@@ -566,6 +566,25 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await setNav.getByRole("link", { name: "Appearance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Themes" })).toBeVisible();
   await a11y(page, "settings-appearance");
+  // The remaining sections render, explain themselves and pass the accessibility scan.
+  for (const [name, heading] of [["Update defaults", "Update defaults"], ["Device defaults", "Device defaults"], ["Scheduled reports", "Scheduled reports"], ["Data and retention", "Data and retention"]] as const) {
+    await setNav.getByRole("link", { name, exact: true }).click();
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await a11y(page, `settings-${name.toLowerCase().replace(/ /g, "-")}`);
+  }
+  // A custom device field is defined here and then offered on the device page and in the device list.
+  await setNav.getByRole("link", { name: "Device defaults", exact: true }).click();
+  await page.getByRole("group", { name: "Custom device fields" }).getByRole("button", { name: "Add" }).click();
+  await page.getByLabel("Key", { exact: true }).fill("asset_tag");
+  await page.getByLabel("Label", { exact: true }).fill("Asset tag");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Device defaults settings saved.")).toBeVisible();
+  await setNav.getByRole("link", { name: "Data and retention", exact: true }).click();
+  await expect(page.getByText("Last backup")).toBeVisible();
+  await setNav.getByRole("link", { name: "About", exact: true }).click();
+  await expect(page.getByTestId("about-version")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download support bundle" })).toHaveAttribute("href", "/api/v1/settings/support-bundle");
+  await a11y(page, "settings-about");
 
   // --- Branding: administrators only, live contrast check, preview, images, reset ---
   await setNav.getByRole("link", { name: "Branding", exact: true }).click();

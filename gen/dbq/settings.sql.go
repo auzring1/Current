@@ -85,6 +85,22 @@ func (q *Queries) ClaimDueNotifications(ctx context.Context, arg ClaimDueNotific
 	return items, nil
 }
 
+const countReportRuns = `-- name: CountReportRuns :one
+SELECT count(*)::bigint FROM report_runs WHERE org_id = $1 AND schedule_id = $2
+`
+
+type CountReportRunsParams struct {
+	OrgID      uuid.UUID
+	ScheduleID string
+}
+
+func (q *Queries) CountReportRuns(ctx context.Context, arg CountReportRunsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countReportRuns, arg.OrgID, arg.ScheduleID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const dataFootprint = `-- name: DataFootprint :one
 SELECT (SELECT count(*) FROM jobs j WHERE j.org_id = $1)::bigint AS jobs,
        (SELECT count(*) FROM compliance_snapshots c WHERE c.org_id = $1)::bigint AS snapshots,
@@ -180,6 +196,33 @@ func (q *Queries) FinishNotification(ctx context.Context, arg FinishNotification
 	return err
 }
 
+const finishReportRun = `-- name: FinishReportRun :exec
+UPDATE report_runs SET status = $4, error = $5, bytes = $6, recipients = $7 WHERE org_id = $1 AND schedule_id = $2 AND due_at = $3
+`
+
+type FinishReportRunParams struct {
+	OrgID      uuid.UUID
+	ScheduleID string
+	DueAt      time.Time
+	Status     string
+	Error      string
+	Bytes      int32
+	Recipients int32
+}
+
+func (q *Queries) FinishReportRun(ctx context.Context, arg FinishReportRunParams) error {
+	_, err := q.db.Exec(ctx, finishReportRun,
+		arg.OrgID,
+		arg.ScheduleID,
+		arg.DueAt,
+		arg.Status,
+		arg.Error,
+		arg.Bytes,
+		arg.Recipients,
+	)
+	return err
+}
+
 const firstOrganization = `-- name: FirstOrganization :one
 SELECT id FROM organizations ORDER BY created_at, id LIMIT 1
 `
@@ -241,6 +284,39 @@ func (q *Queries) GetSettingsSectionForUpdate(ctx context.Context, arg GetSettin
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const insertReportRun = `-- name: InsertReportRun :execrows
+INSERT INTO report_runs (org_id, schedule_id, due_at, started_at, name, report, format, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING
+`
+
+type InsertReportRunParams struct {
+	OrgID      uuid.UUID
+	ScheduleID string
+	DueAt      time.Time
+	StartedAt  time.Time
+	Name       string
+	Report     string
+	Format     string
+	Status     string
+}
+
+func (q *Queries) InsertReportRun(ctx context.Context, arg InsertReportRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertReportRun,
+		arg.OrgID,
+		arg.ScheduleID,
+		arg.DueAt,
+		arg.StartedAt,
+		arg.Name,
+		arg.Report,
+		arg.Format,
+		arg.Status,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const insertSettingsSection = `-- name: InsertSettingsSection :exec
@@ -306,6 +382,57 @@ func (q *Queries) LastBackupAudit(ctx context.Context) (LastBackupAuditRow, erro
 	var i LastBackupAuditRow
 	err := row.Scan(&i.Ts, &i.Details)
 	return i, err
+}
+
+const listActiveDevicesForReport = `-- name: ListActiveDevicesForReport :many
+SELECT hostname, os_caption, os_build, manufacturer, model, serial, logged_on_user, online, last_seen_at, agent_version, site_id
+FROM devices WHERE org_id = $1 AND status = 'active' ORDER BY lower(hostname), id LIMIT 20000
+`
+
+type ListActiveDevicesForReportRow struct {
+	Hostname     string
+	OsCaption    string
+	OsBuild      string
+	Manufacturer string
+	Model        string
+	Serial       string
+	LoggedOnUser string
+	Online       bool
+	LastSeenAt   *time.Time
+	AgentVersion string
+	SiteID       uuid.UUID
+}
+
+func (q *Queries) ListActiveDevicesForReport(ctx context.Context, orgID uuid.UUID) ([]ListActiveDevicesForReportRow, error) {
+	rows, err := q.db.Query(ctx, listActiveDevicesForReport, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveDevicesForReportRow{}
+	for rows.Next() {
+		var i ListActiveDevicesForReportRow
+		if err := rows.Scan(
+			&i.Hostname,
+			&i.OsCaption,
+			&i.OsBuild,
+			&i.Manufacturer,
+			&i.Model,
+			&i.Serial,
+			&i.LoggedOnUser,
+			&i.Online,
+			&i.LastSeenAt,
+			&i.AgentVersion,
+			&i.SiteID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCustomValuesForDevices = `-- name: ListCustomValuesForDevices :many
@@ -419,6 +546,47 @@ func (q *Queries) ListNotificationLog(ctx context.Context, arg ListNotificationL
 	return items, nil
 }
 
+const listReportRuns = `-- name: ListReportRuns :many
+SELECT org_id, schedule_id, due_at, started_at, name, report, format, status, error, bytes, recipients FROM report_runs WHERE org_id = $1 ORDER BY started_at DESC LIMIT $2
+`
+
+type ListReportRunsParams struct {
+	OrgID uuid.UUID
+	Limit int32
+}
+
+func (q *Queries) ListReportRuns(ctx context.Context, arg ListReportRunsParams) ([]ReportRun, error) {
+	rows, err := q.db.Query(ctx, listReportRuns, arg.OrgID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReportRun{}
+	for rows.Next() {
+		var i ReportRun
+		if err := rows.Scan(
+			&i.OrgID,
+			&i.ScheduleID,
+			&i.DueAt,
+			&i.StartedAt,
+			&i.Name,
+			&i.Report,
+			&i.Format,
+			&i.Status,
+			&i.Error,
+			&i.Bytes,
+			&i.Recipients,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaleDevices = `-- name: ListStaleDevices :many
 SELECT id, hostname FROM devices WHERE org_id = $1 AND status IN ('revoked', 'retired') AND COALESCE(last_seen_at, revoked_at, enrolled_at) < $2 ORDER BY id LIMIT 200
 `
@@ -512,6 +680,18 @@ DELETE FROM notification_outbox WHERE status <> 'pending' AND created_at < $1
 
 func (q *Queries) PruneNotificationLog(ctx context.Context, createdAt time.Time) (int64, error) {
 	result, err := q.db.Exec(ctx, pruneNotificationLog, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const pruneReportRuns = `-- name: PruneReportRuns :execrows
+DELETE FROM report_runs WHERE started_at < $1
+`
+
+func (q *Queries) PruneReportRuns(ctx context.Context, startedAt time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneReportRuns, startedAt)
 	if err != nil {
 		return 0, err
 	}

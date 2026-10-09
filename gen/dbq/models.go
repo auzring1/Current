@@ -460,6 +460,20 @@ type PolicyAttempt struct {
 	CreatedAt    time.Time
 }
 
+type ReportRun struct {
+	OrgID      uuid.UUID
+	ScheduleID string
+	DueAt      time.Time
+	StartedAt  time.Time
+	Name       string
+	Report     string
+	Format     string
+	Status     string
+	Error      string
+	Bytes      int32
+	Recipients int32
+}
+
 type RoleBinding struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID

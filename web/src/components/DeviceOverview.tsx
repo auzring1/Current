@@ -3,6 +3,7 @@ import { Alert, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import { api, errorMessage, type Device, type DeviceUser } from "../api/client";
 import { ago, dateTime, duration } from "../api/format";
 import { Card, EmptyState, Icons, StatGrid, StatTile, StatusPill, TableSkeleton } from "../ui";
+import { CustomFieldsCard } from "./DeviceCustomFields";
 import { Field } from "./DeviceField";
 
 const small = { fontSize: "var(--rnv-text-lg)", overflowWrap: "anywhere" } as const;
@@ -33,6 +34,7 @@ export function OverviewTab({ device: d }: { device: Device }) {
         <Field label="Enrolled" value={dateTime(d.enrolled_at)} />
         <Field label="Software inventory" value={d.software_updated_at ? `${d.software_count} items, updated ${ago(d.software_updated_at)}` : "not reported yet"} />
       </SimpleGrid>
+      <CustomFieldsCard deviceId={d.id} />
       <Card title="User profiles" description="Accounts with a profile on this device.">
         <UsersList id={d.id} />
       </Card>
