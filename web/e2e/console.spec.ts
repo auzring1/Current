@@ -430,7 +430,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await shot(page, "22-policies");
 
   await mainNav(page).getByRole("link", { name: "Reports", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(.* · )?Reports$/ })).toBeVisible();
   await expect(page.getByText("Patch compliant")).toBeVisible();
   await shot(page, "23-reports");
 
