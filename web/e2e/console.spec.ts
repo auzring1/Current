@@ -30,7 +30,7 @@ const a11yIssues: string[] = [];
 async function a11y(page: Page, name: string) {
   const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   for (const v of r.violations) {
-    a11yIssues.push(`${name}: ${v.id} (${v.impact}) x${v.nodes.length}: ${v.help} :: ${v.nodes.slice(0, 2).map((n) => n.target.join(" ")).join(" | ")}`);
+    a11yIssues.push(`${name}: ${v.id} (${v.impact}) x${v.nodes.length}: ${v.help} :: ${v.nodes.slice(0, 2).map((n) => n.target.join(" ") + " :: " + (n.any[0]?.message ?? "")).join(" | ")}`);
   }
 }
 
