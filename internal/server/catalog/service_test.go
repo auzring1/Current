@@ -309,3 +309,83 @@ func TestGitHubSource(t *testing.T) {
 		t.Error("traversal in version accepted")
 	}
 }
+
+func TestAdministratorCanMarkAPackageVerifiedAndTheMarkSurvivesAnImport(t *testing.T) {
+	db := pgtest.New(t)
+	org, user := newOrg(t, db.Pool)
+	src := &fakeSource{files: map[string][][]byte{"7zip.7zip@24.09": fixture(t, "7zip.version.yaml", "7zip.installer.yaml", "7zip.locale.yaml")}, vers: []string{"24.09"}}
+	s := &Service{Pool: db.Pool, Source: src}
+	ctx := context.Background()
+	res, err := s.Import(ctx, org, user, "7zip.7zip", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := dbq.New(db.Pool)
+	get := func() dbq.CatalogPackage {
+		p, err := q.GetCatalogPackage(ctx, dbq.GetCatalogPackageParams{ID: res.PackageID, OrgID: org})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	if p := get(); p.Verified || p.VerifiedByOrg {
+		t.Fatalf("a fresh import is unverified: %+v", p)
+	}
+
+	ch, err := s.SetOrgVerified(ctx, org, user, res.PackageID, true)
+	if err != nil || ch.Version != "24.09" || ch.BeforeVerified || !ch.AfterVerified || ch.TestsPassed {
+		t.Fatalf("%+v %v", ch, err)
+	}
+	p := get()
+	if !p.Verified || !p.VerifiedByOrg || p.VerifiedBy == nil || *p.VerifiedBy != user || p.VerifiedAt == nil || p.VerifiedVersion != "24.09" {
+		t.Fatalf("after marking: %+v", p)
+	}
+
+	// Importing again (a newer version, a refresh) must not wipe the administrator's mark.
+	if _, err := s.Import(ctx, org, user, "7zip.7zip", ""); err != nil {
+		t.Fatal(err)
+	}
+	if p := get(); !p.Verified || !p.VerifiedByOrg {
+		t.Fatalf("the mark was lost by an import: %+v", p)
+	}
+
+	// Removing the mark makes the package unverified again.
+	ch, err = s.SetOrgVerified(ctx, org, user, res.PackageID, false)
+	if err != nil || !ch.BeforeVerified || ch.AfterVerified || !ch.BeforeByOrg {
+		t.Fatalf("%+v %v", ch, err)
+	}
+	if p := get(); p.Verified || p.VerifiedByOrg || p.VerifiedBy != nil || p.VerifiedAt != nil || p.VerifiedVersion != "" {
+		t.Fatalf("after removing the mark: %+v", p)
+	}
+
+	// A package that passed the VM test matrix stays verified without the mark.
+	s.Overlay = &Overlay{byID: map[string]OverlayEntry{}, results: map[string][]MatrixResult{"7zip.7zip": {{Identifier: "7zip.7zip", Scope: "machine", OS: "win11"}}}}
+	if ch, err = s.SetOrgVerified(ctx, org, user, res.PackageID, true); err != nil || !ch.TestsPassed {
+		t.Fatalf("%+v %v", ch, err)
+	}
+	if ch, err = s.SetOrgVerified(ctx, org, user, res.PackageID, false); err != nil || !ch.AfterVerified {
+		t.Fatalf("tested packages stay verified: %+v %v", ch, err)
+	}
+	if p := get(); !p.Verified || p.VerifiedByOrg {
+		t.Fatalf("%+v", p)
+	}
+}
+
+func TestVerificationIsForWingetPackagesInTheCallersOrganization(t *testing.T) {
+	db := pgtest.New(t)
+	org, user := newOrg(t, db.Pool)
+	otherOrg, _ := newOrg(t, db.Pool)
+	s := &Service{Pool: db.Pool}
+	ctx := context.Background()
+	pid, err := dbq.New(db.Pool).UpsertCatalogPackage(ctx, dbq.UpsertCatalogPackageParams{ID: uuid.New(), OrgID: org, Source: "custom", Identifier: "Custom.Tool", Name: "Tool", Publisher: "Me"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom := struct{ PackageID uuid.UUID }{pid}
+	if _, verr := s.SetOrgVerified(ctx, org, user, custom.PackageID, true); !errors.Is(verr, ErrInvalid) {
+		t.Fatalf("a custom package needs no verification: %v", verr)
+	}
+	if _, verr := s.SetOrgVerified(ctx, otherOrg, user, custom.PackageID, true); !errors.Is(verr, ErrNotFound) {
+		t.Fatalf("another organization's package: %v", verr)
+	}
+}

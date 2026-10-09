@@ -83,11 +83,7 @@ export function PackagePage() {
       )}
       {d && (
         <>
-          {!d.package.verified && d.package.source === "winget" && (
-            <Alert color="yellow" title="Unverified package" icon={<Icons.Warning size={18} aria-hidden />}>
-              This package has not passed the {PRODUCT_NAME} VM test matrix. Its installer type and silent switches come from the community manifest. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
-            </Alert>
-          )}
+          {d.package.source === "winget" && <VerificationCard detail={d} />}
           <Card title="Details" actions={<PackageBadges p={d.package} />}>
             <div className="rnv-block">
               {d.package.description && <p style={{ margin: 0 }}>{d.package.description}</p>}
@@ -123,6 +119,70 @@ export function PackagePage() {
         </>
       )}
     </Page>
+  );
+}
+
+/** Whether the package counts as verified, and (for administrators) the way to mark it after testing it. */
+function VerificationCard({ detail }: { detail: PackageDetail }) {
+  const { canOrg } = useSession();
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const p = detail.package;
+  const v = detail.verification;
+  const canMark = canOrg("catalog:override");
+  const newest = detail.versions?.[0]?.version;
+  const set = useMutation({
+    mutationFn: (verified: boolean) => api("PUT", `/catalog/packages/${p.id}/verification`, { verified }),
+    onSuccess: (_r, verified) => (toast.success(verified ? "Marked as verified." : "Verification removed."), qc.invalidateQueries({ queryKey: ["catalog"] })),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const mark = async () => {
+    const ok = await confirm({
+      title: `Mark ${p.name} as verified?`,
+      message: `Do this after you have tested ${p.name}${newest ? ` ${newest}` : ""} on your own computers. From then on it deploys without the confirmation, to every device, including by software policies. This is recorded in the audit log under your name. You can remove the mark at any time.`,
+      confirmLabel: "Mark as verified",
+    });
+    if (ok) set.mutate(true);
+  };
+  const unmark = async () => {
+    const ok = await confirm({
+      title: `Remove the verified mark from ${p.name}?`,
+      message: "Deploying it will ask for the confirmation again. This is recorded in the audit log.",
+      confirmLabel: "Remove mark",
+      danger: true,
+    });
+    if (ok) set.mutate(false);
+  };
+
+  if (p.verified) {
+    const byTeam = p.verified_source === "organization";
+    return (
+      <Alert color="green" title={byTeam ? "Verified by your organization" : `Verified: passed the ${PRODUCT_NAME} VM test matrix`} icon={<Icons.Success size={18} aria-hidden />}>
+        {byTeam
+          ? `${v?.by || "An administrator"} marked this package as verified${v?.at ? ` on ${dateTime(v.at)}` : ""}${v?.version ? `, after testing version ${v.version}` : ""}. It deploys without the confirmation.${newest && v?.version && newest !== v.version ? ` The newest imported version is ${newest}, which was not tested at that time.` : ""}`
+          : "It deploys without the confirmation."}
+        {canMark && byTeam && (
+          <div style={{ marginTop: "var(--rnv-space-2)" }}>
+            <Button size="compact-sm" variant="default" loading={set.isPending} onClick={() => void unmark()}>
+              Remove the verified mark
+            </Button>
+          </div>
+        )}
+      </Alert>
+    );
+  }
+  return (
+    <Alert color="yellow" title="Not verified" icon={<Icons.Warning size={18} aria-hidden />}>
+      This package comes from the community winget repository and has not been tested. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
+      {canMark ? " Once you have tested it on your own computers, mark it as verified so it deploys without the prompt." : " An administrator can mark it as verified after testing it."}
+      {canMark && (
+        <div style={{ marginTop: "var(--rnv-space-2)" }}>
+          <Button size="compact-sm" loading={set.isPending} leftSection={<Icons.Success size={14} aria-hidden />} onClick={() => void mark()}>
+            Mark as verified
+          </Button>
+        </div>
+      )}
+    </Alert>
   );
 }
 
