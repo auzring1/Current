@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"io"
 	"net"
 	"net/http"
@@ -96,9 +97,9 @@ func (s *Service) deliverWebhook(ctx context.Context, org uuid.UUID, id, event s
 	}
 	_, product := s.names(ctx)
 	ts := s.now().Unix()
-	h := map[string]string{"Content-Type": "application/json", "User-Agent": product, "X-Renovatio-Event": event, "X-Renovatio-Delivery": uuid.NewString(), "X-Renovatio-Timestamp": strconv.FormatInt(ts, 10)}
+	h := map[string]string{"Content-Type": "application/json", "User-Agent": product, hdr("Event"): event, hdr("Delivery"): uuid.NewString(), hdr("Timestamp"): strconv.FormatInt(ts, 10)}
 	if secret != "" {
-		h["X-Renovatio-Signature"] = Sign(secret, ts, body)
+		h[hdr("Signature")] = Sign(secret, ts, body)
 	}
 	st, err := s.poster().Post(ctx, url, h, body)
 	if err != nil {
@@ -120,3 +121,6 @@ func (s *Service) TestWebhook(ctx context.Context, org uuid.UUID, id string) err
 	body, _ := json.Marshal(map[string]any{"id": uuid.NewString(), "event": "test", "time": s.now().UTC().Format(time.RFC3339), "organization": orgName, "message": "This is a test delivery."})
 	return s.deliverWebhook(ctx, org, id, "test", body)
 }
+
+// hdr names a webhook header after the product (X-<Product>-<Name>), from the single source of the product name.
+func hdr(name string) string { return "X-" + brand.Name + "-" + name }

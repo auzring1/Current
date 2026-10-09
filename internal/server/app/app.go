@@ -129,7 +129,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		if p, err := a.Branding.Public(ctx); err == nil {
 			return p.OrgName, p.ProductName, p.AccentColor
 		}
-		return "", "Renovatio", "#1971c2"
+		return "", brand.Name, "#1971c2"
 	}}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
 	a.Updates.OnHold = func(ctx context.Context, org uuid.UUID, title, ring, reason string) {
