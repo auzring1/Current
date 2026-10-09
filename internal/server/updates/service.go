@@ -39,6 +39,9 @@ type Actor struct {
 
 // Service owns the update catalog and its scheduling.
 type Service struct {
+	// OnHold, if set, is told when a ring raises a hold (the notification hook).
+	OnHold func(ctx context.Context, org uuid.UUID, title, ring, reason string)
+
 	Pool   *pgxpool.Pool
 	Deploy *deploy.Service
 	Events *events.Broker

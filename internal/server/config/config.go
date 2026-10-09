@@ -65,6 +65,8 @@ type Config struct {
 	EnrollRatePerIP    int
 	EnrollRatePerToken int
 	HeartbeatInterval  time.Duration
+	// IgnoreIPAllowlist is the break-glass switch for a console IP allow-list that locked everyone out.
+	IgnoreIPAllowlist  bool
 	SessionIdleTimeout time.Duration
 	SessionAbsTimeout  time.Duration
 	LogLevel           string
@@ -239,6 +241,7 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	c.EnrollRatePerIP = count("RENOVATIO_ENROLL_RATE_PER_IP", DefaultEnrollRatePerIP)
 	c.EnrollRatePerToken = count("RENOVATIO_ENROLL_RATE_PER_TOKEN", DefaultEnrollRatePerToken)
 	c.HeartbeatInterval = dur("RENOVATIO_HEARTBEAT_INTERVAL", 5*time.Minute, time.Second)
+	c.IgnoreIPAllowlist = os.Getenv("RENOVATIO_IGNORE_IP_ALLOWLIST") == "true"
 	c.SessionIdleTimeout = dur("RENOVATIO_SESSION_IDLE_TIMEOUT", 30*time.Minute, time.Minute)
 	c.SessionAbsTimeout = dur("RENOVATIO_SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour, 5*time.Minute)
 

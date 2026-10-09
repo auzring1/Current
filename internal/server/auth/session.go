@@ -40,11 +40,22 @@ type Session struct {
 
 // Sessions manages server-side sessions.
 type Sessions struct {
-	Q      func(ctx context.Context) *dbq.Queries
-	Idle   time.Duration
-	Abs    time.Duration
-	Secure bool
-	Now    func() time.Time
+	Q    func(ctx context.Context) *dbq.Queries
+	Idle time.Duration
+	Abs  time.Duration
+	// Timeouts, when set, overrides Idle and Abs at each use (the organization's Security settings).
+	Timeouts func(ctx context.Context) (idle, abs time.Duration)
+	Secure   bool
+	Now      func() time.Time
+}
+
+func (m *Sessions) limits(ctx context.Context) (time.Duration, time.Duration) {
+	if m.Timeouts != nil {
+		if i, a := m.Timeouts(ctx); i > 0 && a > 0 {
+			return i, a
+		}
+	}
+	return m.Idle, m.Abs
 }
 
 func (m *Sessions) now() time.Time {
@@ -86,7 +97,8 @@ func (m *Sessions) Create(ctx context.Context, q *dbq.Queries, userID uuid.UUID,
 		return nil, err
 	}
 	now := m.now()
-	idle, abs := now.Add(m.Idle), now.Add(m.Abs)
+	idleD, absD := m.limits(ctx)
+	idle, abs := now.Add(idleD), now.Add(absD)
 	var mfaAt *time.Time
 	if mfaVerified {
 		mfaAt = &now
@@ -126,7 +138,8 @@ func (m *Sessions) Lookup(ctx context.Context, tok string) (*Session, error) {
 		CSRFToken: row.CsrfToken, PendingTOTPEnc: row.PendingTotpEnc, MFAFailures: row.MfaFailures, AbsExpiresAt: row.AbsExpiresAt}
 	// Slide the idle window (at most once a minute to limit writes).
 	if s.MFAVerified && now.Sub(row.LastSeenAt) > time.Minute {
-		idle := now.Add(m.Idle)
+		idleD, _ := m.limits(ctx)
+		idle := now.Add(idleD)
 		if idle.After(row.AbsExpiresAt) {
 			idle = row.AbsExpiresAt
 		}

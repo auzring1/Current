@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/google/uuid"
 	"log/slog"
 	"net"
 	"net/http"
@@ -34,8 +35,10 @@ import (
 	"github.com/auzring1/renovatio/internal/server/gateway"
 	"github.com/auzring1/renovatio/internal/server/kek"
 	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/settings"
 	"github.com/auzring1/renovatio/internal/server/store"
 	"github.com/auzring1/renovatio/internal/server/updates"
 	"github.com/auzring1/renovatio/internal/server/webui"
@@ -55,6 +58,8 @@ type App struct {
 	Releases  *agentrel.Service
 	Policies  *policies.Service
 	Dashboard *dashboard.Service
+	Settings  *settings.Service
+	Notify    *notify.Service
 	Catalog   *catalog.Service
 	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
 	Licensing *licensing.Service
@@ -113,8 +118,24 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	a.Branding = &branding.Service{Pool: pool, Log: log.With("component", "branding")}
 	a.Releases.Licensing = lic
 	a.Dashboard = &dashboard.Service{Pool: pool, Log: log.With("component", "dashboard")}
+	a.Settings = &settings.Service{Pool: pool, Sealer: sealer, Log: log.With("component", "settings")}
+	a.Notify = &notify.Service{Pool: pool, Settings: a.Settings, Branding: a.Branding, Licensing: lic, Log: log.With("component", "notify")}
 	a.Policies = &policies.Service{Pool: pool, Deploy: a.Deploy, Log: log.With("component", "policies")}
+	a.Updates.OnHold = func(ctx context.Context, org uuid.UUID, title, ring, reason string) {
+		a.Notify.Emit(ctx, org, notify.Event{Name: "update_held", Key: "hold:" + title + ":" + ring, Subject: title + " is held after ring " + ring,
+			Text: "The update \"" + title + "\" was held because ring " + ring + " missed its success threshold: " + reason,
+			Data: map[string]any{"update": map[string]any{"title": title}, "ring": ring, "reason": reason}})
+	}
 	a.Deploy.AfterTerminal = func(ctx context.Context, j dbq.Job, status string, u *agentv1.JobUpdate) {
+		if status == "failed" {
+			host := ""
+			if d, err := dbq.New(pool).GetDevice(ctx, j.DeviceID); err == nil {
+				host = d.Hostname
+			}
+			a.Notify.Emit(ctx, j.OrgID, notify.Event{Name: "failed_install", Key: "job:" + j.ID.String(), Subject: j.Title + " failed on " + host,
+				Text: j.Title + " failed on " + host + ": " + j.StatusReason,
+				Data: map[string]any{"device": map[string]any{"id": j.DeviceID.String(), "hostname": host}, "job": map[string]any{"id": j.ID.String(), "title": j.Title, "reason": j.StatusReason}}})
+		}
 		a.Updates.AfterJob(ctx, j, status, u)
 		a.Releases.AfterJob(ctx, j, status, u)
 	}
@@ -217,10 +238,12 @@ func (a *App) Handler() http.Handler {
 		Abs:    a.Cfg.SessionAbsTimeout,
 		Secure: a.Cfg.SecureCookies(),
 	}
-	return api.NewHandler(api.Deps{
+	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding,
-	}, webui.Handler(a.pageHead))
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify,
+	}
+	sessions.Timeouts = api.SessionLimits(deps)
+	return api.NewHandler(deps, webui.Handler(a.pageHead))
 }
 
 // Run serves HTTP and (once the CA exists) the agent gateway until ctx ends.
@@ -331,6 +354,7 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Updates.Tick(ctx)
 			a.Releases.Tick(ctx)
 			a.Licensing.Tick(ctx)
+			a.Notify.Tick(ctx)
 			if n%5 == 0 {
 				a.Policies.Tick(ctx)
 			}
