@@ -11,7 +11,7 @@ import { HardwareTab } from "../components/DeviceHardware";
 import { JobsTab } from "../components/DeviceJobs";
 import { OverviewTab } from "../components/DeviceOverview";
 import { SoftwareTab } from "../components/DeviceSoftware";
-import { UpdatesTab } from "../components/DeviceUpdates";
+import { SoftwareUpdatesTab, UpdatesTab } from "../components/DeviceUpdates";
 import { resolveDeviceTab, type DeviceTab } from "../components/deviceTabs";
 import { Card, Icons, Page, PageHeader, Status, StatusPill, TableSkeleton, toast, useConfirm } from "../ui";
 
@@ -65,7 +65,7 @@ export function DevicePage() {
   });
   const d = q.data;
   const { loading: sessionLoading, can, canOrg } = useSession();
-  const access = { hasUpdates: can("deployments:read") || can("updates:read"), hasJobs: can("deployments:read"), hasActivity: canOrg("audit:read") };
+  const access = { hasUpdates: can("updates:read"), hasSoftwareUpdates: can("deployments:read"), hasJobs: can("deployments:read"), hasActivity: canOrg("audit:read") };
   const [params, setParams] = useSearchParams();
   const rawTab = params.get("tab");
   const tab = resolveDeviceTab(rawTab, access);
@@ -132,6 +132,7 @@ export function DevicePage() {
                 <Tabs.Tab value="overview">Overview</Tabs.Tab>
                 <Tabs.Tab value="hardware">Hardware</Tabs.Tab>
                 <Tabs.Tab value="software">Software{d.software_count ? ` (${d.software_count})` : ""}</Tabs.Tab>
+                {access.hasSoftwareUpdates && <Tabs.Tab value="software-updates">Software updates</Tabs.Tab>}
                 {access.hasUpdates && <Tabs.Tab value="updates">Windows updates</Tabs.Tab>}
                 {access.hasJobs && <Tabs.Tab value="jobs">Jobs</Tabs.Tab>}
                 {access.hasActivity && <Tabs.Tab value="activity">Activity</Tabs.Tab>}
@@ -146,9 +147,14 @@ export function DevicePage() {
               <Tabs.Panel value="software" pt="md">
                 <SoftwareTab id={id} hostname={d.hostname} active={d.status === "active"} />
               </Tabs.Panel>
+              {access.hasSoftwareUpdates && (
+                <Tabs.Panel value="software-updates" pt="md">
+                  <SoftwareUpdatesTab id={id} hostname={d.hostname} active={d.status === "active"} />
+                </Tabs.Panel>
+              )}
               {access.hasUpdates && (
                 <Tabs.Panel value="updates" pt="md">
-                  <UpdatesTab id={id} hostname={d.hostname} active={d.status === "active"} />
+                  <UpdatesTab id={id} active={d.status === "active"} />
                 </Tabs.Panel>
               )}
               {access.hasJobs && (

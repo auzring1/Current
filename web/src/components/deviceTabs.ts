@@ -1,16 +1,19 @@
 /** The tabs of the device page, in display order. */
-export const DEVICE_TABS = ["overview", "hardware", "software", "updates", "jobs", "activity"] as const;
+export const DEVICE_TABS = ["overview", "hardware", "software", "software-updates", "updates", "jobs", "activity"] as const;
 export type DeviceTab = (typeof DEVICE_TABS)[number];
 
 /**
  * Old and alternative `?tab=` values and the tab that now holds their content.
- * "Missing updates" and "Windows updates" were merged, "Users" moved into Overview and
- * "Client certificates" into Hardware.
+ * "Missing updates" is now the "Software updates" tab and the Windows update names all lead to "Windows updates";
+ * "Users" moved into Overview and "Client certificates" into Hardware.
  */
 export const DEVICE_TAB_ALIASES: Readonly<Record<string, DeviceTab>> = {
-  missing: "updates",
-  "missing-updates": "updates",
-  missing_updates: "updates",
+  missing: "software-updates",
+  "missing-updates": "software-updates",
+  missing_updates: "software-updates",
+  "program-updates": "software-updates",
+  software_updates: "software-updates",
+  softwareupdates: "software-updates",
   "windows-updates": "updates",
   windows_updates: "updates",
   windowsupdates: "updates",
@@ -24,8 +27,10 @@ export const DEVICE_TAB_ALIASES: Readonly<Record<string, DeviceTab>> = {
 
 /** Which optional tabs the person may see. Overview, Hardware and Software are always available. */
 export interface DeviceTabAccess {
-  /** `deployments:read` or `updates:read`: either one shows the merged Windows updates tab (each section keeps its own gate). */
+  /** `updates:read`: the Windows updates tab. */
   hasUpdates: boolean;
+  /** `deployments:read`: the Software updates tab (programs that have a newer version in the catalog). */
+  hasSoftwareUpdates: boolean;
   /** `deployments:read` */
   hasJobs: boolean;
   /** `audit:read` on the organization */
@@ -33,7 +38,9 @@ export interface DeviceTabAccess {
 }
 
 export function availableDeviceTabs(access: DeviceTabAccess): DeviceTab[] {
-  return DEVICE_TABS.filter((t) => (t === "updates" ? access.hasUpdates : t === "jobs" ? access.hasJobs : t === "activity" ? access.hasActivity : true));
+  return DEVICE_TABS.filter((t) =>
+    t === "updates" ? access.hasUpdates : t === "software-updates" ? access.hasSoftwareUpdates : t === "jobs" ? access.hasJobs : t === "activity" ? access.hasActivity : true,
+  );
 }
 
 /**

@@ -44,7 +44,11 @@ const (
 	maxMsg             = 4 << 20
 	fullHeartbeatEvery = 30 * time.Minute
 	hardwareEvery      = 6 * time.Hour
-	healthyResetAfter  = 10 * time.Minute
+	// startupFastRetryFor and startupFastRetryMax: how long after the service starts reconnect attempts are capped, and
+	// the cap.
+	startupFastRetryFor = 10 * time.Minute
+	startupFastRetryMax = 15 * time.Second
+	healthyResetAfter   = 10 * time.Minute
 )
 
 // Agent is one running agent instance.
@@ -124,7 +128,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.outKick, a.invNow, a.wuKick = make(chan struct{}, 1), make(chan struct{}, 1), make(chan struct{}, 1)
 	a.startJobs(ctx)
 	a.status("starting", "", "")
-	bo := &Backoff{Base: a.BackoffBase, Max: a.BackoffMax}
+	// For the first minutes after the service starts (usually a computer that is still starting up, with no network yet)
+	// retries stay short, so the device shows as online soon after its network does.
+	bo := &Backoff{Base: a.BackoffBase, Max: a.BackoffMax, Start: a.now(), FastFor: startupFastRetryFor, FastMax: startupFastRetryMax}
 	for ctx.Err() == nil {
 		id, err := a.Store.Identity()
 		if err != nil {

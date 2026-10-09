@@ -362,8 +362,8 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
         Updates come from packages you imported in the <Anchor component={Link} to="/catalog">Catalog</Anchor>.
       </Text>
       <DataTable<AvailableUpdate>
-        id="device-missing-updates"
-        label="Missing updates"
+        id="device-software-updates"
+        label="Software updates"
         data={q.data?.items}
         loading={q.isLoading}
         error={q.error}
@@ -372,7 +372,7 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
         rowTestId="update-row"
         rowLabel={(u) => u.name}
         searchPlaceholder="Search updates"
-        exportName={`${hostname}-missing-updates`}
+        exportName={`${hostname}-software-updates`}
         selectable={canAct ? (u) => u.deployable : false}
         empty={<EmptyState icon={<Icons.Success size={26} />} title="No missing updates" description="Every installed program that is in your catalog is at its newest allowed version." />}
         bulkActions={(rows, clr) => (

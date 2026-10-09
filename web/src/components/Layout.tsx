@@ -67,6 +67,11 @@ export function Layout() {
             <I.Menu size={20} aria-hidden />
           </ActionIcon>
         )}
+        {!narrow && (
+          <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => setCollapsed(!rail)} aria-label="Toggle sidebar" aria-pressed={rail} title={rail ? "Expand sidebar" : "Collapse sidebar to icons"} data-testid="topbar-nav-toggle">
+            {rail ? <I.SidebarExpand size={20} aria-hidden /> : <I.SidebarCollapse size={20} aria-hidden />}
+          </ActionIcon>
+        )}
         <Link to="/" className="rnv-topbar__brand" aria-label={`${brand.product_name} home`}>
           <BrandMark height={28} />
           <span className="rnv-topbar__product" data-testid="product-name">

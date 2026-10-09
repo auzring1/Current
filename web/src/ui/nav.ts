@@ -29,7 +29,7 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Settings sections: the Settings submenu in the sidebar and the left navigation inside the Settings area. */
+/** Settings sections: the left navigation inside the Settings area (the sidebar has a single Settings link) and the command palette. */
 export const SETTINGS_SECTIONS: NavItem[] = [
   { id: "settings-general", section: "general", to: "/settings", label: "General", perm: "catalog:read", icon: I.NavSettings, end: true, keywords: ["per-user installs"] },
   { id: "settings-branding", section: "branding", to: "/settings/branding", label: "Branding", perm: "branding:write", icon: I.Palette, keywords: ["logo", "name", "colors", "login"] },
@@ -61,6 +61,7 @@ export const NAV: NavGroup[] = [
     id: "updates",
     label: "Updates",
     items: [
+      { id: "software-updates", to: "/software-updates", label: "Software updates", perm: "deployments:read", icon: I.NavSoftwareUpdates, keywords: ["program updates", "outdated", "apps", "newer version", "patch software"] },
       { id: "windows-updates", to: "/updates", label: "Windows updates", perm: "updates:read", icon: I.NavUpdates, end: true, keywords: ["patches", "kb", "approve"] },
       { id: "update-rings", to: "/update-policy", label: "Update rings and rules", perm: "updates:read", icon: I.NavPolicy, keywords: ["policy", "rings", "rules", "restart"] },
       { id: "held-updates", to: "/updates/held", label: "Held updates", perm: "updates:read", icon: I.NavHeld, keywords: ["holds", "blocked"] },

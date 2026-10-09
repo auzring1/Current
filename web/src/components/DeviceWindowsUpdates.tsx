@@ -302,17 +302,27 @@ export function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item
 }
 
 export function RestartModal({ busy, onCancel, onConfirm }: { busy: boolean; onCancel: () => void; onConfirm: (minutes: number) => void }) {
-  const [minutes, setMinutes] = useState<number | string>(15);
+  const [minutes, setMinutes] = useState<number | string>(5);
   return (
     <Modal opened onClose={onCancel} title="Restart this device">
       <Stack>
         <Text size="sm">Signed-in users see a countdown first and can ask you to wait; an administrator on the device can abort it with <code>shutdown /a</code>.</Text>
-        <NumberInput label="Countdown (minutes)" min={1} max={1440} value={minutes} onChange={setMinutes} />
+        <NumberInput
+          label="Countdown (minutes)"
+          description="1 minute is the shortest: people on the computer see the warning first, and Windows restarts when the countdown ends."
+          min={1}
+          max={1440}
+          allowDecimal={false}
+          allowNegative={false}
+          clampBehavior="strict"
+          value={minutes}
+          onChange={setMinutes}
+        />
         <Group justify="flex-end">
           <Button variant="default" onClick={onCancel}>
             Cancel
           </Button>
-          <Button color="orange" loading={busy} onClick={() => onConfirm(Number(minutes) || 15)}>
+          <Button color="orange" loading={busy} onClick={() => onConfirm(Math.min(1440, Math.max(1, Math.round(Number(minutes)) || 1)))}>
             Restart
           </Button>
         </Group>

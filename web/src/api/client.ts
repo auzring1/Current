@@ -29,6 +29,7 @@ export type DeploymentDetail = components["schemas"]["DeploymentDetail"];
 export type DeploymentJob = components["schemas"]["DeploymentJob"];
 export type DeviceJob = components["schemas"]["DeviceJob"];
 export type AvailableUpdate = components["schemas"]["AvailableUpdate"];
+export type FleetUpdate = components["schemas"]["FleetUpdate"];
 export type WindowsUpdate = components["schemas"]["WindowsUpdate"];
 export type UpdateRule = components["schemas"]["UpdateRule"];
 export type UpdateRing = components["schemas"]["UpdateRing"];

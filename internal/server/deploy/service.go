@@ -87,6 +87,12 @@ func (s *Service) signAndOffer(ctx context.Context, j dbq.Job) bool {
 	}
 	now := s.now()
 	env.IssuedAt = now.Add(-time.Minute).Unix() // tolerate small clock differences on the device
+	// A job that is due now must not wait for a device whose clock runs behind ours: the agent holds a job until its own
+	// clock reaches "not before", so a server clock a few minutes ahead of the PC would delay every "run now" action by
+	// that long. Move it back by the skew the device already tolerates for issued_at.
+	if env.NotBefore <= now.Unix() {
+		env.NotBefore = now.Add(-envelope.ClockSkew).Unix()
+	}
 	env.Nonce = make([]byte, 16)
 	_, _ = rand.Read(env.Nonce)
 	key, ok := auth.JobSigning.Key.(ed25519.PrivateKey)
