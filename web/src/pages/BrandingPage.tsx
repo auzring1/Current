@@ -195,6 +195,7 @@ export function BrandingPage() {
               error={problems.accent ?? err("accent_color")}
               popoverProps={{ withinPortal: true }}
               withPicker={false}
+              eyeDropperButtonProps={{ "aria-label": "Pick a color from the screen" }}
               swatches={ACCENT_SWATCHES}
               swatchesPerRow={6}
             />
@@ -208,6 +209,7 @@ export function BrandingPage() {
               error={problems.secondary ?? err("secondary_color")}
               popoverProps={{ withinPortal: true }}
               withPicker={false}
+              eyeDropperButtonProps={{ "aria-label": "Pick a color from the screen" }}
               swatches={SECONDARY_SWATCHES}
               swatchesPerRow={6}
             />
