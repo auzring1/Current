@@ -10,6 +10,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"log/slog"
 	"strings"
 	"time"
@@ -190,7 +191,7 @@ func (s *Service) names(ctx context.Context) (string, string, string) {
 	if s.Names != nil {
 		return s.Names(ctx)
 	}
-	return "", "Renovatio", "#1971c2"
+	return "", brand.Name, "#1971c2"
 }
 
 func reportTitle(kind string) string {

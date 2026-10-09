@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"net/http"
 	"strconv"
 	"time"
@@ -275,5 +276,5 @@ func (s *server) notificationLog(w http.ResponseWriter, r *http.Request) {
 
 // GET /settings/events: the webhook event reference.
 func (s *server) settingsEvents(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"events": settings.EventReference(), "signature": "HMAC-SHA256 of \"<X-Renovatio-Timestamp>.<body>\" with the webhook's secret, sent as X-Renovatio-Signature: sha256=<hex>"})
+	writeJSON(w, http.StatusOK, map[string]any{"events": settings.EventReference(), "signature": "HMAC-SHA256 of \"<X-" + brand.Name + "-Timestamp>.<body>\" with the webhook's secret, sent as X-" + brand.Name + "-Signature: sha256=<hex>"})
 }

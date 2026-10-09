@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRODUCT_NAME } from "../brand.generated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Checkbox, Radio, TextInput } from "@mantine/core";
 import { api, ApiError, errorMessage, type BrandingSettings, type BrandingView } from "../api/client";
@@ -197,7 +198,7 @@ export function EventReference() {
       {q.data && (
         <div style={{ display: "grid", gap: 16 }}>
           <p style={{ margin: 0 }}>
-            <strong>Headers:</strong> <code>X-Renovatio-Event</code>, <code>X-Renovatio-Delivery</code> (unique id), <code>X-Renovatio-Timestamp</code> (Unix seconds) and, when the webhook has a secret, <code>X-Renovatio-Signature</code>.
+            <strong>Headers:</strong> <code>X-{PRODUCT_NAME}-Event</code>, <code>X-{PRODUCT_NAME}-Delivery</code> (unique id), <code>X-{PRODUCT_NAME}-Timestamp</code> (Unix seconds) and, when the webhook has a secret, <code>X-{PRODUCT_NAME}-Signature</code>.
           </p>
           <p style={{ margin: 0 }}>
             <strong>Checking the signature:</strong> {q.data.signature}. Reject deliveries whose timestamp is more than a few minutes old.

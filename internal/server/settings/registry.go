@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"strings"
 )
 
@@ -319,7 +320,7 @@ var integrations = Section{
 	Description: "Outgoing webhooks and the reference for what they send. API tokens are created on each person's Account page (administrators can see and revoke all of them under Users and roles).",
 	Fields: []Field{
 		{Key: "webhooks", Label: "Webhooks", Kind: List, Default: []any{}, Max: 20, Effect: Live,
-			Help: "Each webhook receives a JSON POST for the events it listens to, signed with HMAC-SHA256 in the X-Renovatio-Signature header so the receiver can check where it came from.",
+			Help: "Each webhook receives a JSON POST for the events it listens to, signed with HMAC-SHA256 in the X-" + brand.Name + "-Signature header so the receiver can check where it came from.",
 			Fields: []Field{
 				{Key: "id", Label: "Id", Kind: String, Default: "", Max: 64, Effect: Live, Help: "Assigned automatically."},
 				{Key: "name", Label: "Name", Kind: String, Required: true, Default: "New webhook", Min: 1, Max: 100, Effect: Live, Help: "Shown in the log."},

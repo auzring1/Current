@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auzring1/renovatio/internal/shared/brand"
 	"log/slog"
 	"strings"
 	"time"
@@ -124,7 +125,7 @@ func (s *Service) names(ctx context.Context) (org, product string) {
 			return p.OrgName, p.ProductName
 		}
 	}
-	return "", "Renovatio"
+	return "", brand.Name
 }
 
 func (s *Service) payload(ctx context.Context, org uuid.UUID, ev Event, now time.Time) map[string]any {
