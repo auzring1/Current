@@ -513,7 +513,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await mainNav(page).getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Branding" }).click();
   await expect(page).toHaveURL(/\/settings\/branding$/);
-  await expect(page).toHaveTitle("Settings · Acme Corp · Renovatio");
+  await expect(page).toHaveTitle("Branding · Acme Corp · Renovatio");
   await expect(page.getByLabel("Organization name")).toHaveValue("Acme Corp");
   await expect(page.getByLabel("Product name")).toHaveValue("");
   await page.getByLabel("Organization name").fill("Example Clinic");
@@ -545,7 +545,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.mouse.move(0, 0);
   await expect(page.getByTestId("product-name")).toHaveText("PatchBoard");
   await expect(page.getByTestId("org-name")).toHaveText("Example Clinic");
-  await expect(page).toHaveTitle("Settings · Example Clinic · PatchBoard");
+  await expect(page).toHaveTitle("Branding · Example Clinic · PatchBoard");
   // Images: the browser refuses SVG and mismatched shapes; valid ones are applied at once.
   const slot = (k: string) => page.getByTestId(`slot-${k}`);
   await slot("icon").locator('input[type="file"]').setInputFiles({ name: "x.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
