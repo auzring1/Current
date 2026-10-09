@@ -1,0 +1,4 @@
+# Vendor LICENSE public keys (Ed25519, 64 lowercase hex characters, one per line) compiled into the server of
+# every official build (docs/RUNBOOK.md, issuing licenses). PUBLIC keys only; this is a different key from the
+# release key in release-public-keys.txt. Empty = the server runs unlicensed (evaluation limits). Add the new key
+# BEFORE retiring the old one (rotation = a release that trusts both).

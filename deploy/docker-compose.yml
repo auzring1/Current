@@ -16,6 +16,9 @@ x-hardening: &hardening
 x-server-build: &server-build
   context: ..
   dockerfile: deploy/Dockerfile.server
+  args:
+    # The vendor license public key(s), hex, comma-separated; empty = the server runs unlicensed (evaluation).
+    LICENSE_PUBLIC_KEYS: ${RENOVATIO_LICENSE_PUBKEYS:-}
 
 services:
   caddy:
