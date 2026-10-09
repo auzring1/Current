@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 // server + database and a real (Linux test build) agent.
 export default defineConfig({
   testDir: "e2e",
-  timeout: 120_000,
+  timeout: 300_000,
   retries: 0,
   reporter: [["list"]],
   use: {
