@@ -2611,7 +2611,10 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Only this site (the console's site switcher) */
+                    site?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

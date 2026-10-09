@@ -1,0 +1,52 @@
+import { describe, expect, it } from "vitest";
+import { availableDeviceTabs, DEVICE_TAB_ALIASES, DEVICE_TABS, resolveDeviceTab, type DeviceTabAccess } from "./deviceTabs";
+
+const all: DeviceTabAccess = { hasUpdates: true, hasJobs: true, hasActivity: true };
+const none: DeviceTabAccess = { hasUpdates: false, hasJobs: false, hasActivity: false };
+
+describe("resolveDeviceTab", () => {
+  it("keeps every valid tab the person may see", () => {
+    for (const t of DEVICE_TABS) expect(resolveDeviceTab(t, all)).toBe(t);
+  });
+
+  it("maps the old tab values", () => {
+    for (const k of ["missing", "missing-updates", "windows-updates", "winupdates", "wu"]) expect(resolveDeviceTab(k, all)).toBe("updates");
+    expect(resolveDeviceTab("users", all)).toBe("overview");
+    expect(resolveDeviceTab("certificates", all)).toBe("hardware");
+    expect(resolveDeviceTab("certs", all)).toBe("hardware");
+    // every alias resolves to a real tab
+    for (const t of Object.values(DEVICE_TAB_ALIASES)) expect(DEVICE_TABS).toContain(t);
+  });
+
+  it("is forgiving about case and whitespace", () => {
+    expect(resolveDeviceTab(" Hardware ", all)).toBe("hardware");
+    expect(resolveDeviceTab("WU", all)).toBe("updates");
+  });
+
+  it("falls back to overview for missing or unknown values", () => {
+    expect(resolveDeviceTab(null, all)).toBe("overview");
+    expect(resolveDeviceTab(undefined, all)).toBe("overview");
+    expect(resolveDeviceTab("", all)).toBe("overview");
+    expect(resolveDeviceTab("nope", all)).toBe("overview");
+    expect(resolveDeviceTab("__proto__", all)).toBe("overview");
+    expect(resolveDeviceTab("constructor", all)).toBe("overview");
+  });
+
+  it("falls back to overview for tabs the person may not see, including through aliases", () => {
+    expect(resolveDeviceTab("jobs", { ...all, hasJobs: false })).toBe("overview");
+    expect(resolveDeviceTab("activity", { ...all, hasActivity: false })).toBe("overview");
+    expect(resolveDeviceTab("updates", none)).toBe("overview");
+    expect(resolveDeviceTab("missing", none)).toBe("overview");
+    expect(resolveDeviceTab("users", none)).toBe("overview");
+    expect(resolveDeviceTab("certs", none)).toBe("hardware");
+    expect(resolveDeviceTab("software", none)).toBe("software");
+  });
+});
+
+describe("availableDeviceTabs", () => {
+  it("keeps the display order", () => {
+    expect(availableDeviceTabs(all)).toEqual(["overview", "hardware", "software", "updates", "jobs", "activity"]);
+    expect(availableDeviceTabs(none)).toEqual(["overview", "hardware", "software"]);
+    expect(availableDeviceTabs({ hasUpdates: true, hasJobs: false, hasActivity: true })).toEqual(["overview", "hardware", "software", "updates", "activity"]);
+  });
+});

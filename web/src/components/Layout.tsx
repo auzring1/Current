@@ -8,9 +8,13 @@ import { useLiveEvents } from "../api/events";
 import { useSession } from "../api/session";
 import { BrandMark, useBranding, useDocumentTitle } from "../branding/BrandingProvider";
 import { forgetLocalAppearance } from "../design/AppearanceProvider";
-import { GlobalSearch } from "../ui/GlobalSearch";
+import { CommandPaletteProvider, SearchButton } from "../ui/CommandPalette";
+import { NotificationsBell } from "../ui/NotificationsBell";
+import { SiteScopeProvider } from "../ui/SiteScope";
+import { SiteSwitcher } from "../ui/SiteSwitcher";
+import { useNavLayout } from "../ui/useNavLayout";
 import * as I from "../ui/icons";
-import { ALL_NAV_ITEMS } from "../ui/nav";
+import { locate } from "../ui/nav";
 import { SideNav } from "../ui/SideNav";
 import { UserMenu } from "../ui/UserMenu";
 import "../ui/ui.css";
@@ -23,6 +27,8 @@ export function Layout() {
   const loc = useLocation();
   const narrow = useMediaQuery("(max-width: 62em)", false) ?? false;
   const [drawer, setDrawer] = useState(false);
+  const { layout, setCollapsed } = useNavLayout();
+  const rail = !narrow && layout.collapsed;
   useLiveEvents(can("devices:read"));
 
   const logout = async () => {
@@ -37,11 +43,13 @@ export function Layout() {
     nav("/login", { replace: true });
   };
 
-  const here = [...ALL_NAV_ITEMS].sort((a, b) => b.to.length - a.to.length).find((l) => (l.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/devices") : loc.pathname.startsWith(l.to)));
+  const here = locate(loc.pathname)?.item;
   useDocumentTitle(here?.label ?? (loc.pathname.startsWith("/account") ? "Account" : undefined));
 
   return (
-    <div className="rnv-shell">
+    <SiteScopeProvider>
+    <CommandPaletteProvider>
+    <div className="rnv-shell" data-rail={rail ? "true" : undefined}>
       <a className="rnv-skip-link" href="#main">
         Skip to main content
       </a>
@@ -60,17 +68,25 @@ export function Layout() {
             {brand.org_name || session?.org.name}
           </span>
         </Link>
+        <SiteSwitcher />
         <div className="rnv-topbar__search">
-          <GlobalSearch />
+          <SearchButton />
         </div>
         <span className="rnv-topbar__spacer" />
         <div className="rnv-topbar__right">
+          <NotificationsBell />
           <UserMenu name={session?.user.display_name ?? ""} email={session?.user.email ?? ""} onSignOut={() => void logout()} />
         </div>
       </header>
       {!narrow && (
         <div className="rnv-nav rnv-nav--static">
-          <SideNav />
+          <SideNav rail={rail} />
+          <div className="rnv-nav__foot">
+            <button type="button" className="rnv-nav__link rnv-nav__rail-toggle" onClick={() => setCollapsed(!rail)} aria-pressed={rail} title={rail ? "Expand sidebar" : undefined} data-testid="nav-rail-toggle">
+              {rail ? <I.SidebarExpand size={18} aria-hidden /> : <I.SidebarCollapse size={18} aria-hidden />}
+              <span className={rail ? "rnv-visually-hidden" : "rnv-nav__text"}>{rail ? "Expand sidebar" : "Collapse sidebar"}</span>
+            </button>
+          </div>
         </div>
       )}
       {narrow && (
@@ -82,5 +98,7 @@ export function Layout() {
         <Outlet />
       </main>
     </div>
+    </CommandPaletteProvider>
+    </SiteScopeProvider>
   );
 }

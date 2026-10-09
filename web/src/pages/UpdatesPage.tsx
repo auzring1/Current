@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Button, Checkbox, Group, Menu, Modal, SegmentedControl, Select, Stack, Text } from "@mantine/core";
 import { api, errorMessage, type RestartPolicy, type WindowsUpdate } from "../api/client";
 import { dateTime } from "../api/format";
@@ -44,13 +44,19 @@ const LIMIT = 500;
 export function UpdatesPage() {
   const { can } = useSession();
   const qc = useQueryClient();
+  // Dashboard tiles and the command palette link here with ?severity=, ?q= and ?missing=0|1.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const urlSeverity = SEVERITY_NAMES.includes(urlParams.get("severity") ?? "") ? urlParams.get("severity")! : "";
+  const urlQuery = (urlParams.get("q") ?? "").slice(0, 100);
   const [decision, setDecision] = useState("all");
-  const [onlyMissing, setOnlyMissing] = useState(true);
+  const [onlyMissing, setOnlyMissing] = useState(urlParams.get("missing") !== "0");
   const [open, setOpen] = useState<WindowsUpdate | null>(null);
   const [visible, setVisible] = useState<WindowsUpdate[]>([]);
   const params = new URLSearchParams({ limit: String(LIMIT), offset: "0" });
   if (decision !== "all") params.set("decision", decision);
   if (onlyMissing) params.set("missing", "true");
+  if (urlSeverity && urlSeverity !== "Unspecified") params.set("severity", urlSeverity);
+  if (urlQuery) params.set("q", urlQuery);
   const list = useQuery({
     queryKey: ["updates", "list", params.toString()],
     queryFn: () => api<{ items: WindowsUpdate[]; total: number }>("GET", `/updates?${params}`),
@@ -183,6 +189,16 @@ export function UpdatesPage() {
           ) : undefined
         }
       />
+      {(urlSeverity || urlQuery) && (
+        <div className="rnv-chips" role="status">
+          <span>Showing</span>
+          {urlSeverity && <span className="rnv-chip rnv-chip--static">Severity: {urlSeverity}</span>}
+          {urlQuery && <span className="rnv-chip rnv-chip--static">Search: {urlQuery}</span>}
+          <Button size="compact-sm" variant="default" onClick={() => setUrlParams({}, { replace: true })}>
+            Clear filters
+          </Button>
+        </div>
+      )}
 
       {list.isLoading ? (
         <TileSkeleton count={6} />

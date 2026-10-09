@@ -1,6 +1,22 @@
 // The console's one icon set: Tabler (MIT), bundled with the app and imported by name so only the icons used are in the
 // build. Components import from here, never from the package directly, so the set can be swapped in one place.
 export {
+  IconActivity as Activity,
+  IconAdjustmentsHorizontal as Customize,
+  IconBell as Bell,
+  IconBellRinging as BellRinging,
+  IconBuilding as Building,
+  IconCpu as Hardware,
+  IconDatabase as NavData,
+  IconHandStop as NavHeld,
+  IconLayoutSidebarLeftCollapse as SidebarCollapse,
+  IconLayoutSidebarLeftExpand as SidebarExpand,
+  IconMail as Mail,
+  IconPuzzle as NavIntegrations,
+  IconShieldLock as NavSecurity,
+  IconTool as NavMaintenance,
+  IconWebhook as Webhook,
+  IconWorld as NavSource,
   IconAdjustments as NavPolicy,
   IconAlertCircle as Warning,
   IconAlertOctagon as Critical,

@@ -120,6 +120,12 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Continue" }).click();
   await typeCode(page, totp(secret, 1));
   await page.getByRole("button", { name: "Verify" }).click();
+  // The landing page is the dashboard; the device list is one click away.
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Key numbers")).toBeVisible();
+  await a11y(page, "dashboard");
+  await shot(page, "01b-dashboard");
+  await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
   await expect(page.getByText("No devices yet")).toBeVisible();
   // The organization name and logo from the wizard are in the top bar; the product keeps its default name.
@@ -168,12 +174,31 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.getByLabel("Search Installed software").fill("zzz-no-such-package");
       await expect(page.getByText("No matching rows")).toBeVisible();
       await page.getByLabel("Search Installed software").fill("");
-      await page.getByRole("tab", { name: "Users" }).click();
-      await page.getByRole("tab", { name: "Client certificates" }).click();
+      // Users moved into Overview and the client certificates into Hardware; the tab follows the URL.
+      await page.getByRole("tab", { name: "Overview" }).click();
+      await expect(page.getByRole("heading", { name: "User profiles" })).toBeVisible();
+      await page.getByRole("tab", { name: "Hardware" }).click();
+      await expect(page).toHaveURL(/\?tab=hardware$/);
+      await expect(page.getByRole("heading", { name: "Device certificate" })).toBeVisible();
       await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
 
+      // Activity: the audit entries about this device (the enrollment is recorded against it).
+      await page.getByRole("tab", { name: "Activity" }).click();
+      await expect(page).toHaveURL(/\?tab=activity$/);
+      await expect(page.getByRole("table", { name: "Device activity" })).toBeVisible();
+      await expect(page.getByRole("table", { name: "Device activity" }).getByText("Device enrolled").first()).toBeVisible({ timeout: 15_000 });
+      await shot(page, "05-device-activity");
+
+      // Old links still work: the former tab names land on the tab that holds their content.
+      const deviceUrl = page.url().split("?")[0]!;
+      await page.goto(`${deviceUrl}?tab=certs`);
+      await expect(page.getByRole("tab", { name: "Hardware" })).toHaveAttribute("aria-selected", "true");
+      await expect(page).toHaveURL(/\?tab=hardware$/);
+      await page.goto(`${deviceUrl}?tab=nonsense`);
+      await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+
       // Fleet-wide software search.
-      await mainNav(page).getByRole("link", { name: "Software", exact: true }).click();
+      await mainNav(page).getByRole("link", { name: "Inventory", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Software", exact: true })).toBeVisible();
       await expect(page.getByTestId("title-row").first()).toBeVisible({ timeout: 15_000 });
       await page.getByLabel("Search software").fill("lib");
@@ -287,7 +312,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "16-updates-catalog");
 
       // Policy: a ring over the saved group, a rule, and the update source.
-      await mainNav(page).getByRole("link", { name: "Update policy", exact: true }).click();
+      await mainNav(page).getByRole("link", { name: "Update rings and rules", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Update policy", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Add ring" }).click();
       await page.getByRole("dialog").getByLabel("Name").fill("Pilot");
@@ -322,7 +347,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await shot(page, "05-device-detail");
       await page.getByRole("button", { name: /Refresh/ }).click();
       await expect(page.getByText("Device information refreshed.")).toBeVisible({ timeout: 30_000 });
-      await page.getByRole("tab", { name: "Missing updates" }).click();
+      await page.getByRole("tab", { name: "Windows updates" }).click();
       await expect(page.getByText(/No missing updates/)).toBeVisible();
       await page.getByRole("tab", { name: /^Software/ }).click();
       await expect(page.getByTestId("software-row").first()).toBeVisible();
@@ -336,14 +361,16 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await expect(page.getByText(/Uninstall queued for 1 program/)).toBeVisible();
       await page.getByRole("tab", { name: "Jobs" }).click();
       await expect(page.getByRole("table", { name: "Device jobs" }).getByText(/^Uninstall /).first()).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { name: "Revoke" }).click();
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Revoke device" }).click();
       await page.getByLabel("Reason (recorded in the audit log)").fill("GUI test");
       await page.getByRole("button", { name: "Revoke device" }).click();
       await expect(page.getByText("Revoked: GUI test")).toBeVisible({ timeout: 15_000 });
       // A revoked device can be deleted; an active one cannot (no button).
-      await page.getByRole("button", { name: "Delete device" }).click();
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Delete device" }).click();
       await page.getByRole("button", { name: "Delete permanently" }).click();
-      await expect(page).toHaveURL(/localhost:\d+\/$/);
+      await expect(page).toHaveURL(/localhost:\d+\/devices$/);
       await page.getByText("Revoked", { exact: true }).click();
       await expect(page.getByText("No devices yet")).toBeVisible();
     }
@@ -360,7 +387,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByRole("table", { name: "Sites" }).getByText("Branch office")).toBeVisible();
   await shot(page, "18-sites");
 
-  await mainNav(page).getByRole("link", { name: "Users", exact: true }).click();
+  await mainNav(page).getByRole("link", { name: "Users and roles", exact: true }).click();
   await page.getByRole("button", { name: "Add user" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel(/^Email/).fill("tech@example.com");
@@ -390,8 +417,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await typeCode(tp, totp(techSecret, 0));
   await tp.getByRole("button", { name: "Confirm" }).click();
   await tp.getByRole("button", { name: "I have saved them, continue" }).click();
-  await expect(tp.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
-  for (const hidden of ["Software", "Groups", "Catalog", "Deployments", "Users", "Audit log", "Settings"]) {
+  await expect(tp.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(tp.getByRole("link", { name: "Devices", exact: true })).toBeVisible();
+  for (const hidden of ["Inventory", "Groups", "Catalog", "Deployments", "Users and roles", "Audit log", "Settings", "License"]) {
     await expect(tp.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
   }
   await shot(tp, "20-site-limited-console");

@@ -104,7 +104,7 @@ export function StyleGuidePage() {
       <PageHeader
         title="Style guide"
         description="Every component of the console's design system in the theme you are using. Switch themes from your account menu (top right) to see each one."
-        breadcrumbs={[{ label: "Administration" }, { label: "Style guide" }]}
+        
         actions={<StatusPill kind="info">Theme: {theme.name}</StatusPill>}
       />
 

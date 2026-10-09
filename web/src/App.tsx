@@ -6,12 +6,15 @@ import { api } from "./api/client";
 import { useSession } from "./api/session";
 import { Layout } from "./components/Layout";
 import { SettingsLayout, SettingsPage } from "./pages/SettingsPage";
-import { DevicesPage } from "./pages/DevicesPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 
 // Pages other than the first screens load on demand, which keeps the first download small.
 const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
+const DashboardPage = page(() => import("./pages/DashboardPage"), "DashboardPage");
+const DevicesPage = page(() => import("./pages/DevicesPage"), "DevicesPage");
+const HeldUpdatesPage = page(() => import("./pages/HeldUpdatesPage"), "HeldUpdatesPage");
+const SettingsSectionPage = page(() => import("./pages/SettingsSectionPage"), "SettingsSectionPage");
 const AuditPage = page(() => import("./pages/AuditPage"), "AuditPage");
 const CatalogPage = page(() => import("./pages/CatalogPage"), "CatalogPage");
 const DeploymentPage = page(() => import("./pages/DeploymentPage"), "DeploymentPage");
@@ -66,7 +69,8 @@ export function App() {
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={session ? <Layout /> : <Navigate to="/login" replace />}>
-        <Route index element={<DevicesPage />} />
+        <Route index element={<DashboardPage />} />
+        <Route path="/devices" element={<DevicesPage />} />
         <Route path="/devices/:id" element={<DevicePage />} />
         <Route path="/software" element={<SoftwarePage />} />
         <Route path="/groups" element={<GroupsPage />} />
@@ -79,6 +83,7 @@ export function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/sites" element={<SitesPage />} />
         <Route path="/updates" element={<UpdatesPage />} />
+        <Route path="/updates/held" element={<HeldUpdatesPage />} />
         <Route path="/update-policy" element={<UpdatePolicyPage />} />
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/new" element={<NewDeploymentPage />} />
@@ -86,6 +91,7 @@ export function App() {
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<SettingsPage />} />
           <Route path="branding" element={<BrandingPage />} />
+          <Route path=":section" element={<SettingsSectionPage />} />
         </Route>
         <Route path="/license" element={<LicensePage />} />
         <Route path="/styleguide" element={<StyleGuidePage />} />

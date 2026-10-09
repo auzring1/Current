@@ -120,7 +120,7 @@ export function NewDeploymentPage() {
     <Page>
       <PageHeader
         title="New deployment"
-        breadcrumbs={[{ label: "Deployments", to: "/deployments" }, { label: "New deployment" }]}
+        crumb="New deployment"
         description="Choose what to install, update or remove, who gets it, and when."
       />
       <div className="rnv-wizard">

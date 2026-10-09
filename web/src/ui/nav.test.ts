@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import { ALL_NAV_ITEMS, flatNav, locate, trail, visibleNav } from "./nav";
+
+const everything = { can: () => true, canOrg: () => true };
+const nothing = { can: () => false, canOrg: () => false };
+const only = (...perms: string[]) => ({ can: (p: string) => perms.includes(p), canOrg: (p: string) => perms.includes(p) });
+
+describe("navigation tree", () => {
+  it("has unique ids and paths", () => {
+    const ids = flatNav().map((x) => x.item.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const paths = ALL_NAV_ITEMS.filter((i) => !i.children).map((i) => i.to); // a parent shares its first child's path
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it("keeps every id in the form the server accepts for saved layouts", () => {
+    for (const { item, group } of flatNav()) {
+      expect(item.id).toMatch(/^[a-z][a-z0-9-]{0,39}$/);
+      expect(group.id).toMatch(/^[a-z][a-z0-9-]{0,39}$/);
+    }
+  });
+
+  it("shows only the dashboard to someone with no permissions", () => {
+    const v = visibleNav(nothing);
+    expect(v.flatMap((g) => g.items.map((i) => i.id))).toEqual(["dashboard"]);
+  });
+
+  it("filters by permission and drops empty groups", () => {
+    const v = visibleNav(only("devices:read", "updates:read"));
+    const ids = v.flatMap((g) => g.items.map((i) => i.id));
+    expect(ids).toEqual(["dashboard", "devices", "windows-updates", "update-rings", "held-updates", "inventory"]);
+    expect(v.map((g) => g.id)).not.toContain("administration");
+  });
+
+  it("offers the Settings submenu entries the person may open", () => {
+    const settings = visibleNav(only("catalog:read")).flatMap((g) => g.items).find((i) => i.id === "settings");
+    expect(settings?.children?.map((c) => c.id)).toEqual(["general"]);
+    const admin = visibleNav(everything).flatMap((g) => g.items).find((i) => i.id === "settings");
+    expect(admin?.children?.length).toBeGreaterThan(5);
+  });
+});
+
+describe("locate and trail", () => {
+  it("matches the most specific entry", () => {
+    expect(locate("/")?.item.id).toBe("dashboard");
+    expect(locate("/devices")?.item.id).toBe("devices");
+    expect(locate("/devices/3b1c")?.item.id).toBe("devices");
+    expect(locate("/updates")?.item.id).toBe("windows-updates");
+    expect(locate("/updates/held")?.item.id).toBe("held-updates");
+    expect(locate("/settings")?.item.id).toBe("general");
+    expect(locate("/settings/branding")?.item.id).toBe("branding");
+    expect(locate("/deployments/new")?.item.id).toBe("deployments");
+    expect(locate("/nowhere")).toBeUndefined();
+  });
+
+  it("builds breadcrumbs from group, parent and page", () => {
+    expect(trail("/devices").map((c) => c.label)).toEqual(["Endpoints", "Devices"]);
+    expect(trail("/updates/held").map((c) => c.label)).toEqual(["Updates", "Held updates"]);
+    expect(trail("/settings/branding").map((c) => c.label)).toEqual(["Administration", "Settings", "Branding"]);
+    expect(trail("/").map((c) => c.label)).toEqual(["Dashboard"]);
+    expect(trail("/account")).toEqual([]);
+  });
+});

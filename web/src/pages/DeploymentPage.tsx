@@ -146,7 +146,7 @@ export function DeploymentPage() {
     <Page>
       <PageHeader
         title={title}
-        breadcrumbs={[{ label: "Deployments", to: "/deployments" }, { label: title }]}
+        crumb={title}
         description={x ? `${x.action} ${x.package_name ?? ""} ${x.version ?? "(newest)"} · ${x.scope}` : undefined}
         actions={
           canWrite && x?.status === "active" ? (

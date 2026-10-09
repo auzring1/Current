@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Alert, Button } from "@mantine/core";
 import { api, errorMessage, type ComplianceRow, type ReportOverview } from "../api/client";
 import { dateTime } from "../api/format";
@@ -18,6 +19,9 @@ interface JobRow {
 export function ReportsPage() {
   const { can } = useSession();
   const brand = useBranding();
+  const [urlParams] = useSearchParams();
+  const urlState = urlParams.get("state");
+  const preset = useMemo(() => (urlState === "non_compliant" || urlState === "unknown" ? { filters: [{ id: "state", value: urlState }] } : undefined), [urlState]);
   const ov = useQuery({ queryKey: ["reports", "overview"], queryFn: () => api<ReportOverview>("GET", "/reports/overview"), refetchInterval: 60_000 });
   const rows = useQuery({ queryKey: ["reports", "compliance"], queryFn: () => api<{ items: ComplianceRow[] }>("GET", "/reports/compliance") });
   const o = ov.data;
@@ -174,6 +178,7 @@ export function ReportsPage() {
           loading={rows.isLoading}
           error={rows.error}
           columns={badColumns}
+          preset={preset}
           rowId={(r) => r.device_id}
           rowHref={(r) => `/devices/${r.device_id}`}
           rowLabel={(r) => r.hostname}

@@ -1185,6 +1185,8 @@ paths:
     get:
       tags: [reports]
       summary: The dashboard's numbers in one request (each section only when the caller may see it; site-limited callers get their sites)
+      parameters:
+        - { name: site, in: query, required: false, schema: { type: string, format: uuid }, description: Only this site (the console's site switcher) }
       description: >
         Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's
         site scope; the license, held updates and the audit activity need organization-wide rights. The compliance
