@@ -18,6 +18,7 @@ Then open `https://<RENOVATIO_HOSTNAME>` and follow the setup wizard. Build the 
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
+- Every setting, its default, limits and who may change it: [docs/SETTINGS.md](docs/SETTINGS.md) (generated from the settings registry)
 - Fresh install on Windows 11 with Docker, from wiping the old setup to the first enrolled agent: [docs/FRESH-INSTALL-WINDOWS.md](docs/FRESH-INSTALL-WINDOWS.md)
 - Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md), [Phase 5 (self-update, access, policies, backup, MSI)](docs/demos/PHASE5-DEMO.md), [Phase 6 (hardening, licensing, load test, release dry run)](docs/demos/PHASE6-DEMO.md)
 

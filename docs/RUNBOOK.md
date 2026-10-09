@@ -413,6 +413,14 @@ An untested backup is a hope. **Do a restore drill at least once a quarter, and 
 
 Take a backup, copy `deploy/secrets/` and the backup to the new host, then follow 6.5. Update `RENOVATIO_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
 
+### 5k. Locked out by the console IP allow-list
+
+Settings > Security refuses an allow-list that does not contain the address of the person saving it, but an address can
+change later (a new VPN range, a proxy). Start the server once with `RENOVATIO_IGNORE_IP_ALLOWLIST=true` (in the
+environment or `.env`), sign in, correct the list under Settings > Security, and restart without the variable. The list
+only concerns the console and its API; agents are not affected. The same list can be exported and re-imported
+(Settings > Export settings); see [SETTINGS.md](SETTINGS.md).
+
 ## 7. Incident response
 - **Suspected server compromise:**
   1. Isolate the host and preserve logs and the database.
