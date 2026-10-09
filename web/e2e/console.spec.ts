@@ -456,7 +456,39 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Use a security key" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+
+  // --- Navigation: command palette, bell, folding groups, icon rail, pre-filtered links ---
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  await expect(palette).toBeVisible();
+  await palette.getByRole("combobox").fill("audit");
+  await expect(palette.getByRole("option", { name: /Audit log/ })).toBeVisible();
+  await a11y(page, "command-palette");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/audit$/);
+  await expect(page.getByRole("heading", { name: "Audit log", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Administration");
+  await page.getByTestId("notifications").click();
+  await expect(page.getByText("Needs attention")).toBeVisible();
+  await page.keyboard.press("Escape");
+  const endpoints = mainNav(page).getByRole("button", { name: "Endpoints" });
+  await endpoints.click();
+  await expect(endpoints).toHaveAttribute("aria-expanded", "false");
+  await expect(mainNav(page).getByRole("link", { name: "Groups", exact: true })).toBeHidden();
+  await endpoints.click();
+  await expect(mainNav(page).getByRole("link", { name: "Groups", exact: true })).toBeVisible();
+  await page.getByTestId("nav-rail-toggle").click();
+  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true");
+  await shot(page, "24-nav-rail");
+  await page.reload();
+  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true"); // remembered on the account
+  await page.getByTestId("nav-rail-toggle").click();
+  await page.goto("/devices?state=offline");
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
+  await page.goto("/updates/held");
+  await expect(page.getByRole("heading", { name: "Held updates", exact: true })).toBeVisible();
+  await mainNav(page).getByRole("link", { name: "Dashboard", exact: true }).click();
 
   // --- Automation: a software policy, the reports page, and the audit chain check ---
   await mainNav(page).getByRole("link", { name: "Software policies", exact: true }).click();
