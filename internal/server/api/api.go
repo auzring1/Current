@@ -25,8 +25,12 @@ import (
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/kek"
 	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/renovatio/internal/server/maintenance"
+	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
 	"github.com/auzring1/renovatio/internal/server/policies"
+	"github.com/auzring1/renovatio/internal/server/reportsched"
+	"github.com/auzring1/renovatio/internal/server/settings"
 	"github.com/auzring1/renovatio/internal/server/updates"
 )
 
@@ -62,6 +66,10 @@ type Deps struct {
 	Policies  *policies.Service
 	Licensing *licensing.Service
 	Branding  *branding.Service
+	Settings  *settings.Service
+	Notify    *notify.Service
+	Maint     *maintenance.Service
+	Sched     *reportsched.Service
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -111,7 +119,7 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	r.Get("/readyz", s.readyz)
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(apiHeaders, s.rateLimit, s.requestLog, s.originCheck, s.loadSession, s.csrfCheck)
+		r.Use(apiHeaders, s.ipAllow, s.rateLimit, s.requestLog, s.originCheck, s.loadSession, s.csrfCheck)
 		s.routes(r)
 	})
 	if gui != nil {
@@ -124,6 +132,7 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 func (s *server) routes(r chi.Router) {
 	r.Get("/branding", s.getPublicBranding)
 	r.Get("/branding/assets/{kind}", s.getBrandingAsset)
+	r.Get("/auth/notice", s.authNotice)
 	r.Get("/setup/status", s.setupStatus)
 	r.Post("/setup/begin", s.setupBegin)
 	r.Post("/setup/complete", s.setupComplete)
@@ -142,6 +151,8 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/approve", s.approveDevice)
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Post("/devices/{id}/revoke", s.revokeDevice)
 	r.With(s.requireDevice(auth.PermDevicesWrite)).Delete("/devices/{id}", s.deleteDevice)
+	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/fields", s.getDeviceFields)
+	r.With(s.requireDevice(auth.PermDevicesWrite)).Put("/devices/{id}/fields", s.putDeviceFields)
 	r.With(s.requireAny(auth.PermDevicesWrite)).Post("/devices/delete", s.deleteDevices)
 
 	r.With(s.requireDevice(auth.PermDevicesRead)).Get("/devices/{id}/software", s.deviceSoftware)
@@ -261,6 +272,22 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermUsersWrite)).Delete("/api-tokens/{id}", s.revokeAnyAPIToken)
 
 	r.With(s.requireSelf).Get("/me/security", s.mySecurity)
+	r.With(s.requireSelf).Get("/settings/schema", s.settingsSchema)
+	r.With(s.requireSelf).Get("/settings/effective", s.settingsEffective)
+	r.With(s.requireSelf).Get("/settings/sections/{section}", s.getSettingsSection)
+	r.With(s.requireSelf).Put("/settings/sections/{section}", s.putSettingsSection)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/export", s.exportSettings)
+	r.With(s.require(auth.PermSettingsWrite)).Post("/settings/import", s.importSettings)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/about", s.settingsAbout)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/settings/support-bundle", s.supportBundle)
+	r.With(s.require(auth.PermSettingsData)).Get("/settings/data/status", s.dataStatus)
+	r.With(s.require(auth.PermSettingsData)).Post("/settings/data/run-retention", s.runRetention)
+	r.With(s.require(auth.PermSettingsReports)).Post("/settings/reports/schedules/{id}/send-now", s.sendReportNow)
+	r.With(s.require(auth.PermSettingsReports)).Get("/settings/reports/runs", s.reportRuns)
+	r.With(s.require(auth.PermSettingsNotifications)).Post("/settings/notifications/test-email", s.testEmail)
+	r.With(s.require(auth.PermSettingsNotifications)).Get("/settings/notifications/log", s.notificationLog)
+	r.With(s.require(auth.PermSettingsIntegrations)).Post("/settings/integrations/webhooks/{id}/test", s.testWebhook)
+	r.With(s.require(auth.PermSettingsIntegrations)).Get("/settings/events", s.settingsEvents)
 	r.With(s.requireSelf).Get("/dashboard", s.dashboard)
 	r.With(s.requireSelf).Get("/notifications", s.notifications)
 	r.With(s.requireSelf).Get("/me/preferences", s.getPreferences)

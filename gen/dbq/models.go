@@ -267,6 +267,14 @@ type DeviceCert struct {
 	RevokeReason    string
 }
 
+type DeviceCustomValue struct {
+	DeviceID  uuid.UUID
+	FieldKey  string
+	Value     string
+	UpdatedAt time.Time
+	UpdatedBy *uuid.UUID
+}
+
 type DeviceUpdate struct {
 	DeviceID  uuid.UUID
 	UpdateID  uuid.UUID
@@ -388,6 +396,22 @@ type MfaTotp struct {
 	ConfirmedAt  time.Time
 }
 
+type NotificationOutbox struct {
+	ID        int64
+	OrgID     uuid.UUID
+	Channel   string
+	Event     string
+	Target    string
+	DedupeKey string
+	Payload   []byte
+	Status    string
+	Attempts  int32
+	NotBefore time.Time
+	LastError string
+	CreatedAt time.Time
+	SentAt    *time.Time
+}
+
 type OrgSetting struct {
 	OrgID            uuid.UUID
 	UserScopePolicy  string
@@ -436,6 +460,20 @@ type PolicyAttempt struct {
 	CreatedAt    time.Time
 }
 
+type ReportRun struct {
+	OrgID      uuid.UUID
+	ScheduleID string
+	DueAt      time.Time
+	StartedAt  time.Time
+	Name       string
+	Report     string
+	Format     string
+	Status     string
+	Error      string
+	Bytes      int32
+	Recipients int32
+}
+
 type RoleBinding struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
@@ -457,6 +495,17 @@ type Session struct {
 	Ip             string
 	UserAgent      string
 	CsrfToken      string
+}
+
+type SettingsSection struct {
+	OrgID         uuid.UUID
+	Section       string
+	Revision      int64
+	SchemaVersion int32
+	Data          []byte
+	Secrets       []byte
+	UpdatedAt     time.Time
+	UpdatedBy     *uuid.UUID
 }
 
 type SetupState struct {

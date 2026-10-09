@@ -15,6 +15,8 @@ export interface NavItem {
   icon: IconType;
   /** Match this path exactly (a sibling lives below it). */
   end?: boolean;
+  /** For a Settings entry: the id of its section on the server. */
+  section?: string;
   /** Other words the command palette should find it by. */
   keywords?: string[];
   /** A submenu. */
@@ -29,17 +31,17 @@ export interface NavGroup {
 
 /** Settings sections: the Settings submenu in the sidebar and the left navigation inside the Settings area. */
 export const SETTINGS_SECTIONS: NavItem[] = [
-  { id: "general", to: "/settings", label: "General", perm: "catalog:read", icon: I.NavSettings, end: true, keywords: ["per-user installs"] },
-  { id: "branding", to: "/settings/branding", label: "Branding", perm: "branding:write", icon: I.Palette, keywords: ["logo", "name", "colors", "login"] },
-  { id: "appearance", to: "/settings/appearance", label: "Appearance", perm: "settings:write", icon: I.Brush, keywords: ["theme", "density", "language", "time zone", "date format"] },
-  { id: "security", to: "/settings/security", label: "Security", perm: "settings:write", icon: I.NavSecurity, keywords: ["session", "password", "mfa", "ip allow-list", "lockout", "banner"] },
-  { id: "notifications", to: "/settings/notifications", label: "Notifications", perm: "settings:write", icon: I.Bell, keywords: ["email", "smtp", "webhook", "alerts"] },
-  { id: "updates", to: "/settings/updates", label: "Update defaults", perm: "settings:write", icon: I.NavSource, keywords: ["update source", "ring", "restart", "active hours", "maintenance window", "drivers"] },
-  { id: "devices", to: "/settings/devices", label: "Device defaults", perm: "settings:write", icon: I.NavDevices, keywords: ["offline", "stale", "custom fields", "tags", "columns"] },
-  { id: "reports", to: "/settings/reports", label: "Scheduled reports", perm: "settings:write", icon: I.NavReports, keywords: ["scheduled reports", "pdf", "csv"] },
-  { id: "data", to: "/settings/data", label: "Data and retention", perm: "settings:write", icon: I.NavData, keywords: ["maintenance", "retention", "backup", "export"] },
-  { id: "integrations", to: "/settings/integrations", label: "Integrations", perm: "settings:write", icon: I.NavIntegrations, keywords: ["webhooks", "api tokens", "events"] },
-  { id: "about", to: "/settings/about", label: "About", perm: "settings:write", icon: I.Info, keywords: ["version", "support bundle", "build"] },
+  { id: "settings-general", section: "general", to: "/settings", label: "General", perm: "catalog:read", icon: I.NavSettings, end: true, keywords: ["per-user installs"] },
+  { id: "settings-branding", section: "branding", to: "/settings/branding", label: "Branding", perm: "branding:write", icon: I.Palette, keywords: ["logo", "name", "colors", "login"] },
+  { id: "settings-appearance", section: "appearance", to: "/settings/appearance", label: "Appearance", perm: "settings:appearance", icon: I.Brush, keywords: ["theme", "density", "language", "time zone", "date format"] },
+  { id: "settings-security", section: "security", to: "/settings/security", label: "Security", perm: "settings:security", icon: I.NavSecurity, keywords: ["session", "password", "mfa", "ip allow-list", "lockout", "banner"] },
+  { id: "settings-notifications", section: "notifications", to: "/settings/notifications", label: "Notifications", perm: "settings:notifications", icon: I.Bell, keywords: ["email", "smtp", "webhook", "alerts"] },
+  { id: "settings-updates", section: "updates", to: "/settings/updates", label: "Update defaults", perm: "settings:updates", icon: I.NavSource, keywords: ["update source", "ring", "restart", "active hours", "maintenance window", "drivers"] },
+  { id: "settings-devices", section: "devices", to: "/settings/devices", label: "Device defaults", perm: "settings:devices", icon: I.NavDevices, keywords: ["offline", "stale", "custom fields", "tags", "columns"] },
+  { id: "settings-reports", section: "reports", to: "/settings/reports", label: "Scheduled reports", perm: "settings:reports", icon: I.NavReports, keywords: ["scheduled reports", "pdf", "csv"] },
+  { id: "settings-data", section: "data", to: "/settings/data", label: "Data and retention", perm: "settings:data", icon: I.NavData, keywords: ["maintenance", "retention", "backup", "export"] },
+  { id: "settings-integrations", section: "integrations", to: "/settings/integrations", label: "Integrations", perm: "settings:integrations", icon: I.NavIntegrations, keywords: ["webhooks", "api tokens", "events"] },
+  { id: "settings-about", section: "about", to: "/settings/about", label: "About", perm: "settings:write", icon: I.Info, keywords: ["version", "support bundle", "build"] },
 ];
 
 /** The console's navigation. Links the person may not use are filtered out by the shell. */

@@ -146,12 +146,17 @@ func (s *server) mfaMethods(totp, webauthn bool) []string {
 func (s *server) recordLoginFailure(r *http.Request, u dbq.User) {
 	failures := u.FailedLogins + 1
 	var until *time.Time
-	if failures >= maxLoginFailures {
-		t := s.now().Add(lockoutDuration)
+	threshold, lockFor := int32(maxLoginFailures), lockoutDuration
+	if s.Settings != nil {
+		v := s.secSettings(r.Context(), u.OrgID)
+		threshold, lockFor = int32(v.Int("lockout_threshold")), time.Duration(v.Int("lockout_minutes"))*time.Minute // #nosec G115 -- validated to 3..20
+	}
+	if failures >= threshold {
+		t := s.now().Add(lockFor)
 		until, failures = &t, 0
 		_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &u.OrgID, ActorType: audit.ActorSystem, ActorIP: clientIP(r),
 			Action: "auth.lockout", TargetType: "user", TargetIDs: []string{u.ID.String()}, Outcome: audit.Success,
-			Details: map[string]any{"minutes": int(lockoutDuration.Minutes())}})
+			Details: map[string]any{"minutes": int(lockFor.Minutes())}})
 	}
 	if err := s.q().SetUserLoginFailure(r.Context(), dbq.SetUserLoginFailureParams{ID: u.ID, FailedLogins: failures, LockedUntil: until}); err != nil {
 		s.Log.Error("record login failure", "err", err)

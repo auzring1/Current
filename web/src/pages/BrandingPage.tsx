@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, ColorInput, FileButton, Group, MultiSelect, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Link } from "react-router-dom";
+import { Alert, Button, ColorInput, FileButton, Group, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import {
   api,
   ApiError,
@@ -14,9 +15,7 @@ import { useSession } from "../api/session";
 import { BrandPreview } from "../branding/BrandPreview";
 import { ACCENT_SWATCHES, checks, colorProblems, DARK_SURFACE, DEFAULT_ACCENT, SECONDARY_SWATCHES, WHITE } from "../branding/contrast";
 import { checkImageFile, LIMITS } from "../branding/images";
-import { SYSTEM_THEME, THEMES, theme as findTheme } from "../design/themes";
 import { Card, Icons, Skel, StatusPill, toast, useConfirm } from "../ui";
-import { ThemeSwatch } from "../ui/admin-kit";
 
 /** `surface` is what the preview of the slot sits on: a fixed light or dark surface where the image is made for one. */
 const SLOTS: { kind: BrandingAssetKind; label: string; help: string; surface?: "light" | "dark" }[] = [
@@ -44,16 +43,6 @@ const EMPTY: BrandingSettings = {
 };
 
 const norm = (s: BrandingSettings): BrandingSettings => ({ ...EMPTY, ...s, default_theme: s.default_theme ?? "", allowed_themes: s.allowed_themes ?? [] });
-
-const themeOption = (id: string) => {
-  const t = findTheme(id);
-  return (
-    <span className="rnv-theme-option">
-      {t ? <ThemeSwatch theme={t} /> : <Icons.Laptop size={16} aria-hidden />}
-      {t ? t.name : "Follow the device"}
-    </span>
-  );
-};
 
 export function BrandingPage() {
   const { can } = useSession();
@@ -137,19 +126,12 @@ export function BrandingPage() {
   }
   const view = q.data;
   const dirty = JSON.stringify(norm(draft)) !== JSON.stringify(norm(view.settings));
-  const allowed = draft.allowed_themes ?? [];
-  const defaultTheme = draft.default_theme ?? "";
-  const defaultProblem = allowed.length > 0 && defaultTheme !== "" && defaultTheme !== SYSTEM_THEME && !allowed.includes(defaultTheme) ? "The default theme must be one of the offered themes." : undefined;
-  const blocked = !!problems.accent || !!problems.secondary || !!defaultProblem;
+  const blocked = !!problems.accent || !!problems.secondary;
   const set = (k: keyof BrandingSettings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setDraft({ ...draft, [k]: e.currentTarget.value });
     if (serverErrors[k]) setServerErrors({ ...serverErrors, [k]: "" });
   };
   const err = (k: keyof BrandingSettings) => serverErrors[k] || undefined;
-  const clearErr = (...ks: string[]) => setServerErrors((cur) => Object.fromEntries(Object.entries(cur).filter(([k]) => !ks.includes(k))));
-
-  const themeData = [{ value: SYSTEM_THEME, label: "Follow the device" }, ...THEMES.map((t) => ({ value: t.id, label: t.name }))];
-  const defaultData = themeData.map((o) => ({ ...o, disabled: allowed.length > 0 && o.value !== SYSTEM_THEME && !allowed.includes(o.value) }));
 
   const askReset = async () => {
     const ok = await confirm({
@@ -217,38 +199,8 @@ export function BrandingPage() {
           </Stack>
         </Card>
 
-        <Card title="Appearance" description="Which themes people can use. Everyone can still pick their own from the account menu.">
-          <Stack gap="sm">
-            <Select
-              label="Default theme"
-              description="What people see until they choose their own."
-              data={defaultData}
-              value={defaultTheme || SYSTEM_THEME}
-              onChange={(v) => {
-                setDraft({ ...draft, default_theme: !v || v === SYSTEM_THEME ? "" : v });
-                clearErr("default_theme");
-              }}
-              allowDeselect={false}
-              error={defaultProblem ?? err("default_theme")}
-              renderOption={({ option }) => themeOption(option.value)}
-              comboboxProps={{ withinPortal: true }}
-            />
-            <MultiSelect
-              label="Themes people may choose"
-              description="Leave empty to offer every theme. “Follow the device” lets people match their computer's light or dark setting."
-              data={themeData}
-              value={allowed}
-              onChange={(v) => {
-                setDraft({ ...draft, allowed_themes: v });
-                clearErr("allowed_themes", "default_theme");
-              }}
-              clearable
-              placeholder={allowed.length === 0 ? "All themes" : undefined}
-              error={err("allowed_themes")}
-              renderOption={({ option }) => themeOption(option.value)}
-              comboboxProps={{ withinPortal: true }}
-            />
-          </Stack>
+        <Card title="Themes" description="Which themes people can use, and the one they start with, are set under Appearance.">
+          <Link to="/settings/appearance">Open Appearance settings</Link>
         </Card>
 
         <Card title="Sign-in page">

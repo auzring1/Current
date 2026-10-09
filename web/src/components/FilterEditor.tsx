@@ -1,3 +1,4 @@
+import { useEffective } from "../settings/useEffective";
 import { Button, Checkbox, MultiSelect, NumberInput, SegmentedControl, Select, TextInput } from "@mantine/core";
 import type { Filter } from "../api/client";
 import { Icons, IconButton } from "../ui";
@@ -59,9 +60,12 @@ function defaultValue(kind: Kind): unknown {
 }
 
 function DeviceRow({ node, onChange }: { node: Filter; onChange: (n: Filter) => void }) {
-  const meta = FIELDS[node.field ?? ""] ?? FIELDS.hostname!;
+  // The organization's custom device fields (Settings > Device defaults) can be used in a filter as text fields.
+  const custom = useEffective().data?.devices.custom_fields ?? [];
+  const all: Record<string, FieldMeta> = { ...FIELDS, ...Object.fromEntries(custom.map((f) => [`custom.${f.key}`, { label: f.label, kind: "text", cmps: ["eq", "ne", "contains", "prefix"] } as FieldMeta])) };
+  const meta = all[node.field ?? ""] ?? FIELDS.hostname!;
   const setField = (field: string) => {
-    const m = FIELDS[field]!;
+    const m = all[field]!;
     onChange({ op: "device", field, cmp: m.cmps[0]!, value: defaultValue(m.kind) });
   };
   const v = node.value;
@@ -87,7 +91,7 @@ function DeviceRow({ node, onChange }: { node: Filter; onChange: (n: Filter) => 
   }
   return (
     <div className="rnv-filter__cond">
-      <Select data={Object.entries(FIELDS).map(([value, m]) => ({ value, label: m.label }))} value={node.field} onChange={(x) => x && setField(x)} w={210} aria-label="Field" allowDeselect={false} />
+      <Select data={Object.entries(all).map(([value, m]) => ({ value, label: m.label }))} value={node.field} onChange={(x) => x && setField(x)} w={210} aria-label="Field" allowDeselect={false} />
       <Select data={options(meta.cmps)} value={node.cmp} onChange={(x) => x && onChange({ ...node, cmp: x })} w={130} aria-label="Comparison" allowDeselect={false} disabled={meta.cmps.length === 1} />
       {input}
     </div>

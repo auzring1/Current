@@ -397,11 +397,13 @@ func (s *Service) scheduleRings(ctx context.Context, org uuid.UUID) error {
 
 func (s *Service) raiseHold(ctx context.Context, org uuid.UUID, u approvedUpdate, ring dbq.WuRing, reason string) {
 	now := s.now()
+	raised := false
 	err := store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		n, err := q.InsertHold(ctx, dbq.InsertHoldParams{ID: uuid.New(), OrgID: org, UpdateID: u.id, RingID: ring.ID, Reason: reason})
 		if err != nil || n == 0 {
 			return err
 		}
+		raised = true
 		_, err = audit.Write(ctx, tx, audit.Entry{OrgID: &org, ActorType: audit.ActorSystem, ActorID: "update-rings", Action: "wu.hold",
 			TargetType: "update", TargetIDs: []string{u.id.String()}, Outcome: audit.Success,
 			Details: map[string]any{"title": u.title, "ring": ring.Name, "reason": reason}}, now)
@@ -410,6 +412,9 @@ func (s *Service) raiseHold(ctx context.Context, org uuid.UUID, u approvedUpdate
 	if err != nil {
 		s.log().Error("raise hold", "update", u.id, "err", err)
 		return
+	}
+	if raised && s.OnHold != nil {
+		s.OnHold(ctx, org, u.title, ring.Name, reason)
 	}
 	s.publish(org, uuid.Nil)
 }

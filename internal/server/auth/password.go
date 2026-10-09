@@ -123,13 +123,20 @@ var ErrWeakPassword = errors.New("weak password")
 
 // ValidatePassword enforces the password policy (NIST SP 800-63B style:
 // length and breach-list checks, no composition rules).
-func ValidatePassword(pw, email string) error {
+func ValidatePassword(pw, email string) error { return ValidatePasswordMin(pw, email, MinPasswordLen) }
+
+// ValidatePasswordMin is ValidatePassword with a longer minimum chosen by the organization (never below
+// MinPasswordLen).
+func ValidatePasswordMin(pw, email string, min int) error {
+	if min < MinPasswordLen {
+		min = MinPasswordLen
+	}
 	n := utf8.RuneCountInString(pw)
 	switch {
 	case !utf8.ValidString(pw):
 		return fmt.Errorf("%w: password must be valid UTF-8", ErrWeakPassword)
-	case n < MinPasswordLen:
-		return fmt.Errorf("%w: use at least %d characters", ErrWeakPassword, MinPasswordLen)
+	case n < min:
+		return fmt.Errorf("%w: use at least %d characters", ErrWeakPassword, min)
 	case n > MaxPasswordLen:
 		return fmt.Errorf("%w: use at most %d characters", ErrWeakPassword, MaxPasswordLen)
 	}

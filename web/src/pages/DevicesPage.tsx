@@ -6,6 +6,7 @@ import { useSession } from "../api/session";
 import { api, errorMessage, type Device, type ReportOverview } from "../api/client";
 import { ago } from "../api/format";
 import { useSiteScope } from "../ui/SiteScope";
+import { useEffective } from "../settings/useEffective";
 import { LicenseBanner } from "../components/LicenseBanner";
 import { DataTable, EmptyState, Icons, IconButton, Page, PageHeader, StatGrid, StatTile, Status, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
 
@@ -27,6 +28,7 @@ export function DevicesPage() {
   }, [urlState, urlAgent, urlRestart]);
   const { can } = useSession();
   const { siteId } = useSiteScope();
+  const eff = useEffective().data?.devices;
   const qc = useQueryClient();
   const confirm = useConfirm();
   const nav = useNavigate();
@@ -57,6 +59,14 @@ export function DevicesPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const namingRe = useMemo(() => {
+    if (!eff?.naming_pattern) return null;
+    try {
+      return new RegExp(eff.naming_pattern);
+    } catch {
+      return null; // the server accepted it as RE2; a rare syntax difference simply turns the flag off here
+    }
+  }, [eff?.naming_pattern]);
   const columns = useMemo<Column<Device>[]>(
     () => [
       {
@@ -69,6 +79,11 @@ export function DevicesPage() {
         cell: (d) => (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span>{d.hostname}</span>
+            {namingRe && !namingRe.test(d.hostname) && (
+              <StatusPill kind="warning" size="sm" icon={Icons.Warning} title="The name does not match the pattern set under Settings > Device defaults">
+                Unexpected name
+              </StatusPill>
+            )}
             {d.pending_reboot && (
               <StatusPill kind="warning" size="sm" icon={Icons.Restart}>
                 Restart pending
@@ -135,8 +150,26 @@ export function DevicesPage() {
         cell: (d) => (d.pending_reboot ? "Pending" : <span className="rnv-muted">—</span>),
       },
     ],
-    [],
+    [namingRe],
   );
+  const customCols = useMemo<Column<Device>[]>(
+    () =>
+      (eff?.custom_fields ?? []).map((f) => ({
+        id: `custom_${f.key}`,
+        header: f.label,
+        width: 150,
+        defaultHidden: !f.show_in_list,
+        value: (d: Device) => ((d as Device & { custom?: Record<string, string> }).custom ?? {})[f.key] ?? "",
+        filter: f.type === "select" ? { type: "select" as const, options: f.options.map((o) => ({ value: o, label: o })) } : { type: "text" as const },
+      })),
+    [eff?.custom_fields],
+  );
+  // The organization's default columns (Settings > Device defaults) apply until a person arranges their own.
+  const cols = useMemo(() => {
+    const want = eff?.default_columns;
+    const all = [...columns, ...customCols];
+    return want && want.length ? all.map((c) => (c.id.startsWith("custom_") ? c : { ...c, defaultHidden: c.required ? false : !want.includes(c.id) })) : all;
+  }, [columns, customCols, eff?.default_columns]);
 
   const rows = useMemo(() => (siteId ? q.data?.items.filter((d) => d.site_id === siteId) : q.data?.items), [q.data, siteId]);
   const o = overview.data;
@@ -176,7 +209,8 @@ export function DevicesPage() {
         data={rows}
         loading={q.isLoading}
         error={q.error}
-        columns={columns}
+        key={(eff?.default_columns ?? []).join(",") + (eff?.custom_fields ?? []).map((f) => f.key).join(",")}
+        columns={cols}
         rowId={(d) => d.id}
         rowHref={(d) => `/devices/${d.id}`}
         onRowClick={(d) => nav(`/devices/${d.id}`)}

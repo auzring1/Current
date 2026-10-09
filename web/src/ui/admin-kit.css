@@ -100,3 +100,5 @@
 .rnv-qr { align-self: flex-start; line-height: 0; padding: var(--rnv-space-2); border: 1px solid var(--rnv-border-strong); border-radius: var(--rnv-radius-md); }
 .rnv-copytext { display: flex; gap: var(--rnv-space-2); align-items: flex-start; }
 .rnv-copytext pre { flex: 1; min-width: 0; margin: 0; padding: var(--rnv-space-2) var(--rnv-space-3); background: var(--rnv-surface-sunken); color: var(--rnv-text); border: 1px solid var(--rnv-border); border-radius: var(--rnv-radius-md); font-size: var(--rnv-text-sm); white-space: pre-wrap; word-break: break-all; }
+
+.rnv-auth__notice { padding: var(--rnv-space-3) var(--rnv-space-4); border: 1px solid var(--rnv-warning-border); background: var(--rnv-warning-bg); color: var(--rnv-warning-fg); border-radius: var(--rnv-radius-md); font-size: var(--rnv-text-sm); }

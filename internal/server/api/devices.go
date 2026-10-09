@@ -22,34 +22,36 @@ import (
 )
 
 type deviceView struct {
-	ID                 uuid.UUID       `json:"id"`
-	SiteID             uuid.UUID       `json:"site_id"`
-	Status             string          `json:"status"`
-	StatusReason       string          `json:"status_reason"`
-	Hostname           string          `json:"hostname"`
-	OSCaption          string          `json:"os_caption"`
-	OSBuild            string          `json:"os_build"`
-	Arch               string          `json:"arch"`
-	AgentVersion       string          `json:"agent_version"`
-	Manufacturer       string          `json:"manufacturer"`
-	Model              string          `json:"model"`
-	Serial             string          `json:"serial"`
-	Online             bool            `json:"online"`
-	LastSeenAt         *time.Time      `json:"last_seen_at"`
-	LastIP             string          `json:"last_ip"`
-	EnrolledAt         time.Time       `json:"enrolled_at"`
-	ApprovedAt         *time.Time      `json:"approved_at"`
-	RevokedAt          *time.Time      `json:"revoked_at"`
-	UptimeS            int64           `json:"uptime_s"`
-	PendingReboot      bool            `json:"pending_reboot"`
-	LoggedOnUser       string          `json:"logged_on_user"`
-	ReplacesDeviceID   *uuid.UUID      `json:"replaces_device_id"`
-	Chassis            string          `json:"chassis"`
-	SoftwareCount      int32           `json:"software_count"`
-	SoftwareUpdatedAt  *time.Time      `json:"software_updated_at"`
-	InventoryTruncated bool            `json:"inventory_truncated"`
-	Hardware           json.RawMessage `json:"hardware,omitempty"`
-	Certificates       []certView      `json:"certificates,omitempty"`
+	// Custom holds the values of the organization's custom device fields (Settings > Device defaults); present in lists only.
+	Custom             map[string]string `json:"custom,omitempty"`
+	ID                 uuid.UUID         `json:"id"`
+	SiteID             uuid.UUID         `json:"site_id"`
+	Status             string            `json:"status"`
+	StatusReason       string            `json:"status_reason"`
+	Hostname           string            `json:"hostname"`
+	OSCaption          string            `json:"os_caption"`
+	OSBuild            string            `json:"os_build"`
+	Arch               string            `json:"arch"`
+	AgentVersion       string            `json:"agent_version"`
+	Manufacturer       string            `json:"manufacturer"`
+	Model              string            `json:"model"`
+	Serial             string            `json:"serial"`
+	Online             bool              `json:"online"`
+	LastSeenAt         *time.Time        `json:"last_seen_at"`
+	LastIP             string            `json:"last_ip"`
+	EnrolledAt         time.Time         `json:"enrolled_at"`
+	ApprovedAt         *time.Time        `json:"approved_at"`
+	RevokedAt          *time.Time        `json:"revoked_at"`
+	UptimeS            int64             `json:"uptime_s"`
+	PendingReboot      bool              `json:"pending_reboot"`
+	LoggedOnUser       string            `json:"logged_on_user"`
+	ReplacesDeviceID   *uuid.UUID        `json:"replaces_device_id"`
+	Chassis            string            `json:"chassis"`
+	SoftwareCount      int32             `json:"software_count"`
+	SoftwareUpdatedAt  *time.Time        `json:"software_updated_at"`
+	InventoryTruncated bool              `json:"inventory_truncated"`
+	Hardware           json.RawMessage   `json:"hardware,omitempty"`
+	Certificates       []certView        `json:"certificates,omitempty"`
 }
 
 type certView struct {
@@ -100,6 +102,23 @@ func (s *server) listDevices(w http.ResponseWriter, r *http.Request) {
 			LastIP: d.LastIp, EnrolledAt: d.EnrolledAt, ApprovedAt: d.ApprovedAt, RevokedAt: d.RevokedAt,
 			UptimeS: d.UptimeS, PendingReboot: d.PendingReboot, LoggedOnUser: d.LoggedOnUser, ReplacesDeviceID: d.ReplacesDeviceID,
 			Chassis: d.Chassis, SoftwareCount: d.SoftwareCount, SoftwareUpdatedAt: d.SoftwareUpdatedAt})
+	}
+	if s.Settings != nil && len(s.Settings.Values(r.Context(), p.OrgID, "devices").Items("custom_fields")) > 0 && len(rows) > 0 {
+		ids := make([]uuid.UUID, 0, len(rows))
+		pos := map[uuid.UUID]int{}
+		for i, d := range rows {
+			ids = append(ids, d.ID)
+			pos[d.ID] = i
+		}
+		if cv, err := q.ListCustomValuesForDevices(r.Context(), ids); err == nil {
+			for _, v := range cv {
+				i := pos[v.DeviceID]
+				if items[i].Custom == nil {
+					items[i].Custom = map[string]string{}
+				}
+				items[i].Custom[v.FieldKey] = v.Value
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }

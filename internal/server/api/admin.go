@@ -289,7 +289,7 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		generated = true
-	} else if err := auth.ValidatePassword(pw, email); err != nil {
+	} else if err := auth.ValidatePasswordMin(pw, email, s.secSettings(r.Context(), principalFrom(r).OrgID).Int("password_min_length")); err != nil {
 		badRequest(w, err.Error())
 		return
 	}
@@ -492,7 +492,7 @@ func (s *server) resetUserPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		generated = true
-	} else if err := auth.ValidatePassword(pw, u.Email); err != nil {
+	} else if err := auth.ValidatePasswordMin(pw, u.Email, s.secSettings(r.Context(), principalFrom(r).OrgID).Int("password_min_length")); err != nil {
 		badRequest(w, err.Error())
 		return
 	}
