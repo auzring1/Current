@@ -215,11 +215,18 @@ func TestRealWebLockfile(t *testing.T) {
 			if l.License != nil {
 				s = l.License.ID + l.License.Name
 			}
-			if !permissive(s) {
+			if !permissive(s) && !fontException(c.PURL, s) {
 				t.Errorf("%s has a license outside the allow-list: %s", c.PURL, s)
 			}
 		}
 	}
+}
+
+// fontException: the console bundles the Inter typeface unmodified under the SIL Open Font License 1.1 (decision D93).
+// The OFL allows bundling and redistributing a font with software; it is accepted for fonts only, and only for this
+// package, so it does not widen the allow-list for code.
+func fontException(purl, license string) bool {
+	return license == "OFL-1.1" && strings.HasPrefix(purl, "pkg:npm/%40fontsource-variable/inter@")
 }
 
 func permissive(expr string) bool {

@@ -244,7 +244,7 @@ func npmIntegrity(s string) (Hash, bool) {
 var spdxIDs = map[string]bool{
 	"MIT": true, "ISC": true, "Apache-2.0": true, "BSD-2-Clause": true, "BSD-3-Clause": true,
 	"0BSD": true, "MPL-2.0": true, "CC0-1.0": true, "Unlicense": true, "BlueOak-1.0.0": true, "Python-2.0": true,
-	"CC-BY-4.0": true, "CC-BY-3.0": true, "Zlib": true,
+	"CC-BY-4.0": true, "CC-BY-3.0": true, "Zlib": true, "OFL-1.1": true, // OFL-1.1: the bundled Inter font only (see sbom_test.go fontException)
 }
 
 var exprRE = regexp.MustCompile(`[\s()]`)

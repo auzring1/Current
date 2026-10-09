@@ -17,6 +17,8 @@ let bad = 0;
 for (const [path, pkg] of Object.entries(lock.packages)) {
   if (!path || pkg.dev) continue;
   const lic = pkg.license ?? "UNKNOWN";
+  // The bundled Inter typeface is the one exception: SIL OFL-1.1 permits bundling a font unmodified (decision D93).
+  if (path === "node_modules/@fontsource-variable/inter" && lic === "OFL-1.1") continue;
   const ok = lic.replace(/[()]/g, "").split(/\s+OR\s+/).some((l) => allowed.has(l.trim()));
   if (!ok) { console.error(`disallowed license ${lic}: ${path}`); bad++; }
 }
