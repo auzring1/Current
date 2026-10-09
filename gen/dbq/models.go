@@ -631,6 +631,18 @@ type WebauthnCredential struct {
 	LastUsedAt   *time.Time
 }
 
+type WingetIndex struct {
+	ID             int16
+	Data           []byte
+	FetchedAt      *time.Time
+	SourceModified *time.Time
+	Etag           string
+	LastModified   string
+	PackageCount   int32
+	CheckedAt      *time.Time
+	LastError      string
+}
+
 type WuApproval struct {
 	OrgID     uuid.UUID
 	UpdateID  uuid.UUID

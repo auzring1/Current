@@ -75,8 +75,10 @@ type Config struct {
 	ContentDir string
 	// GitHubToken optionally raises the GitHub API rate limit for winget imports.
 	GitHubToken string
-	// WingetSource is "github" (default) or "off".
+	// WingetSource is "github" (default) or "off". "off" also turns off the winget index download.
 	WingetSource string
+	// WingetIndexURL overrides where the winget index is downloaded from ("" = Microsoft's winget CDN); https only.
+	WingetIndexURL string
 	// ReleasePublicKeys are extra vendor release public keys (hex, comma-separated) the server accepts
 	// agent releases for, in addition to the keys compiled in. Agents only trust their own compiled-in keys.
 	ReleasePublicKeys string
@@ -129,6 +131,11 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		errs = append(errs, err)
 	}
 	c.WingetSource = get("RENOVATIO_WINGET_SOURCE", "github")
+	if c.WingetIndexURL = strings.TrimSpace(get("RENOVATIO_WINGET_INDEX_URL", "")); c.WingetIndexURL != "" {
+		if u, perr := url.Parse(c.WingetIndexURL); perr != nil || u.Scheme != "https" || u.Host == "" {
+			errs = append(errs, errors.New("RENOVATIO_WINGET_INDEX_URL must be an https URL"))
+		}
+	}
 	c.ReleasePublicKeys = get("RENOVATIO_RELEASE_PUBLIC_KEYS", "")
 	if _, err := release.ParseKeys(c.ReleasePublicKeys); err != nil {
 		errs = append(errs, fmt.Errorf("RENOVATIO_RELEASE_PUBLIC_KEYS: %w", err))

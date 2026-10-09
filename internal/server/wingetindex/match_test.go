@@ -1,0 +1,104 @@
+package wingetindex
+
+import "testing"
+
+func matcher(t *testing.T) *Matcher {
+	t.Helper()
+	s, err := ParseMSIX(fixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewMatcher(s)
+}
+
+func TestNormalizeName(t *testing.T) {
+	for _, c := range []struct{ in, norm, arch string }{
+		{"Google Chrome", "googlechrome", ""},
+		{"Mozilla Firefox (x64 en-US)", "mozillafirefox", "X64"},
+		{"7-Zip 24.08 (x64 edition)", "7zip", "X64"},
+		{"Zoom Workplace (64-bit)", "zoomworkplace", "X64"},
+		{"Notepad++ (32-bit x86)", "notepad", "X86"},
+		{"Splashtop® Streamer", "splashtopstreamer", ""},
+		{"Cloud Foundry CLI v8", "cloudfoundrycli", ""},
+		{"ASAP Utilities (Home and Student edition)", "asaputilities", ""},
+		{"Microsoft Edge", "microsoftedge", ""},
+		{"Adobe Acrobat Reader DC - Deutsch", "adobeacrobatreaderdcdeutsch", ""},
+	} {
+		if n, a := NormalizeName(c.in); n != c.norm || a != c.arch {
+			t.Errorf("NormalizeName(%q) = %q, %q; want %q, %q", c.in, n, a, c.norm, c.arch)
+		}
+	}
+	for in, want := range map[string]string{"Google LLC": "google", "Microsoft Corporation": "microsoft", "Citrix Systems, Inc.": "citrixsystems", "Notepad++ Team": "notepadteam", "Zoom Video Communications, Inc.": "zoomvideocommunications"} {
+		if got := NormalizePublisher(in); got != want {
+			t.Errorf("NormalizePublisher(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if !publishersAgree("zoomvideocommunications", []string{"zoom"}) || publishersAgree("adobe", []string{"ado"}) || publishersAgree("", []string{"x"}) || publishersAgree("dell", []string{"microsoft"}) {
+		t.Fatal("publisher agreement rules")
+	}
+}
+
+func TestFindRecognisesInstalledPrograms(t *testing.T) {
+	m := matcher(t)
+	for _, c := range []struct {
+		name string
+		in   Installed
+		id   string
+		by   string
+		none bool
+	}{
+		{name: "product code of an MSI install", in: Installed{Name: "Google Chrome", Publisher: "Google LLC", ItemKey: "{74BADAF7-9D73-386E-B2E4-2D4B3416A469}", Source: "msi"}, id: "Google.Chrome", by: "product_code"},
+		{name: "exe install by name and publisher", in: Installed{Name: "Google Chrome", Publisher: "Google LLC", ItemKey: "Google Chrome", Source: "reg64"}, id: "Google.Chrome", by: "name"},
+		{name: "uninstall key name", in: Installed{Name: "Notepad++ (64-bit x64)", Publisher: "Notepad++ Team", ItemKey: "Notepad++", Source: "reg64"}, id: "Notepad++.Notepad++", by: "product_code"},
+		{name: "long legal publisher", in: Installed{Name: "Zoom Workplace (64-bit)", Publisher: "Zoom Video Communications, Inc.", ItemKey: "ZoomUMX", Source: "reg64"}, id: "Zoom.Zoom", by: "name"},
+		{name: "shared key resolved by name (Firefox)", in: Installed{Name: "Mozilla Firefox (x64 en-US)", Publisher: "Mozilla", ItemKey: "Mozilla Firefox 157.0.1 (x64 en-US)", ProductCode: "mozilla firefox", Source: "reg64"}, id: "Mozilla.Firefox", by: "product_code"},
+		{name: "shared key resolved by name (ESR)", in: Installed{Name: "Mozilla Firefox ESR (x64 en-US)", Publisher: "Mozilla", ProductCode: "mozilla firefox", Source: "reg64"}, id: "Mozilla.Firefox.ESR", by: "product_code"},
+		{name: "shared key, name decides nothing", in: Installed{Name: "Some Other Browser", Publisher: "Mozilla", ProductCode: "mozilla firefox", Source: "reg64"}, none: true},
+		{name: "name without a publisher is not enough", in: Installed{Name: "Google Chrome", ItemKey: "Google Chrome", Source: "reg64"}, none: true},
+		{name: "name with another publisher", in: Installed{Name: "Google Chrome", Publisher: "Acme Corp", ItemKey: "x", Source: "reg64"}, none: true},
+		{name: "unknown program", in: Installed{Name: "Hospital Scheduling Client", Publisher: "Contoso Health", ItemKey: "HSC", Source: "reg64"}, none: true},
+		{name: "store apps are not matched", in: Installed{Name: "Google Chrome", Publisher: "Google LLC", Source: "appx"}, none: true},
+	} {
+		got, ok := m.Find(c.in)
+		if c.none {
+			if ok {
+				t.Errorf("%s: matched %s", c.name, got.ID)
+			}
+			continue
+		}
+		if !ok || got.ID != c.id || got.By != c.by {
+			t.Errorf("%s: got %+v ok=%v, want %s by %s", c.name, got, ok, c.id, c.by)
+		}
+	}
+}
+
+func TestMatchNewer(t *testing.T) {
+	m := matcher(t)
+	got, ok := m.Find(Installed{Name: "Google Chrome", Publisher: "Google LLC", ItemKey: "Google Chrome", Source: "reg64"})
+	if !ok {
+		t.Fatal("no match")
+	}
+	old, _ := vercmpKey("154.0.8037.98")
+	cur, _ := vercmpKey("155.0.8059.40")
+	newer, _ := vercmpKey("156.0.1.1")
+	if !got.Newer(old) || got.Newer(cur) || got.Newer(newer) || got.Newer(nil) {
+		t.Fatal("version comparison")
+	}
+}
+
+func TestSearchRanksExactAndPrefixFirst(t *testing.T) {
+	m := matcher(t)
+	r := m.Search("firefox", 5)
+	if len(r) != 2 || r[0].ID != "Mozilla.Firefox" {
+		t.Fatalf("%+v", r)
+	}
+	if r := m.Search("chrome", 3); len(r) != 1 || r[0].ID != "Google.Chrome" {
+		t.Fatalf("%+v", r)
+	}
+	if len(m.Search("", 5)) != 0 || len(m.Search("zzzznothing", 5)) != 0 {
+		t.Fatal("empty and unknown queries")
+	}
+	if p, ok := m.Package("google.chrome"); !ok || p.ID != "Google.Chrome" {
+		t.Fatal("package lookup is case-insensitive")
+	}
+}

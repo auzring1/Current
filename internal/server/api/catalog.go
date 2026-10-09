@@ -17,6 +17,7 @@ import (
 	"github.com/auzring1/renovatio/gen/dbq"
 	"github.com/auzring1/renovatio/internal/server/audit"
 	"github.com/auzring1/renovatio/internal/server/catalog"
+	"github.com/auzring1/renovatio/internal/server/wingetindex"
 )
 
 // maxUpload bounds one uploaded installer.
@@ -113,6 +114,20 @@ func (s *server) searchCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := map[string]any{"imported": imported, "suggestions": sugg}
+	// Packages of the winget index that match the words typed (by name, identifier or moniker).
+	if m := s.Winget.Matcher(); m != nil {
+		type indexHit struct {
+			Identifier    string `json:"identifier"`
+			Name          string `json:"name"`
+			LatestVersion string `json:"latest_version"`
+			InCatalog     bool   `json:"in_catalog"`
+		}
+		hits := []indexHit{}
+		for _, p := range m.Search(q, 15) {
+			hits = append(hits, indexHit{Identifier: p.ID, Name: p.Name, LatestVersion: p.LatestVersion, InCatalog: have[strings.ToLower(p.ID)]})
+		}
+		out["index"] = hits
+	}
 	// An exact identifier is looked up upstream so it can be imported.
 	if ident := strings.TrimSpace(r.URL.Query().Get("q")); catalog.ValidIdentifier(ident) && s.Catalog.Source != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
@@ -437,4 +452,43 @@ func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 		Action: "settings.update", TargetType: "organization", TargetIDs: []string{p.OrgID.String()}, Outcome: audit.Success,
 		Details: map[string]any{"user_scope_policy": req.UserScopePolicy}})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /catalog/index: how recent the winget index is.
+func (s *server) wingetIndexStatus(w http.ResponseWriter, r *http.Request) {
+	if s.Winget == nil {
+		writeJSON(w, http.StatusOK, wingetindex.Status{Enabled: false})
+		return
+	}
+	st, err := s.Winget.Status(r.Context())
+	if err != nil {
+		s.Log.Error("winget index status", "err", err)
+		internalError(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+// POST /catalog/index/refresh: download the index now.
+func (s *server) refreshWingetIndex(w http.ResponseWriter, r *http.Request) {
+	if s.Winget == nil {
+		writeError(w, http.StatusConflict, "winget_off", "The winget source is turned off on this server (RENOVATIO_WINGET_SOURCE).")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+	defer cancel()
+	updated, err := s.Winget.Refresh(ctx, true)
+	p := principalFrom(r)
+	outcome := audit.Success
+	if err != nil {
+		outcome = audit.Error
+	}
+	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r),
+		Action: "catalog.index_refresh", TargetType: "catalog", Outcome: outcome, Details: map[string]any{"updated": updated}})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "index_failed", "The winget index could not be downloaded: "+err.Error())
+		return
+	}
+	st, _ := s.Winget.Status(r.Context())
+	writeJSON(w, http.StatusOK, st)
 }

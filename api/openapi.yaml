@@ -2192,6 +2192,28 @@ paths:
                 required: [items]
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/Package" } }
+  /catalog/index:
+    get:
+      tags: [catalog]
+      summary: State of the winget index the server matches installed programs against (requires catalog:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WingetIndexStatus" }
+  /catalog/index/refresh:
+    post:
+      tags: [catalog]
+      summary: Download the winget index now (requires catalog:write; audited as catalog.index_refresh)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WingetIndexStatus" }
+        "409": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
   /catalog/search:
     get:
       tags: [catalog]
@@ -2217,6 +2239,17 @@ paths:
                         identifier: { type: string }
                         self_updating: { type: boolean }
                         note: { type: string }
+                  index:
+                    description: Packages of the winget index that match the words typed (present when the index has been downloaded)
+                    type: array
+                    items:
+                      type: object
+                      required: [identifier, name, latest_version, in_catalog]
+                      properties:
+                        identifier: { type: string }
+                        name: { type: string }
+                        latest_version: { type: string }
+                        in_catalog: { type: boolean }
                   probe:
                     type: object
                     required: [identifier]
@@ -2864,13 +2897,29 @@ components:
         self_updating: { type: boolean }
         deployable: { type: boolean }
         reason: { type: string }
+        in_catalog: { type: boolean, description: "false when the update comes from the winget index only (package_id is then the nil UUID and winget_id names the package)" }
+        winget_id: { type: string }
+        matched_by: { type: string, enum: [product_code, name] }
+    WingetIndexStatus:
+      type: object
+      required: [enabled, url, package_count]
+      properties:
+        enabled: { type: boolean }
+        url: { type: string }
+        package_count: { type: integer }
+        fetched_at: { type: string, format: date-time, nullable: true }
+        source_updated_at: { type: string, format: date-time, nullable: true }
+        checked_at: { type: string, format: date-time, nullable: true }
+        error: { type: string }
     FleetUpdate:
       type: object
-      required: [package_id, package_name, latest_version, deployable, devices]
+      required: [package_id, package_name, latest_version, deployable, in_catalog, devices]
       properties:
-        package_id: { type: string, format: uuid }
+        package_id: { type: string, format: uuid, description: "the nil UUID when the package is only known from the winget index" }
         package_name: { type: string }
         identifier: { type: string }
+        winget_id: { type: string }
+        in_catalog: { type: boolean }
         latest_version: { type: string }
         verified: { type: boolean }
         self_updating: { type: boolean }
@@ -2886,6 +2935,7 @@ components:
               hostname: { type: string }
               installed_version: { type: string }
               scope: { type: string, enum: [machine, user] }
+              matched_by: { type: string, enum: [product_code, name] }
     WindowsUpdate:
       type: object
       required: [update_id, title, classification, decision, devices_missing]
