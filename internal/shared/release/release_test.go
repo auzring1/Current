@@ -186,7 +186,7 @@ func FuzzVerify(f *testing.F) {
 	})
 }
 
-// FuzzBundle: the .rnr file and the manifest inside it arrive from an upload (server) or from a job
+// FuzzBundle: the .curr file and the manifest inside it arrive from an upload (server) or from a job
 // (agent). Parsing must never panic, and a manifest that ParseUnverified accepts must be one that
 // Marshal accepts too (the signer and the verifier agree on what is valid).
 func FuzzBundle(f *testing.F) {

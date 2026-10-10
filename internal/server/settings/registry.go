@@ -3,7 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"strings"
 )
 
@@ -28,7 +28,6 @@ var Events = []Option{
 	{"failed_install", "An install or update failed on a device"},
 	{"update_held", "An update was held because a ring missed its success threshold"},
 	{"device_offline", "A device has not reported for a while"},
-	{"license_limit", "License usage is near or at the limit"},
 	{"agent_out_of_date", "A device runs an older agent than the target release"},
 }
 
@@ -60,8 +59,6 @@ func EventReference() []EventDoc {
 			map[string]any{"update": map[string]any{"id": "…", "title": "2026-01 Cumulative Update (KB5099999)"}, "ring": "Pilot", "reason": "3 of 10 devices failed"}),
 		doc("device_offline", "A device has not reported for at least the configured number of hours (sent once per outage).",
 			map[string]any{"device": map[string]any{"id": "…", "hostname": "PC-0142"}, "hours_offline": 30}),
-		doc("license_limit", "License usage crosses the configured percentage, or reaches the limit.",
-			map[string]any{"used": 95, "max": 100, "state": "licensed"}),
 		doc("agent_out_of_date", "A device reports an agent version older than the rollout's target release (sent once per device and release).",
 			map[string]any{"device": map[string]any{"id": "…", "hostname": "PC-0142"}, "agent_version": "1.2.0", "target_version": "1.3.0"}),
 		doc("test", "An administrator pressed 'Send test' on a webhook.", map[string]any{"message": "This is a test delivery."}),
@@ -130,7 +127,7 @@ var security = Section{
 		{Key: "allow_security_keys", Label: "Allow security keys as a second factor", Kind: Bool, Default: true, Effect: Live,
 			Help: "When off, people cannot add new security keys (the authenticator app is always how an account first gets its second factor). Keys people already have keep working."},
 		{Key: "ip_allowlist", Label: "Console IP allow-list", Kind: CIDRs, Default: []any{}, Max: 50, Effect: Live, Placeholder: "10.20.0.0/16",
-			Help: "When not empty, only these addresses and networks can reach the console and its API (agents are not affected). Your own current address must be in the list, or the change is refused. If you lock yourself out anyway, start the server with RENOVATIO_IGNORE_IP_ALLOWLIST=true, fix the list, and restart without it."},
+			Help: "When not empty, only these addresses and networks can reach the console and its API (agents are not affected). Your own current address must be in the list, or the change is refused. If you lock yourself out anyway, start the server with CURRENT_IGNORE_IP_ALLOWLIST=true, fix the list, and restart without it."},
 		{Key: "api_token_max_days", Label: "Longest API token lifetime", Kind: Int, Default: 365, Min: 1, Max: 365, Unit: "days", Effect: Live,
 			Help: "New API tokens cannot be valid for longer than this. Existing tokens keep their expiry."},
 		{Key: "login_banner_enabled", Label: "Show a notice on the sign-in page", Kind: Bool, Default: false, Effect: Live,
@@ -159,7 +156,7 @@ var notifications = Section{
 			Help: "Leave empty if the relay does not need a login."},
 		{Key: "smtp_password", Label: "Password", Kind: Secret, Max: 512, ShowIf: "email_enabled", Effect: Live,
 			Help: "Stored encrypted and never shown again. Leave empty to keep the saved one."},
-		{Key: "from_address", Label: "From address", Kind: String, Default: "", Max: 254, Placeholder: "renovatio@example.org", ShowIf: "email_enabled", Effect: Live,
+		{Key: "from_address", Label: "From address", Kind: String, Default: "", Max: 254, Placeholder: "current@example.org", ShowIf: "email_enabled", Effect: Live,
 			Help: "The sender of every message.",
 			Validate: func(v any, _ map[string]any) error {
 				s, _ := v.(string)
@@ -180,7 +177,6 @@ var notifications = Section{
 				ruleDefault("failed_install", false, 0),
 				ruleDefault("update_held", false, 0),
 				ruleDefault("device_offline", false, 24),
-				ruleDefault("license_limit", false, 90),
 				ruleDefault("agent_out_of_date", false, 7),
 			},
 			Fields: []Field{
@@ -190,7 +186,7 @@ var notifications = Section{
 				{Key: "webhook", Label: "To webhooks", Kind: Bool, Default: true, Effect: Live, Help: "Call every enabled webhook that listens for this event."},
 				{Key: "recipients", Label: "Recipients", Kind: Emails, Default: []any{}, Max: 20, Effect: Live, Placeholder: "oncall@example.org", Help: "E-mail addresses. Required when the rule sends e-mail."},
 				{Key: "threshold", Label: "Threshold", Kind: Int, Default: 0, Min: 0, Max: 720, Effect: Live,
-					Help: "Device offline: hours without a report. License: percent of the device limit used. Agent out of date: days after a release before devices count as late. Other events ignore it."},
+					Help: "Device offline: hours without a report. Agent out of date: days after a release before devices count as late. Other events ignore it."},
 				{Key: "quiet_hours", Label: "Hold during quiet hours", Kind: Bool, Default: true, Effect: Live, Help: "Wait for the end of quiet hours instead of sending at once."},
 			}},
 	},
@@ -325,7 +321,7 @@ var integrations = Section{
 				{Key: "id", Label: "Id", Kind: String, Default: "", Max: 64, Effect: Live, Help: "Assigned automatically."},
 				{Key: "name", Label: "Name", Kind: String, Required: true, Default: "New webhook", Min: 1, Max: 100, Effect: Live, Help: "Shown in the log."},
 				{Key: "enabled", Label: "Enabled", Kind: Bool, Default: true, Effect: Live, Help: "Paused webhooks receive nothing."},
-				{Key: "url", Label: "URL", Kind: URL, Required: true, Default: "", Max: 500, Placeholder: "https://hooks.example.org/renovatio", Effect: Live,
+				{Key: "url", Label: "URL", Kind: URL, Required: true, Default: "", Max: 500, Placeholder: "https://hooks.example.org/current", Effect: Live,
 					Help: "Where to POST. Use https; plain http is only for receivers on a trusted internal network."},
 				{Key: "secret", Label: "Signing secret", Kind: Secret, Max: 200, Effect: Live, Help: "Used to sign each delivery. Stored encrypted and never shown again; leave empty to keep the saved one."},
 				{Key: "clear_secret", Label: "Remove the saved secret", Kind: Bool, Default: false, Effect: Live, Help: "Deliveries are then sent unsigned."},

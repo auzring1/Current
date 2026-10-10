@@ -250,3 +250,40 @@ func TestSettingsDocIsUpToDate(t *testing.T) {
 		t.Fatal("docs/SETTINGS.md is out of date: run  go run ./internal/server/settings/gen > docs/SETTINGS.md")
 	}
 }
+
+// An installation that saved its notification settings while the "license usage" event existed must still load them:
+// the retired rule and the retired webhook choice are dropped instead of making every later save fail.
+func TestStoredSettingsWithARetiredEventStillLoad(t *testing.T) {
+	sec := section(t, "notifications")
+	rule := func(ev string) map[string]any {
+		return map[string]any{"event": ev, "enabled": false, "email": true, "webhook": true, "recipients": []any{}, "threshold": 0, "quiet_hours": true}
+	}
+	stored := map[string]any{"rules": []any{rule("failed_install"), rule("update_held"), rule("device_offline"), rule("license_limit"), rule("agent_out_of_date")}}
+	norm, errs := sec.Normalize(dropUnknown(sec.Fields, stored))
+	if len(errs) != 0 {
+		t.Fatalf("a stored document with the retired rule must still validate: %v", errs)
+	}
+	if n := len(norm["rules"].([]any)); n != len(Events) {
+		t.Fatalf("the retired rule must be dropped, got %d rules for %d events", n, len(Events))
+	}
+
+	hooks := section(t, "integrations")
+	var hookField Field
+	for _, f := range hooks.Fields {
+		if f.Kind == List {
+			for _, sub := range f.Fields {
+				if sub.Key == "events" {
+					hookField = f
+				}
+			}
+		}
+	}
+	if hookField.Key == "" {
+		t.Skip("no webhook list with an events field in this section")
+	}
+	kept := dropUnknown(hooks.Fields, map[string]any{hookField.Key: []any{map[string]any{"events": []any{"license_limit", "failed_install"}}}})
+	ev := kept[hookField.Key].([]any)[0].(map[string]any)["events"].([]any)
+	if len(ev) != 1 || ev[0] != "failed_install" {
+		t.Fatalf("the retired choice must be dropped, the others kept: %v", ev)
+	}
+}

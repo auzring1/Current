@@ -7,10 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/dashboard"
-	"github.com/auzring1/renovatio/internal/server/licensing"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/dashboard"
 )
 
 // scope says where a caller holds a permission: none, everywhere, or only at some sites.
@@ -67,14 +66,6 @@ type dashAttention struct {
 	Score    int       `json:"-"`
 }
 
-type dashLicense struct {
-	State      string `json:"state"`
-	Message    string `json:"message"`
-	Used       int    `json:"used"`
-	Max        int    `json:"max"`
-	AtCapacity bool   `json:"at_capacity"`
-}
-
 type dashHistoryPoint struct {
 	Date         string `json:"date"`
 	Compliant    int    `json:"compliant"`
@@ -99,7 +90,6 @@ type dashboardView struct {
 	NeedsRestart    *int               `json:"needs_restart"`
 	MissingCritical *int               `json:"missing_critical_devices"`
 	FailedJobs24h   *int64             `json:"failed_jobs_24h"`
-	License         *dashLicense       `json:"license"`
 	Compliance      *dashCompliance    `json:"compliance"`
 	TopMissing      []dashTopUpdate    `json:"top_missing"`
 	Attention       []dashAttention    `json:"attention"`
@@ -263,14 +253,6 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 		out.FailedJobs24h = &n
 	}
 
-	if p.Access.OrgHas(auth.PermLicenseRead) && s.Licensing != nil {
-		st, err := s.Licensing.Status(ctx, p.OrgID)
-		if fail("license", err) {
-			return
-		}
-		out.License = &dashLicense{State: string(st.State), Message: st.Message, Used: st.Devices, Max: st.MaxDevices, AtCapacity: st.AtCapacity}
-	}
-
 	if p.Access.OrgHas(auth.PermAuditRead) {
 		org := p.OrgID
 		lim := int32(dashActivityN)
@@ -338,43 +320,6 @@ func (s *server) notifications(w http.ResponseWriter, r *http.Request) {
 			items = append(items, notification{ID: "hold-" + h.ID.String(), Kind: "held_update", Severity: "warning", Title: title + " is held", Detail: h.Reason, To: "/updates/held", At: h.CreatedAt})
 		}
 	}
-	if p.Access.OrgHas(auth.PermLicenseRead) && s.Licensing != nil {
-		st, err := s.Licensing.Status(ctx, p.OrgID)
-		if err != nil {
-			internalError(w)
-			return
-		}
-		if sev, ok := licenseSeverity(st); ok {
-			items = append(items, notification{ID: "license", Kind: "license", Severity: sev, Title: licenseTitle(st), Detail: st.Message, To: "/license", At: now})
-		}
-	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].At.After(items[j].At) })
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items)})
-}
-
-// licenseSeverity decides whether the license deserves a place in the notifications and how loudly.
-func licenseSeverity(st licensing.Status) (string, bool) {
-	switch {
-	case st.State == licensing.Invalid, st.OverCapacity:
-		return "critical", true
-	case st.AtCapacity, st.State == licensing.Grace:
-		return "warning", true
-	case st.MaxDevices > 0 && st.Devices*10 >= st.MaxDevices*9:
-		return "info", true // 90% of the cap is used
-	}
-	return "", false
-}
-
-func licenseTitle(st licensing.Status) string {
-	switch {
-	case st.State == licensing.Invalid:
-		return "The installed license cannot be used"
-	case st.OverCapacity:
-		return "More devices than the license allows"
-	case st.AtCapacity:
-		return "The license has no free device slots"
-	case st.State == licensing.Grace:
-		return "The license has ended (grace period)"
-	}
-	return "The license is nearly full"
 }

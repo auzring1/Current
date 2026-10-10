@@ -7,10 +7,10 @@ import (
 
 func baseEnv() map[string]string {
 	return map[string]string{
-		"RENOVATIO_DEV_MODE":     "true",
-		"RENOVATIO_PUBLIC_URL":   "http://localhost:8080",
-		"RENOVATIO_DATABASE_URL": "postgres://u:p@localhost/db",
-		"RENOVATIO_MASTER_KEY":   strings.Repeat("ab", 32),
+		"CURRENT_DEV_MODE":     "true",
+		"CURRENT_PUBLIC_URL":   "http://localhost:8080",
+		"CURRENT_DATABASE_URL": "postgres://u:p@localhost/db",
+		"CURRENT_MASTER_KEY":   strings.Repeat("ab", 32),
 	}
 }
 
@@ -27,8 +27,8 @@ func TestEnrollRateLimitsDefaultAndOverride(t *testing.T) {
 		t.Fatalf("defaults changed: %d/%d (PROTOCOL §4.1 says 10 per IP and 60 per token per minute)", c.EnrollRatePerIP, c.EnrollRatePerToken)
 	}
 	env := baseEnv()
-	env["RENOVATIO_ENROLL_RATE_PER_IP"] = "500"
-	env["RENOVATIO_ENROLL_RATE_PER_TOKEN"] = "2000"
+	env["CURRENT_ENROLL_RATE_PER_IP"] = "500"
+	env["CURRENT_ENROLL_RATE_PER_TOKEN"] = "2000"
 	c, err = load(env)
 	if err != nil {
 		t.Fatal(err)
@@ -41,8 +41,8 @@ func TestEnrollRateLimitsDefaultAndOverride(t *testing.T) {
 func TestEnrollRateLimitsRejectNonsense(t *testing.T) {
 	for _, v := range []string{"0", "-5", "ten", "1000001", "1.5"} {
 		env := baseEnv()
-		env["RENOVATIO_ENROLL_RATE_PER_IP"] = v
-		if _, err := load(env); err == nil || !strings.Contains(err.Error(), "RENOVATIO_ENROLL_RATE_PER_IP") {
+		env["CURRENT_ENROLL_RATE_PER_IP"] = v
+		if _, err := load(env); err == nil || !strings.Contains(err.Error(), "CURRENT_ENROLL_RATE_PER_IP") {
 			t.Errorf("%q accepted (err=%v)", v, err)
 		}
 	}
@@ -50,7 +50,7 @@ func TestEnrollRateLimitsRejectNonsense(t *testing.T) {
 
 func TestTrustedProxiesAcceptCommasAndSpaces(t *testing.T) {
 	env := baseEnv()
-	env["RENOVATIO_TRUSTED_PROXIES"] = "172.31.250.10/32,172.31.250.0/24 192.168.1.50/32"
+	env["CURRENT_TRUSTED_PROXIES"] = "172.31.250.10/32,172.31.250.0/24 192.168.1.50/32"
 	c, err := load(env)
 	if err != nil {
 		t.Fatal(err)
@@ -58,8 +58,8 @@ func TestTrustedProxiesAcceptCommasAndSpaces(t *testing.T) {
 	if len(c.TrustedProxies) != 3 || c.TrustedProxies[2].String() != "192.168.1.50/32" {
 		t.Fatalf("trusted proxies = %v", c.TrustedProxies)
 	}
-	env["RENOVATIO_TRUSTED_PROXIES"] = "172.31.250.10/32 not-a-cidr"
-	if _, err := load(env); err == nil || !strings.Contains(err.Error(), "RENOVATIO_TRUSTED_PROXIES") {
+	env["CURRENT_TRUSTED_PROXIES"] = "172.31.250.10/32 not-a-cidr"
+	if _, err := load(env); err == nil || !strings.Contains(err.Error(), "CURRENT_TRUSTED_PROXIES") {
 		t.Fatalf("a bad entry must be refused, got %v", err)
 	}
 }

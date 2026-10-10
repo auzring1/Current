@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Renovatio server image: web console + API + agent gateway in one static binary
+# Current server image: web console + API + agent gateway in one static binary
 # on a distroless, non-root base. Base images are pinned by digest
 # (update them deliberately; Dependabot proposes the updates).
 
@@ -37,21 +37,18 @@ ARG AUTHENTICODE_SUBJECTS=""
 ARG EXPECT_GO_VERSION=""
 RUN if [ -n "$EXPECT_GO_VERSION" ] && [ "$(go env GOVERSION)" != "go${EXPECT_GO_VERSION}" ]; then \
       echo "base image has $(go env GOVERSION), release expects go${EXPECT_GO_VERSION}: update the pinned digest" >&2; exit 1; fi
-# Vendor license public key(s), hex, comma-separated (a public value). Empty = licensing not configured:
-# the server then runs unlicensed (evaluation limits).
-ARG LICENSE_PUBLIC_KEYS=
 RUN go build -trimpath -buildvcs=false \
-      -ldflags "-s -w -buildid= -X github.com/auzring1/renovatio/internal/shared/version.Version=${VERSION} -X github.com/auzring1/renovatio/internal/shared/version.Commit=${COMMIT} -X github.com/auzring1/renovatio/internal/shared/release.PublicKeysHex=${RELEASE_PUBLIC_KEYS} -X github.com/auzring1/renovatio/internal/shared/release.RequireAuthenticode=${REQUIRE_AUTHENTICODE} -X 'github.com/auzring1/renovatio/internal/shared/release.AuthenticodeSubjects=${AUTHENTICODE_SUBJECTS}' -X github.com/auzring1/renovatio/internal/shared/license.PublicKeysHex=${LICENSE_PUBLIC_KEYS}" \
-      -o /out/renovatio-server ./cmd/renovatio-server
+      -ldflags "-s -w -buildid= -X github.com/auzring1/current/internal/shared/version.Version=${VERSION} -X github.com/auzring1/current/internal/shared/version.Commit=${COMMIT} -X github.com/auzring1/current/internal/shared/release.PublicKeysHex=${RELEASE_PUBLIC_KEYS} -X github.com/auzring1/current/internal/shared/release.RequireAuthenticode=${REQUIRE_AUTHENTICODE} -X 'github.com/auzring1/current/internal/shared/release.AuthenticodeSubjects=${AUTHENTICODE_SUBJECTS}'" \
+      -o /out/current-server ./cmd/current-server
 
 # Empty content directory owned by the runtime user; compose mounts a volume over it.
 RUN mkdir -p /out/content && chown 65532:65532 /out/content && chmod 700 /out/content
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
-COPY --from=build /out/renovatio-server /renovatio-server
-COPY --from=build --chown=65532:65532 /out/content /var/lib/renovatio/content
+COPY --from=build /out/current-server /current-server
+COPY --from=build --chown=65532:65532 /out/content /var/lib/current/content
 USER 65532:65532
 EXPOSE 8080 8443
-HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 CMD ["/renovatio-server", "healthcheck"]
-ENTRYPOINT ["/renovatio-server"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 CMD ["/current-server", "healthcheck"]
+ENTRYPOINT ["/current-server"]
 CMD ["serve"]

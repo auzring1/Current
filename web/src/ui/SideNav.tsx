@@ -40,11 +40,11 @@ export function SideNav({ onNavigate, id, rail = false }: Props) {
   const link = (l: NavItem) => {
     const count = l.id === "devices" ? (pending.data?.total ?? 0) : 0;
     return (
-      <NavLink to={l.to} end={l.end} className="rnv-nav__link" onClick={onNavigate} title={rail ? l.label : undefined} aria-describedby={count ? `${uid}-pending` : undefined}>
+      <NavLink to={l.to} end={l.end} className="cur-nav__link" onClick={onNavigate} title={rail ? l.label : undefined} aria-describedby={count ? `${uid}-pending` : undefined}>
         <l.icon size={18} aria-hidden />
-        <span className={rail ? "rnv-visually-hidden" : "rnv-nav__text"}>{l.label}</span>
+        <span className={rail ? "cur-visually-hidden" : "cur-nav__text"}>{l.label}</span>
         {count > 0 && !rail && (
-          <span className="rnv-nav__count" aria-hidden="true">
+          <span className="cur-nav__count" aria-hidden="true">
             {count}
           </span>
         )}
@@ -53,19 +53,19 @@ export function SideNav({ onNavigate, id, rail = false }: Props) {
   };
 
   return (
-    <nav className="rnv-nav-inner" aria-label="Main" id={id} data-rail={rail ? "true" : undefined}>
+    <nav className="cur-nav-inner" aria-label="Main" id={id} data-rail={rail ? "true" : undefined}>
       {groups.map((g) => {
         const open = rail || !g.label || !layout.closed.includes(g.id);
         const listId = `${uid}-${g.id}`;
         return (
-          <div className="rnv-nav__group" key={g.id}>
+          <div className="cur-nav__group" key={g.id}>
             {g.label && !rail && (
-              <button type="button" className="rnv-nav__label" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(g.id, !open)}>
+              <button type="button" className="cur-nav__label" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(g.id, !open)}>
                 <span>{g.label}</span>
-                <I.ChevronDown size={14} aria-hidden className="rnv-nav__chev" data-open={open} />
+                <I.ChevronDown size={14} aria-hidden className="cur-nav__chev" data-open={open} />
               </button>
             )}
-            <ul className="rnv-nav__list" id={listId} hidden={!open} aria-label={g.label || undefined}>
+            <ul className="cur-nav__list" id={listId} hidden={!open} aria-label={g.label || undefined}>
               {g.items.map((l) => (
                 <li key={l.id}>{link(l)}</li>
               ))}
@@ -74,7 +74,7 @@ export function SideNav({ onNavigate, id, rail = false }: Props) {
         );
       })}
       {(pending.data?.total ?? 0) > 0 && (
-        <span id={`${uid}-pending`} className="rnv-visually-hidden">
+        <span id={`${uid}-pending`} className="cur-visually-hidden">
           {pending.data!.total} devices waiting for approval
         </span>
       )}

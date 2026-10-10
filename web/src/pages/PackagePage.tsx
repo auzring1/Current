@@ -85,7 +85,7 @@ export function PackagePage() {
         <>
           {d.package.source === "winget" && <VerificationCard detail={d} />}
           <Card title="Details" actions={<PackageBadges p={d.package} />}>
-            <div className="rnv-block">
+            <div className="cur-block">
               {d.package.description && <p style={{ margin: 0 }}>{d.package.description}</p>}
               <Fields
                 items={[
@@ -162,7 +162,7 @@ function VerificationCard({ detail }: { detail: PackageDetail }) {
           ? `${v?.by || "An administrator"} marked this package as verified${v?.at ? ` on ${dateTime(v.at)}` : ""}${v?.version ? `, after testing version ${v.version}` : ""}. It deploys without the confirmation.${newest && v?.version && newest !== v.version ? ` The newest imported version is ${newest}, which was not tested at that time.` : ""}`
           : "It deploys without the confirmation."}
         {canMark && byTeam && (
-          <div style={{ marginTop: "var(--rnv-space-2)" }}>
+          <div style={{ marginTop: "var(--cur-space-2)" }}>
             <Button size="compact-sm" variant="default" loading={set.isPending} onClick={() => void unmark()}>
               Remove the verified mark
             </Button>
@@ -176,7 +176,7 @@ function VerificationCard({ detail }: { detail: PackageDetail }) {
       This package comes from the community winget repository and has not been tested. You will be asked to confirm before deploying, and the confirmation is recorded in the audit log.
       {canMark ? " Once you have tested it on your own computers, mark it as verified so it deploys without the prompt." : " An administrator can mark it as verified after testing it."}
       {canMark && (
-        <div style={{ marginTop: "var(--rnv-space-2)" }}>
+        <div style={{ marginTop: "var(--cur-space-2)" }}>
           <Button size="compact-sm" loading={set.isPending} leftSection={<Icons.Success size={14} aria-hidden />} onClick={() => void mark()}>
             Mark as verified
           </Button>
@@ -192,14 +192,14 @@ function InstallersTable({ versionId, version, installers }: { versionId: string
       { id: "arch", header: "Arch", value: (i) => i.architecture, required: true, width: 100 },
       { id: "scope", header: "Scope", value: (i) => i.scope, width: 100 },
       { id: "type", header: "Type", value: (i) => i.type, width: 100 },
-      { id: "size", header: "Size", value: (i) => i.size ?? 0, align: "right", width: 110, cell: (i) => <span className="rnv-num">{bytes(i.size)}</span>, csv: (i) => String(i.size ?? "") },
+      { id: "size", header: "Size", value: (i) => i.size ?? 0, align: "right", width: 110, cell: (i) => <span className="cur-num">{bytes(i.size)}</span>, csv: (i) => String(i.size ?? "") },
       {
         id: "sha256",
         header: "SHA-256",
         value: (i) => i.sha256 ?? "",
         width: 190,
         cell: (i) => (
-          <span className="rnv-mono" title={i.sha256}>
+          <span className="cur-mono" title={i.sha256}>
             {i.sha256 ? i.sha256.slice(0, 16) + "…" : "—"}
           </span>
         ),
@@ -293,7 +293,7 @@ function Overrides({ detail }: { detail: PackageDetail }) {
         ) : undefined
       }
     >
-      <div className="rnv-block">
+      <div className="cur-block">
         <TextInput
           label="Silent arguments"
           description="Replaces the manifest's switches. Only plain switches such as /S or /quiet are accepted."

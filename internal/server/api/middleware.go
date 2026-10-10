@@ -15,11 +15,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
 
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/config"
 )
 
 type ctxKey int
@@ -323,7 +323,7 @@ func (s *server) withPrincipal(r *http.Request, p *Principal) *http.Request {
 	return r.WithContext(ctx)
 }
 
-const apiTokenPrefix = "rnt_"
+const apiTokenPrefix = "cur_"
 
 // principal resolves the caller: a fully MFA-verified session, or an API token.
 func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {

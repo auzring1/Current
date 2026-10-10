@@ -14,15 +14,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/events"
-	"github.com/auzring1/renovatio/internal/server/licensing"
-	"github.com/auzring1/renovatio/internal/server/pki"
-	"github.com/auzring1/renovatio/internal/server/store"
-	"github.com/auzring1/renovatio/internal/shared/pkix"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/events"
+	"github.com/auzring1/current/internal/server/pki"
+	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/shared/pkix"
 )
 
 // errRejected is the single generic error enrollment returns; the
@@ -30,7 +29,7 @@ import (
 var errRejected = status.Error(codes.PermissionDenied, "enrollment rejected")
 
 func ticketHash(t string) []byte {
-	h := sha256.Sum256([]byte("renovatio/enroll-ticket/v1\x00" + t))
+	h := sha256.Sum256([]byte("current/enroll-ticket/v1\x00" + t))
 	return h[:]
 }
 
@@ -112,13 +111,6 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 		} else if !isNoRows(err) {
 			return err
 		}
-		// The device cap: refuse a NEW device when no license slot is free. The transaction rolls back,
-		// so the token is not consumed. Re-enrolling known hardware replaces an active device (net zero).
-		if g.licensing != nil {
-			if err := g.licensing.CheckNewDevice(ctx, q, tok.OrgID, replaces); err != nil {
-				return err
-			}
-		}
 		needsApproval := tok.RequireApproval || replaces != nil
 		params := dbq.CreateDeviceParams{ID: deviceID, OrgID: tok.OrgID, SiteID: tok.SiteID, Hostname: hostname,
 			SmbiosUuid: smbios, Serial: serial, OsBuild: cleanField(req.OsBuild, 64), Arch: cleanField(req.Arch, 32),
@@ -167,12 +159,6 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 	if errors.Is(err, errRejected) {
 		g.auditEnroll(ctx, nil, ip, "", audit.Denied, denyReason, hostname)
 		return nil, errRejected
-	}
-	var limit *licensing.LimitError
-	if errors.As(err, &limit) {
-		// The caller holds a valid token, so the reason may be told plainly (it is shown by the agent installer).
-		g.auditEnroll(ctx, &orgID, ip, "", audit.Denied, "license_device_limit", hostname)
-		return nil, status.Error(codes.FailedPrecondition, limit.Error())
 	}
 	if err != nil {
 		g.log.Error("enroll", "err", err)

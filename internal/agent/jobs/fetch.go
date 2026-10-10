@@ -6,14 +6,14 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 // Fetcher opens the bytes of one content source. Every source is untrusted:

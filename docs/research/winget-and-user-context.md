@@ -60,7 +60,7 @@ What the Phase 3 build could and could not establish. Nothing below was observed
 |---|---|
 | **W7/W8 (manifests carry what an engine needs; switches are unreliable for plain `exe`)** | Confirmed against real manifests committed as fixtures (7-Zip: several installer entries across architectures and types, no `Scope`; VS Code: root-level fields inherited by every installer, user and machine variants). The importer therefore maps `wix`→MSI and `nullsoft`→NSIS, derives default silent switches per installer type, and marks an `exe` with no silent switch **unsupported** instead of guessing |
 | **W9 (winget CDN index format and signature)** | **Not done.** The CDN could not be reached or verified from the build environment, so the catalog imports manifests from the `winget-pkgs` repository on GitHub (D41). A probe from a network that can reach `cdn.winget.microsoft.com` is still needed before index sync can be built |
-| **W5 (`--scope user` under SYSTEM installs into the SYSTEM profile)** | Not tested; irrelevant to the design because Renovatio never runs the winget CLI (D11) |
+| **W5 (`--scope user` under SYSTEM installs into the SYSTEM profile)** | Not tested; irrelevant to the design because Current never runs the winget CLI (D11) |
 | **U2 (WTSQueryUserToken returns a filtered token for an admin user)** | Implemented as designed (`helper_windows.go` takes the primary token and never the linked token); **not yet confirmed** on Windows 10/11 with an admin and a standard user |
 | **U8 (offline hive load leaves the hive untouched)** | Done in Phase 2 (D40) |
 | **U9 (WinRT `FindPackagesForUser` from Go)** | Not done; MSIX is marked unsupported in Phase 3 (D46) |

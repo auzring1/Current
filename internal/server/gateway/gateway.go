@@ -23,17 +23,17 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/catalog"
-	"github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/server/deploy"
-	"github.com/auzring1/renovatio/internal/server/events"
-	"github.com/auzring1/renovatio/internal/server/inventory"
-	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/pki"
-	"github.com/auzring1/renovatio/internal/server/updates"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/catalog"
+	"github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/current/internal/server/events"
+	"github.com/auzring1/current/internal/server/inventory"
+	"github.com/auzring1/current/internal/server/kek"
+	"github.com/auzring1/current/internal/server/pki"
+	"github.com/auzring1/current/internal/server/updates"
 )
 
 // MaxMessageBytes bounds every gRPC message (PROTOCOL §1).
@@ -68,7 +68,6 @@ type Gateway struct {
 	updates     *updates.Service
 	content     *catalog.Store
 	fetching    *fetchLimiter
-	licensing   Licensing
 }
 
 // Options configure a Gateway.
@@ -86,15 +85,6 @@ type Options struct {
 	Content *catalog.Store
 	// Updates stores Windows Update snapshots from devices.
 	Updates *updates.Service
-	// Licensing enforces the device cap on NEW enrollments (nothing else). Nil disables the check.
-	Licensing Licensing
-}
-
-// Licensing is the licensing check made when a device enrolls.
-type Licensing interface {
-	// CheckNewDevice returns a *licensing.LimitError when no slot is free. It runs inside the
-	// enrollment transaction.
-	CheckNewDevice(ctx context.Context, q *dbq.Queries, org uuid.UUID, replaces *uuid.UUID) error
 }
 
 // New creates a gateway; call RefreshCertificate before Serve.
@@ -117,7 +107,7 @@ func New(o Options) *Gateway {
 		hbDevice:  auth.NewLimiter(30, time.Minute, 30),
 		secDevice: auth.NewLimiter(6, time.Minute, 6),
 		inv:       &inventory.Service{Pool: o.Pool, Now: now},
-		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2), licensing: o.Licensing,
+		deploy:    o.Deploy, updates: o.Updates, content: o.Content, fetching: newFetchLimiter(2),
 	}
 }
 

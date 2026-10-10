@@ -4,7 +4,7 @@ Goal: see everything installed on a real Windows machine (machine-wide, per-user
 
 You need the Phase 1 setup from [PHASE1-DEMO.md](PHASE1-DEMO.md): a running server stack, a console login with your authenticator, and a Windows test machine (a VM, or your own PC; the agent runs as a service and only reads data). Phase 1's agent has no self-update yet, so the agent is reinstalled in step 3.
 
-The examples assume the server name `renovatio.lab` as in Phase 1.
+The examples assume the server name `current.lab` as in Phase 1.
 
 ---
 
@@ -20,7 +20,7 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 
 2. **Build the new agent** (any machine with Go 1.27):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent
    ```
    Copy it to the Windows machine (for example `C:\Temp`).
 
@@ -29,11 +29,11 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 3. On the Windows machine, in **PowerShell as Administrator**:
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall      # skip if the agent was never installed
+   & "C:\Program Files\Current\Agent\slot-a\current-agent.exe" uninstall      # skip if the agent was never installed
    ```
    In the console create a new enrollment token (**Enrollment → New token**, approval **off** is fine), then:
    ```powershell
-   .\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.....
+   .\current-agent.exe install --server current.lab:8443 --token CUR1.....
    ```
    If the old device is still listed, it is now **revoked** or **pending** (same hardware re-enrolls and needs approval; approving it retires the old identity). Approve the new one.
 
@@ -44,9 +44,9 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 
 5. **Check the agent's cost.** In PowerShell:
    ```powershell
-   $p = (Get-CimInstance Win32_Service -Filter "Name='RenovatioAgent'").ProcessId
+   $p = (Get-CimInstance Win32_Service -Filter "Name='CurrentAgent'").ProcessId
    Get-Process -Id $p | Select WS, CPU
-   Get-Content C:\ProgramData\Renovatio\logs\agent.log -Tail 20     # "full software inventory sent", items=N
+   Get-Content C:\ProgramData\Current\logs\agent.log -Tail 20     # "full software inventory sent", items=N
    ```
    ✅ Working set stays well under 30 MB after the scan; the log shows a single full snapshot and then nothing while idle.
 
@@ -79,9 +79,9 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
      reg add "HKU\demo2\Software\Microsoft\Windows\CurrentVersion\Uninstall\Demo2Tool" /v DisplayVersion /d "2.0" /f
      reg unload HKU\demo2
      ```
-   - Make the agent rescan: `Restart-Service RenovatioAgent` (the daily reconcile does this on its own).
+   - Make the agent rescan: `Restart-Service CurrentAgent` (the daily reconcile does this on its own).
    ✅ **Demo2 Tool 2.0** appears with **Installed for = the demo2 user**, `source hku`. No sign-in as demo2 was needed.
-   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent loads a temporary copy from `C:\ProgramData\Renovatio\tmp`, which is deleted again).
+   - 🔒 *Check:* hash the profile hive before and after a rescan; it must not change: `Get-FileHash C:\Users\demo2\NTUSER.DAT` (the agent loads a temporary copy from `C:\ProgramData\Current\tmp`, which is deleted again).
 
 9. **Real installers** (optional): install any MSI or Store app (for example 7-Zip, VLC or a Store app such as Windows Terminal) and uninstall it. ✅ Both changes appear within about a minute, with the right source (`reg64`/`msi`/`appx`).
 
@@ -113,11 +113,11 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 
 ## Part E: Resilience (about 5 minutes)
 
-14. **Lost connection.** On the Windows machine run `Stop-Service RenovatioAgent`, change a registry entry (for example set Demo Browser to 131.0), `Start-Service RenovatioAgent`. ✅ After reconnecting, the console shows 131.0 (the agent sends what changed since the last acknowledged state).
+14. **Lost connection.** On the Windows machine run `Stop-Service CurrentAgent`, change a registry entry (for example set Demo Browser to 131.0), `Start-Service CurrentAgent`. ✅ After reconnecting, the console shows 131.0 (the agent sends what changed since the last acknowledged state).
 
 15. **Server restored from an older backup (simulated).** On the server:
     ```bash
-    docker compose -f deploy/docker-compose.yml exec postgres psql -U renovatio_owner -d renovatio -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
+    docker compose -f deploy/docker-compose.yml exec postgres psql -U current_owner -d current -c "UPDATE devices SET software_rev = 0, software_count = 0; DELETE FROM software_installs;"
     docker compose -f deploy/docker-compose.yml restart server
     ```
     ✅ The software list is empty for a moment, then **repopulates by itself**: the agent's Hello revision no longer matches, so the server asks for a full snapshot. The agent log shows `full software inventory sent`.
@@ -127,7 +127,7 @@ The examples assume the server name `renovatio.lab` as in Phase 1.
 Remove-Item HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\DemoBrowser, HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\DemoFormula -ErrorAction SilentlyContinue
 net user demo2 /delete
 ```
-Remove the agent with `renovatio-agent.exe uninstall` when you are done.
+Remove the agent with `current-agent.exe uninstall` when you are done.
 
 ## What to tell me
 Anything that looks wrong in the Software tab compared with *Settings → Apps*, any missing Store apps, any BitLocker value that looks wrong for your machine, and how long the 30-second change detection felt. The Windows-only collectors have been run by CI on a clean runner only; your real machine is the first full-profile test.

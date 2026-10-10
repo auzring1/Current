@@ -14,24 +14,22 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/current/internal/server/auth"
 )
 
-var totpOut, apiTokenOut, licenseFile *string
+var totpOut, apiTokenOut *string
 var maxUses *int
 
 func main() {
-	base := flag.String("url", "http://localhost:18080", "server base URL (must equal RENOVATIO_PUBLIC_URL)")
+	base := flag.String("url", "http://localhost:18080", "server base URL (must equal CURRENT_PUBLIC_URL)")
 	setupTok := flag.String("setup-token", "", "one-time setup token from the server log")
 	email := flag.String("email", "admin@example.com", "admin email")
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "admin password")
 	approval := flag.Bool("require-approval", false, "token requires approval")
 	totpOut = flag.String("totp-out", "", "write the administrator's TOTP secret to this file (for later scripted logins)")
 	apiTokenOut = flag.String("api-token-out", "", "also create an API token (enrollment, devices, updates, reports scopes) and write it to this file (mode 0600)")
-	licenseFile = flag.String("license-file", "", "install this license (RNL1...) after setup; an unlicensed server enrolls at most 25 devices")
 	maxUses = flag.Int("max-uses", 5, "uses of the enrollment token")
 	flag.Parse()
 	if err := run(*base, *setupTok, *email, *password, *approval); err != nil {
@@ -97,15 +95,6 @@ func run(base, setupTok, email, password string, approval bool) error {
 		return err
 	}
 	csrf = mfa.CSRF
-	if *licenseFile != "" {
-		lic, err := os.ReadFile(*licenseFile)
-		if err != nil {
-			return err
-		}
-		if err := do("PUT", "/license", map[string]any{"license": strings.TrimSpace(string(lic))}, nil); err != nil {
-			return err
-		}
-	}
 	var tok struct {
 		Enrollment string `json:"enrollment_string"`
 	}

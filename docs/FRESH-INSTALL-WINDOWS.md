@@ -1,6 +1,6 @@
 # Fresh install on Windows 11 (server in Docker, agents on Windows)
 
-This guide takes you from "wipe everything" to a working Renovatio stack: the server in Docker on a Windows 11 machine, and the agent on that machine and/or other Windows machines or VMs. It assumes the build from branch `rename-renovatio` (or a later one), where every name is "Renovatio". Nothing from an earlier build carries over, so the first part removes it all.
+This guide takes you from "wipe everything" to a working Current stack: the server in Docker on a Windows 11 machine, and the agent on that machine and/or other Windows machines or VMs. It assumes a current build (any build where every name is "Current"). Nothing from an earlier build carries over, so the first part removes it all.
 
 Allow about 60 minutes, most of it waiting for downloads and the first Docker build.
 
@@ -18,31 +18,38 @@ Do this on **every** machine that had the old agent, and on the server machine f
 ### 1.1 Remove the old agent (each agent machine, PowerShell as Administrator)
 
 <!-- old-names:begin -->
-Normal removal, which also deletes the device key and the files:
+This project has been called "Auzring" and "Renovatio" before it became Current. The commands below remove an agent
+installed from a build with either earlier name. Normal removal, which also deletes the device key and the files:
 
 ```powershell
-$old = "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe"
-if (Test-Path $old) { & $old uninstall } else { "old executable not found; use the manual steps below" }
+foreach ($n in "Renovatio", "Auzring") {
+  $old = "C:\Program Files\$n\Agent\slot-a\$($n.ToLower())-agent.exe"
+  if (Test-Path $old) { & $old uninstall } else { "$n executable not found; use the manual steps below" }
+}
 ```
 
-If the agent was installed from the MSI, remove it as a program instead (Settings → Apps → Installed apps → "Auzring Agent" → Uninstall), or:
+If the agent was installed from the MSI, remove it as a program instead (Settings → Apps → Installed apps → "Renovatio Agent"
+or "Auzring Agent" → Uninstall), or:
 
 ```powershell
 Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
-  Where-Object DisplayName -like "*Auzring*" | Select-Object DisplayName, UninstallString
+  Where-Object { $_.DisplayName -like "*Renovatio*" -or $_.DisplayName -like "*Auzring*" } | Select-Object DisplayName, UninstallString
 # then run the UninstallString it shows, or: msiexec /x "<path of the .msi you installed>" /qn
 ```
 
 Manual clean-up (safe to run even if the steps above already worked; errors about missing items are fine):
 
 ```powershell
-Stop-Service AuzringAgent -Force -ErrorAction SilentlyContinue
-sc.exe delete AuzringAgent
-schtasks /Delete /TN "\Auzring\rollback-check" /F
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `
-  "C:\Program Files\Auzring", "C:\Program Files\AuzringSetup", `
-  "C:\ProgramData\Auzring", "C:\ProgramData\AuzringStage", "C:\AuzringSetup", `
-  "C:\Windows\Temp\auzring-msi.log", "C:\Temp\auzring-agent.exe"
+foreach ($n in "Renovatio", "Auzring") {
+  $l = $n.ToLower()
+  Stop-Service "${n}Agent" -Force -ErrorAction SilentlyContinue
+  sc.exe delete "${n}Agent"
+  schtasks /Delete /TN "\$n\rollback-check" /F
+  Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `
+    "C:\Program Files\$n", "C:\Program Files\${n}Setup", `
+    "C:\ProgramData\$n", "C:\ProgramData\${n}Stage", "C:\${n}Setup", `
+    "C:\Windows\Temp\$l-msi.log", "C:\Temp\$l-agent.exe"
+}
 ```
 
 If a folder cannot be deleted because a file is in use, restart the machine and repeat the `Remove-Item` command.
@@ -50,15 +57,15 @@ If a folder cannot be deleted because a file is in use, restart the machine and 
 Check that nothing is left:
 
 ```powershell
-Get-Service | Where-Object Name -like "*Auzring*"                         # prints nothing
-Get-ChildItem "C:\Program Files", "C:\ProgramData" | Where-Object Name -like "*Auzring*"   # prints nothing
-schtasks /Query /TN "\Auzring\rollback-check"                              # "cannot find the file specified"
+Get-Service | Where-Object { $_.Name -like "*Renovatio*" -or $_.Name -like "*Auzring*" }                       # prints nothing
+Get-ChildItem "C:\Program Files", "C:\ProgramData" | Where-Object { $_.Name -like "*Renovatio*" -or $_.Name -like "*Auzring*" }   # prints nothing
+schtasks /Query /TN "\Renovatio\rollback-check"                              # "cannot find the file specified"
 ```
 
 Optional: the old device key stays in the Windows key store (harmless; a new agent uses a different key name). To list and delete it:
 
 ```powershell
-certutil -csp "Microsoft Software Key Storage Provider" -key | Select-String "Auzring"
+certutil -csp "Microsoft Software Key Storage Provider" -key | Select-String "Renovatio|Auzring"
 # for each name shown:  certutil -csp "Microsoft Software Key Storage Provider" -delkey "<name>"
 # a key in the TPM is listed with: certutil -csp "Microsoft Platform Crypto Provider" -key
 ```
@@ -71,7 +78,9 @@ certutil -csp "Microsoft Software Key Storage Provider" -key | Select-String "Au
 <!-- old-names:begin -->
 ```bash
 docker compose -f deploy/docker-compose.yml down -v --remove-orphans
-# if the old folder is already gone:
+# if the old folder is already gone (the project was called renovatio, earlier auzring):
+docker compose -p renovatio down -v --remove-orphans
+docker rmi renovatio/server:dev
 docker compose -p auzring down -v --remove-orphans
 docker rmi auzring/server:dev
 ```
@@ -100,7 +109,7 @@ Then delete the old project folder, wherever it lives (a Windows folder, or insi
    ```
    (A prompt may ask you to confirm removal of the user-store certificate. Firefox keeps its own list: Settings → Privacy & Security → View Certificates → Authorities.)
 3. **Firewall rules** you added for the old stack: `Get-NetFirewallRule | Where-Object DisplayName -like "*Auzring*" | Remove-NetFirewallRule`.
-4. **The authenticator app on your phone:** delete the old "Auzring" entry. The new installation creates a new "Renovatio" entry.
+4. **The authenticator app on your phone:** delete the old "Auzring" entry. The new installation creates a new "Current" entry.
 5. **The browser:** clear the site data (cookies) for the old host name, or the old sign-in cookie can confuse the new console.
 <!-- old-names:end -->
 
@@ -131,22 +140,22 @@ Windows 11 (Home or Pro), 8 GB RAM or more, virtualization enabled in the BIOS/U
 
 ### 3.1 Get the code into Ubuntu
 
-Download the ZIP of the branch from GitHub (branch `rename-renovatio` → Code → Download ZIP) and extract it into **a new, empty location**. Never extract over an older copy. In Ubuntu, replace `YOURNAME` with your Windows user name:
+Download the ZIP of the repository from GitHub (the main branch → Code → Download ZIP) and extract it into **a new, empty location**. Never extract over an older copy. In Ubuntu, replace `YOURNAME` with your Windows user name:
 
 ```bash
 cd ~
-unzip /mnt/c/Users/YOURNAME/Downloads/renovatio-rename-renovatio.zip
-cd renovatio-rename-renovatio        # use the exact folder name that the ZIP created
+unzip /mnt/c/Users/YOURNAME/Downloads/Current-main.zip
+cd Current-main                  # use the exact folder name that the ZIP created
 ```
 
 Keep the project **inside Ubuntu** (`~/...`), not under `/mnt/c/...`. Files on the Windows drive lose their Linux permissions, and the secrets directory needs them.
 
 ### 3.2 Choose the server name and put it in the hosts file
 
-The examples use `renovatio.lab`. Pick any name (it does not have to exist in DNS). On the server machine, PowerShell as Administrator:
+The examples use `current.lab`. Pick any name (it does not have to exist in DNS). On the server machine, PowerShell as Administrator:
 
 ```powershell
-Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value "127.0.0.1 renovatio.lab"
+Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value "127.0.0.1 current.lab"
 ```
 
 Every **other** machine that should open the console or run an agent needs the same line in its own hosts file, but with the **server machine's LAN IP** instead of `127.0.0.1` (find it with `ipconfig` on the server machine). A VM on the same PC also uses the server machine's LAN IP, not 127.0.0.1.
@@ -158,10 +167,10 @@ In Ubuntu, in the project folder:
 ```bash
 ./scripts/init-secrets.sh                     # creates deploy/secrets/ with random passwords and the master key
 cp deploy/.env.example deploy/.env
-sed -i 's/^RENOVATIO_HOSTNAME=.*/RENOVATIO_HOSTNAME=renovatio.lab/' deploy/.env
+sed -i 's/^CURRENT_HOSTNAME=.*/CURRENT_HOSTNAME=current.lab/' deploy/.env
 ```
 
-Leave `RENOVATIO_CADDY_TLS=internal` for a lab. If agents will reach the server by IP address instead of the name, also set `RENOVATIO_GATEWAY_SANS=<the IP>` in `deploy/.env`.
+Leave `CURRENT_CADDY_TLS=internal` for a lab. If agents will reach the server by IP address instead of the name, also set `CURRENT_GATEWAY_SANS=<the IP>` in `deploy/.env`.
 
 ✅ `ls -ld deploy/secrets` shows `drwx------` and `ls deploy/secrets` lists six files.
 
@@ -197,15 +206,15 @@ This makes Edge and Chrome trust the console (Firefox needs the file imported in
 PowerShell as Administrator on the server machine:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Renovatio console" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow -Profile Private
-New-NetFirewallRule -DisplayName "Renovatio agent gateway" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "Current console" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "Current agent gateway" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -Profile Private
 ```
 
 If the network is classed as "Public", change the network profile to Private (Settings → Network & internet → your connection) or use `-Profile Any`.
 
 ### 3.7 First-run setup in the browser
 
-1. Open `https://renovatio.lab`. You are sent to **Set up Renovatio**.
+1. Open `https://current.lab`. You are sent to **Set up Current**.
 2. Paste the setup token and your email. (A wrong token is rejected: that is expected.)
 3. Fill in the organization name, your name and a password of at least 12 characters (common and breached passwords are refused).
 4. Enter a **CA root passphrase** of at least 16 characters. **Write it down offline.** The server never stores it.
@@ -225,32 +234,32 @@ In Ubuntu, in the project folder. This compiles the Windows executable inside a 
 docker run --rm -v "$PWD":/src -w /src \
   -e CGO_ENABLED=0 -e GOOS=windows -e GOARCH=amd64 \
   golang:1.27-alpine \
-  go build -trimpath -ldflags "-s -w" -o /src/renovatio-agent.exe ./cmd/renovatio-agent
-ls -l renovatio-agent.exe            # about 15 MB
-cp renovatio-agent.exe /mnt/c/Temp/
+  go build -trimpath -ldflags "-s -w" -o /src/current-agent.exe ./cmd/current-agent
+ls -l current-agent.exe            # about 15 MB
+cp current-agent.exe /mnt/c/Temp/
 ```
 
 (The first run downloads the Go modules and may fetch the Go 1.27.1 toolchain; it needs internet access.)
 
-For another machine or VM, copy `C:\Temp\renovatio-agent.exe` to it (shared folder, USB stick or network share).
+For another machine or VM, copy `C:\Temp\current-agent.exe` to it (shared folder, USB stick or network share).
 
 ### 4.2 Create the enrollment command
 
 In the console: **Enrollment → New token**. Name `lab`, maximum uses `5`, valid for `24` hours, **approval on**. Click **Create** and copy the install command. It is shown only once and looks like this:
 
 ```
-renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.eyJ...
+current-agent.exe install --server current.lab:8443 --token CUR1.eyJ...
 ```
 
 ### 4.3 Install on each agent machine (PowerShell as Administrator)
 
 ```powershell
 cd C:\Temp
-Unblock-File .\renovatio-agent.exe              # removes the "downloaded file" mark; the program is not code-signed yet
-.\renovatio-agent.exe install --server renovatio.lab:8443 --token RNV1.eyJ...
+Unblock-File .\current-agent.exe              # removes the "downloaded file" mark; the program is not code-signed yet
+.\current-agent.exe install --server current.lab:8443 --token CUR1.eyJ...
 ```
 
-✅ The output ends with "Enrolled; waiting for an administrator to approve device ...". The agent machine must resolve `renovatio.lab` (hosts file, step 3.2) and reach port 8443 on the server machine.
+✅ The output ends with "Enrolled; waiting for an administrator to approve device ...". The agent machine must resolve `current.lab` (hosts file, step 3.2) and reach port 8443 on the server machine.
 
 ### 4.4 Approve the device
 
@@ -259,12 +268,12 @@ In the console, **Devices**: ✅ the machine appears without refreshing, status 
 ### 4.5 Check the agent on the machine
 
 ```powershell
-Get-Service RenovatioAgent                                                    # Running, display name "Renovatio Agent"
-& "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" status        # state: connected
-Get-Content C:\ProgramData\Renovatio\logs\agent.log -Tail 20
+Get-Service CurrentAgent                                                    # Running, display name "Current Agent"
+& "C:\Program Files\Current\Agent\slot-a\current-agent.exe" status        # state: connected
+Get-Content C:\ProgramData\Current\logs\agent.log -Tail 20
 ```
 
-✅ The names you see are all Renovatio: service `RenovatioAgent`, folders `C:\Program Files\Renovatio` and `C:\ProgramData\Renovatio`. The file properties of `renovatio-agent.exe` show company "Auzring" (the vendor) and product "Renovatio".
+✅ The names you see are all Current: service `CurrentAgent`, folders `C:\Program Files\Current` and `C:\ProgramData\Current`. The file properties of `current-agent.exe` show company "The Current contributors" (the vendor) and product "Current".
 
 ---
 
@@ -276,26 +285,23 @@ Do this now, before you put anything of value on the server.
 2. Keep the **CA root passphrase** and the **recovery codes** offline.
 3. Database backups with `maintenance backup` are described in `docs/RUNBOOK.md`, section 6.
 
-**Licensing:** without a license the server runs as a 25-device evaluation, which is plenty for a lab. See `docs/RUNBOOK.md` section 5f.
-
 ---
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---|---|
-| `docker compose ... up` says a port is already in use | Something else uses 80, 443 or 8443 (`netstat -ano \| findstr :443`; common: IIS, other web servers, VPN software). Stop it, or add `RENOVATIO_HTTP_PORT=8080`, `RENOVATIO_HTTPS_PORT=8444` and `RENOVATIO_PUBLIC_PORT_SUFFIX=:8444` to `deploy/.env`, and use `https://renovatio.lab:8444`. |
+| `docker compose ... up` says a port is already in use | Something else uses 80, 443 or 8443 (`netstat -ano \| findstr :443`; common: IIS, other web servers, VPN software). Stop it, or add `CURRENT_HTTP_PORT=8080`, `CURRENT_HTTPS_PORT=8444` and `CURRENT_PUBLIC_PORT_SUFFIX=:8444` to `deploy/.env`, and use `https://current.lab:8444`. |
 | `./scripts/init-secrets.sh: No such file` or `bad interpreter` | The ZIP was extracted by a tool that changed line endings, or you are in PowerShell. Run it inside Ubuntu; if the error mentions `\r`, extract the ZIP again with `unzip` in Ubuntu. |
-| Browser shows a certificate warning for the console | The Caddy root was not imported (step 3.5), or you opened the page by IP instead of `renovatio.lab`. |
-| Console says "Cross-origin request rejected" | The address in the browser must be exactly `https://<RENOVATIO_HOSTNAME>` (plus the port suffix, if you changed the port). |
-| The agent install says it cannot connect / "chain does not match the pinned root" | The agent machine cannot resolve `renovatio.lab` to the server machine (hosts file), port 8443 is blocked (firewall), or a security product intercepts TLS on 8443. |
-| The agent connects but the server log says the name is not in the certificate | You enrolled using an IP or another name. Use the name from the install command, or add the IP to `RENOVATIO_GATEWAY_SANS` and recreate the server (`docker compose ... up -d server`). |
-| "device limit reached" | The evaluation limit of 25 devices (see `docs/RUNBOOK.md` 5f). |
+| Browser shows a certificate warning for the console | The Caddy root was not imported (step 3.5), or you opened the page by IP instead of `current.lab`. |
+| Console says "Cross-origin request rejected" | The address in the browser must be exactly `https://<CURRENT_HOSTNAME>` (plus the port suffix, if you changed the port). |
+| The agent install says it cannot connect / "chain does not match the pinned root" | The agent machine cannot resolve `current.lab` to the server machine (hosts file), port 8443 is blocked (firewall), or a security product intercepts TLS on 8443. |
+| The agent connects but the server log says the name is not in the certificate | You enrolled using an IP or another name. Use the name from the install command, or add the IP to `CURRENT_GATEWAY_SANS` and recreate the server (`docker compose ... up -d server`). |
 | The server container keeps restarting | `docker compose -f deploy/docker-compose.yml logs server`. A password or database-name error means old secrets were reused with the new build: stop the stack, run `docker compose ... down -v`, delete `deploy/secrets`, run `./scripts/init-secrets.sh` again and start again. |
 | Docker is very slow or runs out of disk | Docker Desktop → Settings → Resources; WSL 2 keeps its disk in a `.vhdx` file that you can shrink after pruning. |
 | You lost the master key | Without it the data cannot be decrypted: repeat Parts 1–3 for a fresh server and enroll the machines again. |
 
 ## Removing everything again later
 
-- **Agent:** `& "C:\Program Files\Renovatio\Agent\slot-a\renovatio-agent.exe" uninstall` (elevated PowerShell), then revoke or delete the device in the console. If it was installed from the MSI, uninstall it from Apps instead.
+- **Agent:** `& "C:\Program Files\Current\Agent\slot-a\current-agent.exe" uninstall` (elevated PowerShell), then revoke or delete the device in the console. If it was installed from the MSI, uninstall it from Apps instead.
 - **Server:** `docker compose -f deploy/docker-compose.yml down -v` deletes the stack and **all its data**; then delete the project folder and remove the Caddy root certificate from Windows (`Get-ChildItem Cert:\LocalMachine\Root | Where-Object Subject -like "*Caddy Local Authority*" | Remove-Item`).

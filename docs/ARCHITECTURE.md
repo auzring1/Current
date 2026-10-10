@@ -6,7 +6,7 @@ Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are buil
 
 | Area | State | Where |
 |---|---|---|
-| Server skeleton, config (secrets only via `*_FILE` outside dev mode) | ✅ | `cmd/renovatio-server`, `internal/server/{app,config}` |
+| Server skeleton, config (secrets only via `*_FILE` outside dev mode) | ✅ | `cmd/current-server`, `internal/server/{app,config}` |
 | PostgreSQL schema, embedded goose migrations, owner/app role split | ✅ | `db/migrations`, `internal/server/store` |
 | Internal CA: passphrase-sealed root, KEK-sealed issuing + job-signing + gateway keys | ✅ | `internal/server/pki`, `internal/server/kek` |
 | First-run setup (one-time token, admin, mandatory TOTP, recovery codes, CA creation) | ✅ | `internal/server/api/setup.go` |
@@ -14,7 +14,7 @@ Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are buil
 | Hash-chained append-only audit log + CLI verifier | ✅ | `internal/server/audit` |
 | Enrollment (tokens, approval, re-enrollment guard), mTLS gateway, revocation, renewal | ✅ | `internal/server/gateway` |
 | Signed job envelopes (library + agent verification + replay ledger) | ✅ (no jobs are issued until Phase 3) | `internal/shared/envelope` |
-| Agent: service, install/uninstall, CNG/TPM key, enrollment, heartbeat, hardware inventory | ✅ | `cmd/renovatio-agent`, `internal/agent/*` |
+| Agent: service, install/uninstall, CNG/TPM key, enrollment, heartbeat, hardware inventory | ✅ | `cmd/current-agent`, `internal/agent/*` |
 | Web console: setup, login/MFA, devices (live), enrollment tokens, audit | ✅ | `web/` |
 | docker-compose (Caddy, server, Postgres), hardened | ✅ | `deploy/` |
 | **Phase 2:** software inventory (registry 64/32, per-user, offline hives, MSI, AppX, portable), delta/resync protocol, change watchers | ✅ (Windows collectors verified by the Windows CI job) | `internal/agent/inventory` |
@@ -31,11 +31,11 @@ Status: Phases 1–3 implemented (see §0). Sections marked *(Phase N)* are buil
 | **Phase 4:** reboot policy (never / outside active hours / deadline, visible countdown, persisted plan) | ⚠️ logic tested with fakes; the real `InitiateSystemShutdownEx` countdown is **unverified on a real machine** | `internal/agent/jobs`, `internal/agent/wu` |
 | **Phase 4:** update catalog, approvals, auto-approval rules, rings with soak and success thresholds, holds, retry limits, conflict report | ✅ | `internal/server/updates`, `db/migrations/00005_windows_update.sql` |
 | **Phase 4:** web console (Windows updates, Update policy, device "Windows updates" tab, restart) | ✅ | `web/` |
-| **Phase 5:** agent self-update (vendor-signed release manifest, A/B slots, health confirmation, automatic rollback), release store and pilot-then-everyone rollout | ✅ Linux end to end (`TestAgentSelfUpdateEndToEnd`); the Windows service/scheduled-task mechanics (`internal/agent/selfupdate/platform_windows.go`) are **unverified on a real machine** | `internal/shared/release`, `internal/agent/{selfupdate,jobs}`, `internal/server/agentrel`, `cmd/renovatio-release` |
+| **Phase 5:** agent self-update (vendor-signed release manifest, A/B slots, health confirmation, automatic rollback), release store and pilot-then-everyone rollout | ✅ Linux end to end (`TestAgentSelfUpdateEndToEnd`); the Windows service/scheduled-task mechanics (`internal/agent/selfupdate/platform_windows.go`) are **unverified on a real machine** | `internal/shared/release`, `internal/agent/{selfupdate,jobs}`, `internal/server/agentrel`, `cmd/current-release` |
 | **Phase 5:** users, sites, roles scoped to the organization or a site, forced password change, API tokens with scopes, security keys (WebAuthn) as a second factor | ✅ (browser test drives a virtual security key); real hardware keys not tried | `internal/server/{auth,api}`, `web/` |
 | **Phase 5:** software policies (keep updated / baseline for new devices), patch-compliance reports, audit filters, chain verification and CSV export | ✅ | `internal/server/policies`, `internal/server/api/{policies,auditapi}.go` |
-| **Phase 6:** load generator `cmd/renovatio-loadsim` (simulated agents with the real enrollment, mTLS channel, inventory, heartbeat and signed-job protocol; steady, storm and churn scenarios) and `scripts/loadtest.sh`; first measurements with up to 10,000 agents in a 4-CPU sandbox, and the server defects it found | ✅ procedure and numbers in [LOADTEST.md](LOADTEST.md); **not a capacity statement** | `cmd/renovatio-loadsim`, `internal/loadsim`, `scripts/loadtest.sh`, `test/e2e/loadsim_test.go` |
-| **Phase 5:** encrypted backup and restore (`renovatio-server backup`/`restore`, age) | ✅ tested against PostgreSQL 16, small data | `internal/server/backup` |
+| **Phase 6:** load generator `cmd/current-loadsim` (simulated agents with the real enrollment, mTLS channel, inventory, heartbeat and signed-job protocol; steady, storm and churn scenarios) and `scripts/loadtest.sh`; first measurements with up to 10,000 agents in a 4-CPU sandbox, and the server defects it found | ✅ procedure and numbers in [LOADTEST.md](LOADTEST.md); **not a capacity statement** | `cmd/current-loadsim`, `internal/loadsim`, `scripts/loadtest.sh`, `test/e2e/loadsim_test.go` |
+| **Phase 5:** encrypted backup and restore (`current-server backup`/`restore`, age) | ✅ tested against PostgreSQL 16, small data | `internal/server/backup` |
 | **Phase 5:** agent MSI (WiX 7) | ⚠️ sources, tests of the sources and a CI job; **never built or run** (WiX cannot bind an MSI on Linux) | `installer/windows` |
 
 Implementation notes that refine the design below:
@@ -62,16 +62,15 @@ Implementation notes that refine the design below:
   - *Scheduler tick* (once a minute): at most 500 jobs per tick, at most 50 updates per job, jobs live 7 days, at most 3 automatic failures per (device, update) with at least 24 hours between tries (D61). Jobs are created (and dispatched ahead of time, so offline devices run them when they reconnect) for active devices in the ring that are missing an approved update.
   - *Source settings* (service and drivers) are an organization setting. Devices get them as a `WU_SCAN` job when their `wu_settings_rev` is behind; the agent stores the options and repeats the scan every 24 hours on its own (D62).
   - *Reboot:* an install job carries a `RebootPolicy`. The agent persists a reboot plan, re-evaluates it every tick, never starts a restart inside active hours (except "deadline" at the deadline), and starts it with `InitiateSystemShutdownEx` so signed-in users see a countdown and an administrator can abort with `shutdown /a`. Install jobs cannot ask for an immediate restart; the explicit `REBOOT` job needs an online device and a countdown of at least one minute (D63).
-  - *Conflicts:* the agent reports WSUS (`UseWUServer`), Windows Update for Business deferrals, "configure automatic updates" and a disabled `wuauserv`; the console shows a banner on the device and a list under Update policy. Renovatio never changes these policies (D64).
+  - *Conflicts:* the agent reports WSUS (`UseWUServer`), Windows Update for Business deferrals, "configure automatic updates" and a disabled `wuauserv`; the console shows a banner on the device and a list under Update policy. Current never changes these policies (D64).
   - *Hiding* an update (manual "hide on devices") queues `WU_HIDE` jobs for devices that have it; hidden updates stay in the catalog with state `hidden`.
 - **Phase 5 as built (differences from §10 and the Phase 5 plan, with decision numbers in DECISIONS.md):**
-  - *Release trust* is a vendor Ed25519 key compiled into the agent; the signed manifest names the binary by SHA-256 (D68). `cmd/renovatio-release` creates keys and bundles; for a KMS/HSM it can emit the bytes to sign (`manifest`) and attach the signature (`attach`).
-  - *Slots and rollback* (D69): `Program Files\Renovatio\Agent\slot-a|slot-b`; the service image path is the switch. The old binary's `rollback-check`, run by a one-shot SYSTEM scheduled task at +10 minutes, restores the old slot unless `update.json` says `healthy`. A restart is a deliberate non-zero service exit, which needs the recovery option "also on non-crash failures" (set at install and re-asserted at every switch).
+  - *Release trust* is a vendor Ed25519 key compiled into the agent; the signed manifest names the binary by SHA-256 (D68). `cmd/current-release` creates keys and bundles; for a KMS/HSM it can emit the bytes to sign (`manifest`) and attach the signature (`attach`).
+  - *Slots and rollback* (D69): `Program Files\Current\Agent\slot-a|slot-b`; the service image path is the switch. The old binary's `rollback-check`, run by a one-shot SYSTEM scheduled task at +10 minutes, restores the old slot unless `update.json` says `healthy`. A restart is a deliberate non-zero service exit, which needs the recovery option "also on non-crash failures" (set at install and re-asserted at every switch).
   - *Rollout* (D70): one target release per organization, optional pilot groups, soak hours, success threshold, a per-minute batch limit and a maintenance window. A failing pilot pauses the rollout and writes an audit entry. Up to three attempts per device and release, a day apart.
   - *Access model* (D71): a role binding is organization-wide or for one site. Site bindings grant only the permissions that act on a device from its own page (devices, deployments and updates on that device, catalog read); org configuration and fleet-wide views need an organization-wide role. Out-of-scope devices answer 404.
   - *API tokens* (D72) and *security keys* (D73): see SECURITY §9d.
   - *Software policies* (D75): the scheduler (every 5 minutes) turns a policy into an ordinary deployment for the devices that need it; nothing bypasses the deployment engine.
-- **Phase 6 licensing (D85-D88):** `internal/shared/license` (document, signature, strict parsing; domain `renovatio/license/v1\0`), `internal/server/licensing` (effective state: licensed / grace / evaluation / invalid; the only device-cap enforcement point `CheckNewDevice`, called inside the enrollment transaction in `gateway/enroll.go` and the approval transaction in `api/devices.go`; install and history; the agent-release eligibility check used by `agentrel`; the clock high-water mark), `cmd/renovatio-license` (vendor tool), console **License** page and Devices banner. A licensing problem never touches jobs, updates or existing devices.
 - **Linux agent build:** the agent core builds on Linux with a 0600 file key store and a `/sys`-based collector. This is used **only** for integration tests and the browser test, and is never shipped.
 
 
@@ -80,7 +79,7 @@ Implementation notes that refine the design below:
 ```
                     ┌───────────────────────── docker-compose host ──────────────────────────┐
  Admin browser      │                                                                        │
-  ── HTTPS 443 ───▶ │  caddy ──http (internal net)──▶ renovatio-server ──(internal net)──▶ postgres │
+  ── HTTPS 443 ───▶ │  caddy ──http (internal net)──▶ current-server ──(internal net)──▶ postgres │
                     │  (ACME / tls internal /           │  REST API + GUI + SSE                  (no published port)
                     │   admin cert)                     │  scheduler, catalog sync, CA, signer │
  Windows agents     │                                   │                                       │
@@ -100,7 +99,7 @@ Key choices:
 ## 2. Server internals
 
 ```
-cmd/renovatio-server            subcommands: serve | migrate | backup | restore | ca | admin | healthcheck
+cmd/current-server            subcommands: serve | migrate | backup | restore | ca | admin | healthcheck
 internal/server/
   api/        chi router, handlers generated from api/openapi.yaml (oapi-codegen), request validation
   auth/       sessions, argon2id, TOTP, WebAuthn (Phase 5), CSRF, RBAC evaluator, API tokens, OIDC-ready identities
@@ -133,7 +132,7 @@ internal/server/
 ## 3. Agent internals
 
 ```
-cmd/renovatio-agent             subcommands: service (default) | helper | enroll | rollback-check | version
+cmd/current-agent             subcommands: service (default) | helper | enroll | rollback-check | version
 internal/agent/
   service/    SCM integration (x/sys/windows/svc), session-change notifications, shutdown handling
   identity/   CNG key (TPM "Microsoft Platform Crypto Provider", falling back to non-exportable software KSP), cert store, renewal
@@ -161,10 +160,10 @@ internal/agent/
 
 | Path | Owner / ACL (protected, no inheritance) | Contents |
 |---|---|---|
-| `C:\Program Files\Renovatio\Agent\` | SYSTEM: Full; Administrators: Full; Users: Read+Execute | `slot-a\renovatio-agent.exe`, `slot-b\...` |
-| `C:\ProgramData\Renovatio\` | SYSTEM: Full; Administrators: Full (needed for support/uninstall) | `config.json`, `state.db`, `logs\` |
-| `C:\ProgramData\Renovatio\stage\machine\<job>\` | SYSTEM: Full only | machine-scope installers |
-| `C:\ProgramData\Renovatio\stage\user\<SID>\<job>\` | SYSTEM: Full; *target SID*: Read+Execute (**not** write) | user-scope installers |
+| `C:\Program Files\Current\Agent\` | SYSTEM: Full; Administrators: Full; Users: Read+Execute | `slot-a\current-agent.exe`, `slot-b\...` |
+| `C:\ProgramData\Current\` | SYSTEM: Full; Administrators: Full (needed for support/uninstall) | `config.json`, `state.db`, `logs\` |
+| `C:\ProgramData\Current\stage\machine\<job>\` | SYSTEM: Full only | machine-scope installers |
+| `C:\ProgramData\Current\stage\user\<SID>\<job>\` | SYSTEM: Full; *target SID*: Read+Execute (**not** write) | user-scope installers |
 
 The service `ImagePath` is quoted, and the service DACL denies non-admins `SERVICE_CHANGE_CONFIG`, `SERVICE_STOP` and similar rights. The agent calls `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)` at start-up. Installers always run with the staging directory as their working directory. Because nobody but SYSTEM can write there, DLL planting next to the installer is not possible.
 
@@ -185,7 +184,7 @@ The service `ImagePath` is quoted, and the service DACL denies non-admins `SERVI
   - `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`, 64-bit and 32-bit (`WOW6432Node`);
   - MSI products (`MsiEnumProductsEx` for all contexts);
   - provisioned AppX;
-  - portable packages under our own `C:\Program Files\Renovatio\Portable`.
+  - portable packages under our own `C:\Program Files\Current\Portable`.
 - **User scope, for each profile under `HKLM\...\ProfileList`:**
   - if the profile is loaded, read `HKU\<SID>\...\Uninstall`;
   - otherwise copy its `NTUSER.DAT` (plus `.LOG1`/`.LOG2`) to a temporary directory under the protected data directory and load the **copy** privately with `RegLoadAppKey`, deleting it afterwards (a direct load can rewrite the user's hive; see research U8 and D40);
@@ -370,7 +369,7 @@ SYSTEM service                                              user session (SID S,
  3. token = WTSQueryUserToken(N)  (filtered token; never TokenLinkedToken unless job.requires_elevation*)
  4. CreatePipe() → (svcEnd, helperEnd); helperEnd inheritable
  5. CreateEnvironmentBlock, LoadUserProfile
- 6. CreateProcessAsUser(token, "<slot>\renovatio-agent.exe helper", STARTUPINFOEX{HANDLE_LIST=[helperEnd]},
+ 6. CreateProcessAsUser(token, "<slot>\current-agent.exe helper", STARTUPINFOEX{HANDLE_LIST=[helperEnd]},
     CREATE_SUSPENDED | CREATE_NO_WINDOW | BELOW_NORMAL, lpDesktop="winsta0\\default")
  7. assign to Job Object (timeout, kill-on-close), ResumeThread  ───────────────▶ helper starts
  8. send HelperTask{job envelope, staged path, sha256, deadline} over pipe ─────▶ re-verifies envelope signature,
@@ -403,7 +402,7 @@ SYSTEM service                                              user session (SID S,
 ## 10. Agent self-update *(Phase 5, as built)*
 1. The server offers `AGENT_UPDATE` (a job signed like every other) carrying a **release manifest signed by the vendor release key**. That key is compiled into the agent and is separate from every customer server key. A compromised customer server can't push a custom agent (PROTOCOL §5.2c).
 2. The agent verifies the manifest, downloads the binary over the mTLS channel, checks SHA-256 and size twice, checks the Authenticode subject the manifest pins, and runs the binary with `version` to see it is the promised release.
-3. It copies the binary into the inactive slot, writes `update.json` (`switching`, deadline +10 min) and arms a one-shot SYSTEM task, `\Renovatio\rollback-check`, that runs the *current* slot's binary at the deadline. If the task cannot be armed, nothing is switched.
+3. It copies the binary into the inactive slot, writes `update.json` (`switching`, deadline +10 min) and arms a one-shot SYSTEM task, `\Current\rollback-check`, that runs the *current* slot's binary at the deadline. If the task cannot be armed, nothing is switched.
 4. It points the service `ImagePath` at the new slot and exits non-zero; the service manager restarts it (recovery action) on the new binary.
 5. When the new version completes its first handshake with the server it writes `healthy`, deletes the task and the update job succeeds.
 6. If it never does (crash loop, cannot reach the server), the task restores `ImagePath`, restarts the service on the old version, writes `rolled_back`; the old agent then reports the job as failed.
@@ -415,16 +414,15 @@ Everything except the Windows-specific calls (`mgr`, `schtasks`, the restart) is
 ```
 /
 ├── cmd/
-│   ├── renovatio-server/        server main
-│   ├── renovatio-agent/         agent main (windows; core builds on linux for tests)
-│   ├── renovatio-release/       vendor tool: agent release keys and signed bundles
-│   ├── renovatio-license/       vendor tool: license keys and signed licenses
-│   └── renovatio-loadsim/       simulated agents for integration and load tests
+│   ├── current-server/        server main
+│   ├── current-agent/         agent main (windows; core builds on linux for tests)
+│   ├── current-release/       vendor tool: agent release keys and signed bundles
+│   └── current-loadsim/       simulated agents for integration and load tests
 ├── internal/
 │   ├── server/...             see §2
 │   ├── agent/...              see §3
 │   └── shared/                protocol helpers, envelope sign/verify, version compare, detection-rule types
-├── proto/renovatio/agent/v1/    .proto files (buf lint + breaking-change check in CI)
+├── proto/current/agent/v1/    .proto files (buf lint + breaking-change check in CI)
 ├── gen/                       generated code (protobuf, sqlc) — committed, CI verifies it is up to date
 ├── api/openapi.yaml           REST contract
 ├── db/migrations/             goose SQL migrations
@@ -455,5 +453,5 @@ One Go module keeps protocol and shared code in lockstep. Platform-specific agen
 - **Integration (Linux CI):** `docker compose` brings up the server and Postgres. The real agent core binary (Linux build, fake Windows collectors) enrolls, connects, receives signed jobs and reports results. Tamper tests flip bytes in envelopes, replay jobs, send them to the wrong device, and revoke mid-stream.
 - **Windows CI:** the GitHub `windows-latest` runner (it has PostgreSQL preinstalled) runs the server natively and the real agent service. It checks enrollment, inventory, an MSI install/uninstall of a test package, and binary-size and RSS budgets.
 - **Fuzzing:** Go native fuzzing for protobuf handlers, manifest parsing, uninstall-string parsing, filter AST and zip extraction.
-- **Load (Phase 6):** `renovatio-loadsim` runs 10k simulated agents doing enrollment, steady state, inventory deltas, deployment fan-out and a reconnect storm.
+- **Load (Phase 6):** `current-loadsim` runs 10k simulated agents doing enrollment, steady state, inventory deltas, deployment fan-out and a reconnect storm.
 - **VM matrix:** §7.9.

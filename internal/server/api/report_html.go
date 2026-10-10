@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/branding"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/branding"
+	"github.com/auzring1/current/internal/shared/brand"
 )
 
 // The printable report is a standalone page: no scripts, one nonce-protected style block, and the logo inlined as a

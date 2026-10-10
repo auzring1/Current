@@ -22,11 +22,10 @@ interface About {
   modules?: number;
   build_vcs_time?: string;
   build_vcs_modified?: string;
-  license?: { state: string; message: string; devices: number; max_devices: number; licensee?: string; license_id?: string; expires_at?: string | null; configured: boolean };
   counts?: Record<string, number>;
 }
 
-/** Settings > About: what is running, under which license, and a support bundle with the secrets left out. */
+/** Settings > About: what is running, and a support bundle with the secrets left out. */
 export function AboutPage() {
   const { canOrg } = useSession();
   const q = useQuery({ queryKey: ["settings", "about"], queryFn: () => api<About>("GET", "/settings/about"), enabled: canOrg("settings:write") });
@@ -52,9 +51,8 @@ export function AboutPage() {
     );
   }
   const a = q.data;
-  const lic = a.license;
   return (
-    <div style={{ display: "grid", gap: "var(--rnv-space-4)" }}>
+    <div style={{ display: "grid", gap: "var(--cur-space-4)" }}>
       <Card title={`About ${a.product}`} description={`${a.product} is made by ${a.company}.`}>
         <KeyValue
           label="Version and build"
@@ -68,21 +66,7 @@ export function AboutPage() {
           ]}
         />
       </Card>
-      {lic && (
-        <Card title="License" description="Details and installation are on the License page.">
-          <KeyValue
-            label="License"
-            items={[
-              { label: "State", value: lic.state },
-              { label: "Devices", value: `${lic.devices} of ${lic.max_devices}` },
-              ...(lic.licensee ? [{ label: "Licensed to", value: lic.licensee }] : []),
-              ...(lic.expires_at ? [{ label: "Expires", value: dateTime(lic.expires_at) }] : []),
-              { label: "Note", value: lic.message },
-            ]}
-          />
-        </Card>
-      )}
-      <Card title="Support bundle" description="A zip file for whoever supports this installation: version and build, license state, counts, the server's configuration, the settings and the latest audit and notification entries. Secrets are left out: passwords, keys, tokens and certificates are never included, and neither is device inventory.">
+      <Card title="Support bundle" description="A zip file for whoever supports this installation: version and build, counts, the server's configuration, the settings and the latest audit and notification entries. Secrets are left out: passwords, keys, tokens and certificates are never included, and neither is device inventory.">
         <Button component="a" href="/api/v1/settings/support-bundle" download leftSection={<Icons.Download size={16} aria-hidden />}>
           Download support bundle
         </Button>

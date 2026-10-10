@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Renovatio Agent MSI: a THIN WRAPPER around `renovatio-agent.exe install` / `uninstall`
+  Current Agent MSI: a THIN WRAPPER around `current-agent.exe install` / `uninstall`
   (docs/DECISIONS.md O6, D67). WiX v7, "v4+ style" schema. Build: installer/windows/build.ps1.
 
   What the MSI does
-    * installs the (already signed) agent exe into a SETUP directory, [ProgramFiles64Folder]RenovatioSetup\
-      (deliberately NOT under ...\Renovatio\Agent: `renovatio-agent uninstall` deletes that tree, and an
+    * installs the (already signed) agent exe into a SETUP directory, [ProgramFiles64Folder]CurrentSetup\
+      (deliberately NOT under ...\Current\Agent: `current-agent uninstall` deletes that tree, and an
       exe that is running from inside it can only be removed at the next reboot);
-    * a deferred, SYSTEM-context custom action runs `renovatio-agent.exe install` (with its if-not-installed flag),
+    * a deferred, SYSTEM-context custom action runs `current-agent.exe install` (with its if-not-installed flag),
       which copies the binary to slot-a, creates the service and enrolls;
-    * on uninstall a deferred custom action runs `renovatio-agent.exe uninstall` (service, data, files);
+    * on uninstall a deferred custom action runs `current-agent.exe uninstall` (service, data, files);
       MSI then removes the staged exe. Major upgrades do NOT run it (see UPGRADINGPRODUCTCODE).
 
   Hard rules (checked by installer/windows/package_test.go):
@@ -26,13 +26,13 @@
   <?error Define ProductName, AgentName, Company, ServiceName and SetupFolder (installer/windows/build.ps1 and scripts/build-msi.sh pass them from internal/shared/brand)?>
   <?endif?>
   <?ifndef AgentExe?>
-  <?error Define AgentExe (path to the signed renovatio-agent.exe), e.g. wix build -d AgentExe=renovatio-agent.exe?>
+  <?error Define AgentExe (path to the signed current-agent.exe), e.g. wix build -d AgentExe=current-agent.exe?>
   <?endif?>
 
   <Package Name="$(AgentName)"
            Manufacturer="$(Company)"
            Version="$(Version)"
-           UpgradeCode="A4744534-8AD1-4F57-B3FC-159B732BAD2A"
+           UpgradeCode="C71060FF-6648-4213-9EE7-387F023BEDB5"
            Scope="perMachine"
            InstallerVersion="500"
            Language="1033"
@@ -84,15 +84,15 @@
     <Launch Condition="Installed OR Privileged" Message="The $(AgentName) must be installed by an administrator (run msiexec from an elevated prompt, or deploy it as SYSTEM)." />
 
     <!-- ===== Required properties on a first install (not on uninstall, and not when the machine is already enrolled) ===== -->
-    <Launch Condition="Installed OR AGENTSERVICEPATH OR SERVER" Message="SERVER is required for the first installation, for example SERVER=renovatio.example.com:8443." />
-    <Launch Condition="Installed OR AGENTSERVICEPATH OR TOKEN" Message="TOKEN is required for the first installation: the enrollment string from the console (it starts with RNV1.)." />
+    <Launch Condition="Installed OR AGENTSERVICEPATH OR SERVER" Message="SERVER is required for the first installation, for example SERVER=current.example.com:8443." />
+    <Launch Condition="Installed OR AGENTSERVICEPATH OR TOKEN" Message="TOKEN is required for the first installation: the enrollment string from the console (it starts with CUR1.)." />
 
     <!-- Character checks: SERVER, TOKEN and ALLOWEDJOBS must not contain quotes, spaces or shell metacharacters. -->
     <?include Validation.wxi?>
 
     <!-- Shape checks (the character checks are in Validation.wxi). The agent validates everything again. -->
-    <Launch Condition="NOT SERVER OR SERVER &gt;&lt; &quot;:&quot;" Message="SERVER must be host:port, for example renovatio.example.com:8443." />
-    <Launch Condition="NOT TOKEN OR TOKEN &lt;&lt; &quot;RNV1.&quot;" Message="TOKEN is not a $(ProductName) enrollment string (it must start with RNV1.). Copy the whole string from the console." />
+    <Launch Condition="NOT SERVER OR SERVER &gt;&lt; &quot;:&quot;" Message="SERVER must be host:port, for example current.example.com:8443." />
+    <Launch Condition="NOT TOKEN OR TOKEN &lt;&lt; &quot;CUR1.&quot;" Message="TOKEN is not a $(ProductName) enrollment string (it must start with CUR1.). Copy the whole string from the console." />
 
     <!-- ===== Files ===== -->
     <?ifdef LinuxLint?>
@@ -100,13 +100,13 @@
          Directory name (WIX0389) and cannot bind an MSI (no msi.dll). Never used for a real build. -->
     <Property Id="SetupDir" Value="C:\$(SetupFolder)\" />
     <Component Id="AgentSetupExe" Guid="*" Directory="ProgramFiles64Folder" Bitness="always64">
-      <File Id="AgentExe" Name="renovatio-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
+      <File Id="AgentExe" Name="current-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
     </Component>
     <?else?>
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="SetupDir" Name="$(SetupFolder)">
         <Component Id="AgentSetupExe" Guid="*" Bitness="always64">
-          <File Id="AgentExe" Name="renovatio-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
+          <File Id="AgentExe" Name="current-agent.exe" Source="$(AgentExe)" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
@@ -116,7 +116,7 @@
       <ComponentRef Id="AgentSetupExe" />
     </Feature>
 
-    <!-- ===== Custom actions: run renovatio-agent.exe directly, in SYSTEM context =====
+    <!-- ===== Custom actions: run current-agent.exe directly, in SYSTEM context =====
          WixSilentExec64 needs the command line to BEGIN with the quoted exe path. It reads the
          command line from CustomActionData (the property named like the action). It logs neither the
          command line nor the child's output, so the token cannot reach msi.log through it. -->
@@ -134,9 +134,9 @@
     <SetProperty Id="AgentArgsServer" Value=" --server [SERVER]" Sequence="execute" After="CostFinalize" Condition="NOT Installed AND SERVER" />
     <SetProperty Id="AgentArgsToken" Value=" --token [TOKEN]" Sequence="execute" After="SetAgentArgsServer" Condition="NOT Installed AND TOKEN" />
     <SetProperty Id="AgentArgsJobs" Value=" --allowed-jobs [ALLOWEDJOBS]" Sequence="execute" After="SetAgentArgsToken" Condition="NOT Installed AND ALLOWEDJOBS" />
-    <SetProperty Id="InstallAgent" Value="&quot;[SetupDir]renovatio-agent.exe&quot; install --if-not-installed[AgentArgsServer][AgentArgsToken][AgentArgsJobs]" Sequence="execute" After="SetAgentArgsJobs" Condition="NOT Installed" />
-    <SetProperty Id="RollbackInstallAgent" Value="&quot;[SetupDir]renovatio-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="NOT Installed AND NOT AGENTSERVICEPATH" />
-    <SetProperty Id="UninstallAgent" Value="&quot;[SetupDir]renovatio-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    <SetProperty Id="InstallAgent" Value="&quot;[SetupDir]current-agent.exe&quot; install --if-not-installed[AgentArgsServer][AgentArgsToken][AgentArgsJobs]" Sequence="execute" After="SetAgentArgsJobs" Condition="NOT Installed" />
+    <SetProperty Id="RollbackInstallAgent" Value="&quot;[SetupDir]current-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="NOT Installed AND NOT AGENTSERVICEPATH" />
+    <SetProperty Id="UninstallAgent" Value="&quot;[SetupDir]current-agent.exe&quot; uninstall" Sequence="execute" After="CostFinalize" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
 
     <InstallExecuteSequence>
       <!-- Rollback action first (rollback runs in reverse order, so it runs after InstallAgent failed

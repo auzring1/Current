@@ -10,13 +10,13 @@ export interface ThemeDef {
   name: string;
   scheme: "light" | "dark";
   order: number;
-  /** Every `--rnv-*` token of the theme, without the prefix. */
+  /** Every `--cur-*` token of the theme, without the prefix. */
   tokens: Record<string, string>;
 }
 
 export function parseTheme(id: string, css: string): ThemeDef {
   const tokens: Record<string, string> = {};
-  for (const m of css.matchAll(/--rnv-([a-z0-9-]+)\s*:\s*([^;]+);/g)) tokens[m[1]!] = m[2]!.trim().replace(/^"(.*)"$/, "$1");
+  for (const m of css.matchAll(/--cur-([a-z0-9-]+)\s*:\s*([^;]+);/g)) tokens[m[1]!] = m[2]!.trim().replace(/^"(.*)"$/, "$1");
   const scheme = tokens["scheme"] === "dark" ? "dark" : "light";
   return { id, name: tokens["theme-name"] ?? id, scheme, order: Number(tokens["theme-order"] ?? 1000), tokens };
 }

@@ -15,9 +15,9 @@ Phase 1 differences from the design below:
 - Timestamps are `timestamptz`.
 - Migrations are forward-only and follow expand-then-contract across releases. `goose` runs them in transactions under an advisory lock.
 - **Database roles:**
-  - `renovatio_migrator`: owns the DDL;
-  - `renovatio_app`: DML only, and on `audit_log` `INSERT`/`SELECT` only;
-  - `renovatio_readonly`: reporting and backups.
+  - `current_migrator`: owns the DDL;
+  - `current_app`: DML only, and on `audit_log` `INSERT`/`SELECT` only;
+  - `current_readonly`: reporting and backups.
 
 ## Tenancy and identity
 ```
@@ -96,7 +96,7 @@ Phase 2 implements **dynamic groups only**; membership is computed on demand (no
 - `groups.kind` (`dynamic` | `static`), `groups.filter` nullable for static groups, and `group_members(group_id, device_id)`.
 - `catalog_packages(id, org_id, source[winget|custom], identifier, name, publisher, homepage, license, description, verified, self_updating, imported_at, imported_by)`, unique on `(org_id, source, identifier)`. There is no global (null-org) catalog; each organization imports its own.
 - `catalog_versions(id, package_id, version, version_key, manifest_sha256)` and `catalog_installers(id, version_id, architecture, scope, installer_type, nested_type, nested_path, url, sha256, size, file_name, signer_subject, product_code, upgrade_code, switches, success_codes, expected_codes, min_os, detection, uses_content_blob, unsupported)`. Detection rules live in `catalog_installers.detection` (jsonb), not a separate table; `unsupported` explains why an installer cannot be deployed.
-- `package_overrides(org_id, package_id, silent_args, extra_detection, pin, excluded, user_scope_policy, self_update_policy, updated_by, updated_at)`, `org_settings(org_id, user_scope_policy)`, `content_blobs(org_id, sha256, size, file_name, uploaded_by)` (bytes live on the content volume under `<RENOVATIO_CONTENT_DIR>/<org>/<sha256>`).
+- `package_overrides(org_id, package_id, silent_args, extra_detection, pin, excluded, user_scope_policy, self_update_policy, updated_by, updated_at)`, `org_settings(org_id, user_scope_policy)`, `content_blobs(org_id, sha256, size, file_name, uploaded_by)` (bytes live on the content volume under `<CURRENT_CONTENT_DIR>/<org>/<sha256>`).
 - The winget index table is not built (D41). The `verified` flag is set at import from the shipped `matrix_results.json` (empty for now) and the `self_updating` mark from the shipped overlay.
 
 Design (original sketch):
@@ -193,16 +193,10 @@ audit_log(id bigint identity, ts, org_id, actor_type[user|api_token|system|devic
           details jsonb, prev_hash bytea, hash bytea)
 ```
 - `hash = SHA-256(prev_hash || canonical(row))`. The chain is checked daily, and on demand from the GUI.
-- `renovatio_app` cannot run `UPDATE`/`DELETE`/`TRUNCATE` on the table, and a trigger rejects them for every role except the migrator.
+- `current_app` cannot run `UPDATE`/`DELETE`/`TRUNCATE` on the table, and a trigger rejects them for every role except the migrator.
 - An optional syslog/JSON forwarder streams entries to a SIEM.
 
-## Licensing (Phase 6)
-Migration `00009_licenses` (decisions D85-D88).
-```
-licenses(id, org_id, license_id, key_id, blob text (the signed RNL1 text), installed_by, installed_at)   -- insert-only history; newest row is in force
-license_clock(singleton, high_water timestamptz)   -- highest server time seen; guards against clock rollback
-```
-The signed text is the single source of truth: its fields (licensee, `max_devices`, term, features, `updates_until`) are parsed from it and its signature is verified again each time it is used. `renovatio_app` has only SELECT/INSERT on `licenses`. Device usage is derived: `count(devices WHERE status = 'active')` per organization.
+## Branding (Phase 7)
 
 Migration `00010_branding` (decision D92). The Down section drops both tables.
 
@@ -214,7 +208,7 @@ branding_assets(org_id, kind IN logo_light|logo_dark|icon|favicon|report_logo, c
                 content_type = 'image/png', width, height, sha256 (32 bytes), updated_at, updated_by)   -- PK (org_id, kind)
 ```
 
-An organization without a `branding` row shows the defaults (product "Renovatio", no organization name). The first-run wizard writes the organization name (and logo) into these tables.
+An organization without a `branding` row shows the defaults (product "Current", no organization name). The first-run wizard writes the organization name (and logo) into these tables.
 
 Migration `00011_ui_preferences` (decision D93). The Down section drops `user_preferences` and the two branding columns.
 

@@ -13,12 +13,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/events"
-	"github.com/auzring1/renovatio/internal/server/licensing"
-	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/events"
+	"github.com/auzring1/current/internal/server/store"
 )
 
 type deviceView struct {
@@ -196,12 +195,6 @@ func (s *server) approveDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	var replaced *uuid.UUID
 	err := store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
-		// The device cap: approving enrolls a device. A license problem blocks only this.
-		if s.Licensing != nil {
-			if err := s.Licensing.CheckNewDevice(r.Context(), q, p.OrgID, d.ReplacesDeviceID); err != nil {
-				return err
-			}
-		}
 		n, err := q.ApproveDevice(r.Context(), dbq.ApproveDeviceParams{ID: d.ID, OrgID: p.OrgID, ApprovedBy: &p.UserID, ApprovedAt: &now})
 		if err != nil {
 			return err
@@ -229,15 +222,8 @@ func (s *server) approveDevice(w http.ResponseWriter, r *http.Request) {
 			Outcome: audit.Success, Details: details}, now)
 		return err
 	})
-	var limit *licensing.LimitError
 	if errors.Is(err, errConflict) {
 		writeError(w, http.StatusConflict, "not_pending", "Only pending devices can be approved.")
-		return
-	} else if errors.As(err, &limit) {
-		_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r),
-			Action: "device.approve", TargetType: "device", TargetIDs: []string{d.ID.String()}, Outcome: audit.Denied,
-			Details: map[string]any{"reason": "license_device_limit", "hostname": d.Hostname}})
-		writeError(w, http.StatusConflict, "license_device_limit", limit.Error())
 		return
 	} else if err != nil {
 		s.Log.Error("approve device", "err", err)

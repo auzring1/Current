@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/store"
-	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/shared/vercmp"
 )
 
 // Limits on what an agent may report (SECURITY T-DEV-2/3).
@@ -178,7 +178,7 @@ func convertItems(items []*agentv1.SoftwareItem) ([]itemRow, error) {
 // New titles are inserted in sorted key order with ON CONFLICT DO NOTHING and read back by a second
 // statement. The earlier single "upsert" updated existing rows, which locked every title the device
 // has until commit, in map-iteration (random) order: concurrent ingests of devices with common software
-// deadlocked (found by cmd/renovatio-loadsim) and otherwise queued behind each other.
+// deadlocked (found by cmd/current-loadsim) and otherwise queued behind each other.
 func titleIDs(ctx context.Context, q *dbq.Queries, org uuid.UUID, rows []itemRow) (map[[2]string]uuid.UUID, error) {
 	type pair = [2]string
 	seen := map[pair]itemRow{}

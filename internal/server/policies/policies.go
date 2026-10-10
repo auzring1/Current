@@ -19,12 +19,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/catalog"
-	"github.com/auzring1/renovatio/internal/server/deploy"
-	"github.com/auzring1/renovatio/internal/server/inventory"
-	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/catalog"
+	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/current/internal/server/inventory"
+	"github.com/auzring1/current/internal/server/store"
 )
 
 // Errors the API maps to HTTP statuses.

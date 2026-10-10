@@ -170,7 +170,7 @@ export function SoftwareUpdatesPage() {
               </Anchor>
             ) : (
               <Tooltip label={`${u.winget_id}: from the winget repository, added to your catalog when you deploy it`}>
-                <span style={{ fontSize: "var(--rnv-text-sm)" }}>{u.package_name}</span>
+                <span style={{ fontSize: "var(--cur-text-sm)" }}>{u.package_name}</span>
               </Tooltip>
             )}
             {!u.in_catalog && (
@@ -186,13 +186,13 @@ export function SoftwareUpdatesPage() {
           </span>
         ),
       },
-      { id: "latest", header: "Latest version", width: 150, value: (u) => u.latest_version, cell: (u) => <span className="rnv-mono">{u.latest_version}</span> },
+      { id: "latest", header: "Latest version", width: 150, value: (u) => u.latest_version, cell: (u) => <span className="cur-mono">{u.latest_version}</span> },
       {
         id: "installed",
         header: "Installed versions",
         width: 220,
         value: (u) => versions(u).join(", "),
-        cell: (u) => <span className="rnv-mono">{versions(u).slice(0, 3).join(", ")}{versions(u).length > 3 ? ` +${versions(u).length - 3}` : ""}</span>,
+        cell: (u) => <span className="cur-mono">{versions(u).slice(0, 3).join(", ")}{versions(u).length > 3 ? ` +${versions(u).length - 3}` : ""}</span>,
       },
       {
         id: "devices",

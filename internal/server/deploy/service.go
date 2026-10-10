@@ -16,14 +16,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/catalog"
-	"github.com/auzring1/renovatio/internal/server/events"
-	"github.com/auzring1/renovatio/internal/server/pki"
-	"github.com/auzring1/renovatio/internal/server/wingetindex"
-	"github.com/auzring1/renovatio/internal/shared/envelope"
-	"github.com/auzring1/renovatio/internal/shared/pkix"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/catalog"
+	"github.com/auzring1/current/internal/server/events"
+	"github.com/auzring1/current/internal/server/pki"
+	"github.com/auzring1/current/internal/server/wingetindex"
+	"github.com/auzring1/current/internal/shared/envelope"
+	"github.com/auzring1/current/internal/shared/pkix"
 )
 
 // Dispatcher delivers a signed envelope to a connected device.

@@ -87,10 +87,10 @@ export function BrandMark({ height = 32, allowIcon = true }: MarkProps) {
   );
   if (scheme === "dark") {
     if (dark) return img(dark);
-    if (light) return chip("var(--rnv-surface-raised)", img(light));
+    if (light) return chip("var(--cur-surface-raised)", img(light));
   } else {
     if (light) return img(light);
-    if (dark) return chip("var(--rnv-surface-raised)", img(dark));
+    if (dark) return chip("var(--cur-surface-raised)", img(dark));
   }
   return icon ? img(icon, true) : null;
 }

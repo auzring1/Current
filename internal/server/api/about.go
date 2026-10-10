@@ -11,22 +11,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/shared/brand"
-	"github.com/auzring1/renovatio/internal/shared/version"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/version"
 )
 
 var startedAt = time.Now()
 
-// configShown lists the environment settings whose value is safe to put in a support bundle. Every other RENOVATIO_
+// configShown lists the environment settings whose value is safe to put in a support bundle. Every other CURRENT_
 // variable is reported only as set or not set, because it can hold a key, a token or a password.
 var configShown = map[string]bool{
-	"RENOVATIO_HTTP_ADDR": true, "RENOVATIO_GATEWAY_ADDR": true, "RENOVATIO_GATEWAY_PUBLIC_ADDR": true, "RENOVATIO_PUBLIC_URL": true,
-	"RENOVATIO_TRUSTED_PROXIES": true, "RENOVATIO_LOG_LEVEL": true, "RENOVATIO_DEV_MODE": true, "RENOVATIO_HEARTBEAT_INTERVAL": true,
-	"RENOVATIO_SESSION_IDLE_TIMEOUT": true, "RENOVATIO_SESSION_ABSOLUTE_TIMEOUT": true, "RENOVATIO_MIGRATE_ON_START": true,
-	"RENOVATIO_WINGET_SOURCE": true, "RENOVATIO_WINGET_INDEX_URL": true, "RENOVATIO_DEVICE_CERT_LIFETIME": true, "RENOVATIO_DEVICE_RENEW_GRACE": true,
-	"RENOVATIO_ENROLL_POLL_INTERVAL": true, "RENOVATIO_ENROLL_RATE_PER_IP": true, "RENOVATIO_ENROLL_RATE_PER_TOKEN": true,
-	"RENOVATIO_GATEWAY_SANS": true, "RENOVATIO_IGNORE_IP_ALLOWLIST": true,
+	"CURRENT_HTTP_ADDR": true, "CURRENT_GATEWAY_ADDR": true, "CURRENT_GATEWAY_PUBLIC_ADDR": true, "CURRENT_PUBLIC_URL": true,
+	"CURRENT_TRUSTED_PROXIES": true, "CURRENT_LOG_LEVEL": true, "CURRENT_DEV_MODE": true, "CURRENT_HEARTBEAT_INTERVAL": true,
+	"CURRENT_SESSION_IDLE_TIMEOUT": true, "CURRENT_SESSION_ABSOLUTE_TIMEOUT": true, "CURRENT_MIGRATE_ON_START": true,
+	"CURRENT_WINGET_SOURCE": true, "CURRENT_WINGET_INDEX_URL": true, "CURRENT_DEVICE_CERT_LIFETIME": true, "CURRENT_DEVICE_RENEW_GRACE": true,
+	"CURRENT_ENROLL_POLL_INTERVAL": true, "CURRENT_ENROLL_RATE_PER_IP": true, "CURRENT_ENROLL_RATE_PER_TOKEN": true,
+	"CURRENT_GATEWAY_SANS": true, "CURRENT_IGNORE_IP_ALLOWLIST": true,
 }
 
 // redactedConfig reports the server's environment configuration without secrets.
@@ -34,13 +34,13 @@ func redactedConfig() map[string]string {
 	out := map[string]string{}
 	for _, kv := range os.Environ() {
 		k, v, ok := strings.Cut(kv, "=")
-		if !ok || !strings.HasPrefix(k, "RENOVATIO_") {
+		if !ok || !strings.HasPrefix(k, "CURRENT_") {
 			continue
 		}
 		switch {
 		case configShown[k]:
 			out[k] = v
-		case k == "RENOVATIO_DATABASE_URL" || k == "RENOVATIO_MIGRATE_DATABASE_URL":
+		case k == "CURRENT_DATABASE_URL" || k == "CURRENT_MIGRATE_DATABASE_URL":
 			out[k] = redactURL(v)
 		case v == "":
 			out[k] = "(empty)"
@@ -89,15 +89,6 @@ func (s *server) aboutInfo(r *http.Request) map[string]any {
 	info["database_ok"] = s.Pool.Ping(ctx) == nil
 	if s.Settings != nil {
 		info["settings_schema_version"] = 1
-	}
-	if s.Licensing != nil {
-		if st, err := s.Licensing.Status(ctx, principalFrom(r).OrgID); err == nil {
-			lic := map[string]any{"state": st.State, "message": st.Message, "devices": st.Devices, "max_devices": st.MaxDevices, "configured": st.Configured}
-			if st.License != nil {
-				lic["licensee"], lic["license_id"], lic["expires_at"] = st.License.Licensee, st.License.LicenseID, st.License.ExpiresAt
-			}
-			info["license"] = lic
-		}
 	}
 	org := principalFrom(r).OrgID
 	counts := map[string]int64{}

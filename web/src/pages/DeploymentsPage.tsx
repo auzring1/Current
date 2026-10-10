@@ -75,7 +75,7 @@ export function DeploymentsPage() {
         cell: (d) => (
           <>
             {d.name}
-            <span className="rnv-dt__cell-sub">
+            <span className="cur-dt__cell-sub">
               {d.action} · {d.scope}
             </span>
           </>
@@ -90,7 +90,7 @@ export function DeploymentsPage() {
         cell: (d) => (
           <>
             {d.package_name}
-            <span className="rnv-dt__cell-sub">{d.version ?? "newest"}</span>
+            <span className="cur-dt__cell-sub">{d.version ?? "newest"}</span>
           </>
         ),
         filter: { type: "text" },
@@ -145,9 +145,9 @@ export function DeploymentsPage() {
         }
       />
       {onlyFailed && (
-        <div className="rnv-chips" role="status">
+        <div className="cur-chips" role="status">
           <span>Showing</span>
-          <span className="rnv-chip rnv-chip--static">Deployments with failed jobs</span>
+          <span className="cur-chip cur-chip--static">Deployments with failed jobs</span>
           <Button size="compact-sm" variant="default" onClick={() => setUrlParams({}, { replace: true })}>
             Show all deployments
           </Button>

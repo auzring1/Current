@@ -105,7 +105,7 @@ interface Layout {
 const EMPTY: never[] = []; // a stable empty list: a fresh [] every render would reset the page index forever
 const SELECT = "__select";
 const ACTIONS = "__actions";
-const layoutKey = (id: string) => `rnv-dt:${id}`;
+const layoutKey = (id: string) => `cur-dt:${id}`;
 const loadLayout = (id: string): Partial<Layout> => {
   try {
     return JSON.parse(window.localStorage.getItem(layoutKey(id)) ?? "{}") as Partial<Layout>;
@@ -317,11 +317,11 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const to = Math.min(filteredRows.length, (pagination.pageIndex + 1) * pagination.pageSize);
 
   return (
-    <div className="rnv-dt" data-testid={`table-${p.id}`}>
-      <div className="rnv-dt__toolbar" role="toolbar" aria-label={`${p.label} controls`}>
-        <label className="rnv-dt__searchbox">
+    <div className="cur-dt" data-testid={`table-${p.id}`}>
+      <div className="cur-dt__toolbar" role="toolbar" aria-label={`${p.label} controls`}>
+        <label className="cur-dt__searchbox">
           <I.Search size={16} aria-hidden="true" />
-          <span className="rnv-visually-hidden">Search {p.label}</span>
+          <span className="cur-visually-hidden">Search {p.label}</span>
           <input value={search} onChange={(e) => setSearch(e.currentTarget.value)} placeholder={p.searchPlaceholder ?? "Search"} type="search" />
         </label>
         {filterable.length > 0 && (
@@ -344,7 +344,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
           </Popover>
         )}
         {p.toolbar}
-        <span className="rnv-dt__toolbar-spacer" />
+        <span className="cur-dt__toolbar-spacer" />
         <Menu position="bottom-end" shadow="md" withinPortal>
           <Menu.Target>
             <Button variant="default" leftSection={<I.Bookmark size={16} aria-hidden />} rightSection={<I.ChevronDown size={14} aria-hidden />} aria-label="Saved views">
@@ -422,9 +422,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
       </div>
 
       {filters.length > 0 && (
-        <div className="rnv-chips" aria-label="Active filters">
+        <div className="cur-chips" aria-label="Active filters">
           {filters.map((f) => (
-            <span className="rnv-chip" key={f.id}>
+            <span className="cur-chip" key={f.id}>
               {chipLabel(f.id, f.value)}
               <button type="button" aria-label={`Remove filter ${chipLabel(f.id, f.value)}`} onClick={() => setFilters((cur) => cur.filter((x) => x.id !== f.id))}>
                 <I.Close size={12} aria-hidden />
@@ -438,7 +438,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
       )}
 
       {selected.length > 0 && (
-        <div className="rnv-dt__bulk" role="region" aria-label="Bulk actions" aria-live="polite">
+        <div className="cur-dt__bulk" role="region" aria-label="Bulk actions" aria-live="polite">
           <span>{selected.length} selected</span>
           {p.bulkActions?.(selected, clearSelection)}
           <Button variant="subtle" size="compact-sm" onClick={clearSelection} leftSection={<I.Close size={14} aria-hidden />}>
@@ -447,7 +447,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
         </div>
       )}
 
-      <div className="rnv-dt__frame">
+      <div className="cur-dt__frame">
         {p.error ? (
           <Alert color="red" m="md" title="Could not load" icon={<I.Danger size={18} aria-hidden />}>
             {p.error instanceof Error ? p.error.message : "Something went wrong."}
@@ -458,8 +458,8 @@ export function DataTable<T>(p: DataTableProps<T>) {
           (p.empty ?? <EmptyState title="Nothing here yet" />)
         ) : (
           <>
-            <div className="rnv-dt__scroll" ref={scrollRef} tabIndex={0} role="region" aria-label={`${p.label} table, scrollable`}>
-              <table className="rnv-dt__table" style={{ width: Math.max(totalWidth, 0), minWidth: "100%" }} aria-label={p.label} aria-rowcount={filteredRows.length}>
+            <div className="cur-dt__scroll" ref={scrollRef} tabIndex={0} role="region" aria-label={`${p.label} table, scrollable`}>
+              <table className="cur-dt__table" style={{ width: Math.max(totalWidth, 0), minWidth: "100%" }} aria-label={p.label} aria-rowcount={filteredRows.length}>
                 <colgroup>
                   {visibleCols.map((c) => (
                     <col key={c.id} style={{ width: c.getSize() }} />
@@ -482,9 +482,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
                                 onChange={(e) => table.toggleAllPageRowsSelected(e.currentTarget.checked)}
                               />
                             ) : h.id === ACTIONS ? (
-                              <span className="rnv-visually-hidden">Actions</span>
+                              <span className="cur-visually-hidden">Actions</span>
                             ) : canSort ? (
-                              <button type="button" className="rnv-dt__sort" data-active={dir ? "true" : "false"} onClick={h.column.getToggleSortingHandler()} title={`Sort by ${meta?.header ?? h.id}`}>
+                              <button type="button" className="cur-dt__sort" data-active={dir ? "true" : "false"} onClick={h.column.getToggleSortingHandler()} title={`Sort by ${meta?.header ?? h.id}`}>
                                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{flexRender(h.column.columnDef.header, h.getContext())}</span>
                                 {dir === "asc" ? <I.SortAsc size={14} aria-hidden /> : dir === "desc" ? <I.SortDesc size={14} aria-hidden /> : <I.SortNone size={14} aria-hidden style={{ opacity: 0.55 }} />}
                               </button>
@@ -494,7 +494,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                             {h.column.getCanResize() && (
                               <button
                                 type="button"
-                                className="rnv-dt__resize"
+                                className="cur-dt__resize"
                                 role="separator"
                                 aria-orientation="vertical"
                                 aria-valuenow={h.getSize()}
@@ -541,7 +541,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                           if (cell.column.id === ACTIONS) {
                             return (
                               <td key={cell.id} data-align="right" data-no-row-click>
-                                <div className="rnv-dt__actions">{p.rowActions?.(row.original)}</div>
+                                <div className="cur-dt__actions">{p.rowActions?.(row.original)}</div>
                               </td>
                             );
                           }
@@ -549,7 +549,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                           return (
                             <td key={cell.id} data-align={meta?.align} data-wrap={meta?.wrap ? "true" : undefined} data-sticky={sticky}>
                               {meta?.primary && href ? (
-                                <Link to={href} className="rnv-dt__link">
+                                <Link to={href} className="cur-dt__link">
                                   {content}
                                 </Link>
                               ) : (
@@ -583,7 +583,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                 />
               )}
             </div>
-            <div className="rnv-dt__foot">
+            <div className="cur-dt__foot">
               <span aria-live="polite">
                 {p.virtual ? `${filteredRows.length} rows` : `${from}–${to} of ${filteredRows.length}`}
                 {(p.data?.length ?? 0) !== filteredRows.length && ` (filtered from ${p.data?.length})`}
@@ -601,7 +601,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                     comboboxProps={{ withinPortal: true }}
                   />
                   <IconButton label="Previous page" icon={<I.ChevronLeft size={16} aria-hidden />} variant="default" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()} />
-                  <span className="rnv-num">
+                  <span className="cur-num">
                     Page {pageCount === 0 ? 0 : pagination.pageIndex + 1} of {pageCount}
                   </span>
                   <IconButton label="Next page" icon={<I.ChevronRight size={16} aria-hidden />} variant="default" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()} />

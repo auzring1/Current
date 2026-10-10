@@ -17,7 +17,7 @@ export function OnlineDot({ online }: { online: boolean }) {
 /** A value in a monospace block with a copy button. The block is a <pre> so line breaks survive. */
 export function CopyText({ value, label }: { value: string; label?: string }) {
   return (
-    <div className="rnv-copytext">
+    <div className="cur-copytext">
       <pre>{value}</pre>
       <CopyButton value={value}>
         {({ copied, copy }) => (
@@ -41,7 +41,7 @@ export function TotpQR({ uri, secret }: { uri: string; secret: string }) {
   return (
     <Stack gap="xs" align="flex-start">
       {src && (
-        <span className="rnv-qr">
+        <span className="cur-qr">
           <img src={src} width={200} height={200} alt="Authenticator QR code" />
         </span>
       )}
@@ -70,7 +70,7 @@ export function RecoveryCodes({ codes }: { codes: string[] }) {
         Store these recovery codes somewhere safe, such as a password manager. Each one can be used once if you lose your
         authenticator. They will not be shown again.
       </Text>
-      <ul className="rnv-codes" aria-label="Recovery codes">
+      <ul className="cur-codes" aria-label="Recovery codes">
         {codes.map((c) => (
           <li key={c}>{c}</li>
         ))}
@@ -103,7 +103,7 @@ export function CodeInput({ value, onChange, autoFocus }: { value: string; onCha
       autoFocus={autoFocus}
       value={value}
       onChange={(e) => onChange(e.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
-      styles={{ input: { letterSpacing: "0.3em", fontFamily: "var(--rnv-font-mono)" } }}
+      styles={{ input: { letterSpacing: "0.3em", fontFamily: "var(--cur-font-mono)" } }}
       w={180}
     />
   );

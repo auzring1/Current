@@ -20,14 +20,14 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"math/big"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
 
-	spkix "github.com/auzring1/renovatio/internal/shared/pkix"
+	spkix "github.com/auzring1/current/internal/shared/pkix"
 )
 
 const (

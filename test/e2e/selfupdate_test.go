@@ -10,7 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/agent/core"
-	"github.com/auzring1/renovatio/internal/agent/jobs"
-	"github.com/auzring1/renovatio/internal/agent/selfupdate"
-	"github.com/auzring1/renovatio/internal/agent/store"
-	"github.com/auzring1/renovatio/internal/shared/release"
+	"github.com/auzring1/current/internal/agent/core"
+	"github.com/auzring1/current/internal/agent/jobs"
+	"github.com/auzring1/current/internal/agent/selfupdate"
+	"github.com/auzring1/current/internal/agent/store"
+	"github.com/auzring1/current/internal/shared/release"
 )
 
 // uploadRelease sends a bundle and binary to POST /agent-releases.

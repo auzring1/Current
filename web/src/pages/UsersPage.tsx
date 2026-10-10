@@ -105,7 +105,7 @@ export function UsersPage() {
         cell: (u) => (
           <>
             {u.display_name}
-            <span className="rnv-dt__cell-sub">{u.email}</span>
+            <span className="cur-dt__cell-sub">{u.email}</span>
           </>
         ),
       },
@@ -151,7 +151,7 @@ export function UsersPage() {
             {u.bindings.map((b) => (
               <span key={b.id}>
                 <RolePill role={b.role} />
-                <span className="rnv-muted"> — {scopeText(b)}</span>
+                <span className="cur-muted"> — {scopeText(b)}</span>
               </span>
             ))}
           </span>
@@ -265,12 +265,12 @@ export function UsersPage() {
         cell: (t) => (
           <>
             {t.name}
-            <span className="rnv-dt__cell-sub rnv-mono">{t.prefix}…</span>
+            <span className="cur-dt__cell-sub cur-mono">{t.prefix}…</span>
           </>
         ),
       },
       { id: "owner", header: "Owner", value: (t) => t.owner, width: 200 },
-      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="rnv-mono">{t.scopes.join(", ")}</span> },
+      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="cur-mono">{t.scopes.join(", ")}</span> },
       {
         id: "expires",
         header: "Expires",
@@ -460,7 +460,7 @@ function RolesModal({ user, sites, orgId, onClose }: { user: UserAccount; sites:
         {user.bindings.map((b) => (
           <Group key={b.id} justify="space-between" wrap="nowrap">
             <Text size="sm" style={{ minWidth: 0 }}>
-              <RolePill role={b.role} /> <span className="rnv-muted">— {b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`}</span>
+              <RolePill role={b.role} /> <span className="cur-muted">— {b.scope_type === "org" ? "whole organization" : `site ${siteName(b.scope_id)}`}</span>
             </Text>
             <Button size="compact-xs" variant="default" color="red" leftSection={<Icons.Trash size={12} aria-hidden />} onClick={() => remove.mutate(b.id)} aria-label={`Remove ${b.role} ${b.scope_type}`}>
               Remove

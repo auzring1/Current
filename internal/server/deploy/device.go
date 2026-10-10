@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/catalog"
-	"github.com/auzring1/renovatio/internal/server/inventory"
-	"github.com/auzring1/renovatio/internal/server/store"
-	"github.com/auzring1/renovatio/internal/server/wingetindex"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/catalog"
+	"github.com/auzring1/current/internal/server/inventory"
+	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/server/wingetindex"
+	"github.com/auzring1/current/internal/shared/brand"
 )
 
 // Device-level actions that are not part of a catalog deployment: refresh a device, remove a
@@ -228,7 +228,7 @@ type AvailableUpdate struct {
 	LatestVersion    string    `json:"latest_version"`
 	Verified         bool      `json:"verified"`
 	SelfUpdating     bool      `json:"self_updating"`
-	// Deployable is false when Renovatio leaves this update to the vendor (a self-updating app).
+	// Deployable is false when Current leaves this update to the vendor (a self-updating app).
 	Deployable bool   `json:"deployable"`
 	Reason     string `json:"reason,omitempty"`
 	// InCatalog is false when the update comes from the winget index only: PackageID is then zero and WingetID names the
@@ -452,7 +452,7 @@ type FleetUpdate struct {
 	LatestVersion string    `json:"latest_version"`
 	Verified      bool      `json:"verified"`
 	SelfUpdating  bool      `json:"self_updating"`
-	// Deployable is false when Renovatio leaves this update to the vendor (a self-updating app).
+	// Deployable is false when Current leaves this update to the vendor (a self-updating app).
 	Deployable bool                `json:"deployable"`
 	Reason     string              `json:"reason,omitempty"`
 	Devices    []FleetUpdateDevice `json:"devices"`

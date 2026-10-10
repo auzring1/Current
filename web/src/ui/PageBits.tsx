@@ -5,7 +5,7 @@ import { Search } from "./icons";
 /** A button that looks like a table's primary link; use it where the action opens a drawer or dialog. */
 export function LinkButton({ children, onClick, id }: { children: ReactNode; onClick: () => void; id?: string }) {
   return (
-    <button type="button" id={id} className="rnv-linkbtn" onClick={onClick}>
+    <button type="button" id={id} className="cur-linkbtn" onClick={onClick}>
       {children}
     </button>
   );
@@ -13,13 +13,13 @@ export function LinkButton({ children, onClick, id }: { children: ReactNode; onC
 
 /** Wraps a DataTable whose rows are searched on the server: the table's own search box is hidden in favour of `ServerSearch`. */
 export function ServerSearchScope({ children }: { children: ReactNode }) {
-  return <div className="rnv-serversearch">{children}</div>;
+  return <div className="cur-serversearch">{children}</div>;
 }
 
 /** A search box styled like the table's, for a query that is sent to the server. Put it in the DataTable `toolbar`. */
 export function ServerSearch({ value, onChange, label, placeholder }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string }) {
   return (
-    <label className="rnv-dt__searchbox rnv-serversearch__box">
+    <label className="cur-dt__searchbox cur-serversearch__box">
       <Search size={16} aria-hidden="true" />
       <input type="search" value={value} onChange={(e) => onChange(e.currentTarget.value)} placeholder={placeholder} aria-label={label} />
     </label>
@@ -29,11 +29,11 @@ export function ServerSearch({ value, onChange, label, placeholder }: { value: s
 /** A definition list of label/value pairs. */
 export function Fields({ items }: { items: { label: string; value: ReactNode }[] }) {
   return (
-    <dl className="rnv-fields">
+    <dl className="cur-fields">
       {items.map((i) => (
         <div key={i.label}>
           <dt>{i.label}</dt>
-          <dd>{i.value || <span className="rnv-muted">—</span>}</dd>
+          <dd>{i.value || <span className="cur-muted">—</span>}</dd>
         </div>
       ))}
     </dl>

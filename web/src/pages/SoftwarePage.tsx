@@ -39,8 +39,8 @@ export function SoftwarePage() {
         cell: (t) => <LinkButton onClick={() => setSelected(t.id)}>{t.name}</LinkButton>,
       },
       { id: "publisher", header: "Publisher", value: (t) => t.publisher || "", width: 240 },
-      { id: "devices", header: "Devices", value: (t) => t.device_count, align: "right", width: 110, cell: (t) => <span className="rnv-num">{t.device_count}</span> },
-      { id: "versions", header: "Versions", value: (t) => t.version_count, align: "right", width: 110, cell: (t) => <span className="rnv-num">{t.version_count}</span> },
+      { id: "devices", header: "Devices", value: (t) => t.device_count, align: "right", width: 110, cell: (t) => <span className="cur-num">{t.device_count}</span> },
+      { id: "versions", header: "Versions", value: (t) => t.version_count, align: "right", width: 110, cell: (t) => <span className="cur-num">{t.version_count}</span> },
     ],
     [],
   );
@@ -139,7 +139,7 @@ function TitleDrawer({ id, onClose }: { id: string | null; onClose: () => void }
           ],
         },
       },
-      { id: "version", header: "Version", value: (i) => i.version || "", width: 130, cell: (i) => <span className="rnv-mono">{i.version || "—"}</span> },
+      { id: "version", header: "Version", value: (i) => i.version || "", width: 130, cell: (i) => <span className="cur-mono">{i.version || "—"}</span> },
       { id: "scope", header: "Scope", value: (i) => i.scope, width: 100 },
       { id: "seen", header: "Last seen", value: (i) => (i.last_seen_at ? new Date(i.last_seen_at).getTime() : 0), width: 180, cell: (i) => dateTime(i.last_seen_at), csv: (i) => i.last_seen_at ?? "" },
     ],
@@ -157,7 +157,7 @@ function TitleDrawer({ id, onClose }: { id: string | null; onClose: () => void }
       size="xl"
       title={d?.name ?? "Product details"}
     >
-      <div className="rnv-block">
+      <div className="cur-block">
         {detail.isLoading && <TileSkeleton count={1} />}
         {detail.error && (
           <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
@@ -166,11 +166,11 @@ function TitleDrawer({ id, onClose }: { id: string | null; onClose: () => void }
         )}
         {d && (
           <>
-            <p className="rnv-hint">{d.publisher || "Unknown publisher"}</p>
-            <h3 className="rnv-subhead">Versions</h3>
-            <p className="rnv-hint">Choose a version to list only the devices that have it.</p>
-            <div className="rnv-mini__scroll">
-              <table className="rnv-mini" aria-label="Versions">
+            <p className="cur-hint">{d.publisher || "Unknown publisher"}</p>
+            <h3 className="cur-subhead">Versions</h3>
+            <p className="cur-hint">Choose a version to list only the devices that have it.</p>
+            <div className="cur-mini__scroll">
+              <table className="cur-mini" aria-label="Versions">
                 <thead>
                   <tr>
                     <th scope="col">Version</th>
@@ -183,7 +183,7 @@ function TitleDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                   {d.versions.map((v) => (
                     <tr key={v.version}>
                       <td>
-                        <button type="button" className="rnv-linkbtn rnv-mono" aria-pressed={version === v.version} onClick={() => setVersion(version === v.version ? null : v.version)}>
+                        <button type="button" className="cur-linkbtn cur-mono" aria-pressed={version === v.version} onClick={() => setVersion(version === v.version ? null : v.version)}>
                           {v.version || "(unknown)"}
                         </button>{" "}
                         {version === v.version && (
@@ -193,15 +193,15 @@ function TitleDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                         )}
                       </td>
                       <td data-align="right">
-                        <span className="rnv-num">{v.device_count} devices</span>
+                        <span className="cur-num">{v.device_count} devices</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="rnv-row" style={{ justifyContent: "space-between" }}>
-              <h3 className="rnv-subhead">Devices{version ? ` with ${version}` : ""}</h3>
+            <div className="cur-row" style={{ justifyContent: "space-between" }}>
+              <h3 className="cur-subhead">Devices{version ? ` with ${version}` : ""}</h3>
               {can("inventory:export") && (
                 <Button component="a" size="xs" variant="default" href={`/api/v1/reports/software.csv?title_id=${id}`} download leftSection={<Icons.Download size={14} aria-hidden />}>
                   Export CSV

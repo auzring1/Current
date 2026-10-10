@@ -2,9 +2,6 @@ package e2e
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/hex"
 	"io"
 	"log/slog"
 	"os"
@@ -12,29 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/loadsim"
-	sconfig "github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/shared/license"
+	"github.com/auzring1/current/internal/loadsim"
+	sconfig "github.com/auzring1/current/internal/server/config"
 )
 
 // loadsimHarness is a server whose enrollment limits allow a fleet of simulated agents from one address.
 func loadsimHarness(t *testing.T) (*harness, string) {
-	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	h := newHarnessCfg(t, 90*24*time.Hour, func(c *sconfig.Config) {
 		c.EnrollRatePerIP, c.EnrollRatePerToken = 1000, 1000
-		c.LicensePublicKeys = hex.EncodeToString(pub)
 	})
 	h.setupAndLogin()
-	// An unlicensed server stops enrolling at 25 devices; the simulated fleet needs a real (test) license.
-	now := time.Now()
-	doc, err := license.Marshal(&license.Document{Format: 1, LicenseID: "LIC-LOADSIM", Licensee: "Load test", IssuedAt: now.Unix(),
-		NotBefore: now.Add(-time.Hour).Unix(), MaxDevices: 100000, Features: []string{}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st, b := h.do("PUT", "/api/v1/license", map[string]any{"license": license.Encode(doc, license.Sign(priv, doc))}, nil); st != 200 {
-		t.Fatalf("install license: %d %v", st, b)
-	}
 	st, b := h.do("POST", "/api/v1/me/api-tokens", map[string]any{"name": "loadsim", "expires_in_days": 1,
 		"scopes": []string{"enrollment:write", "devices:read", "devices:write", "updates:write", "reports:read"}}, nil)
 	if st != 201 {

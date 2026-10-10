@@ -16,7 +16,7 @@ import (
 func TestCNGKeyLifecycle(t *testing.T) {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "Renovatio-UnitTest-" + hex.EncodeToString(b)
+	name := "Current-UnitTest-" + hex.EncodeToString(b)
 	ks := Default("")
 	signer, provider, err := ks.Create(name)
 	if err != nil {
@@ -25,7 +25,7 @@ func TestCNGKeyLifecycle(t *testing.T) {
 	t.Cleanup(func() { _ = ks.Delete(name) })
 	t.Logf("key provider: %s", provider)
 
-	digest := sha256.Sum256([]byte("renovatio"))
+	digest := sha256.Sum256([]byte("current"))
 	sig, err := signer.Sign(rand.Reader, digest[:], nil)
 	if err != nil {
 		t.Fatalf("sign: %v", err)

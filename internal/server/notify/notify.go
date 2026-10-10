@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"log/slog"
 	"strings"
 	"time"
@@ -16,21 +16,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/branding"
-	"github.com/auzring1/renovatio/internal/server/licensing"
-	"github.com/auzring1/renovatio/internal/server/settings"
-	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/branding"
+	"github.com/auzring1/current/internal/server/settings"
+	"github.com/auzring1/current/internal/shared/vercmp"
 )
 
 // Service sends notifications.
 type Service struct {
-	Pool      *pgxpool.Pool
-	Settings  *settings.Service
-	Branding  *branding.Service
-	Licensing *licensing.Service
-	Log       *slog.Logger
-	Now       func() time.Time
+	Pool     *pgxpool.Pool
+	Settings *settings.Service
+	Branding *branding.Service
+	Log      *slog.Logger
+	Now      func() time.Time
 	// Mailer and Poster are replaced in tests.
 	Mailer Mailer
 	Poster Poster
@@ -271,17 +269,6 @@ func (s *Service) scan(ctx context.Context) {
 						Text:    fmt.Sprintf("The device %s last reported at %s.", d.Hostname, seen),
 						Data:    map[string]any{"device": map[string]any{"id": d.ID.String(), "hostname": d.Hostname}, "hours_offline": hours, "last_seen": seen}})
 				}
-			}
-		}
-	}
-	if r, ok := rules["license_limit"]; ok && s.Licensing != nil {
-		if st, err := s.Licensing.Status(ctx, org); err == nil && st.MaxDevices > 0 {
-			pct := r.Int("threshold")
-			if pct > 0 && st.Devices*100 >= st.MaxDevices*pct {
-				s.Emit(ctx, org, Event{Name: "license_limit", Key: "license:" + now.UTC().Format("2006-01-02"),
-					Subject: fmt.Sprintf("License usage is %d of %d devices", st.Devices, st.MaxDevices),
-					Text:    fmt.Sprintf("%d of %d licensed devices are in use (%s). %s", st.Devices, st.MaxDevices, st.State, st.Message),
-					Data:    map[string]any{"used": st.Devices, "max": st.MaxDevices, "state": string(st.State)}})
 			}
 		}
 	}

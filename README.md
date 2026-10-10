@@ -1,32 +1,46 @@
-# Renovatio
+# Current
 
-Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
+Free, self-hosted patch and software management for Windows endpoints. A small Go agent runs on each PC, a Go server with a
+REST API and web console runs in Docker on your own hardware, and nothing leaves your network: there is no cloud service,
+no account and no telemetry.
 
-**Status: Phase 6 (hardening and release) complete, awaiting review.** Phase 6 added a security review with fixes (the running server no longer holds the database-owner credential; see [docs/SECURITY.md §9f](docs/SECURITY.md)), more fuzzers, offline license keys, a load generator (`cmd/renovatio-loadsim`, results in [docs/LOADTEST.md](docs/LOADTEST.md)) and a release pipeline written but not yet run on GitHub ([docs/VERIFYING_RELEASES.md](docs/VERIFYING_RELEASES.md)); demo: [Phase 6](docs/demos/PHASE6-DEMO.md). The Phase 5 summary follows. On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
+**What it does**
+- **Inventory:** every installed program (machine-wide and per user), hardware, users and groups, with search and CSV export.
+- **Software updates and deployment:** finds updates for installed programs by matching them to the winget community index, with
+  no catalog to maintain; installs and updates from winget manifests or your own uploaded installers, with hash checks,
+  maintenance windows and a verified/unverified safety step.
+- **Windows Updates:** approval, update rings, maintenance windows, reboot policy and compliance reports.
+- **Agent self-update** with a pilot group and automatic rollback.
+- **Security first:** mutual TLS, jobs signed by the server and verified on the PC, mandatory two-factor sign-in with
+  security-key support, role-based access (optionally per site), scoped API tokens and a hash-chained audit log.
+- **Your branding**, five accessible themes, encrypted backups, and an MSI for deployment through GPO, Intune or an RMM.
 
-**Licensing (Phase 6):** the server verifies a vendor-signed **license key** offline (no phone-home). Without a license it runs as an evaluation limited to 25 enrolled devices; a license problem (missing, expired beyond a 30-day grace, over the device count) only ever blocks *new* enrollments and approvals, never patching or existing devices. Install a license under **License** in the console; see [RUNBOOK §5f](docs/RUNBOOK.md) and [DECISIONS D85](docs/DECISIONS.md). The business model is still owner decision O8.
+**Status: early software.** It comes with a large automated test suite (unit, database, end-to-end and browser tests), but it has
+not had an independent security audit, and several Windows-only paths (the MSI, agent self-update, restart
+handling) have had little real-world testing. It runs installers as SYSTEM on your computers, so treat it like any
+new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a few machines first, and keep backups.
 
 ## Quick start (production-style, one host)
 ```bash
 ./scripts/init-secrets.sh                       # Docker secrets in deploy/secrets/ (back them up!)
-cp deploy/.env.example deploy/.env              # set RENOVATIO_HOSTNAME (and RENOVATIO_CADDY_TLS)
+cp deploy/.env.example deploy/.env              # set CURRENT_HOSTNAME (and CURRENT_CADDY_TLS)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
-Then open `https://<RENOVATIO_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
-`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent`
+Then open `https://<CURRENT_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
+`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
 - Every setting, its default, limits and who may change it: [docs/SETTINGS.md](docs/SETTINGS.md) (generated from the settings registry)
 - Fresh install on Windows 11 with Docker, from wiping the old setup to the first enrolled agent: [docs/FRESH-INSTALL-WINDOWS.md](docs/FRESH-INSTALL-WINDOWS.md)
-- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md), [Phase 5 (self-update, access, policies, backup, MSI)](docs/demos/PHASE5-DEMO.md), [Phase 6 (hardening, licensing, load test, release dry run)](docs/demos/PHASE6-DEMO.md)
+- Step-by-step demos on a test VM: [Phase 1](docs/demos/PHASE1-DEMO.md), [Phase 2 (inventory)](docs/demos/PHASE2-DEMO.md), [Phase 3 (software deployment)](docs/demos/PHASE3-DEMO.md), [Phase 4 (Windows updates)](docs/demos/PHASE4-DEMO.md), [Phase 5 (self-update, access, policies, backup, MSI)](docs/demos/PHASE5-DEMO.md), [Phase 6 (hardening, load test, release dry run)](docs/demos/PHASE6-DEMO.md)
 
 ## Development
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
 ```bash
 make tools                 # pinned generators and linters
-make dev-db                # throwaway Postgres; prints RENOVATIO_TEST_PG_URL to export
+make dev-db                # throwaway Postgres; prints CURRENT_TEST_PG_URL to export
 make web build             # console bundle, server, agent (windows + linux test build)
 make test                  # unit, database and in-process end-to-end tests (race detector)
 make test-gui              # Playwright: setup → MFA login → enroll a real agent → deploy a package → revoke, CSP-strict
@@ -34,13 +48,13 @@ make fuzz                  # 20 s per fuzz target over the untrusted-input parse
 make test-compose          # full docker-compose stack + real agent process
 make lint vuln licenses    # vet, staticcheck, gosec, semgrep; govulncheck, npm audit; license allow-list
 ```
-Run the web console against a local server: start the server with `RENOVATIO_DEV_MODE=true RENOVATIO_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
+Run the web console against a local server: start the server with `CURRENT_DEV_MODE=true CURRENT_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
 
 ## Repository layout
 | Path | |
 |---|---|
-| `cmd/renovatio-server`, `cmd/renovatio-agent`, `cmd/renovatio-release`, `cmd/renovatio-license` | Binaries (`renovatio-release` and `renovatio-license` are vendor-side signing tools for releases and license keys, not shipped to customers) |
-| `cmd/renovatio-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
+| `cmd/current-server`, `cmd/current-agent`, `cmd/current-release` | Binaries (`current-release` is the release-signing tool: it signs the agent releases the server hands out) |
+| `cmd/current-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |
@@ -68,4 +82,11 @@ Run the web console against a local server: start the server with `RENOVATIO_DEV
 
 **Branding:** the organization name, product name, logos, colors and sign-in texts are configuration, not source: set them in the first-run wizard and under Settings > Branding (administrators only).
 
-License: proprietary, all rights reserved (see [LICENSE](LICENSE)). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Contributing, security and license
+- **Contributing:** bug reports, ideas and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Security problems:** please report them privately; see [SECURITY.md](SECURITY.md).
+- **License:** Copyright © 2026 the Current contributors. Current is free software under the
+  [GNU Affero General Public License v3.0 or later](LICENSE). You may use it, including at work, and change it. If you run a
+  modified version for other people, or distribute a modified agent, you must make your changes available under the same
+  license. The name "Current" is not part of that license: see [TRADEMARKS.md](TRADEMARKS.md).
+- Third-party components and their licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

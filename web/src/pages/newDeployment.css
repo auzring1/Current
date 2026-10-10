@@ -1,16 +1,16 @@
 /* The deployment wizard: sections on the left, a sticky summary on the right (stacked on narrow screens). */
-.rnv-wizard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--rnv-space-4); align-items: start; }
-.rnv-wizard__main { display: flex; flex-direction: column; gap: var(--rnv-space-4); min-width: 0; }
-.rnv-wizard__summary { min-width: 0; }
-.rnv-wizard__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--rnv-space-2); font-size: var(--rnv-text-sm); }
-.rnv-wizard__list li { display: flex; gap: var(--rnv-space-2); align-items: flex-start; }
-.rnv-wizard__list svg { flex: none; margin-top: 2px; }
-.rnv-wizard__ok { color: var(--rnv-success-fg); }
-.rnv-wizard__todo { color: var(--rnv-warning-fg); }
-.rnv-wizard__facts { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--rnv-space-1) var(--rnv-space-3); font-size: var(--rnv-text-sm); }
-.rnv-wizard__facts dt { color: var(--rnv-text-muted); }
-.rnv-wizard__facts dd { margin: 0; overflow-wrap: anywhere; }
+.cur-wizard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cur-space-4); align-items: start; }
+.cur-wizard__main { display: flex; flex-direction: column; gap: var(--cur-space-4); min-width: 0; }
+.cur-wizard__summary { min-width: 0; }
+.cur-wizard__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cur-space-2); font-size: var(--cur-text-sm); }
+.cur-wizard__list li { display: flex; gap: var(--cur-space-2); align-items: flex-start; }
+.cur-wizard__list svg { flex: none; margin-top: 2px; }
+.cur-wizard__ok { color: var(--cur-success-fg); }
+.cur-wizard__todo { color: var(--cur-warning-fg); }
+.cur-wizard__facts { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--cur-space-1) var(--cur-space-3); font-size: var(--cur-text-sm); }
+.cur-wizard__facts dt { color: var(--cur-text-muted); }
+.cur-wizard__facts dd { margin: 0; overflow-wrap: anywhere; }
 @media (min-width: 1000px) {
-  .rnv-wizard { grid-template-columns: minmax(0, 1fr) 340px; }
-  .rnv-wizard__summary { position: sticky; top: var(--rnv-space-4); }
+  .cur-wizard { grid-template-columns: minmax(0, 1fr) 340px; }
+  .cur-wizard__summary { position: sticky; top: var(--cur-space-4); }
 }

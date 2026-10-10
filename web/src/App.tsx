@@ -33,7 +33,6 @@ const TokensPage = page(() => import("./pages/TokensPage"), "TokensPage");
 const PoliciesPage = page(() => import("./pages/PoliciesPage"), "PoliciesPage");
 const ReportsPage = page(() => import("./pages/ReportsPage"), "ReportsPage");
 const AgentUpdatesPage = page(() => import("./pages/AgentUpdatesPage"), "AgentUpdatesPage");
-const LicensePage = page(() => import("./pages/LicensePage"), "LicensePage");
 const AccountPage = page(() => import("./pages/AccountPage"), "AccountPage");
 const SitesPage = page(() => import("./pages/SitesPage"), "SitesPage");
 const UsersPage = page(() => import("./pages/UsersPage"), "UsersPage");
@@ -98,7 +97,6 @@ export function App() {
           <Route path="about" element={<AboutPage />} />
           <Route path=":section" element={<SettingsSectionPage />} />
         </Route>
-        <Route path="/license" element={<LicensePage />} />
         <Route path="/styleguide" element={<StyleGuidePage />} />
         <Route path="/enrollment" element={<TokensPage />} />
         <Route path="/audit" element={<AuditPage />} />

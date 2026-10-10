@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"os"
 	"os/exec"
@@ -66,7 +66,7 @@ func openService() (*mgr.Mgr, *mgr.Service, error) {
 	return m, s, nil
 }
 
-// exeFromImagePath extracts the binary from a service image path (`"C:\...\renovatio-agent.exe" service`).
+// exeFromImagePath extracts the binary from a service image path (`"C:\...\current-agent.exe" service`).
 func exeFromImagePath(p string) string {
 	p = strings.TrimSpace(p)
 	if strings.HasPrefix(p, `"`) {

@@ -80,7 +80,7 @@ func TestValidateAllowsEmptyAsDefault(t *testing.T) {
 
 func TestResolveDefaults(t *testing.T) {
 	p := resolve(Settings{}, nil)
-	if p.ProductName != "Renovatio" || p.OrgName != "" || p.AccentColor != DefaultAccent || p.Title != "Renovatio" {
+	if p.ProductName != "Current" || p.OrgName != "" || p.AccentColor != DefaultAccent || p.Title != "Current" {
 		t.Fatalf("a fresh install shows the product with no organization: %+v", p)
 	}
 	p = resolve(Settings{OrgName: "Example Clinic", ProductName: "PatchBoard"}, nil)

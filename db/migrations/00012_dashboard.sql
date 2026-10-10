@@ -16,8 +16,8 @@ CREATE TABLE compliance_snapshots (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON compliance_snapshots TO renovatio_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON compliance_snapshots TO current_app;
     END IF;
 END
 $$;

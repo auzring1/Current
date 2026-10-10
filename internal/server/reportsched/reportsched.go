@@ -10,7 +10,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"log/slog"
 	"strings"
 	"time"
@@ -18,11 +18,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/dashboard"
-	"github.com/auzring1/renovatio/internal/server/notify"
-	"github.com/auzring1/renovatio/internal/server/pdf"
-	"github.com/auzring1/renovatio/internal/server/settings"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/dashboard"
+	"github.com/auzring1/current/internal/server/notify"
+	"github.com/auzring1/current/internal/server/pdf"
+	"github.com/auzring1/current/internal/server/settings"
 )
 
 // Grace is how late a due report may still be sent.

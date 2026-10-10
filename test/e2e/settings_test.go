@@ -155,7 +155,7 @@ func TestSettingsPermissionsValidationAuditAndSecrets(t *testing.T) {
 	}
 
 	// Secrets: sealed, never returned, never exported, audited without their value.
-	notif := map[string]any{"email_enabled": true, "smtp_host": "smtp.example.org", "from_address": "renovatio@example.org", "smtp_username": "mailer", "smtp_password": "hunter2-very-secret"}
+	notif := map[string]any{"email_enabled": true, "smtp_host": "smtp.example.org", "from_address": "current@example.org", "smtp_username": "mailer", "smtp_password": "hunter2-very-secret"}
 	st, d = op.do("PUT", "/api/v1/settings/sections/notifications", map[string]any{"revision": 0, "values": notif}, nil)
 	if st != 200 {
 		t.Fatalf("operator saving notifications: %d %v", st, d)
@@ -210,7 +210,7 @@ func TestSettingsPermissionsValidationAuditAndSecrets(t *testing.T) {
 		t.Fatalf("export: %d %s", status, body)
 	}
 	var doc map[string]any
-	if err := jsonUnmarshal(body, &doc); err != nil || doc["format"] != "renovatio-settings" {
+	if err := jsonUnmarshal(body, &doc); err != nil || doc["format"] != "current-settings" {
 		t.Fatalf("export format: %v", err)
 	}
 	doc["sections"].(map[string]any)["security"].(map[string]any)["lockout_threshold"] = 4
@@ -260,7 +260,7 @@ func TestAboutAndSupportBundleHaveNoSecrets(t *testing.T) {
 		t.Fatalf("operator bundle: %d", st)
 	}
 	st, a := h.do("GET", "/api/v1/settings/about", nil, nil)
-	if st != 200 || a["version"] == nil || a["database_migration"] == nil || a["license"] == nil {
+	if st != 200 || a["version"] == nil || a["database_migration"] == nil {
 		t.Fatalf("about: %d %v", st, a)
 	}
 	status, hdr, body := h.raw("GET", "/api/v1/settings/support-bundle", "", nil)
@@ -286,7 +286,7 @@ func TestAboutAndSupportBundleHaveNoSecrets(t *testing.T) {
 		}
 	}
 	text := all.String()
-	for _, secret := range []string{"hunter2", os.Getenv("RENOVATIO_MASTER_KEY"), "devpostgres", "smtp_password"} {
+	for _, secret := range []string{"hunter2", os.Getenv("CURRENT_MASTER_KEY"), "devpostgres", "smtp_password"} {
 		if secret != "" && strings.Contains(text, secret) {
 			t.Errorf("the bundle contains %q", secret)
 		}

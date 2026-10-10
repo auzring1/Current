@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Renovatio Management API
+  title: Current Management API
   version: 0.1.0
   description: |
-    REST API used by the Renovatio web console. Authentication is a server-side
-    session cookie (`__Host-rnv_session`) obtained via password + mandatory MFA.
+    REST API used by the Current web console. Authentication is a server-side
+    session cookie (`__Host-cur_session`) obtained via password + mandatory MFA.
     Every state-changing request must carry a same-origin `Origin` header and,
     once a session exists, the `X-CSRF-Token` header returned by the auth endpoints.
     Agent traffic does NOT use this API (see docs/PROTOCOL.md).
@@ -25,7 +25,6 @@ tags:
   - name: releases
   - name: identity
   - name: policies
-  - name: license
   - name: branding
   - name: settings
 paths:
@@ -241,7 +240,7 @@ paths:
   /devices/{id}/approve:
     post:
       tags: [devices]
-      summary: Approve a pending device (requires devices:write). 409 license_device_limit when the license device cap is reached (existing devices are unaffected)
+      summary: Approve a pending device (requires devices:write).
       parameters: [{ $ref: "#/components/parameters/ID" }]
       requestBody:
         content:
@@ -1070,8 +1069,8 @@ paths:
       tags: [releases]
       summary: Upload a vendor-signed agent release (requires releases:write; audited)
       description: >
-        The agent binary is the raw request body (application/octet-stream). The vendor bundle (.rnr, produced by
-        renovatio-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
+        The agent binary is the raw request body (application/octet-stream). The vendor bundle (.curr, produced by
+        current-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
         vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
       parameters:
         - { name: X-Release-Bundle, in: header, required: true, schema: { type: string } }
@@ -1346,7 +1345,7 @@ paths:
   /settings/about:
     get:
       tags: [settings]
-      summary: Version, build, database, license state and counts (administrators)
+      summary: Version, build, database and counts (administrators)
       responses:
         "200":
           description: OK
@@ -1358,7 +1357,7 @@ paths:
       tags: [settings]
       summary: A zip for support with configuration and settings but no secrets (administrators; audited)
       description: >
-        Contains version and build information, license state, counts, the server configuration with every secret
+        Contains version and build information, counts, the server configuration with every secret
         replaced, the settings export, the last audit entries without their details and the last notification
         deliveries without their content. Never contains keys, passwords, tokens, certificates or device data.
       responses:
@@ -1459,7 +1458,7 @@ paths:
         - { name: site, in: query, required: false, schema: { type: string, format: uuid }, description: Only this site (the console's site switcher) }
       description: >
         Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's
-        site scope; the license, held updates and the audit activity need organization-wide rights. The compliance
+        site scope; held updates and the audit activity need organization-wide rights. The compliance
         history is one point per day from an hourly snapshot (last 30 days).
       responses:
         "200":
@@ -1471,7 +1470,7 @@ paths:
   /notifications:
     get:
       tags: [reports]
-      summary: Things that need attention now (failed jobs in the last 24 hours, held updates, license warnings), limited to what the caller may see
+      summary: Things that need attention now (failed jobs in the last 24 hours and held updates), limited to what the caller may see
       responses:
         "200":
           description: OK
@@ -1712,55 +1711,6 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BrandingView" }
-  /license:
-    get:
-      tags: [license]
-      summary: The effective licensing state, the installed license and device usage (requires license:read)
-      description: >
-        Offline-verifiable license (no phone-home). State is licensed, grace (subscription ended, within 30 days),
-        evaluation (no usable license; limited to 25 devices) or invalid (an installed license cannot be used).
-        A license problem only blocks NEW enrollments and approvals.
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LicenseStatus" }
-    put:
-      tags: [license]
-      summary: Install a pasted license (requires license:write; audited as license.install / license.invalid)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [license]
-              properties:
-                license: { type: string, maxLength: 16384, description: "RNL1.<document>.<signature>; whitespace is ignored" }
-      responses:
-        "200":
-          description: Installed; the new state
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LicenseStatus" }
-        "409": { $ref: "#/components/responses/Error" }
-        "422": { $ref: "#/components/responses/Error" }
-  /license/history:
-    get:
-      tags: [license]
-      summary: Every license that was installed, newest first (requires license:read)
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/LicenseHistoryItem" } }
   /sites:
     get:
       tags: [identity]
@@ -2545,11 +2495,11 @@ components:
     session:
       type: apiKey
       in: cookie
-      name: __Host-rnv_session
+      name: __Host-cur_session
     apiToken:
       type: http
       scheme: bearer
-      description: An API token (rnt_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
+      description: An API token (cur_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
   parameters:
     AuditAction: { name: action, in: query, description: Action name prefix such as user. or deployment.create, schema: { type: string, maxLength: 100 } }
     AuditOutcome: { name: outcome, in: query, schema: { type: string, enum: [success, denied, error] } }
@@ -2702,7 +2652,7 @@ components:
       type: object
       required: [format, schema_version, sections]
       properties:
-        format: { type: string, enum: [renovatio-settings] }
+        format: { type: string, enum: [current-settings] }
         schema_version: { type: integer }
         exported_at: { type: string, format: date-time }
         sections: { type: object, additionalProperties: { type: object, additionalProperties: true } }
@@ -2710,7 +2660,7 @@ components:
       type: object
       properties:
         id: { type: string }
-        kind: { type: string, enum: [failed_job, held_update, license] }
+        kind: { type: string, enum: [failed_job, held_update] }
         severity: { type: string, enum: [info, warning, critical] }
         title: { type: string }
         detail: { type: string }
@@ -2732,15 +2682,6 @@ components:
         missing_critical_devices: { type: integer, nullable: true }
         failed_jobs_24h: { type: integer, nullable: true }
         held_updates: { type: integer, nullable: true }
-        license:
-          nullable: true
-          type: object
-          properties:
-            state: { type: string }
-            message: { type: string }
-            used: { type: integer }
-            max: { type: integer }
-            at_capacity: { type: boolean }
         compliance:
           nullable: true
           type: object
@@ -2794,7 +2735,7 @@ components:
       additionalProperties: false
       properties:
         org_name: { type: string, maxLength: 120 }
-        product_name: { type: string, maxLength: 60, description: "Empty = Renovatio" }
+        product_name: { type: string, maxLength: 60, description: "Empty = Current" }
         accent_color: { type: string, description: "#rrggbb; empty = default. Must reach 4.5:1 against white and 3:1 against the dark theme surface." }
         secondary_color: { type: string, description: "#rrggbb or empty; must reach 3:1 against both themes" }
         login_headline: { type: string, maxLength: 120 }
@@ -3007,52 +2948,6 @@ components:
         created_at: { type: string, format: date-time }
         devices_on: { type: integer, format: int64, description: Active devices currently running this version }
         is_target: { type: boolean }
-    LicenseInfo:
-      type: object
-      required: [license_id, licensee, issued_at, not_before, expires_at, max_devices, features, updates_until, notes, key_id, installed_at]
-      properties:
-        license_id: { type: string }
-        licensee: { type: string }
-        issued_at: { type: string, format: date-time }
-        not_before: { type: string, format: date-time }
-        expires_at: { type: string, format: date-time, nullable: true }
-        max_devices: { type: integer }
-        features: { type: array, items: { type: string } }
-        updates_until: { type: string, format: date-time, nullable: true }
-        notes: { type: string }
-        key_id: { type: string }
-        installed_at: { type: string, format: date-time }
-    LicenseStatus:
-      type: object
-      required: [state, message, configured, max_devices, devices, pending_devices, at_capacity, over_capacity, grace_ends_at, evaluation_max_devices, features, license, now]
-      properties:
-        state: { type: string, enum: [licensed, grace, evaluation, invalid] }
-        message: { type: string }
-        configured: { type: boolean, description: "false when this build contains no vendor license key" }
-        max_devices: { type: integer, description: "the cap that applies now" }
-        devices: { type: integer, description: "enrolled (active) devices" }
-        pending_devices: { type: integer }
-        at_capacity: { type: boolean, description: "no free slot: new enrollments and approvals are refused" }
-        over_capacity: { type: boolean }
-        grace_ends_at: { type: string, format: date-time, nullable: true }
-        evaluation_max_devices: { type: integer }
-        features: { type: array, items: { type: string } }
-        license: { allOf: [{ $ref: "#/components/schemas/LicenseInfo" }], nullable: true }
-        now: { type: string, format: date-time }
-    LicenseHistoryItem:
-      type: object
-      required: [id, license_id, licensee, max_devices, expires_at, updates_until, key_id, installed_at, installed_by, current]
-      properties:
-        id: { type: string, format: uuid }
-        license_id: { type: string }
-        licensee: { type: string }
-        max_devices: { type: integer }
-        expires_at: { type: string, format: date-time, nullable: true }
-        updates_until: { type: string, format: date-time, nullable: true }
-        key_id: { type: string }
-        installed_at: { type: string, format: date-time }
-        installed_by: { type: string }
-        current: { type: boolean }
     AgentRollout:
       type: object
       required: [release_id, pilot_group_ids, soak_hours, success_threshold, batch_per_tick, paused]

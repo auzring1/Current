@@ -8,6 +8,11 @@ description = "Known non-secrets"
 regexes = [
   # Throwaway admin password used only by tests/demos against ephemeral databases.
   '''Granite-Lantern-Pickle-42''',
-  # Prose in docs/PLAN.md ("Ed25519-signed license documents").
+  # A placeholder in internal/server/backup/cli_test.go: an "age secret key" made only of the letter Q, used to check that
+  # a malformed recipient is refused without being echoed back.
+  '''AGE-SECRET-KEY-1Q+''',
+  # The character set of generated temporary passwords (internal/server/api/admin.go), not a credential.
+  '''abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789''',
+  # Prose in older versions of docs/PLAN.md ("Ed25519-signed license documents").
   '''Ed25519-signed''',
 ]
