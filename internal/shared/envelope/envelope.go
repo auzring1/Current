@@ -114,7 +114,11 @@ func (v *Verifier) Open(se *agentv1.SignedEnvelope) (*agentv1.JobEnvelope, error
 		return nil, ErrUnknownKey
 	}
 	// 2. signature over the raw bytes, before parsing.
-	if !ed25519.Verify(pub, signedBytes(se.Payload), se.Signature) {
+	sb, err := signedBytes(se.Payload)
+	if err != nil { // cannot happen for a payload within MaxPayload (checked above); refuse rather than guess
+		return nil, ErrMalformed
+	}
+	if !ed25519.Verify(pub, sb, se.Signature) {
 		return nil, ErrBadSignature
 	}
 	// 3. parse + version/type.
