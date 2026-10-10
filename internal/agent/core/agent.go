@@ -12,7 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"log/slog"
 	"strconv"
@@ -27,15 +27,15 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/agent/config"
-	"github.com/auzring1/renovatio/internal/agent/hardware"
-	"github.com/auzring1/renovatio/internal/agent/inventory"
-	"github.com/auzring1/renovatio/internal/agent/jobs"
-	"github.com/auzring1/renovatio/internal/agent/keystore"
-	"github.com/auzring1/renovatio/internal/agent/store"
-	"github.com/auzring1/renovatio/internal/shared/envelope"
-	"github.com/auzring1/renovatio/internal/shared/pkix"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/agent/config"
+	"github.com/auzring1/current/internal/agent/hardware"
+	"github.com/auzring1/current/internal/agent/inventory"
+	"github.com/auzring1/current/internal/agent/jobs"
+	"github.com/auzring1/current/internal/agent/keystore"
+	"github.com/auzring1/current/internal/agent/store"
+	"github.com/auzring1/current/internal/shared/envelope"
+	"github.com/auzring1/current/internal/shared/pkix"
 )
 
 const (

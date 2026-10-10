@@ -104,7 +104,7 @@ export function DevicesPage() {
         header: "Connection",
         value: (d) => (d.status === "active" ? (d.online ? "online" : "offline") : ""),
         width: 130,
-        cell: (d) => (d.status === "active" ? <Status value={d.online ? "online" : "offline"} size="sm" /> : <span className="rnv-muted">—</span>),
+        cell: (d) => (d.status === "active" ? <Status value={d.online ? "online" : "offline"} size="sm" /> : <span className="cur-muted">—</span>),
         filter: {
           type: "select",
           options: [
@@ -122,14 +122,14 @@ export function DevicesPage() {
         cell: (d) => (
           <>
             {d.os_caption || "—"}
-            {d.os_build && <span className="rnv-dt__cell-sub rnv-mono">{d.os_build}</span>}
+            {d.os_build && <span className="cur-dt__cell-sub cur-mono">{d.os_build}</span>}
           </>
         ),
         filter: { type: "text" },
       },
       { id: "model", header: "Model", value: (d) => [d.manufacturer, d.model].filter(Boolean).join(" "), width: 190 },
       { id: "user", header: "User", value: (d) => d.logged_on_user ?? "", width: 140 },
-      { id: "software", header: "Software", value: (d) => d.software_count ?? 0, align: "right", width: 100, cell: (d) => <span className="rnv-num">{d.software_count || "—"}</span> },
+      { id: "software", header: "Software", value: (d) => d.software_count ?? 0, align: "right", width: 100, cell: (d) => <span className="cur-num">{d.software_count || "—"}</span> },
       {
         id: "seen",
         header: "Last seen",
@@ -138,7 +138,7 @@ export function DevicesPage() {
         cell: (d) => <span title={d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ""}>{d.online ? "now" : ago(d.last_seen_at)}</span>,
         csv: (d) => d.last_seen_at ?? "",
       },
-      { id: "agent", header: "Agent", value: (d) => d.agent_version ?? "", width: 110, cell: (d) => <span className="rnv-mono">{d.agent_version || "—"}</span>, filter: { type: "text" } },
+      { id: "agent", header: "Agent", value: (d) => d.agent_version ?? "", width: 110, cell: (d) => <span className="cur-mono">{d.agent_version || "—"}</span>, filter: { type: "text" } },
       {
         id: "restart",
         header: "Restart",
@@ -146,7 +146,7 @@ export function DevicesPage() {
         width: 110,
         defaultHidden: true,
         filter: { type: "select", options: [{ value: "pending", label: "Restart pending" }] },
-        cell: (d) => (d.pending_reboot ? "Pending" : <span className="rnv-muted">—</span>),
+        cell: (d) => (d.pending_reboot ? "Pending" : <span className="cur-muted">—</span>),
       },
     ],
     [namingRe],

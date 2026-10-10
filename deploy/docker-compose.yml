@@ -1,8 +1,8 @@
-# Renovatio production stack. See docs/RUNBOOK.md for installation.
+# Current production stack. See docs/RUNBOOK.md for installation.
 #   1. ./scripts/init-secrets.sh        (creates deploy/secrets/*)
-#   2. cp deploy/.env.example deploy/.env and edit RENOVATIO_HOSTNAME / RENOVATIO_CADDY_TLS
+#   2. cp deploy/.env.example deploy/.env and edit CURRENT_HOSTNAME / CURRENT_CADDY_TLS
 #   3. docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
-name: renovatio
+name: current
 
 x-hardening: &hardening
   security_opt:
@@ -24,18 +24,18 @@ services:
     depends_on:
       server: { condition: service_healthy }
     ports:
-      - "${RENOVATIO_HTTP_PORT:-80}:80"
-      - "${RENOVATIO_HTTPS_PORT:-443}:443"
-      - "${RENOVATIO_HTTPS_PORT:-443}:443/udp"
+      - "${CURRENT_HTTP_PORT:-80}:80"
+      - "${CURRENT_HTTPS_PORT:-443}:443"
+      - "${CURRENT_HTTPS_PORT:-443}:443/udp"
     environment:
-      RENOVATIO_HOSTNAME: ${RENOVATIO_HOSTNAME:?set RENOVATIO_HOSTNAME in deploy/.env}
-      RENOVATIO_CADDY_TLS: ${RENOVATIO_CADDY_TLS:-internal}
+      CURRENT_HOSTNAME: ${CURRENT_HOSTNAME:?set CURRENT_HOSTNAME in deploy/.env}
+      CURRENT_CADDY_TLS: ${CURRENT_CADDY_TLS:-internal}
       # Only used by Caddyfile.behind-proxy: the addresses whose X-Forwarded-For header Caddy believes.
-      RENOVATIO_UPSTREAM_PROXIES: ${RENOVATIO_UPSTREAM_PROXIES:-${RENOVATIO_FRONTEND_SUBNET:-172.31.250.0/24}}
+      CURRENT_UPSTREAM_PROXIES: ${CURRENT_UPSTREAM_PROXIES:-${CURRENT_FRONTEND_SUBNET:-172.31.250.0/24}}
     volumes:
-      # RENOVATIO_CADDYFILE=./Caddyfile.behind-proxy when your own reverse proxy (for example Synology DSM) does the
+      # CURRENT_CADDYFILE=./Caddyfile.behind-proxy when your own reverse proxy (for example Synology DSM) does the
       # browser TLS; see docs/RUNBOOK.md, "Behind your own reverse proxy".
-      - ${RENOVATIO_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ${CURRENT_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     read_only: true
@@ -45,12 +45,12 @@ services:
     networks:
       frontend:
         # Fixed address: the server trusts X-Forwarded-For only from this IP.
-        ipv4_address: ${RENOVATIO_CADDY_IP:-172.31.250.10}
+        ipv4_address: ${CURRENT_CADDY_IP:-172.31.250.10}
 
   server:
     <<: *hardening
     build: *server-build
-    image: renovatio/server:${RENOVATIO_VERSION:-dev}
+    image: current/server:${CURRENT_VERSION:-dev}
     depends_on:
       postgres: { condition: service_healthy }
       # Migrations run in the one-shot "maintenance" service, which alone holds the schema-owner
@@ -58,24 +58,24 @@ services:
       maintenance: { condition: service_completed_successfully }
     ports:
       # Agent gateway: mTLS terminated by the server itself (never proxied).
-      - "${RENOVATIO_GATEWAY_PORT:-8443}:8443"
+      - "${CURRENT_GATEWAY_PORT:-8443}:8443"
     environment:
-      RENOVATIO_PUBLIC_URL: https://${RENOVATIO_HOSTNAME}${RENOVATIO_PUBLIC_PORT_SUFFIX:-}
-      RENOVATIO_GATEWAY_PUBLIC_ADDR: ${RENOVATIO_GATEWAY_HOSTNAME:-${RENOVATIO_HOSTNAME}}:${RENOVATIO_GATEWAY_PORT:-8443}
-      RENOVATIO_GATEWAY_SANS: ${RENOVATIO_GATEWAY_SANS:-}
+      CURRENT_PUBLIC_URL: https://${CURRENT_HOSTNAME}${CURRENT_PUBLIC_PORT_SUFFIX:-}
+      CURRENT_GATEWAY_PUBLIC_ADDR: ${CURRENT_GATEWAY_HOSTNAME:-${CURRENT_HOSTNAME}}:${CURRENT_GATEWAY_PORT:-8443}
+      CURRENT_GATEWAY_SANS: ${CURRENT_GATEWAY_SANS:-}
       # Caddy, plus (behind your own reverse proxy only) the addresses of that proxy as Caddy sees them.
-      RENOVATIO_TRUSTED_PROXIES: ${RENOVATIO_CADDY_IP:-172.31.250.10}/32 ${RENOVATIO_UPSTREAM_PROXIES:-${RENOVATIO_CADDY_IP:-172.31.250.10}/32}
-      RENOVATIO_DATABASE_URL_FILE: /run/secrets/database_url
-      RENOVATIO_MIGRATE_ON_START: "false"
-      RENOVATIO_MASTER_KEY_FILE: /run/secrets/master_key
-      RENOVATIO_LOG_LEVEL: ${RENOVATIO_LOG_LEVEL:-info}
+      CURRENT_TRUSTED_PROXIES: ${CURRENT_CADDY_IP:-172.31.250.10}/32 ${CURRENT_UPSTREAM_PROXIES:-${CURRENT_CADDY_IP:-172.31.250.10}/32}
+      CURRENT_DATABASE_URL_FILE: /run/secrets/database_url
+      CURRENT_MIGRATE_ON_START: "false"
+      CURRENT_MASTER_KEY_FILE: /run/secrets/master_key
+      CURRENT_LOG_LEVEL: ${CURRENT_LOG_LEVEL:-info}
       # Uploaded (custom) installers; winget packages are never stored here.
-      RENOVATIO_CONTENT_DIR: /var/lib/renovatio/content
-      RENOVATIO_WINGET_SOURCE: ${RENOVATIO_WINGET_SOURCE:-github}
-      RENOVATIO_WINGET_INDEX_URL: ${RENOVATIO_WINGET_INDEX_URL:-}
-      RENOVATIO_RELEASE_PUBLIC_KEYS: ${RENOVATIO_RELEASE_PUBLIC_KEYS:-}
+      CURRENT_CONTENT_DIR: /var/lib/current/content
+      CURRENT_WINGET_SOURCE: ${CURRENT_WINGET_SOURCE:-github}
+      CURRENT_WINGET_INDEX_URL: ${CURRENT_WINGET_INDEX_URL:-}
+      CURRENT_RELEASE_PUBLIC_KEYS: ${CURRENT_RELEASE_PUBLIC_KEYS:-}
     volumes:
-      - content:/var/lib/renovatio/content
+      - content:/var/lib/current/content
     secrets: [database_url, master_key]
     read_only: true
     tmpfs: [/tmp]
@@ -83,7 +83,7 @@ services:
     user: "65532:65532"
     networks: [frontend, backend]
     healthcheck:
-      test: ["CMD", "/renovatio-server", "healthcheck"]
+      test: ["CMD", "/current-server", "healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -97,21 +97,21 @@ services:
       - no-new-privileges:true
     restart: "no"
     build: *server-build
-    image: renovatio/server:${RENOVATIO_VERSION:-dev}
+    image: current/server:${CURRENT_VERSION:-dev}
     command: ["migrate"]
     depends_on:
       postgres: { condition: service_healthy }
     environment:
       # Same configuration file parser as the server; these two are required by it.
-      RENOVATIO_PUBLIC_URL: https://${RENOVATIO_HOSTNAME}${RENOVATIO_PUBLIC_PORT_SUFFIX:-}
-      RENOVATIO_GATEWAY_PUBLIC_ADDR: ${RENOVATIO_GATEWAY_HOSTNAME:-${RENOVATIO_HOSTNAME}}:${RENOVATIO_GATEWAY_PORT:-8443}
-      RENOVATIO_DATABASE_URL_FILE: /run/secrets/database_url
-      RENOVATIO_MIGRATE_DATABASE_URL_FILE: /run/secrets/migrate_database_url
-      RENOVATIO_MASTER_KEY_FILE: /run/secrets/master_key
-      RENOVATIO_LOG_LEVEL: ${RENOVATIO_LOG_LEVEL:-info}
-      RENOVATIO_CONTENT_DIR: /var/lib/renovatio/content
+      CURRENT_PUBLIC_URL: https://${CURRENT_HOSTNAME}${CURRENT_PUBLIC_PORT_SUFFIX:-}
+      CURRENT_GATEWAY_PUBLIC_ADDR: ${CURRENT_GATEWAY_HOSTNAME:-${CURRENT_HOSTNAME}}:${CURRENT_GATEWAY_PORT:-8443}
+      CURRENT_DATABASE_URL_FILE: /run/secrets/database_url
+      CURRENT_MIGRATE_DATABASE_URL_FILE: /run/secrets/migrate_database_url
+      CURRENT_MASTER_KEY_FILE: /run/secrets/master_key
+      CURRENT_LOG_LEVEL: ${CURRENT_LOG_LEVEL:-info}
+      CURRENT_CONTENT_DIR: /var/lib/current/content
     volumes:
-      - content:/var/lib/renovatio/content
+      - content:/var/lib/current/content
     secrets: [database_url, migrate_database_url, master_key]
     read_only: true
     tmpfs: [/tmp]
@@ -124,10 +124,10 @@ services:
     image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     # No ports: reachable only from the server on the internal backend network.
     environment:
-      POSTGRES_DB: renovatio
+      POSTGRES_DB: current
       # The bootstrap superuser is used only by the init script (01-roles.sh), which creates the
-      # non-superuser schema owner renovatio_owner and the runtime role renovatio_app.
-      POSTGRES_USER: renovatio_admin
+      # non-superuser schema owner current_owner and the runtime role current_app.
+      POSTGRES_USER: current_admin
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
       # Network logins require SCRAM; the local socket is only reachable inside the container.
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
@@ -142,7 +142,7 @@ services:
     shm_size: 256m
     networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U renovatio_admin -d renovatio"]
+      test: ["CMD-SHELL", "pg_isready -U current_admin -d current"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -151,7 +151,7 @@ networks:
   frontend:
     ipam:
       config:
-        - subnet: ${RENOVATIO_FRONTEND_SUBNET:-172.31.250.0/24}
+        - subnet: ${CURRENT_FRONTEND_SUBNET:-172.31.250.0/24}
   backend:
     internal: true
 

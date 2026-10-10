@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// TestRealIndex reads a real source2.msix when RENOVATIO_WINGET_INDEX_FILE points at one (a manual check, not part of
+// TestRealIndex reads a real source2.msix when CURRENT_WINGET_INDEX_FILE points at one (a manual check, not part of
 // CI: the file is downloaded from Microsoft).
 func TestRealIndex(t *testing.T) {
-	path := os.Getenv("RENOVATIO_WINGET_INDEX_FILE")
+	path := os.Getenv("CURRENT_WINGET_INDEX_FILE")
 	if path == "" {
-		t.Skip("set RENOVATIO_WINGET_INDEX_FILE to a downloaded source2.msix")
+		t.Skip("set CURRENT_WINGET_INDEX_FILE to a downloaded source2.msix")
 	}
 	b, err := os.ReadFile(path) // #nosec G304 -- test input chosen by the developer
 	if err != nil {
@@ -39,9 +39,9 @@ func TestRealIndex(t *testing.T) {
 // TestRealIndexNormalizationAgrees checks the name normalization against the index itself: normalizing a package's own
 // name should give one of the normalized names the index lists for it, for nearly every package.
 func TestRealIndexNormalizationAgrees(t *testing.T) {
-	path := os.Getenv("RENOVATIO_WINGET_INDEX_FILE")
+	path := os.Getenv("CURRENT_WINGET_INDEX_FILE")
 	if path == "" {
-		t.Skip("set RENOVATIO_WINGET_INDEX_FILE to a downloaded source2.msix")
+		t.Skip("set CURRENT_WINGET_INDEX_FILE to a downloaded source2.msix")
 	}
 	b, err := os.ReadFile(path) // #nosec G304 -- test input chosen by the developer
 	if err != nil {

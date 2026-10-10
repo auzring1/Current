@@ -13,11 +13,11 @@ import "../components/dashboard/dashboard.css";
 function CardSkeleton() {
   return (
     <Card>
-      <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+      <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--cur-space-3)" }}>
         <Skel w="40%" h={16} />
         <Skel h={90} />
         <Skel w="70%" h={12} />
-        <span className="rnv-visually-hidden">Loading</span>
+        <span className="cur-visually-hidden">Loading</span>
       </div>
     </Card>
   );
@@ -74,7 +74,7 @@ export function DashboardPage() {
       {q.isLoading && (
         <>
           <TileSkeleton count={6} />
-          <div className="rnv-dash">
+          <div className="cur-dash">
             <CardSkeleton />
             <CardSkeleton />
           </div>
@@ -94,9 +94,9 @@ export function DashboardPage() {
         />
       )}
       {d && shown.length > 0 && (
-        <div className="rnv-dash">
+        <div className="cur-dash">
           {shown.map((id) => (
-            <div key={id} className={id === "tiles" ? "rnv-dash__full" : undefined}>
+            <div key={id} className={id === "tiles" ? "cur-dash__full" : undefined}>
               {render(id, d)}
             </div>
           ))}

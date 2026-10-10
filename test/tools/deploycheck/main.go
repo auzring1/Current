@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/current/internal/server/auth"
 )
 
 type api struct {
@@ -79,7 +79,7 @@ func main() {
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "")
 	totpFile := flag.String("totp-file", "", "file written by bootstrap -totp-out")
 	scenario := flag.String("scenario", "winget-7zip", "winget-7zip | winget | unsigned-pinned | agent-update")
-	relDir := flag.String("release-dir", "", "directory with renovatio-agent-<version>.exe/.rnr files (scenario agent-update)")
+	relDir := flag.String("release-dir", "", "directory with current-agent-<version>.exe/.curr files (scenario agent-update)")
 	goodVer := flag.String("good-version", "0.9.1", "release the agent must update to (scenario agent-update)")
 	badVer := flag.String("broken-version", "0.9.2", "release that never connects; the agent must roll back (scenario agent-update)")
 	pkgID := flag.String("package", "", "winget identifier (scenario winget)")
@@ -268,13 +268,13 @@ func unsignedPinned(a *api, device string) {
 	}
 }
 
-// uploadRelease sends <dir>/renovatio-agent-<v>.exe with its .rnr bundle and returns the release id.
+// uploadRelease sends <dir>/current-agent-<v>.exe with its .curr bundle and returns the release id.
 func uploadRelease(a *api, dir, v string) string {
-	bin, err := os.ReadFile(filepath.Join(dir, "renovatio-agent-"+v+".exe"))
+	bin, err := os.ReadFile(filepath.Join(dir, "current-agent-"+v+".exe"))
 	if err != nil {
 		fail("%v", err)
 	}
-	bundle, err := os.ReadFile(filepath.Join(dir, "renovatio-agent-"+v+".rnr"))
+	bundle, err := os.ReadFile(filepath.Join(dir, "current-agent-"+v+".curr"))
 	if err != nil {
 		fail("%v", err)
 	}

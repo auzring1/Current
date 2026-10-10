@@ -13,7 +13,7 @@ import type { SettingsField, Values } from "./types";
 function ThemeMock({ t }: { t: ThemeDef }) {
   const k = t.tokens;
   return (
-    <span className="rnv-set-theme__mock" style={{ background: k["bg"] }} aria-hidden="true">
+    <span className="cur-set-theme__mock" style={{ background: k["bg"] }} aria-hidden="true">
       <span style={{ background: k["surface"], borderRight: `1px solid ${k["border"]}` }} />
       <span>
         <i style={{ background: k["accent"], width: "55%" }} />
@@ -71,12 +71,12 @@ export function ThemePolicyCard() {
             Save theme choices
           </Button>
         ) : (
-          <span className="rnv-muted">Only administrators who may edit branding can change this.</span>
+          <span className="cur-muted">Only administrators who may edit branding can change this.</span>
         )
       }
     >
       {q.isLoading && editable ? (
-        <span className="rnv-muted">Loading…</span>
+        <span className="cur-muted">Loading…</span>
       ) : (
         <>
           {(problem || err) && (
@@ -85,14 +85,14 @@ export function ThemePolicyCard() {
             </Alert>
           )}
           <Radio.Group value={def === "" ? SYSTEM_THEME : def} onChange={(v) => setDef(v === SYSTEM_THEME ? "" : v)} label="Default for everyone" description="The theme people see before they choose one.">
-            <div className="rnv-set-themes" style={{ marginTop: 8 }}>
-              <div className="rnv-set-theme">
-                <span className="rnv-set-theme__mock" style={{ background: "linear-gradient(90deg, #ffffff 50%, #111827 50%)" }} aria-hidden="true" />
+            <div className="cur-set-themes" style={{ marginTop: 8 }}>
+              <div className="cur-set-theme">
+                <span className="cur-set-theme__mock" style={{ background: "linear-gradient(90deg, #ffffff 50%, #111827 50%)" }} aria-hidden="true" />
                 <Radio value={SYSTEM_THEME} label="Follow the device" disabled={!editable} />
-                <span className="rnv-muted">Light or dark, as the computer is set.</span>
+                <span className="cur-muted">Light or dark, as the computer is set.</span>
               </div>
               {THEMES.map((t) => (
-                <div className="rnv-set-theme" key={t.id}>
+                <div className="cur-set-theme" key={t.id}>
                   <ThemeMock t={t} />
                   <Radio value={t.id} label={t.name} disabled={!editable || !offered(t.id)} />
                   <Checkbox label="Offered to people" checked={offered(t.id)} onChange={(e) => toggle(t.id, e.currentTarget.checked)} disabled={!editable} />
@@ -194,7 +194,7 @@ export function EventReference() {
   const q = useQuery({ queryKey: ["settings", "events"], queryFn: () => api<{ events: EventDoc[]; signature: string }>("GET", "/settings/events"), staleTime: 10 * 60_000 });
   return (
     <Card title="Webhook reference" description="Each delivery is a JSON POST. Respond with any 2xx status; anything else is retried a few times with a growing delay.">
-      {q.isLoading && <span className="rnv-muted">Loading…</span>}
+      {q.isLoading && <span className="cur-muted">Loading…</span>}
       {q.data && (
         <div style={{ display: "grid", gap: 16 }}>
           <p style={{ margin: 0 }}>
@@ -205,13 +205,13 @@ export function EventReference() {
           </p>
           {q.data.events.map((e) => (
             <section key={e.event} aria-label={`Event ${e.event}`}>
-              <h3 style={{ margin: "0 0 4px", fontSize: "var(--rnv-text-md)" }}>
+              <h3 style={{ margin: "0 0 4px", fontSize: "var(--cur-text-md)" }}>
                 <code>{e.event}</code>
               </h3>
-              <p style={{ margin: "0 0 6px" }} className="rnv-muted">
+              <p style={{ margin: "0 0 6px" }} className="cur-muted">
                 {e.when}
               </p>
-              <pre className="rnv-code" tabIndex={0} aria-label={`Example payload of ${e.event}`}>
+              <pre className="cur-code" tabIndex={0} aria-label={`Example payload of ${e.event}`}>
                 {JSON.stringify(e.payload, null, 2)}
               </pre>
             </section>
@@ -235,7 +235,7 @@ export function WebhookTest({ field, item }: { field: SettingsField; item: Value
   return (
     <>
       {msg && (
-        <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "rnv-muted" : "rnv-set-bad"} style={{ alignSelf: "center", marginRight: "auto" }}>
+        <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "cur-muted" : "cur-set-bad"} style={{ alignSelf: "center", marginRight: "auto" }}>
           {msg.text}
         </span>
       )}
@@ -267,7 +267,7 @@ export function ReportSendNow({ field, item }: { field: SettingsField; item: Val
   return (
     <>
       {msg && (
-        <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "rnv-muted" : "rnv-set-bad"} style={{ alignSelf: "center", marginRight: "auto" }}>
+        <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "cur-muted" : "cur-set-bad"} style={{ alignSelf: "center", marginRight: "auto" }}>
           {msg.text}
         </span>
       )}
@@ -357,18 +357,18 @@ export function DataStatusCard() {
   });
   const d = q.data;
   const row = (label: string, value: string, hint?: string) => (
-    <div key={label} className="rnv-kv-row">
+    <div key={label} className="cur-kv-row">
       <dt>{label}</dt>
       <dd>
         {value}
-        {hint && <span className="rnv-muted"> {hint}</span>}
+        {hint && <span className="cur-muted"> {hint}</span>}
       </dd>
     </div>
   );
   return (
     <Card
       title="Backup, exports and history"
-      description="Backups are made on the server with the renovatio-server backup command (see the runbook), so the last one is read from the audit log. Save the retention limits above, then use Apply now instead of waiting for the daily run."
+      description="Backups are made on the server with the current-server backup command (see the runbook), so the last one is read from the audit log. Save the retention limits above, then use Apply now instead of waiting for the daily run."
       footer={
         <Button onClick={() => run.mutate()} loading={run.isPending} variant="default" leftSection={<Icons.Trash size={16} aria-hidden />}>
           Apply the limits now
@@ -376,10 +376,10 @@ export function DataStatusCard() {
       }
     >
       {q.isLoading ? (
-        <span className="rnv-muted">Loading…</span>
+        <span className="cur-muted">Loading…</span>
       ) : (
-        <dl className="rnv-kv" aria-label="Backup and history status">
-          {row("Last backup", d?.backup ? `${dateTime(d.backup.at)}${d.backup.details?.bytes ? `, ${mb(d.backup.details.bytes)}` : ""}` : "None recorded", d?.backup ? undefined : "Run renovatio-server backup, and schedule it.")}
+        <dl className="cur-kv" aria-label="Backup and history status">
+          {row("Last backup", d?.backup ? `${dateTime(d.backup.at)}${d.backup.details?.bytes ? `, ${mb(d.backup.details.bytes)}` : ""}` : "None recorded", d?.backup ? undefined : "Run current-server backup, and schedule it.")}
           {row("Last settings export", d?.settings_export ? dateTime(d.settings_export.at) : "Never")}
           {row("Last report export", d?.inventory_export ? dateTime(d.inventory_export.at) : "Never")}
           {row("Last clean-up that removed something", d?.retention ? dateTime(d.retention.at) : "Never")}

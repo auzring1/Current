@@ -10,7 +10,7 @@ import "context"
 // it waits for those locks. Unbounded, a burst of enrolling devices occupied the entire connection
 // pool and the mTLS handshakes of already enrolled devices (which look the device up in the database)
 // timed out, which looked like a connection failure to every agent and made them retry (found by
-// cmd/renovatio-loadsim with 10,000 agents).
+// cmd/current-loadsim with 10,000 agents).
 type gate chan struct{}
 
 func newGate(n int) gate { return make(gate, n) }

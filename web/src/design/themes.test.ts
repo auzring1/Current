@@ -63,7 +63,7 @@ describe("themes", () => {
   }
 
   it("a new theme is just a file: parsing one needs nothing else", () => {
-    const t = parseTheme("sunrise", ':root[data-theme="sunrise"] { --rnv-theme-name: "Sunrise"; --rnv-scheme: light; --rnv-theme-order: 60; --rnv-bg: #ffffff; }');
+    const t = parseTheme("sunrise", ':root[data-theme="sunrise"] { --cur-theme-name: "Sunrise"; --cur-scheme: light; --cur-theme-order: 60; --cur-bg: #ffffff; }');
     expect(t).toMatchObject({ id: "sunrise", name: "Sunrise", scheme: "light", order: 60 });
     expect(t.tokens["bg"]).toBe("#ffffff");
   });
@@ -125,7 +125,7 @@ describe("theme-init.js (runs before first paint) agrees with resolveTheme", () 
   const run = (o: { choice?: string; org?: object; dark?: boolean; known?: string[]; density?: string }) => {
     const attrs: Record<string, string> = {};
     const known = o.known ?? THEMES.map((t) => t.id);
-    const store: Record<string, string> = { ...(o.choice ? { "rnv-theme": o.choice } : {}), ...(o.density ? { "rnv-density": o.density } : {}) };
+    const store: Record<string, string> = { ...(o.choice ? { "cur-theme": o.choice } : {}), ...(o.density ? { "cur-density": o.density } : {}) };
     const root = {
       setAttribute: (k: string, v: string) => void (attrs[k] = v),
       __theme: () => attrs["data-theme"],

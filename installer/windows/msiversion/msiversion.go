@@ -17,7 +17,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/auzring1/renovatio/internal/shared/version"
+	"github.com/auzring1/current/internal/shared/version"
 )
 
 var semver = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)

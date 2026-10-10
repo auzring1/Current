@@ -136,10 +136,10 @@ CREATE UNIQUE INDEX wu_holds_open ON wu_holds (org_id, update_id, ring_id) WHERE
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             wu_updates, device_updates, wu_approvals, wu_rules, wu_rings, wu_attempts, wu_holds
-        TO renovatio_app;
+        TO current_app;
     END IF;
 END
 $$;

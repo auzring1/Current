@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Renovatio Management API
+  title: Current Management API
   version: 0.1.0
   description: |
-    REST API used by the Renovatio web console. Authentication is a server-side
-    session cookie (`__Host-rnv_session`) obtained via password + mandatory MFA.
+    REST API used by the Current web console. Authentication is a server-side
+    session cookie (`__Host-cur_session`) obtained via password + mandatory MFA.
     Every state-changing request must carry a same-origin `Origin` header and,
     once a session exists, the `X-CSRF-Token` header returned by the auth endpoints.
     Agent traffic does NOT use this API (see docs/PROTOCOL.md).
@@ -1069,8 +1069,8 @@ paths:
       tags: [releases]
       summary: Upload a vendor-signed agent release (requires releases:write; audited)
       description: >
-        The agent binary is the raw request body (application/octet-stream). The vendor bundle (.rnr, produced by
-        renovatio-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
+        The agent binary is the raw request body (application/octet-stream). The vendor bundle (.curr, produced by
+        current-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the
         vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
       parameters:
         - { name: X-Release-Bundle, in: header, required: true, schema: { type: string } }
@@ -2495,11 +2495,11 @@ components:
     session:
       type: apiKey
       in: cookie
-      name: __Host-rnv_session
+      name: __Host-cur_session
     apiToken:
       type: http
       scheme: bearer
-      description: An API token (rnt_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
+      description: An API token (cur_...) created under Account security. Its power is its scopes intersected with its owner's current permissions.
   parameters:
     AuditAction: { name: action, in: query, description: Action name prefix such as user. or deployment.create, schema: { type: string, maxLength: 100 } }
     AuditOutcome: { name: outcome, in: query, schema: { type: string, enum: [success, denied, error] } }
@@ -2652,7 +2652,7 @@ components:
       type: object
       required: [format, schema_version, sections]
       properties:
-        format: { type: string, enum: [renovatio-settings] }
+        format: { type: string, enum: [current-settings] }
         schema_version: { type: integer }
         exported_at: { type: string, format: date-time }
         sections: { type: object, additionalProperties: { type: object, additionalProperties: true } }
@@ -2735,7 +2735,7 @@ components:
       additionalProperties: false
       properties:
         org_name: { type: string, maxLength: 120 }
-        product_name: { type: string, maxLength: 60, description: "Empty = Renovatio" }
+        product_name: { type: string, maxLength: 60, description: "Empty = Current" }
         accent_color: { type: string, description: "#rrggbb; empty = default. Must reach 4.5:1 against white and 3:1 against the dark theme surface." }
         secondary_color: { type: string, description: "#rrggbb or empty; must reach 3:1 against both themes" }
         login_headline: { type: string, maxLength: 120 }

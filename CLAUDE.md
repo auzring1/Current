@@ -1,4 +1,4 @@
-# Renovatio: notes for Claude Code sessions
+# Current: notes for Claude Code sessions
 
 Open source under the GNU AGPL-3.0 (D100). There is no licensing system, no device cap and no telemetry. The README, `CONTRIBUTING.md`,
 `SECURITY.md` and `TRADEMARKS.md` are written for the public: keep real names, hosts and addresses out of the repository.
@@ -15,15 +15,15 @@ audit. Start with `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (late
 - This checkout is a development copy. Its `deploy/.env` and `deploy/secrets` are its own. Never copy production secrets
   here, and never regenerate a production master key (it makes the database unreadable).
 - Changes reach production by rebuilding the server image. A server-only change needs no new agent release; an agent
-  change does (upload a new signed `.rnr` under Agent releases).
+  change does (upload a new signed `.curr` under Agent releases).
 
 ## Commands
 - Tests need PostgreSQL: `make dev-db` (port 55432), then
-  `RENOVATIO_TEST_PG_URL=postgres://postgres:...@127.0.0.1:55432/postgres?sslmode=disable go test ./...`
-  (`RENOVATIO_REQUIRE_DB=1` makes missing-DB a failure instead of a skip).
+  `CURRENT_TEST_PG_URL=postgres://postgres:...@127.0.0.1:55432/postgres?sslmode=disable go test ./...`
+  (`CURRENT_REQUIRE_DB=1` makes missing-DB a failure instead of a skip).
 - Console: `cd web && npx tsc --noEmit && npx vitest run`. Browser end-to-end: `scripts/gui-e2e.sh` (about 3 minutes).
 - Generated code: `make generate` (protobuf, sqlc, `npm run gen:api` TypeScript types). Commit the generated files.
-- Windows agent: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o renovatio-agent.exe ./cmd/renovatio-agent`.
+- Windows agent: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.
 - On Windows use Git Bash for the `.sh` scripts (`& "C:\Program Files\Git\bin\bash.exe" scripts/init-secrets.sh`);
   plain `bash` may resolve to WSL.
 

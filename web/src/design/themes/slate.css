@@ -1,50 +1,50 @@
 /* Theme "Slate" (light). One file is one theme: add a file like this one and it appears in the picker.
    Every pair below is checked against WCAG AA by src/design/themes.test.ts. */
 :root[data-theme="slate"] {
-  --rnv-theme-name: "Slate";
-  --rnv-scheme: light;
-  --rnv-theme-order: 20;
+  --cur-theme-name: "Slate";
+  --cur-scheme: light;
+  --cur-theme-order: 20;
 
   /* Surfaces */
-  --rnv-bg: #e7ebf1;
-  --rnv-surface: #f4f6f9;
-  --rnv-surface-raised: #fafbfc;
-  --rnv-surface-sunken: #dde3eb;
-  --rnv-surface-hover: #e9edf3;
-  --rnv-surface-selected: #d5e3f5;
+  --cur-bg: #e7ebf1;
+  --cur-surface: #f4f6f9;
+  --cur-surface-raised: #fafbfc;
+  --cur-surface-sunken: #dde3eb;
+  --cur-surface-hover: #e9edf3;
+  --cur-surface-selected: #d5e3f5;
 
   /* Text */
-  --rnv-text: #1b2430;
-  --rnv-text-muted: #43506a;
+  --cur-text: #1b2430;
+  --cur-text-muted: #43506a;
 
   /* Borders and focus */
-  --rnv-border: #cdd5e0;
-  --rnv-border-strong: #667389;
-  --rnv-focus: #0b57d0;
+  --cur-border: #cdd5e0;
+  --cur-border-strong: #667389;
+  --cur-focus: #0b57d0;
 
   /* Accent (defaults; the branding accent is layered on top at runtime, see accent.ts) */
-  --rnv-accent: #2563a8;
-  --rnv-on-accent: #ffffff;
-  --rnv-accent-text: #1b4f8c;
-  --rnv-accent-subtle: #d5e3f5;
-  --rnv-accent-subtle-text: #1b4f8c;
-  --rnv-accent-border: #8fb3de;
+  --cur-accent: #2563a8;
+  --cur-on-accent: #ffffff;
+  --cur-accent-text: #1b4f8c;
+  --cur-accent-subtle: #d5e3f5;
+  --cur-accent-subtle-text: #1b4f8c;
+  --cur-accent-border: #8fb3de;
 
   /* Fill text and shadow */
-  --rnv-on-solid: #ffffff;
-  --rnv-shadow-rgb: 27 36 48;
+  --cur-on-solid: #ffffff;
+  --cur-shadow-rgb: 27 36 48;
 
   /* Status and severity: fg = text/icon, bg = pill tint, border, solid = fill for bars and dots */
-  --rnv-success-fg: #116329; --rnv-success-bg: #e2f4e7; --rnv-success-border: #9ad2aa; --rnv-success-solid: #1e7a34;
-  --rnv-warning-fg: #7a4600; --rnv-warning-bg: #fff0d1; --rnv-warning-border: #efc16a; --rnv-warning-solid: #9a5700;
-  --rnv-danger-fg: #a31d24; --rnv-danger-bg: #fde6e7; --rnv-danger-border: #f1a3a7; --rnv-danger-solid: #c92a2a;
-  --rnv-info-fg: #0d5aa7; --rnv-info-bg: #e3f0fc; --rnv-info-border: #9bc7ee; --rnv-info-solid: #1c6ec0;
-  --rnv-neutral-fg: #364152; --rnv-neutral-bg: #e8ecf1; --rnv-neutral-border: #bfc7d2; --rnv-neutral-solid: #5b6676;
-  --rnv-critical-fg: #8f1017; --rnv-critical-bg: #fbe0e2; --rnv-critical-border: #ee9aa0; --rnv-critical-solid: #b3141c;
-  --rnv-important-fg: #8a3900; --rnv-important-bg: #ffe8d4; --rnv-important-border: #f0b184; --rnv-important-solid: #b34700;
-  --rnv-moderate-fg: #665000; --rnv-moderate-bg: #fdf3c4; --rnv-moderate-border: #e3cd5c; --rnv-moderate-solid: #7d6200;
-  --rnv-low-fg: #1f4f8f; --rnv-low-bg: #e4edf9; --rnv-low-border: #a9c3e6; --rnv-low-solid: #2f65a8;
+  --cur-success-fg: #116329; --cur-success-bg: #e2f4e7; --cur-success-border: #9ad2aa; --cur-success-solid: #1e7a34;
+  --cur-warning-fg: #7a4600; --cur-warning-bg: #fff0d1; --cur-warning-border: #efc16a; --cur-warning-solid: #9a5700;
+  --cur-danger-fg: #a31d24; --cur-danger-bg: #fde6e7; --cur-danger-border: #f1a3a7; --cur-danger-solid: #c92a2a;
+  --cur-info-fg: #0d5aa7; --cur-info-bg: #e3f0fc; --cur-info-border: #9bc7ee; --cur-info-solid: #1c6ec0;
+  --cur-neutral-fg: #364152; --cur-neutral-bg: #e8ecf1; --cur-neutral-border: #bfc7d2; --cur-neutral-solid: #5b6676;
+  --cur-critical-fg: #8f1017; --cur-critical-bg: #fbe0e2; --cur-critical-border: #ee9aa0; --cur-critical-solid: #b3141c;
+  --cur-important-fg: #8a3900; --cur-important-bg: #ffe8d4; --cur-important-border: #f0b184; --cur-important-solid: #b34700;
+  --cur-moderate-fg: #665000; --cur-moderate-bg: #fdf3c4; --cur-moderate-border: #e3cd5c; --cur-moderate-solid: #7d6200;
+  --cur-low-fg: #1f4f8f; --cur-low-bg: #e4edf9; --cur-low-border: #a9c3e6; --cur-low-solid: #2f65a8;
 
   /* Chart series */
-  --rnv-chart-1: #1f64ad; --rnv-chart-2: #b8400b; --rnv-chart-3: #2b7a3b; --rnv-chart-4: #6a43bd; --rnv-chart-5: #0b6b7d; --rnv-chart-6: #98166f;
+  --cur-chart-1: #1f64ad; --cur-chart-2: #b8400b; --cur-chart-3: #2b7a3b; --cur-chart-4: #6a43bd; --cur-chart-5: #0b6b7d; --cur-chart-6: #98166f;
 }

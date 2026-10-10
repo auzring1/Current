@@ -29,7 +29,7 @@ interface PillProps {
 export function StatusPill({ kind, children, icon, size = "md", title }: PillProps) {
   const Icon = icon === null ? null : (icon ?? ICONS[kind]);
   return (
-    <span className={`rnv-pill rnv-pill--${kind} rnv-pill--${size}`} title={title} data-kind={kind}>
+    <span className={`cur-pill cur-pill--${kind} cur-pill--${size}`} title={title} data-kind={kind}>
       {Icon && <Icon size={size === "sm" ? 12 : 14} stroke={2.25} aria-hidden="true" />}
       <span>{children}</span>
     </span>

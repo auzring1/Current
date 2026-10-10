@@ -5,7 +5,7 @@ package install
 import (
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,10 +17,10 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
-	"github.com/auzring1/renovatio/internal/agent/config"
-	"github.com/auzring1/renovatio/internal/agent/core"
-	"github.com/auzring1/renovatio/internal/agent/keystore"
-	"github.com/auzring1/renovatio/internal/agent/store"
+	"github.com/auzring1/current/internal/agent/config"
+	"github.com/auzring1/current/internal/agent/core"
+	"github.com/auzring1/current/internal/agent/keystore"
+	"github.com/auzring1/current/internal/agent/store"
 )
 
 // Protected DACLs (no inheritance from parents):
@@ -69,7 +69,7 @@ func Install(o Options) error {
 	defer func() { _ = m.Disconnect() }()
 	if s, err := m.OpenService(ServiceName); err == nil {
 		_ = s.Close()
-		return errors.New("the agent is already installed; run `renovatio-agent uninstall` first")
+		return errors.New("the agent is already installed; run `current-agent uninstall` first")
 	}
 
 	dataDir := DataDir()

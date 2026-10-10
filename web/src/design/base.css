@@ -1,49 +1,49 @@
 /* Global element styles built on the tokens. */
 :root {
-  color-scheme: var(--rnv-scheme, light);
-  font-family: var(--rnv-font-sans);
+  color-scheme: var(--cur-scheme, light);
+  font-family: var(--cur-font-sans);
   font-feature-settings: "cv11", "ss01"; /* Inter: single-storey a, open digits */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 html body {
-  background: var(--rnv-bg);
-  color: var(--rnv-text);
-  font-family: var(--rnv-font-sans);
-  font-size: var(--rnv-text-md);
-  line-height: var(--rnv-leading-normal);
+  background: var(--cur-bg);
+  color: var(--cur-text);
+  font-family: var(--cur-font-sans);
+  font-size: var(--cur-text-md);
+  line-height: var(--cur-leading-normal);
   margin: 0;
 }
 
-code, kbd, samp, pre { font-family: var(--rnv-font-mono); }
-::selection { background: var(--rnv-accent-subtle); color: var(--rnv-accent-subtle-text); }
+code, kbd, samp, pre { font-family: var(--cur-font-mono); }
+::selection { background: var(--cur-accent-subtle); color: var(--cur-accent-subtle-text); }
 
 /* Visible keyboard focus everywhere, in every theme. */
 :where(a, button, input, select, textarea, summary, [tabindex], [role="button"], [role="tab"], [role="menuitem"], [role="option"]):focus-visible,
 .mantine-focus-auto:focus-visible,
 .mantine-focus-always:focus {
-  outline: 2px solid var(--rnv-focus);
+  outline: 2px solid var(--cur-focus);
   outline-offset: 2px;
-  border-radius: var(--rnv-radius-sm);
+  border-radius: var(--cur-radius-sm);
 }
 :where(input, select, textarea):focus-visible { outline-offset: 0; }
 
 /* Thin themed scrollbars. */
-* { scrollbar-width: thin; scrollbar-color: var(--rnv-border-strong) transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--cur-border-strong) transparent; }
 
-.rnv-visually-hidden {
+.cur-visually-hidden {
   position: absolute !important;
   width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-.rnv-skip-link {
-  position: absolute; left: var(--rnv-space-3); top: -48px; z-index: calc(var(--rnv-z-overlay) + 10);
-  background: var(--rnv-accent); color: var(--rnv-on-accent); padding: var(--rnv-space-2) var(--rnv-space-4);
-  border-radius: var(--rnv-radius-md); font-weight: var(--rnv-weight-semibold);
-  transition: top var(--rnv-motion-fast) var(--rnv-ease);
+.cur-skip-link {
+  position: absolute; left: var(--cur-space-3); top: -48px; z-index: calc(var(--cur-z-overlay) + 10);
+  background: var(--cur-accent); color: var(--cur-on-accent); padding: var(--cur-space-2) var(--cur-space-4);
+  border-radius: var(--cur-radius-md); font-weight: var(--cur-weight-semibold);
+  transition: top var(--cur-motion-fast) var(--cur-ease);
 }
-.rnv-skip-link:focus { top: var(--rnv-space-3); }
+.cur-skip-link:focus { top: var(--cur-space-3); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

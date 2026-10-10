@@ -108,11 +108,11 @@ export function DevicePage() {
       {q.error && <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>{errorMessage(q.error)}</Alert>}
       {d && (
         <>
-          <div role="group" aria-label="Device status" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--rnv-space-2) var(--rnv-space-3)" }}>
+          <div role="group" aria-label="Device status" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cur-space-2) var(--cur-space-3)" }}>
             {d.status === "active" && <Status value={d.online ? "online" : "offline"} />}
             <Status value={d.status} />
             {d.pending_reboot && <StatusPill kind="warning" icon={Icons.Restart}>Restart pending</StatusPill>}
-            <span className="rnv-muted" style={{ fontSize: "var(--rnv-text-sm)" }}>
+            <span className="cur-muted" style={{ fontSize: "var(--cur-text-sm)" }}>
               {d.online ? "Connected now" : d.last_seen_at ? `Last seen ${ago(d.last_seen_at)}` : "Never seen"}
             </span>
           </div>
@@ -127,7 +127,7 @@ export function DevicePage() {
             </Alert>
           )}
           <Card flush>
-            <Tabs value={tab} onChange={(v) => v && selectTab(resolveDeviceTab(v, access))} keepMounted={false} style={{ padding: "var(--rnv-space-2) var(--rnv-space-4) var(--rnv-space-4)" }}>
+            <Tabs value={tab} onChange={(v) => v && selectTab(resolveDeviceTab(v, access))} keepMounted={false} style={{ padding: "var(--cur-space-2) var(--cur-space-4) var(--cur-space-4)" }}>
               <Tabs.List>
                 <Tabs.Tab value="overview">Overview</Tabs.Tab>
                 <Tabs.Tab value="hardware">Hardware</Tabs.Tab>

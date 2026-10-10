@@ -27,12 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/agent/core"
-	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/current/internal/agent/core"
+	"github.com/auzring1/current/internal/server/auth"
 )
 
 const (
-	project   = "renovatio-it"
+	project   = "current-it"
 	httpsPort = "28443"
 	gwPort    = "28444"
 	origin    = "https://localhost:" + httpsPort
@@ -91,9 +91,9 @@ func up(t *testing.T) *stack {
 	run(t, dir, "bash", "scripts/init-secrets.sh")
 	run(t, dir, "mv", "deploy/secrets", "secrets")
 	env := strings.Join([]string{
-		"RENOVATIO_HOSTNAME=localhost", "RENOVATIO_CADDY_TLS=internal", "RENOVATIO_HTTP_PORT=28080", "RENOVATIO_HTTPS_PORT=" + httpsPort,
-		"RENOVATIO_PUBLIC_PORT_SUFFIX=:" + httpsPort, "RENOVATIO_GATEWAY_PORT=" + gwPort, "RENOVATIO_FRONTEND_SUBNET=172.31.251.0/24",
-		"RENOVATIO_CADDY_IP=172.31.251.10",
+		"CURRENT_HOSTNAME=localhost", "CURRENT_CADDY_TLS=internal", "CURRENT_HTTP_PORT=28080", "CURRENT_HTTPS_PORT=" + httpsPort,
+		"CURRENT_PUBLIC_PORT_SUFFIX=:" + httpsPort, "CURRENT_GATEWAY_PORT=" + gwPort, "CURRENT_FRONTEND_SUBNET=172.31.251.0/24",
+		"CURRENT_CADDY_IP=172.31.251.10",
 	}, "\n") + "\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o644); err != nil {
 		t.Fatal(err)
@@ -265,8 +265,8 @@ func TestComposeStack(t *testing.T) {
 	enrollment := b["enrollment_string"].(string)
 
 	// --- A real agent process enrolls through the published gateway port ---
-	agentBin := filepath.Join(s.dir, "renovatio-agent")
-	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/renovatio-agent")
+	agentBin := filepath.Join(s.dir, "current-agent")
+	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/current-agent")
 	agentDir := filepath.Join(s.dir, "agent")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -351,7 +351,7 @@ func TestComposeStack(t *testing.T) {
 	}
 
 	// --- Audit chain verifies with the admin CLI inside the container ---
-	out := s.compose("exec", "-T", "server", "/renovatio-server", "admin", "verify-audit")
+	out := s.compose("exec", "-T", "server", "/current-server", "admin", "verify-audit")
 	if !strings.Contains(out, "audit chain intact") {
 		t.Fatalf("verify-audit: %s", out)
 	}

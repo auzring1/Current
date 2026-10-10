@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/server/notify"
+	"github.com/auzring1/current/internal/server/notify"
 )
 
 type fakeMailer struct {
@@ -66,7 +66,7 @@ func TestNotificationRulesDeliveryQuietHoursAndRetries(t *testing.T) {
 	rules := d["values"].(map[string]any)["rules"].([]any)
 	r0 := rules[0].(map[string]any)
 	r0["enabled"], r0["recipients"] = true, []any{"oncall@example.org"}
-	vals := map[string]any{"email_enabled": true, "smtp_host": "smtp.example.org", "from_address": "renovatio@example.org", "rules": rules}
+	vals := map[string]any{"email_enabled": true, "smtp_host": "smtp.example.org", "from_address": "current@example.org", "rules": rules}
 	if st, b := h.do("PUT", "/api/v1/settings/sections/notifications", map[string]any{"revision": 0, "values": vals}, nil); st != 200 {
 		t.Fatalf("rules: %d %v", st, b)
 	}
@@ -82,9 +82,9 @@ func TestNotificationRulesDeliveryQuietHoursAndRetries(t *testing.T) {
 		t.Fatalf("webhook posts: %d", len(poster.posts))
 	}
 	p := poster.posts[0]
-	sig := p.headers["X-Renovatio-Signature"]
-	ts := p.headers["X-Renovatio-Timestamp"]
-	if sig == "" || p.headers["X-Renovatio-Event"] != "failed_install" || !strings.HasPrefix(sig, "sha256=") {
+	sig := p.headers["X-Current-Signature"]
+	ts := p.headers["X-Current-Timestamp"]
+	if sig == "" || p.headers["X-Current-Event"] != "failed_install" || !strings.HasPrefix(sig, "sha256=") {
 		t.Fatalf("headers: %v", p.headers)
 	}
 	var tsn int64

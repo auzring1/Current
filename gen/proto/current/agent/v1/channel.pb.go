@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: renovatio/agent/v1/channel.proto
+// source: current/agent/v1/channel.proto
 
 package agentv1
 
@@ -72,11 +72,11 @@ func (x SecurityEventKind) String() string {
 }
 
 func (SecurityEventKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_channel_proto_enumTypes[0].Descriptor()
+	return file_current_agent_v1_channel_proto_enumTypes[0].Descriptor()
 }
 
 func (SecurityEventKind) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_channel_proto_enumTypes[0]
+	return &file_current_agent_v1_channel_proto_enumTypes[0]
 }
 
 func (x SecurityEventKind) Number() protoreflect.EnumNumber {
@@ -85,7 +85,7 @@ func (x SecurityEventKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SecurityEventKind.Descriptor instead.
 func (SecurityEventKind) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{0}
 }
 
 // JobState is the agent-side lifecycle (docs/ARCHITECTURE.md §5).
@@ -143,11 +143,11 @@ func (x JobState) String() string {
 }
 
 func (JobState) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_channel_proto_enumTypes[1].Descriptor()
+	return file_current_agent_v1_channel_proto_enumTypes[1].Descriptor()
 }
 
 func (JobState) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_channel_proto_enumTypes[1]
+	return &file_current_agent_v1_channel_proto_enumTypes[1]
 }
 
 func (x JobState) Number() protoreflect.EnumNumber {
@@ -156,7 +156,7 @@ func (x JobState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use JobState.Descriptor instead.
 func (JobState) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{1}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{1}
 }
 
 type WuResult int32
@@ -201,11 +201,11 @@ func (x WuResult) String() string {
 }
 
 func (WuResult) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_channel_proto_enumTypes[2].Descriptor()
+	return file_current_agent_v1_channel_proto_enumTypes[2].Descriptor()
 }
 
 func (WuResult) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_channel_proto_enumTypes[2]
+	return &file_current_agent_v1_channel_proto_enumTypes[2]
 }
 
 func (x WuResult) Number() protoreflect.EnumNumber {
@@ -214,7 +214,7 @@ func (x WuResult) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WuResult.Descriptor instead.
 func (WuResult) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{2}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{2}
 }
 
 // ConnectRequest is one agent -> server message.
@@ -234,7 +234,7 @@ type ConnectRequest struct {
 
 func (x *ConnectRequest) Reset() {
 	*x = ConnectRequest{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[0]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -246,7 +246,7 @@ func (x *ConnectRequest) String() string {
 func (*ConnectRequest) ProtoMessage() {}
 
 func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[0]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -259,7 +259,7 @@ func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectRequest.ProtoReflect.Descriptor instead.
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ConnectRequest) GetMsg() isConnectRequest_Msg {
@@ -365,7 +365,7 @@ type ConnectResponse struct {
 
 func (x *ConnectResponse) Reset() {
 	*x = ConnectResponse{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[1]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -377,7 +377,7 @@ func (x *ConnectResponse) String() string {
 func (*ConnectResponse) ProtoMessage() {}
 
 func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[1]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -390,7 +390,7 @@ func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectResponse.ProtoReflect.Descriptor instead.
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{1}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ConnectResponse) GetMsg() isConnectResponse_Msg {
@@ -496,7 +496,7 @@ type Hello struct {
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[2]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +508,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[2]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +521,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{2}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Hello) GetDeviceId() string {
@@ -586,7 +586,7 @@ type HelloAck struct {
 	JobSigningCertsDer [][]byte               `protobuf:"bytes,2,rep,name=job_signing_certs_der,json=jobSigningCertsDer,proto3" json:"job_signing_certs_der,omitempty"`
 	// Root-signed revocation statements (PROTOCOL §5).
 	SigningKeyRevocations []*SigningKeyRevocation `protobuf:"bytes,3,rep,name=signing_key_revocations,json=signingKeyRevocations,proto3" json:"signing_key_revocations,omitempty"`
-	ResyncSections        []InventorySection      `protobuf:"varint,4,rep,packed,name=resync_sections,json=resyncSections,proto3,enum=renovatio.agent.v1.InventorySection" json:"resync_sections,omitempty"`
+	ResyncSections        []InventorySection      `protobuf:"varint,4,rep,packed,name=resync_sections,json=resyncSections,proto3,enum=current.agent.v1.InventorySection" json:"resync_sections,omitempty"`
 	HeartbeatIntervalS    uint32                  `protobuf:"varint,5,opt,name=heartbeat_interval_s,json=heartbeatIntervalS,proto3" json:"heartbeat_interval_s,omitempty"`
 	// Server suggests renewal when the certificate is inside the renewal window.
 	RenewCertificate bool `protobuf:"varint,6,opt,name=renew_certificate,json=renewCertificate,proto3" json:"renew_certificate,omitempty"`
@@ -596,7 +596,7 @@ type HelloAck struct {
 
 func (x *HelloAck) Reset() {
 	*x = HelloAck{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[3]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +608,7 @@ func (x *HelloAck) String() string {
 func (*HelloAck) ProtoMessage() {}
 
 func (x *HelloAck) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[3]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +621,7 @@ func (x *HelloAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloAck.ProtoReflect.Descriptor instead.
 func (*HelloAck) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{3}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HelloAck) GetServerTime() int64 {
@@ -670,7 +670,7 @@ type SigningKeyRevocation struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	KeyId     []byte                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
 	RevokedAt int64                  `protobuf:"varint,2,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
-	// ECDSA signature by the root key over "renovatio/revoke/v1\x00" || key_id || be64(revoked_at).
+	// ECDSA signature by the root key over "current/revoke/v1\x00" || key_id || be64(revoked_at).
 	Signature     []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -678,7 +678,7 @@ type SigningKeyRevocation struct {
 
 func (x *SigningKeyRevocation) Reset() {
 	*x = SigningKeyRevocation{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[4]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -690,7 +690,7 @@ func (x *SigningKeyRevocation) String() string {
 func (*SigningKeyRevocation) ProtoMessage() {}
 
 func (x *SigningKeyRevocation) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[4]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -703,7 +703,7 @@ func (x *SigningKeyRevocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SigningKeyRevocation.ProtoReflect.Descriptor instead.
 func (*SigningKeyRevocation) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{4}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SigningKeyRevocation) GetKeyId() []byte {
@@ -739,7 +739,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[5]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -751,7 +751,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[5]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +764,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{5}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Heartbeat) GetUptimeS() uint64 {
@@ -804,7 +804,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[6]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -816,7 +816,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[6]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -829,7 +829,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{6}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Ack) GetSeq() uint64 {
@@ -841,14 +841,14 @@ func (x *Ack) GetSeq() uint64 {
 
 type ResyncRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Section       InventorySection       `protobuf:"varint,1,opt,name=section,proto3,enum=renovatio.agent.v1.InventorySection" json:"section,omitempty"`
+	Section       InventorySection       `protobuf:"varint,1,opt,name=section,proto3,enum=current.agent.v1.InventorySection" json:"section,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResyncRequest) Reset() {
 	*x = ResyncRequest{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[7]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -860,7 +860,7 @@ func (x *ResyncRequest) String() string {
 func (*ResyncRequest) ProtoMessage() {}
 
 func (x *ResyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[7]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -873,7 +873,7 @@ func (x *ResyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResyncRequest.ProtoReflect.Descriptor instead.
 func (*ResyncRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{7}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ResyncRequest) GetSection() InventorySection {
@@ -893,7 +893,7 @@ type GoAway struct {
 
 func (x *GoAway) Reset() {
 	*x = GoAway{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[8]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -905,7 +905,7 @@ func (x *GoAway) String() string {
 func (*GoAway) ProtoMessage() {}
 
 func (x *GoAway) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[8]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -918,7 +918,7 @@ func (x *GoAway) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GoAway.ProtoReflect.Descriptor instead.
 func (*GoAway) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{8}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GoAway) GetRetryAfterS() uint32 {
@@ -938,7 +938,7 @@ func (x *GoAway) GetReason() string {
 type SecurityEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Seq           uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
-	Kind          SecurityEventKind      `protobuf:"varint,2,opt,name=kind,proto3,enum=renovatio.agent.v1.SecurityEventKind" json:"kind,omitempty"`
+	Kind          SecurityEventKind      `protobuf:"varint,2,opt,name=kind,proto3,enum=current.agent.v1.SecurityEventKind" json:"kind,omitempty"`
 	Detail        string                 `protobuf:"bytes,3,opt,name=detail,proto3" json:"detail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -946,7 +946,7 @@ type SecurityEvent struct {
 
 func (x *SecurityEvent) Reset() {
 	*x = SecurityEvent{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[9]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -958,7 +958,7 @@ func (x *SecurityEvent) String() string {
 func (*SecurityEvent) ProtoMessage() {}
 
 func (x *SecurityEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[9]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -971,7 +971,7 @@ func (x *SecurityEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecurityEvent.ProtoReflect.Descriptor instead.
 func (*SecurityEvent) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{9}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SecurityEvent) GetSeq() uint64 {
@@ -1004,7 +1004,7 @@ type RenewCertificateRequest struct {
 
 func (x *RenewCertificateRequest) Reset() {
 	*x = RenewCertificateRequest{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[10]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1016,7 +1016,7 @@ func (x *RenewCertificateRequest) String() string {
 func (*RenewCertificateRequest) ProtoMessage() {}
 
 func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[10]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1029,7 +1029,7 @@ func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateRequest.ProtoReflect.Descriptor instead.
 func (*RenewCertificateRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{10}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RenewCertificateRequest) GetCsrDer() []byte {
@@ -1049,7 +1049,7 @@ type RenewCertificateResponse struct {
 
 func (x *RenewCertificateResponse) Reset() {
 	*x = RenewCertificateResponse{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[11]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1061,7 +1061,7 @@ func (x *RenewCertificateResponse) String() string {
 func (*RenewCertificateResponse) ProtoMessage() {}
 
 func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[11]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1074,7 +1074,7 @@ func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateResponse.ProtoReflect.Descriptor instead.
 func (*RenewCertificateResponse) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{11}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RenewCertificateResponse) GetClientCertDer() []byte {
@@ -1098,7 +1098,7 @@ type JobUpdate struct {
 	Seq           uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
 	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	Attempt       uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	State         JobState               `protobuf:"varint,4,opt,name=state,proto3,enum=renovatio.agent.v1.JobState" json:"state,omitempty"`
+	State         JobState               `protobuf:"varint,4,opt,name=state,proto3,enum=current.agent.v1.JobState" json:"state,omitempty"`
 	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"` // short machine-friendly reason, e.g. "waiting_user_logon"
 	Result        *JobResult             `protobuf:"bytes,6,opt,name=result,proto3" json:"result,omitempty"` // present for terminal states
 	unknownFields protoimpl.UnknownFields
@@ -1107,7 +1107,7 @@ type JobUpdate struct {
 
 func (x *JobUpdate) Reset() {
 	*x = JobUpdate{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[12]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +1119,7 @@ func (x *JobUpdate) String() string {
 func (*JobUpdate) ProtoMessage() {}
 
 func (x *JobUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[12]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1132,7 @@ func (x *JobUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobUpdate.ProtoReflect.Descriptor instead.
 func (*JobUpdate) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{12}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *JobUpdate) GetSeq() uint64 {
@@ -1179,7 +1179,7 @@ func (x *JobUpdate) GetResult() *JobResult {
 
 type JobResult struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	Outcome          JobOutcome             `protobuf:"varint,1,opt,name=outcome,proto3,enum=renovatio.agent.v1.JobOutcome" json:"outcome,omitempty"`
+	Outcome          JobOutcome             `protobuf:"varint,1,opt,name=outcome,proto3,enum=current.agent.v1.JobOutcome" json:"outcome,omitempty"`
 	ExitCode         int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	DetectionPassed  bool                   `protobuf:"varint,3,opt,name=detection_passed,json=detectionPassed,proto3" json:"detection_passed,omitempty"`
 	RebootRequired   bool                   `protobuf:"varint,4,opt,name=reboot_required,json=rebootRequired,proto3" json:"reboot_required,omitempty"`
@@ -1196,7 +1196,7 @@ type JobResult struct {
 
 func (x *JobResult) Reset() {
 	*x = JobResult{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[13]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1208,7 +1208,7 @@ func (x *JobResult) String() string {
 func (*JobResult) ProtoMessage() {}
 
 func (x *JobResult) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[13]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1221,7 +1221,7 @@ func (x *JobResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobResult.ProtoReflect.Descriptor instead.
 func (*JobResult) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{13}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *JobResult) GetOutcome() JobOutcome {
@@ -1305,7 +1305,7 @@ type WuUpdateResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UpdateId      string                 `protobuf:"bytes,1,opt,name=update_id,json=updateId,proto3" json:"update_id,omitempty"`
 	Revision      int32                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	Result        WuResult               `protobuf:"varint,3,opt,name=result,proto3,enum=renovatio.agent.v1.WuResult" json:"result,omitempty"`
+	Result        WuResult               `protobuf:"varint,3,opt,name=result,proto3,enum=current.agent.v1.WuResult" json:"result,omitempty"`
 	Hresult       int32                  `protobuf:"varint,4,opt,name=hresult,proto3" json:"hresult,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1313,7 +1313,7 @@ type WuUpdateResult struct {
 
 func (x *WuUpdateResult) Reset() {
 	*x = WuUpdateResult{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[14]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1325,7 +1325,7 @@ func (x *WuUpdateResult) String() string {
 func (*WuUpdateResult) ProtoMessage() {}
 
 func (x *WuUpdateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[14]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1338,7 +1338,7 @@ func (x *WuUpdateResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuUpdateResult.ProtoReflect.Descriptor instead.
 func (*WuUpdateResult) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{14}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *WuUpdateResult) GetUpdateId() string {
@@ -1380,7 +1380,7 @@ type FetchContentRequest struct {
 
 func (x *FetchContentRequest) Reset() {
 	*x = FetchContentRequest{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[15]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1392,7 @@ func (x *FetchContentRequest) String() string {
 func (*FetchContentRequest) ProtoMessage() {}
 
 func (x *FetchContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[15]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1405,7 @@ func (x *FetchContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchContentRequest.ProtoReflect.Descriptor instead.
 func (*FetchContentRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{15}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FetchContentRequest) GetSha256() []byte {
@@ -1439,7 +1439,7 @@ type FetchContentResponse struct {
 
 func (x *FetchContentResponse) Reset() {
 	*x = FetchContentResponse{}
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[16]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1451,7 @@ func (x *FetchContentResponse) String() string {
 func (*FetchContentResponse) ProtoMessage() {}
 
 func (x *FetchContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_channel_proto_msgTypes[16]
+	mi := &file_current_agent_v1_channel_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1464,7 @@ func (x *FetchContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchContentResponse.ProtoReflect.Descriptor instead.
 func (*FetchContentResponse) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_channel_proto_rawDescGZIP(), []int{16}
+	return file_current_agent_v1_channel_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FetchContentResponse) GetData() []byte {
@@ -1481,44 +1481,44 @@ func (x *FetchContentResponse) GetTotalSize() uint64 {
 	return 0
 }
 
-var File_renovatio_agent_v1_channel_proto protoreflect.FileDescriptor
+var File_current_agent_v1_channel_proto protoreflect.FileDescriptor
 
-const file_renovatio_agent_v1_channel_proto_rawDesc = "" +
+const file_current_agent_v1_channel_proto_rawDesc = "" +
 	"\n" +
-	" renovatio/agent/v1/channel.proto\x12\x12renovatio.agent.v1\x1a!renovatio/agent/v1/envelope.proto\x1a\"renovatio/agent/v1/inventory.proto\"\xda\x02\n" +
-	"\x0eConnectRequest\x121\n" +
-	"\x05hello\x18\x01 \x01(\v2\x19.renovatio.agent.v1.HelloH\x00R\x05hello\x12=\n" +
-	"\theartbeat\x18\x02 \x01(\v2\x1d.renovatio.agent.v1.HeartbeatH\x00R\theartbeat\x12C\n" +
-	"\tinventory\x18\x03 \x01(\v2#.renovatio.agent.v1.InventoryReportH\x00R\tinventory\x12J\n" +
-	"\x0esecurity_event\x18\x04 \x01(\v2!.renovatio.agent.v1.SecurityEventH\x00R\rsecurityEvent\x12>\n" +
+	"\x1ecurrent/agent/v1/channel.proto\x12\x10current.agent.v1\x1a\x1fcurrent/agent/v1/envelope.proto\x1a current/agent/v1/inventory.proto\"\xd0\x02\n" +
+	"\x0eConnectRequest\x12/\n" +
+	"\x05hello\x18\x01 \x01(\v2\x17.current.agent.v1.HelloH\x00R\x05hello\x12;\n" +
+	"\theartbeat\x18\x02 \x01(\v2\x1b.current.agent.v1.HeartbeatH\x00R\theartbeat\x12A\n" +
+	"\tinventory\x18\x03 \x01(\v2!.current.agent.v1.InventoryReportH\x00R\tinventory\x12H\n" +
+	"\x0esecurity_event\x18\x04 \x01(\v2\x1f.current.agent.v1.SecurityEventH\x00R\rsecurityEvent\x12<\n" +
 	"\n" +
-	"job_update\x18\x05 \x01(\v2\x1d.renovatio.agent.v1.JobUpdateH\x00R\tjobUpdateB\x05\n" +
-	"\x03msg\"\xb9\x02\n" +
-	"\x0fConnectResponse\x12;\n" +
-	"\thello_ack\x18\x01 \x01(\v2\x1c.renovatio.agent.v1.HelloAckH\x00R\bhelloAck\x12+\n" +
-	"\x03ack\x18\x02 \x01(\v2\x17.renovatio.agent.v1.AckH\x00R\x03ack\x12;\n" +
-	"\x06resync\x18\x03 \x01(\v2!.renovatio.agent.v1.ResyncRequestH\x00R\x06resync\x125\n" +
-	"\ago_away\x18\x04 \x01(\v2\x1a.renovatio.agent.v1.GoAwayH\x00R\x06goAway\x12A\n" +
-	"\tjob_offer\x18\x05 \x01(\v2\".renovatio.agent.v1.SignedEnvelopeH\x00R\bjobOfferB\x05\n" +
-	"\x03msg\"\xf1\x02\n" +
+	"job_update\x18\x05 \x01(\v2\x1b.current.agent.v1.JobUpdateH\x00R\tjobUpdateB\x05\n" +
+	"\x03msg\"\xaf\x02\n" +
+	"\x0fConnectResponse\x129\n" +
+	"\thello_ack\x18\x01 \x01(\v2\x1a.current.agent.v1.HelloAckH\x00R\bhelloAck\x12)\n" +
+	"\x03ack\x18\x02 \x01(\v2\x15.current.agent.v1.AckH\x00R\x03ack\x129\n" +
+	"\x06resync\x18\x03 \x01(\v2\x1f.current.agent.v1.ResyncRequestH\x00R\x06resync\x123\n" +
+	"\ago_away\x18\x04 \x01(\v2\x18.current.agent.v1.GoAwayH\x00R\x06goAway\x12?\n" +
+	"\tjob_offer\x18\x05 \x01(\v2 .current.agent.v1.SignedEnvelopeH\x00R\bjobOfferB\x05\n" +
+	"\x03msg\"\xef\x02\n" +
 	"\x05Hello\x12\x1b\n" +
 	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12#\n" +
 	"\ragent_version\x18\x02 \x01(\tR\fagentVersion\x12\x17\n" +
 	"\aboot_id\x18\x03 \x01(\tR\x06bootId\x12\"\n" +
-	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x127\n" +
-	"\x04revs\x18\x05 \x03(\v2#.renovatio.agent.v1.Hello.RevsEntryR\x04revs\x12%\n" +
+	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x125\n" +
+	"\x04revs\x18\x05 \x03(\v2!.current.agent.v1.Hello.RevsEntryR\x04revs\x12%\n" +
 	"\x0eoutbox_pending\x18\x06 \x01(\rR\routboxPending\x12$\n" +
 	"\x0ecert_not_after\x18\a \x01(\x03R\fcertNotAfter\x12*\n" +
 	"\x11local_policy_hash\x18\b \x01(\tR\x0flocalPolicyHash\x1a7\n" +
 	"\tRevsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xee\x02\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xea\x02\n" +
 	"\bHelloAck\x12\x1f\n" +
 	"\vserver_time\x18\x01 \x01(\x03R\n" +
 	"serverTime\x121\n" +
-	"\x15job_signing_certs_der\x18\x02 \x03(\fR\x12jobSigningCertsDer\x12`\n" +
-	"\x17signing_key_revocations\x18\x03 \x03(\v2(.renovatio.agent.v1.SigningKeyRevocationR\x15signingKeyRevocations\x12M\n" +
-	"\x0fresync_sections\x18\x04 \x03(\x0e2$.renovatio.agent.v1.InventorySectionR\x0eresyncSections\x120\n" +
+	"\x15job_signing_certs_der\x18\x02 \x03(\fR\x12jobSigningCertsDer\x12^\n" +
+	"\x17signing_key_revocations\x18\x03 \x03(\v2&.current.agent.v1.SigningKeyRevocationR\x15signingKeyRevocations\x12K\n" +
+	"\x0fresync_sections\x18\x04 \x03(\x0e2\".current.agent.v1.InventorySectionR\x0eresyncSections\x120\n" +
 	"\x14heartbeat_interval_s\x18\x05 \x01(\rR\x12heartbeatIntervalS\x12+\n" +
 	"\x11renew_certificate\x18\x06 \x01(\bR\x10renewCertificate\"j\n" +
 	"\x14SigningKeyRevocation\x12\x15\n" +
@@ -1532,30 +1532,30 @@ const file_renovatio_agent_v1_channel_proto_rawDesc = "" +
 	"\x17system_drive_free_bytes\x18\x03 \x01(\x04R\x14systemDriveFreeBytes\x12$\n" +
 	"\x0elogged_on_user\x18\x04 \x01(\tR\floggedOnUser\"\x17\n" +
 	"\x03Ack\x12\x10\n" +
-	"\x03seq\x18\x01 \x01(\x04R\x03seq\"O\n" +
-	"\rResyncRequest\x12>\n" +
-	"\asection\x18\x01 \x01(\x0e2$.renovatio.agent.v1.InventorySectionR\asection\"D\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\"M\n" +
+	"\rResyncRequest\x12<\n" +
+	"\asection\x18\x01 \x01(\x0e2\".current.agent.v1.InventorySectionR\asection\"D\n" +
 	"\x06GoAway\x12\"\n" +
 	"\rretry_after_s\x18\x01 \x01(\rR\vretryAfterS\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\"t\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"r\n" +
 	"\rSecurityEvent\x12\x10\n" +
-	"\x03seq\x18\x01 \x01(\x04R\x03seq\x129\n" +
-	"\x04kind\x18\x02 \x01(\x0e2%.renovatio.agent.v1.SecurityEventKindR\x04kind\x12\x16\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\x127\n" +
+	"\x04kind\x18\x02 \x01(\x0e2#.current.agent.v1.SecurityEventKindR\x04kind\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\"2\n" +
 	"\x17RenewCertificateRequest\x12\x17\n" +
 	"\acsr_der\x18\x01 \x01(\fR\x06csrDer\"h\n" +
 	"\x18RenewCertificateResponse\x12&\n" +
 	"\x0fclient_cert_der\x18\x01 \x01(\fR\rclientCertDer\x12$\n" +
-	"\x0eissuing_ca_der\x18\x02 \x01(\fR\fissuingCaDer\"\xd1\x01\n" +
+	"\x0eissuing_ca_der\x18\x02 \x01(\fR\fissuingCaDer\"\xcd\x01\n" +
 	"\tJobUpdate\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x18\n" +
-	"\aattempt\x18\x03 \x01(\rR\aattempt\x122\n" +
-	"\x05state\x18\x04 \x01(\x0e2\x1c.renovatio.agent.v1.JobStateR\x05state\x12\x16\n" +
-	"\x06reason\x18\x05 \x01(\tR\x06reason\x125\n" +
-	"\x06result\x18\x06 \x01(\v2\x1d.renovatio.agent.v1.JobResultR\x06result\"\xc8\x03\n" +
-	"\tJobResult\x128\n" +
-	"\aoutcome\x18\x01 \x01(\x0e2\x1e.renovatio.agent.v1.JobOutcomeR\aoutcome\x12\x1b\n" +
+	"\aattempt\x18\x03 \x01(\rR\aattempt\x120\n" +
+	"\x05state\x18\x04 \x01(\x0e2\x1a.current.agent.v1.JobStateR\x05state\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x123\n" +
+	"\x06result\x18\x06 \x01(\v2\x1b.current.agent.v1.JobResultR\x06result\"\xc4\x03\n" +
+	"\tJobResult\x126\n" +
+	"\aoutcome\x18\x01 \x01(\x0e2\x1c.current.agent.v1.JobOutcomeR\aoutcome\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12)\n" +
 	"\x10detection_passed\x18\x03 \x01(\bR\x0fdetectionPassed\x12'\n" +
 	"\x0freboot_required\x18\x04 \x01(\bR\x0erebootRequired\x12+\n" +
@@ -1567,13 +1567,13 @@ const file_renovatio_agent_v1_channel_proto_rawDesc = "" +
 	"\vfinished_at\x18\t \x01(\x03R\n" +
 	"finishedAt\x12+\n" +
 	"\x11already_satisfied\x18\n" +
-	" \x01(\bR\x10alreadySatisfied\x12A\n" +
+	" \x01(\bR\x10alreadySatisfied\x12?\n" +
 	"\n" +
-	"wu_results\x18\v \x03(\v2\".renovatio.agent.v1.WuUpdateResultR\twuResults\"\x99\x01\n" +
+	"wu_results\x18\v \x03(\v2 .current.agent.v1.WuUpdateResultR\twuResults\"\x97\x01\n" +
 	"\x0eWuUpdateResult\x12\x1b\n" +
 	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
-	"\brevision\x18\x02 \x01(\x05R\brevision\x124\n" +
-	"\x06result\x18\x03 \x01(\x0e2\x1c.renovatio.agent.v1.WuResultR\x06result\x12\x18\n" +
+	"\brevision\x18\x02 \x01(\x05R\brevision\x122\n" +
+	"\x06result\x18\x03 \x01(\x0e2\x1a.current.agent.v1.WuResultR\x06result\x12\x18\n" +
 	"\ahresult\x18\x04 \x01(\x05R\ahresult\"\\\n" +
 	"\x13FetchContentRequest\x12\x16\n" +
 	"\x06sha256\x18\x01 \x01(\fR\x06sha256\x12\x15\n" +
@@ -1610,80 +1610,80 @@ const file_renovatio_agent_v1_channel_proto_rawDesc = "" +
 	"\x1aWU_RESULT_INSTALLED_REBOOT\x10\x02\x12\x14\n" +
 	"\x10WU_RESULT_FAILED\x10\x03\x12\x1c\n" +
 	"\x18WU_RESULT_NOT_APPLICABLE\x10\x04\x12\x1d\n" +
-	"\x19WU_RESULT_DOWNLOAD_FAILED\x10\x052\xc1\x02\n" +
-	"\x13AgentChannelService\x12V\n" +
-	"\aConnect\x12\".renovatio.agent.v1.ConnectRequest\x1a#.renovatio.agent.v1.ConnectResponse(\x010\x01\x12c\n" +
-	"\fFetchContent\x12'.renovatio.agent.v1.FetchContentRequest\x1a(.renovatio.agent.v1.FetchContentResponse0\x01\x12m\n" +
-	"\x10RenewCertificate\x12+.renovatio.agent.v1.RenewCertificateRequest\x1a,.renovatio.agent.v1.RenewCertificateResponseBDZBgithub.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1b\x06proto3"
+	"\x19WU_RESULT_DOWNLOAD_FAILED\x10\x052\xb5\x02\n" +
+	"\x13AgentChannelService\x12R\n" +
+	"\aConnect\x12 .current.agent.v1.ConnectRequest\x1a!.current.agent.v1.ConnectResponse(\x010\x01\x12_\n" +
+	"\fFetchContent\x12%.current.agent.v1.FetchContentRequest\x1a&.current.agent.v1.FetchContentResponse0\x01\x12i\n" +
+	"\x10RenewCertificate\x12).current.agent.v1.RenewCertificateRequest\x1a*.current.agent.v1.RenewCertificateResponseB@Z>github.com/auzring1/current/gen/proto/current/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_renovatio_agent_v1_channel_proto_rawDescOnce sync.Once
-	file_renovatio_agent_v1_channel_proto_rawDescData []byte
+	file_current_agent_v1_channel_proto_rawDescOnce sync.Once
+	file_current_agent_v1_channel_proto_rawDescData []byte
 )
 
-func file_renovatio_agent_v1_channel_proto_rawDescGZIP() []byte {
-	file_renovatio_agent_v1_channel_proto_rawDescOnce.Do(func() {
-		file_renovatio_agent_v1_channel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_channel_proto_rawDesc), len(file_renovatio_agent_v1_channel_proto_rawDesc)))
+func file_current_agent_v1_channel_proto_rawDescGZIP() []byte {
+	file_current_agent_v1_channel_proto_rawDescOnce.Do(func() {
+		file_current_agent_v1_channel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_current_agent_v1_channel_proto_rawDesc), len(file_current_agent_v1_channel_proto_rawDesc)))
 	})
-	return file_renovatio_agent_v1_channel_proto_rawDescData
+	return file_current_agent_v1_channel_proto_rawDescData
 }
 
-var file_renovatio_agent_v1_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_renovatio_agent_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
-var file_renovatio_agent_v1_channel_proto_goTypes = []any{
-	(SecurityEventKind)(0),           // 0: renovatio.agent.v1.SecurityEventKind
-	(JobState)(0),                    // 1: renovatio.agent.v1.JobState
-	(WuResult)(0),                    // 2: renovatio.agent.v1.WuResult
-	(*ConnectRequest)(nil),           // 3: renovatio.agent.v1.ConnectRequest
-	(*ConnectResponse)(nil),          // 4: renovatio.agent.v1.ConnectResponse
-	(*Hello)(nil),                    // 5: renovatio.agent.v1.Hello
-	(*HelloAck)(nil),                 // 6: renovatio.agent.v1.HelloAck
-	(*SigningKeyRevocation)(nil),     // 7: renovatio.agent.v1.SigningKeyRevocation
-	(*Heartbeat)(nil),                // 8: renovatio.agent.v1.Heartbeat
-	(*Ack)(nil),                      // 9: renovatio.agent.v1.Ack
-	(*ResyncRequest)(nil),            // 10: renovatio.agent.v1.ResyncRequest
-	(*GoAway)(nil),                   // 11: renovatio.agent.v1.GoAway
-	(*SecurityEvent)(nil),            // 12: renovatio.agent.v1.SecurityEvent
-	(*RenewCertificateRequest)(nil),  // 13: renovatio.agent.v1.RenewCertificateRequest
-	(*RenewCertificateResponse)(nil), // 14: renovatio.agent.v1.RenewCertificateResponse
-	(*JobUpdate)(nil),                // 15: renovatio.agent.v1.JobUpdate
-	(*JobResult)(nil),                // 16: renovatio.agent.v1.JobResult
-	(*WuUpdateResult)(nil),           // 17: renovatio.agent.v1.WuUpdateResult
-	(*FetchContentRequest)(nil),      // 18: renovatio.agent.v1.FetchContentRequest
-	(*FetchContentResponse)(nil),     // 19: renovatio.agent.v1.FetchContentResponse
-	nil,                              // 20: renovatio.agent.v1.Hello.RevsEntry
-	(*InventoryReport)(nil),          // 21: renovatio.agent.v1.InventoryReport
-	(*SignedEnvelope)(nil),           // 22: renovatio.agent.v1.SignedEnvelope
-	(InventorySection)(0),            // 23: renovatio.agent.v1.InventorySection
-	(JobOutcome)(0),                  // 24: renovatio.agent.v1.JobOutcome
+var file_current_agent_v1_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_current_agent_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_current_agent_v1_channel_proto_goTypes = []any{
+	(SecurityEventKind)(0),           // 0: current.agent.v1.SecurityEventKind
+	(JobState)(0),                    // 1: current.agent.v1.JobState
+	(WuResult)(0),                    // 2: current.agent.v1.WuResult
+	(*ConnectRequest)(nil),           // 3: current.agent.v1.ConnectRequest
+	(*ConnectResponse)(nil),          // 4: current.agent.v1.ConnectResponse
+	(*Hello)(nil),                    // 5: current.agent.v1.Hello
+	(*HelloAck)(nil),                 // 6: current.agent.v1.HelloAck
+	(*SigningKeyRevocation)(nil),     // 7: current.agent.v1.SigningKeyRevocation
+	(*Heartbeat)(nil),                // 8: current.agent.v1.Heartbeat
+	(*Ack)(nil),                      // 9: current.agent.v1.Ack
+	(*ResyncRequest)(nil),            // 10: current.agent.v1.ResyncRequest
+	(*GoAway)(nil),                   // 11: current.agent.v1.GoAway
+	(*SecurityEvent)(nil),            // 12: current.agent.v1.SecurityEvent
+	(*RenewCertificateRequest)(nil),  // 13: current.agent.v1.RenewCertificateRequest
+	(*RenewCertificateResponse)(nil), // 14: current.agent.v1.RenewCertificateResponse
+	(*JobUpdate)(nil),                // 15: current.agent.v1.JobUpdate
+	(*JobResult)(nil),                // 16: current.agent.v1.JobResult
+	(*WuUpdateResult)(nil),           // 17: current.agent.v1.WuUpdateResult
+	(*FetchContentRequest)(nil),      // 18: current.agent.v1.FetchContentRequest
+	(*FetchContentResponse)(nil),     // 19: current.agent.v1.FetchContentResponse
+	nil,                              // 20: current.agent.v1.Hello.RevsEntry
+	(*InventoryReport)(nil),          // 21: current.agent.v1.InventoryReport
+	(*SignedEnvelope)(nil),           // 22: current.agent.v1.SignedEnvelope
+	(InventorySection)(0),            // 23: current.agent.v1.InventorySection
+	(JobOutcome)(0),                  // 24: current.agent.v1.JobOutcome
 }
-var file_renovatio_agent_v1_channel_proto_depIdxs = []int32{
-	5,  // 0: renovatio.agent.v1.ConnectRequest.hello:type_name -> renovatio.agent.v1.Hello
-	8,  // 1: renovatio.agent.v1.ConnectRequest.heartbeat:type_name -> renovatio.agent.v1.Heartbeat
-	21, // 2: renovatio.agent.v1.ConnectRequest.inventory:type_name -> renovatio.agent.v1.InventoryReport
-	12, // 3: renovatio.agent.v1.ConnectRequest.security_event:type_name -> renovatio.agent.v1.SecurityEvent
-	15, // 4: renovatio.agent.v1.ConnectRequest.job_update:type_name -> renovatio.agent.v1.JobUpdate
-	6,  // 5: renovatio.agent.v1.ConnectResponse.hello_ack:type_name -> renovatio.agent.v1.HelloAck
-	9,  // 6: renovatio.agent.v1.ConnectResponse.ack:type_name -> renovatio.agent.v1.Ack
-	10, // 7: renovatio.agent.v1.ConnectResponse.resync:type_name -> renovatio.agent.v1.ResyncRequest
-	11, // 8: renovatio.agent.v1.ConnectResponse.go_away:type_name -> renovatio.agent.v1.GoAway
-	22, // 9: renovatio.agent.v1.ConnectResponse.job_offer:type_name -> renovatio.agent.v1.SignedEnvelope
-	20, // 10: renovatio.agent.v1.Hello.revs:type_name -> renovatio.agent.v1.Hello.RevsEntry
-	7,  // 11: renovatio.agent.v1.HelloAck.signing_key_revocations:type_name -> renovatio.agent.v1.SigningKeyRevocation
-	23, // 12: renovatio.agent.v1.HelloAck.resync_sections:type_name -> renovatio.agent.v1.InventorySection
-	23, // 13: renovatio.agent.v1.ResyncRequest.section:type_name -> renovatio.agent.v1.InventorySection
-	0,  // 14: renovatio.agent.v1.SecurityEvent.kind:type_name -> renovatio.agent.v1.SecurityEventKind
-	1,  // 15: renovatio.agent.v1.JobUpdate.state:type_name -> renovatio.agent.v1.JobState
-	16, // 16: renovatio.agent.v1.JobUpdate.result:type_name -> renovatio.agent.v1.JobResult
-	24, // 17: renovatio.agent.v1.JobResult.outcome:type_name -> renovatio.agent.v1.JobOutcome
-	17, // 18: renovatio.agent.v1.JobResult.wu_results:type_name -> renovatio.agent.v1.WuUpdateResult
-	2,  // 19: renovatio.agent.v1.WuUpdateResult.result:type_name -> renovatio.agent.v1.WuResult
-	3,  // 20: renovatio.agent.v1.AgentChannelService.Connect:input_type -> renovatio.agent.v1.ConnectRequest
-	18, // 21: renovatio.agent.v1.AgentChannelService.FetchContent:input_type -> renovatio.agent.v1.FetchContentRequest
-	13, // 22: renovatio.agent.v1.AgentChannelService.RenewCertificate:input_type -> renovatio.agent.v1.RenewCertificateRequest
-	4,  // 23: renovatio.agent.v1.AgentChannelService.Connect:output_type -> renovatio.agent.v1.ConnectResponse
-	19, // 24: renovatio.agent.v1.AgentChannelService.FetchContent:output_type -> renovatio.agent.v1.FetchContentResponse
-	14, // 25: renovatio.agent.v1.AgentChannelService.RenewCertificate:output_type -> renovatio.agent.v1.RenewCertificateResponse
+var file_current_agent_v1_channel_proto_depIdxs = []int32{
+	5,  // 0: current.agent.v1.ConnectRequest.hello:type_name -> current.agent.v1.Hello
+	8,  // 1: current.agent.v1.ConnectRequest.heartbeat:type_name -> current.agent.v1.Heartbeat
+	21, // 2: current.agent.v1.ConnectRequest.inventory:type_name -> current.agent.v1.InventoryReport
+	12, // 3: current.agent.v1.ConnectRequest.security_event:type_name -> current.agent.v1.SecurityEvent
+	15, // 4: current.agent.v1.ConnectRequest.job_update:type_name -> current.agent.v1.JobUpdate
+	6,  // 5: current.agent.v1.ConnectResponse.hello_ack:type_name -> current.agent.v1.HelloAck
+	9,  // 6: current.agent.v1.ConnectResponse.ack:type_name -> current.agent.v1.Ack
+	10, // 7: current.agent.v1.ConnectResponse.resync:type_name -> current.agent.v1.ResyncRequest
+	11, // 8: current.agent.v1.ConnectResponse.go_away:type_name -> current.agent.v1.GoAway
+	22, // 9: current.agent.v1.ConnectResponse.job_offer:type_name -> current.agent.v1.SignedEnvelope
+	20, // 10: current.agent.v1.Hello.revs:type_name -> current.agent.v1.Hello.RevsEntry
+	7,  // 11: current.agent.v1.HelloAck.signing_key_revocations:type_name -> current.agent.v1.SigningKeyRevocation
+	23, // 12: current.agent.v1.HelloAck.resync_sections:type_name -> current.agent.v1.InventorySection
+	23, // 13: current.agent.v1.ResyncRequest.section:type_name -> current.agent.v1.InventorySection
+	0,  // 14: current.agent.v1.SecurityEvent.kind:type_name -> current.agent.v1.SecurityEventKind
+	1,  // 15: current.agent.v1.JobUpdate.state:type_name -> current.agent.v1.JobState
+	16, // 16: current.agent.v1.JobUpdate.result:type_name -> current.agent.v1.JobResult
+	24, // 17: current.agent.v1.JobResult.outcome:type_name -> current.agent.v1.JobOutcome
+	17, // 18: current.agent.v1.JobResult.wu_results:type_name -> current.agent.v1.WuUpdateResult
+	2,  // 19: current.agent.v1.WuUpdateResult.result:type_name -> current.agent.v1.WuResult
+	3,  // 20: current.agent.v1.AgentChannelService.Connect:input_type -> current.agent.v1.ConnectRequest
+	18, // 21: current.agent.v1.AgentChannelService.FetchContent:input_type -> current.agent.v1.FetchContentRequest
+	13, // 22: current.agent.v1.AgentChannelService.RenewCertificate:input_type -> current.agent.v1.RenewCertificateRequest
+	4,  // 23: current.agent.v1.AgentChannelService.Connect:output_type -> current.agent.v1.ConnectResponse
+	19, // 24: current.agent.v1.AgentChannelService.FetchContent:output_type -> current.agent.v1.FetchContentResponse
+	14, // 25: current.agent.v1.AgentChannelService.RenewCertificate:output_type -> current.agent.v1.RenewCertificateResponse
 	23, // [23:26] is the sub-list for method output_type
 	20, // [20:23] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
@@ -1691,21 +1691,21 @@ var file_renovatio_agent_v1_channel_proto_depIdxs = []int32{
 	0,  // [0:20] is the sub-list for field type_name
 }
 
-func init() { file_renovatio_agent_v1_channel_proto_init() }
-func file_renovatio_agent_v1_channel_proto_init() {
-	if File_renovatio_agent_v1_channel_proto != nil {
+func init() { file_current_agent_v1_channel_proto_init() }
+func file_current_agent_v1_channel_proto_init() {
+	if File_current_agent_v1_channel_proto != nil {
 		return
 	}
-	file_renovatio_agent_v1_envelope_proto_init()
-	file_renovatio_agent_v1_inventory_proto_init()
-	file_renovatio_agent_v1_channel_proto_msgTypes[0].OneofWrappers = []any{
+	file_current_agent_v1_envelope_proto_init()
+	file_current_agent_v1_inventory_proto_init()
+	file_current_agent_v1_channel_proto_msgTypes[0].OneofWrappers = []any{
 		(*ConnectRequest_Hello)(nil),
 		(*ConnectRequest_Heartbeat)(nil),
 		(*ConnectRequest_Inventory)(nil),
 		(*ConnectRequest_SecurityEvent)(nil),
 		(*ConnectRequest_JobUpdate)(nil),
 	}
-	file_renovatio_agent_v1_channel_proto_msgTypes[1].OneofWrappers = []any{
+	file_current_agent_v1_channel_proto_msgTypes[1].OneofWrappers = []any{
 		(*ConnectResponse_HelloAck)(nil),
 		(*ConnectResponse_Ack)(nil),
 		(*ConnectResponse_Resync)(nil),
@@ -1716,18 +1716,18 @@ func file_renovatio_agent_v1_channel_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_channel_proto_rawDesc), len(file_renovatio_agent_v1_channel_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_current_agent_v1_channel_proto_rawDesc), len(file_current_agent_v1_channel_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_renovatio_agent_v1_channel_proto_goTypes,
-		DependencyIndexes: file_renovatio_agent_v1_channel_proto_depIdxs,
-		EnumInfos:         file_renovatio_agent_v1_channel_proto_enumTypes,
-		MessageInfos:      file_renovatio_agent_v1_channel_proto_msgTypes,
+		GoTypes:           file_current_agent_v1_channel_proto_goTypes,
+		DependencyIndexes: file_current_agent_v1_channel_proto_depIdxs,
+		EnumInfos:         file_current_agent_v1_channel_proto_enumTypes,
+		MessageInfos:      file_current_agent_v1_channel_proto_msgTypes,
 	}.Build()
-	File_renovatio_agent_v1_channel_proto = out.File
-	file_renovatio_agent_v1_channel_proto_goTypes = nil
-	file_renovatio_agent_v1_channel_proto_depIdxs = nil
+	File_current_agent_v1_channel_proto = out.File
+	file_current_agent_v1_channel_proto_goTypes = nil
+	file_current_agent_v1_channel_proto_depIdxs = nil
 }

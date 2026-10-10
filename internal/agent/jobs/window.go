@@ -3,7 +3,7 @@ package jobs
 import (
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 // WindowOpen reports whether t falls inside the maintenance window, and if not,

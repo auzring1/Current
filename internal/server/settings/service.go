@@ -18,10 +18,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/kek"
+	"github.com/auzring1/current/internal/server/store"
 )
 
 // Errors the API maps to statuses.
@@ -587,7 +587,7 @@ type ExportDoc struct {
 }
 
 // ExportFormat identifies a settings file.
-const ExportFormat = "renovatio-settings"
+const ExportFormat = "current-settings"
 
 // Export returns every section's values (never secrets).
 func (s *Service) Export(ctx context.Context, org uuid.UUID) (ExportDoc, error) {

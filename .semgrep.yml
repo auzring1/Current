@@ -4,7 +4,7 @@ rules:
     languages: [go]
     severity: ERROR
     message: >-
-      Never run cmd.exe/PowerShell/sh from Renovatio code. Build argument arrays and
+      Never run cmd.exe/PowerShell/sh from Current code. Build argument arrays and
       execute the target binary directly (SECURITY.md T-LPE-4).
     pattern-either:
       - pattern: exec.Command("cmd", ...)

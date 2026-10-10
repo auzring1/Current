@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/current/gen/dbq"
 )
 
 // SMTPConfig is the mail server the organization configured.

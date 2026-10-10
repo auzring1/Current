@@ -5,21 +5,21 @@
 #   scripts/release-kms.sh <provider> pubkey [--out public.hex]
 #
 # Contract
-#   input   tosign.bin from `renovatio-release tosign`: "renovatio/release/v1\0" + the manifest bytes.
+#   input   tosign.bin from `current-release tosign`: "current/release/v1\0" + the manifest bytes.
 #   output  sig.bin: the raw 64-byte Ed25519 (RFC 8032, PureEdDSA, no pre-hash) signature over those exact bytes.
 #   The private key never leaves the KMS/HSM. The caller (release.yml) authenticates to the cloud with OIDC
-#   (no stored cloud credentials), then runs `renovatio-release attach` and `renovatio-release verify` against the
+#   (no stored cloud credentials), then runs `current-release attach` and `current-release verify` against the
 #   public key committed in release/release-public-keys.txt, so a wrong key or a bad signature fails the release.
 #
-# Providers (set RENOVATIO_KMS_PROVIDER in the repository variables; you need exactly one)
+# Providers (set CURRENT_KMS_PROVIDER in the repository variables; you need exactly one)
 #   aws     AWS KMS asymmetric key, key spec ECC_NIST_EDWARDS25519, algorithm ED25519_SHA_512 (message type RAW,
-#           max 4096 bytes: a manifest is well under 1 KiB). Env: RENOVATIO_RELEASE_KMS_KEY_ID (key id, ARN or alias);
+#           max 4096 bytes: a manifest is well under 1 KiB). Env: CURRENT_RELEASE_KMS_KEY_ID (key id, ARN or alias);
 #           region/credentials come from the environment (aws-actions/configure-aws-credentials with a role).
-#   azure   Azure Key Vault / Managed HSM key. Env: RENOVATIO_AKV_VAULT, RENOVATIO_AKV_KEY [, RENOVATIO_AKV_KEY_VERSION]; az must be
+#   azure   Azure Key Vault / Managed HSM key. Env: CURRENT_AKV_VAULT, CURRENT_AKV_KEY [, CURRENT_AKV_KEY_VERSION]; az must be
 #           logged in (azure/login with OIDC). CAVEAT: this hook assumes the vault can hold an Ed25519 (OKP) key and
 #           sign with algorithm EdDSA. We could not confirm that Azure offers this (as of writing it does not for
 #           Key Vault, to our knowledge); if the service refuses, use the aws provider or another KMS/HSM. Unverified.
-#   dryrun  throw-away key file (RENOVATIO_DRYRUN_KEY) signed with `renovatio-release sign-bytes` (RENOVATIO_RELEASE_BIN). NEVER for
+#   dryrun  throw-away key file (CURRENT_DRYRUN_KEY) signed with `current-release sign-bytes` (CURRENT_RELEASE_BIN). NEVER for
 #           a real release; the workflow uses it only when dry_run is true.
 #
 # Adding a provider (GCP KMS, a PKCS#11 HSM, Vault transit ...) means one more function pair below with the same
@@ -56,16 +56,16 @@ need() { command -v "$1" >/dev/null || die "$1 is required for provider $provide
 # ---- aws ----------------------------------------------------------------------------------------
 aws_sign() {
   need aws; need jq
-  : "${RENOVATIO_RELEASE_KMS_KEY_ID:?set RENOVATIO_RELEASE_KMS_KEY_ID}"
+  : "${CURRENT_RELEASE_KMS_KEY_ID:?set CURRENT_RELEASE_KMS_KEY_ID}"
   [ "$(wc -c <"$in")" -le 4096 ] || die "message is over the 4096-byte AWS KMS RAW limit"
-  aws kms sign --key-id "$RENOVATIO_RELEASE_KMS_KEY_ID" --message "fileb://$in" --message-type RAW \
+  aws kms sign --key-id "$CURRENT_RELEASE_KMS_KEY_ID" --message "fileb://$in" --message-type RAW \
       --signing-algorithm ED25519_SHA_512 --output json | jq -er .Signature | base64 -d >"$out"
 }
 aws_pubkey() {
   need aws; need jq
-  : "${RENOVATIO_RELEASE_KMS_KEY_ID:?set RENOVATIO_RELEASE_KMS_KEY_ID}"
+  : "${CURRENT_RELEASE_KMS_KEY_ID:?set CURRENT_RELEASE_KMS_KEY_ID}"
   local spki
-  spki=$(aws kms get-public-key --key-id "$RENOVATIO_RELEASE_KMS_KEY_ID" --output json | jq -er .PublicKey | base64 -d | hex)
+  spki=$(aws kms get-public-key --key-id "$CURRENT_RELEASE_KMS_KEY_ID" --output json | jq -er .PublicKey | base64 -d | hex)
   # SubjectPublicKeyInfo of an Ed25519 key: fixed 12-byte header, then the 32-byte key.
   [[ $spki =~ ^302a300506032b6570032100([0-9a-f]{64})$ ]] || die "the KMS key is not an Ed25519 key (SPKI: ${spki:0:40}...)"
   echo "${BASH_REMATCH[1]}"
@@ -73,9 +73,9 @@ aws_pubkey() {
 
 # ---- azure --------------------------------------------------------------------------------------
 akv_args() {
-  : "${RENOVATIO_AKV_VAULT:?set RENOVATIO_AKV_VAULT}"; : "${RENOVATIO_AKV_KEY:?set RENOVATIO_AKV_KEY}"
-  akv=(--vault-name "$RENOVATIO_AKV_VAULT" --name "$RENOVATIO_AKV_KEY")
-  if [ -n "${RENOVATIO_AKV_KEY_VERSION:-}" ]; then akv+=(--version "$RENOVATIO_AKV_KEY_VERSION"); fi
+  : "${CURRENT_AKV_VAULT:?set CURRENT_AKV_VAULT}"; : "${CURRENT_AKV_KEY:?set CURRENT_AKV_KEY}"
+  akv=(--vault-name "$CURRENT_AKV_VAULT" --name "$CURRENT_AKV_KEY")
+  if [ -n "${CURRENT_AKV_KEY_VERSION:-}" ]; then akv+=(--version "$CURRENT_AKV_KEY_VERSION"); fi
 }
 azure_sign() {
   need az; need jq
@@ -96,19 +96,19 @@ azure_pubkey() {
 
 # ---- dryrun -------------------------------------------------------------------------------------
 dryrun_sign() {
-  : "${RENOVATIO_DRYRUN_KEY:?set RENOVATIO_DRYRUN_KEY}"; : "${RENOVATIO_RELEASE_BIN:?set RENOVATIO_RELEASE_BIN}"
-  "$RENOVATIO_RELEASE_BIN" sign-bytes --key "$RENOVATIO_DRYRUN_KEY" --in "$in" --out "$out"
+  : "${CURRENT_DRYRUN_KEY:?set CURRENT_DRYRUN_KEY}"; : "${CURRENT_RELEASE_BIN:?set CURRENT_RELEASE_BIN}"
+  "$CURRENT_RELEASE_BIN" sign-bytes --key "$CURRENT_DRYRUN_KEY" --in "$in" --out "$out"
 }
 dryrun_pubkey() {
-  : "${RENOVATIO_DRYRUN_KEY:?set RENOVATIO_DRYRUN_KEY}"
-  tr -d '[:space:]' <"${RENOVATIO_DRYRUN_KEY%.key}.pub"; echo
+  : "${CURRENT_DRYRUN_KEY:?set CURRENT_DRYRUN_KEY}"
+  tr -d '[:space:]' <"${CURRENT_DRYRUN_KEY%.key}.pub"; echo
 }
 
 case "$provider:$action" in
   aws:sign|azure:sign|dryrun:sign)
     [ -n "$in" ] && [ -n "$out" ] || die "sign needs --in and --out"
     [ -s "$in" ] || die "$in is missing or empty"
-    head -c "$(printf 'renovatio/release/v1\0' | wc -c)" "$in" | cmp -s - <(printf 'renovatio/release/v1\0') || die "$in does not start with the release domain prefix (make it with: renovatio-release tosign)"
+    head -c "$(printf 'current/release/v1\0' | wc -c)" "$in" | cmp -s - <(printf 'current/release/v1\0') || die "$in does not start with the release domain prefix (make it with: current-release tosign)"
     tmp=$(mktemp)
     out_final=$out; out=$tmp
     "${provider}_sign"

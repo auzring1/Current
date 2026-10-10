@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc/mgr"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 const (

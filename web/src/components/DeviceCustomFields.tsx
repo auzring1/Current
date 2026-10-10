@@ -49,7 +49,7 @@ export function CustomFieldsCard({ deviceId }: { deviceId: string }) {
         ) : undefined
       }
     >
-      <div style={{ display: "grid", gap: "var(--rnv-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}>
+      <div style={{ display: "grid", gap: "var(--cur-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}>
         {defs.map((f) =>
           f.type === "select" ? (
             <Select key={f.key} label={f.label} data={f.options} value={draft[f.key] ?? null} onChange={(v) => setDraft({ ...draft, [f.key]: v ?? "" })} clearable disabled={!editable} error={errors[f.key]} comboboxProps={{ withinPortal: true }} />

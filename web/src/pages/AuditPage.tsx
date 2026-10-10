@@ -71,7 +71,7 @@ export function AuditPage() {
         width: 380,
         wrap: true,
         cell: (a) => (
-          <code className="rnv-mono" style={{ overflowWrap: "anywhere" }}>
+          <code className="cur-mono" style={{ overflowWrap: "anywhere" }}>
             {JSON.stringify(a.details)}
           </code>
         ),

@@ -35,7 +35,7 @@ func Lifetime(c *x509.Certificate) time.Duration {
 }
 
 // DeviceURIPrefix is the URI SAN prefix carrying the device ID.
-const DeviceURIPrefix = "urn:renovatio:device:"
+const DeviceURIPrefix = "urn:current:device:"
 
 // SPKIPin returns "sha256/<base64>" of the certificate's SubjectPublicKeyInfo.
 func SPKIPin(cert *x509.Certificate) string {

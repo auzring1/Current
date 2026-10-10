@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"log/slog"
 	"strings"
 	"time"
@@ -16,10 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/branding"
-	"github.com/auzring1/renovatio/internal/server/settings"
-	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/branding"
+	"github.com/auzring1/current/internal/server/settings"
+	"github.com/auzring1/current/internal/shared/vercmp"
 )
 
 // Service sends notifications.

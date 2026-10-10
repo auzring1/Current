@@ -26,8 +26,8 @@ owner_pw=$(rand 24)
 app_pw=$(rand 24)
 printf '%s' "$owner_pw" > "$dir/postgres_owner_password"
 printf '%s' "$app_pw" > "$dir/postgres_app_password"
-printf 'postgres://renovatio_owner:%s@postgres:5432/renovatio?sslmode=disable' "$owner_pw" > "$dir/migrate_database_url"
-printf 'postgres://renovatio_app:%s@postgres:5432/renovatio?sslmode=disable' "$app_pw" > "$dir/database_url"
+printf 'postgres://current_owner:%s@postgres:5432/current?sslmode=disable' "$owner_pw" > "$dir/migrate_database_url"
+printf 'postgres://current_app:%s@postgres:5432/current?sslmode=disable' "$app_pw" > "$dir/database_url"
 # The directory is private (0700). Files must be readable by the non-root
 # container users the bind mounts are presented to, hence 0644 inside it.
 chmod 644 "$dir"/*

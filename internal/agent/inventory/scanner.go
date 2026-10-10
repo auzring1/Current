@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 // MSIProduct is a Windows Installer product from MsiEnumProductsEx.

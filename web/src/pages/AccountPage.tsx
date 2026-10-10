@@ -24,8 +24,8 @@ export function AccountPage() {
           {errorMessage(q.error)}
         </Alert>
       )}
-      <div className="rnv-cards">
-        <div className="rnv-stack-y">
+      <div className="cur-cards">
+        <div className="cur-stack-y">
           <ProfileCard />
           {q.data ? <AuthenticatorCard data={q.data} /> : q.isLoading ? <LoadingCard /> : null}
         </div>
@@ -40,7 +40,7 @@ export function AccountPage() {
 function LoadingCard() {
   return (
     <Card>
-      <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+      <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--cur-space-3)" }}>
         <Skel w="40%" h={16} />
         <Skel w="80%" h={14} />
         <Skel w="60%" h={14} />
@@ -234,11 +234,11 @@ function TokensCard({ data, onChange }: { data: MySecurity; onChange: () => void
         cell: (t) => (
           <>
             {t.name}
-            <span className="rnv-dt__cell-sub rnv-mono">{t.prefix}…</span>
+            <span className="cur-dt__cell-sub cur-mono">{t.prefix}…</span>
           </>
         ),
       },
-      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="rnv-mono">{t.scopes.join(", ")}</span> },
+      { id: "scopes", header: "Scopes", value: (t) => t.scopes.join(", "), width: 260, wrap: true, cell: (t) => <span className="cur-mono">{t.scopes.join(", ")}</span> },
       {
         id: "expires",
         header: "Expires",
@@ -279,7 +279,7 @@ function TokensCard({ data, onChange }: { data: MySecurity; onChange: () => void
     [confirm, revokeToken],
   );
   return (
-    <Card title="API tokens" description={<>For scripts and integrations: send <code>Authorization: Bearer rnt_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.</>}>
+    <Card title="API tokens" description={<>For scripts and integrations: send <code>Authorization: Bearer cur_…</code> to <code>/api/v1/…</code>. A token can only do what you can do and what its scopes list, expires, and stops working if your account is disabled.</>}>
       <Stack gap="md">
         {secret && (
           <Alert color="yellow" title="Copy the token now" icon={<Icons.Warning size={18} aria-hidden />} withCloseButton onClose={() => setSecret("")} closeButtonLabel="Hide the token">

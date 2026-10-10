@@ -6,10 +6,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, request, test, type Page } from "@playwright/test";
 import { totp } from "./totp";
 
-const setupToken = process.env.RENOVATIO_SETUP_TOKEN ?? "";
-const agentBin = process.env.RENOVATIO_AGENT_BIN ?? "";
-const gateway = process.env.RENOVATIO_GATEWAY ?? "127.0.0.1:18443";
-const shots = process.env.RENOVATIO_SCREENSHOTS ?? "";
+const setupToken = process.env.CURRENT_SETUP_TOKEN ?? "";
+const agentBin = process.env.CURRENT_AGENT_BIN ?? "";
+const gateway = process.env.CURRENT_GATEWAY ?? "127.0.0.1:18443";
+const shots = process.env.CURRENT_SCREENSHOTS ?? "";
 const email = "admin@example.com";
 const password = "Granite-Lantern-Pickle-42";
 // Small PNGs made for these tests (a 220x64 logo, a 128x128 icon, a 32x32 favicon).
@@ -62,7 +62,7 @@ async function typeCode(page: Page, code: string) {
 }
 
 test("first-run setup, MFA login, enrollment, live device, revoke, audit", async ({ page, browser }) => {
-  expect(setupToken, "RENOVATIO_SETUP_TOKEN must be set").not.toBe("");
+  expect(setupToken, "CURRENT_SETUP_TOKEN must be set").not.toBe("");
   // Record every CSP violation; the console must run under the strict policy.
   const violations: string[] = [];
   page.on("console", (m) => {
@@ -121,9 +121,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByText("No devices yet")).toBeVisible();
   // The organization name and logo from the wizard are in the top bar; the product keeps its default name.
   await expect(page.getByTestId("org-name")).toHaveText("Acme Corp");
-  await expect(page.getByTestId("product-name")).toHaveText("Renovatio");
+  await expect(page.getByTestId("product-name")).toHaveText("Current");
   await expect(page.getByRole("img", { name: "Acme Corp logo" })).toBeVisible();
-  await expect(page).toHaveTitle("Devices · Acme Corp · Renovatio");
+  await expect(page).toHaveTitle("Devices · Acme Corp · Current");
 
   // --- Enrollment token ---
   await mainNav(page).getByRole("link", { name: "Enrollment", exact: true }).click();
@@ -131,7 +131,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByLabel(/^Name/).fill("GUI test");
   await page.getByRole("button", { name: "Create" }).click();
   const cmd = (await page.locator("pre").first().innerText()).trim();
-  expect(cmd).toContain("renovatio-agent.exe install --server");
+  expect(cmd).toContain("current-agent.exe install --server");
   await shot(page, "03-token");
   const enrollment = cmd.split("--token ")[1]!.trim();
   await page.keyboard.press("Escape");
@@ -140,7 +140,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   let agent: ChildProcess | undefined;
   const agentDirs: string[] = [];
   if (agentBin) {
-    const dir = mkdtempSync(join(tmpdir(), "rnv-agent-"));
+    const dir = mkdtempSync(join(tmpdir(), "cur-agent-"));
     agentDirs.push(dir);
     agent = spawn(agentBin, ["run", "--data-dir", dir, "--server", gateway, "--token", enrollment], { stdio: "ignore" });
   }
@@ -200,7 +200,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
       await page.keyboard.press("Escape");
       const download = page.waitForEvent("download");
       await page.getByRole("link", { name: "Export CSV" }).first().click();
-      expect((await download).suggestedFilename()).toMatch(/^renovatio-software-.*\.csv$/);
+      expect((await download).suggestedFilename()).toMatch(/^current-software-.*\.csv$/);
 
       // Dynamic group: preview, save, list.
       await mainNav(page).getByRole("link", { name: "Groups", exact: true }).click();
@@ -433,7 +433,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Create token" }).click();
   await expect(page.getByText("Copy the token now")).toBeVisible();
   const apiToken = (await page.getByRole("alert").locator("pre").first().innerText()).trim();
-  expect(apiToken).toMatch(/^rnt_/);
+  expect(apiToken).toMatch(/^cur_/);
   await shot(page, "21-account-security");
   const bare = await request.newContext({ baseURL: origin });
   expect((await bare.get("/api/v1/devices", { headers: { Authorization: `Bearer ${apiToken}` } })).status()).toBe(200);
@@ -470,15 +470,15 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await endpoints.click();
   await expect(mainNav(page).getByRole("link", { name: "Groups", exact: true })).toBeVisible();
   await page.getByTestId("nav-rail-toggle").click();
-  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true");
+  await expect(page.locator(".cur-shell")).toHaveAttribute("data-rail", "true");
   await shot(page, "24-nav-rail");
   // The same switch sits in the top bar, so people do not have to look for it at the bottom of the sidebar.
   await page.getByTestId("topbar-nav-toggle").click();
-  await expect(page.locator(".rnv-shell")).not.toHaveAttribute("data-rail", "true");
+  await expect(page.locator(".cur-shell")).not.toHaveAttribute("data-rail", "true");
   await page.getByTestId("topbar-nav-toggle").click();
-  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true");
+  await expect(page.locator(".cur-shell")).toHaveAttribute("data-rail", "true");
   await page.reload();
-  await expect(page.locator(".rnv-shell")).toHaveAttribute("data-rail", "true"); // remembered on the account
+  await expect(page.locator(".cur-shell")).toHaveAttribute("data-rail", "true"); // remembered on the account
   await page.getByTestId("nav-rail-toggle").click();
   await page.goto("/devices?state=offline");
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
@@ -550,7 +550,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.goto("/settings/notifications");
   await page.getByRole("switch", { name: /^Send e-mail/ }).check({ force: true });
   await page.getByLabel("Mail server", { exact: true }).fill("smtp.example.org");
-  await page.getByLabel("From address", { exact: true }).fill("renovatio@example.org");
+  await page.getByLabel("From address", { exact: true }).fill("current@example.org");
   await page.getByLabel("User name", { exact: true }).fill("mailer");
   await page.getByLabel("Password", { exact: true }).fill("a-secret-mail-password");
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -591,7 +591,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   // --- Branding: administrators only, live contrast check, preview, images, reset ---
   await setNav.getByRole("link", { name: "Branding", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/branding$/);
-  await expect(page).toHaveTitle("Branding · Acme Corp · Renovatio");
+  await expect(page).toHaveTitle("Branding · Acme Corp · Current");
   await expect(page.getByLabel("Organization name")).toHaveValue("Acme Corp");
   await expect(page.getByLabel("Product name")).toHaveValue("");
   await page.getByLabel("Organization name").fill("Example Clinic");
@@ -651,7 +651,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByText("Branding reset to the defaults.")).toBeVisible();
   await page.mouse.move(0, 0);
   await expect(page.getByLabel("Organization name")).toHaveValue("");
-  await expect(page.getByTestId("product-name")).toHaveText("Renovatio");
+  await expect(page.getByTestId("product-name")).toHaveText("Current");
   await expect(page.getByRole("img", { name: /logo$/ })).toHaveCount(0);
   // What the signed-out sign-in page shows (checked after sign-out below).
   await page.getByLabel("Organization name").fill("Example Clinic");
@@ -683,7 +683,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("menuitem", { name: "Midnight", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
-  await page.evaluate(() => window.localStorage.removeItem("rnv-theme"));
+  await page.evaluate(() => window.localStorage.removeItem("cur-theme"));
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight"); // read back from the account
   // Before first paint: with the app bundle blocked, the theme is already on the page (public/theme-init.js).
@@ -721,11 +721,11 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.getByTestId("login-footer")).toContainText("Authorized use only.");
   await expect(page.getByRole("link", { name: "help@example.org" })).toHaveAttribute("href", "mailto:help@example.org");
   await expect(page.getByRole("img", { name: "Example Clinic logo" })).toBeVisible();
-  await expect(page).toHaveTitle("Sign in · Example Clinic · Renovatio");
+  await expect(page).toHaveTitle("Sign in · Example Clinic · Current");
   await shot(page, "28-branded-login");
   // The server also puts the title and favicon in the page itself, before any script runs.
   const shell = await (await page.request.get("/login")).text();
-  expect(shell).toContain("<title>Example Clinic · Renovatio</title>");
+  expect(shell).toContain("<title>Example Clinic · Current</title>");
   expect(shell).toContain('id="branding-data"');
 
   expect(violations, "CSP violations").toEqual([]);

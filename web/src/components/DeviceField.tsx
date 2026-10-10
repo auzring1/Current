@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 export function Field({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
     <div>
-      <div className="rnv-muted" style={{ fontSize: "var(--rnv-text-xs)", fontWeight: 500 }}>
+      <div className="cur-muted" style={{ fontSize: "var(--cur-text-xs)", fontWeight: 500 }}>
         {label}
       </div>
-      <div className={mono ? "rnv-mono" : undefined} style={{ wordBreak: "break-word" }}>
+      <div className={mono ? "cur-mono" : undefined} style={{ wordBreak: "break-word" }}>
         {value || "—"}
       </div>
     </div>

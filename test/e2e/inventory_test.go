@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/agent/core"
-	"github.com/auzring1/renovatio/internal/agent/inventory"
-	"github.com/auzring1/renovatio/internal/agent/store"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/agent/core"
+	"github.com/auzring1/current/internal/agent/inventory"
+	"github.com/auzring1/current/internal/agent/store"
 )
 
 // fakeCollector is a scripted endpoint: tests mutate its software list.

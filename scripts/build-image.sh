@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the server container image from deploy/Dockerfile.server the way a release does.
 #
-#   RENOVATIO_RELEASE_PUBKEYS=<hex>[,<hex>] scripts/build-image.sh --version 1.2.3 --commit <short> \
+#   CURRENT_RELEASE_PUBKEYS=<hex>[,<hex>] scripts/build-image.sh --version 1.2.3 --commit <short> \
 #       --source-date-epoch <n> [--require-authenticode true] [--go-version 1.27.1] \
 #       (--oci-out FILE | --push REGISTRY/NAME:TAG) [--digest-file FILE]
 #
@@ -12,7 +12,7 @@
 # (cosign and GitHub attestations are attached afterwards, see .github/workflows/release.yml); layer and
 # config timestamps are rewritten to --source-date-epoch (BuildKit >= 0.13, `rewrite-timestamp=true`).
 # The server binary inside is built with the same flags as scripts/build-release.sh, so it should be
-# byte-identical to renovatio-server_<v>_linux_amd64 from that script; `--go-version` makes the build fail if the
+# byte-identical to current-server_<v>_linux_amd64 from that script; `--go-version` makes the build fail if the
 # pinned base image carries a different Go release.
 #
 # Needs Docker with buildx and a daemon. NOT exercised in the authoring sandbox (no Docker daemon there).
@@ -42,17 +42,17 @@ done
 [[ $sde =~ ^[0-9]+$ ]] || die "--source-date-epoch must be a number"
 
 command -v docker >/dev/null || die "docker is required"
-builder=renovatio-release
+builder=current-release
 if ! docker buildx inspect "$builder" >/dev/null 2>&1; then
   opts=()
-  # Pin BuildKit itself by digest in the release environment: RENOVATIO_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...
-  if [ -n "${RENOVATIO_BUILDKIT_IMAGE:-}" ]; then opts+=(--driver-opt "image=$RENOVATIO_BUILDKIT_IMAGE"); fi
+  # Pin BuildKit itself by digest in the release environment: CURRENT_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...
+  if [ -n "${CURRENT_BUILDKIT_IMAGE:-}" ]; then opts+=(--driver-opt "image=$CURRENT_BUILDKIT_IMAGE"); fi
   docker buildx create --name "$builder" --driver docker-container ${opts[@]+"${opts[@]}"} >/dev/null
 fi
 
 args=(buildx build --builder "$builder" -f deploy/Dockerfile.server
   --build-arg "VERSION=$version" --build-arg "COMMIT=$commit"
-  --build-arg "RELEASE_PUBLIC_KEYS=${RENOVATIO_RELEASE_PUBKEYS:-}" --build-arg "REQUIRE_AUTHENTICODE=$req_auth" --build-arg "AUTHENTICODE_SUBJECTS=$subjects"
+  --build-arg "RELEASE_PUBLIC_KEYS=${CURRENT_RELEASE_PUBKEYS:-}" --build-arg "REQUIRE_AUTHENTICODE=$req_auth" --build-arg "AUTHENTICODE_SUBJECTS=$subjects"
   --build-arg "SOURCE_DATE_EPOCH=$sde"
   --provenance=false --sbom=false)
 [ -z "$go_version" ] || args+=(--build-arg "EXPECT_GO_VERSION=$go_version")

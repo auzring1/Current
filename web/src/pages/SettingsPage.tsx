@@ -30,7 +30,7 @@ export function SettingsPage() {
     <div style={{ maxWidth: 760 }}>
       {q.isLoading && (
         <Card>
-          <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--rnv-space-3)" }}>
+          <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--cur-space-3)" }}>
             <Skel w="35%" h={16} />
             <Skel h={36} />
             <Skel w="70%" h={12} />

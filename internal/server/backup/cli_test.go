@@ -13,8 +13,8 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/testutil/pgtest"
+	"github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/current/internal/testutil/pgtest"
 )
 
 type cliEnv struct {
@@ -79,7 +79,7 @@ func TestCLIPassphraseMode(t *testing.T) {
 	}
 
 	// verify, using the environment variable for the passphrase file
-	v := newCLIEnv(src.OwnerURL, "", key, nil, map[string]string{"RENOVATIO_BACKUP_PASSPHRASE_FILE": pf})
+	v := newCLIEnv(src.OwnerURL, "", key, nil, map[string]string{"CURRENT_BACKUP_PASSPHRASE_FILE": pf})
 	if err := RunBackup(ctx, []string{"--verify", out}, v.Env); err != nil {
 		t.Fatalf("verify: %v", err)
 	}

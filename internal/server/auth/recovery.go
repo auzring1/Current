@@ -41,7 +41,7 @@ func NormalizeRecoveryCode(s string) string {
 // HashRecoveryCode hashes a (normalized) code. Codes are high-entropy random
 // values, so a fast hash is appropriate.
 func HashRecoveryCode(code string) []byte {
-	s := sha256.Sum256([]byte("renovatio/recovery/v1\x00" + NormalizeRecoveryCode(code)))
+	s := sha256.Sum256([]byte("current/recovery/v1\x00" + NormalizeRecoveryCode(code)))
 	return s[:]
 }
 
@@ -51,6 +51,6 @@ func LooksLikeRecoveryCode(s string) bool { return len(NormalizeRecoveryCode(s))
 // EnrollmentTokenHash is the stored hash of an enrollment token secret.
 // Tokens are 256-bit random values, so a fast hash is appropriate.
 func EnrollmentTokenHash(secret string) []byte {
-	h := sha256.Sum256([]byte("renovatio/enroll-token/v1\x00" + secret))
+	h := sha256.Sum256([]byte("current/enroll-token/v1\x00" + secret))
 	return h[:]
 }

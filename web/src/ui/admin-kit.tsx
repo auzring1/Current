@@ -6,7 +6,7 @@ import "./admin-kit.css";
 /** A definition list: label on the left, value on the right (stacked on a phone). */
 export function KeyValue({ items, label }: { items: { label: string; value: ReactNode; testId?: string }[]; label?: string }) {
   return (
-    <dl className="rnv-kv" aria-label={label}>
+    <dl className="cur-kv" aria-label={label}>
       {items.map((i) => (
         <div key={i.label}>
           <dt>{i.label}</dt>
@@ -19,21 +19,21 @@ export function KeyValue({ items, label }: { items: { label: string; value: Reac
 
 /** The buttons of a table's last column; they stay in view when the table scrolls sideways. */
 export function RowButtons({ children }: { children: ReactNode }) {
-  return <span className="rnv-sticky-actions">{children}</span>;
+  return <span className="cur-sticky-actions">{children}</span>;
 }
 
 /** A heading over content that has no card of its own (a table with its own frame). One level below the page title. */
 export function Section({ title, description, actions, children }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rnv-section">
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--rnv-space-3)", flexWrap: "wrap" }}>
+    <section className="cur-section">
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--cur-space-3)", flexWrap: "wrap" }}>
         <div>
-          <h2 className="rnv-section__title">{title}</h2>
-          {description && <p className="rnv-section__desc">{description}</p>}
+          <h2 className="cur-section__title">{title}</h2>
+          {description && <p className="cur-section__desc">{description}</p>}
         </div>
         {actions}
       </div>
-      <div style={{ marginTop: "var(--rnv-space-3)" }}>{children}</div>
+      <div style={{ marginTop: "var(--cur-space-3)" }}>{children}</div>
     </section>
   );
 }
@@ -42,7 +42,7 @@ export function Section({ title, description, actions, children }: { title: Reac
 export function ThemeSwatch({ theme }: { theme: ThemeDef }) {
   const t = theme.tokens;
   return (
-    <span className="rnv-theme-swatch" aria-hidden="true">
+    <span className="cur-theme-swatch" aria-hidden="true">
       <span style={{ background: t["bg"] }} />
       <span style={{ background: t["surface"] }} />
       <span style={{ background: t["accent"] }} />
@@ -52,11 +52,11 @@ export function ThemeSwatch({ theme }: { theme: ThemeDef }) {
 
 /** Full-page, centered card on the themed background (sign-in and first-run setup). */
 export function AuthShell({ children, below, width = 440 }: { children: ReactNode; below?: ReactNode; width?: number }) {
-  const style = { "--rnv-auth-w": `${width}px` } as CSSProperties;
+  const style = { "--cur-auth-w": `${width}px` } as CSSProperties;
   return (
-    <main className="rnv-auth" style={style}>
-      <div className="rnv-auth__card">{children}</div>
-      {below && <div className="rnv-auth__below">{below}</div>}
+    <main className="cur-auth" style={style}>
+      <div className="cur-auth__card">{children}</div>
+      {below && <div className="cur-auth__below">{below}</div>}
     </main>
   );
 }
@@ -67,7 +67,7 @@ export function AuthBrand({ height = 48 }: { height?: number }) {
   const hasImage = !!(b.assets.logo_light || b.assets.logo_dark || b.assets.icon);
   if (hasImage) return <BrandMark height={height} />;
   return (
-    <span className="rnv-auth__mark" aria-hidden="true">
+    <span className="cur-auth__mark" aria-hidden="true">
       {(b.product_name || "R").trim().charAt(0).toUpperCase()}
     </span>
   );
