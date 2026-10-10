@@ -159,7 +159,8 @@ func (m *Sessions) SetCookie(w http.ResponseWriter, s *Session) {
 
 // ClearCookie removes the session cookie.
 func (m *Sessions) ClearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- deletion cookie; same attributes as SetCookieName: m.CookieName(), Value: "", Path: "/", HttpOnly: true, Secure: m.Secure,
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- deletion cookie; same attributes as SetCookie
+		Name: m.CookieName(), Value: "", Path: "/", HttpOnly: true, Secure: true,
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 }
 
