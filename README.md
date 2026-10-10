@@ -1,8 +1,24 @@
 # Renovatio
 
-Self-hosted patch and software management for Windows endpoints. It has three parts: a small Go agent, a Go server with a REST API and web console, and a hardened `docker compose` deployment.
+Free, self-hosted patch and software management for Windows endpoints. A small Go agent runs on each PC, a Go server with a
+REST API and web console runs in Docker on your own hardware, and nothing leaves your network: there is no cloud service,
+no account and no telemetry.
 
-**Status: Phase 6 (hardening and release) complete, awaiting review.** Phase 6 added a security review with fixes (the running server no longer holds the database-owner credential; see [docs/SECURITY.md §9f](docs/SECURITY.md)), more fuzzers, a load generator (`cmd/renovatio-loadsim`, results in [docs/LOADTEST.md](docs/LOADTEST.md)) and a release pipeline written but not yet run on GitHub ([docs/VERIFYING_RELEASES.md](docs/VERIFYING_RELEASES.md)); demo: [Phase 6](docs/demos/PHASE6-DEMO.md). The Phase 5 summary follows. On top of Phases 1–4 you can now: let agents **update themselves** to a vendor-signed release (pilot first, automatic rollback if the new version does not connect); manage **users, sites and roles** (a role can be limited to one site), sign in with a **security key** as a second factor, and use **scoped API tokens**; define **software policies** (keep a package current, or install it on new devices); see **patch-compliance reports**; search, export and verify the **audit log**; take **encrypted backups** and restore them; and deploy the agent with an **MSI** (GPO, Intune, RMM). **Not yet verified on real Windows:** the self-update switch and rollback, and the MSI (never built, because WiX cannot bind an MSI on Linux); see [docs/SECURITY.md §9d](docs/SECURITY.md) and the [Phase 5 demo](docs/demos/PHASE5-DEMO.md). The release-signing key and code-signing certificate are still owner decisions; release hardening and load testing are Phase 6 ([docs/PLAN.md](docs/PLAN.md)).
+**What it does**
+- **Inventory:** every installed program (machine-wide and per user), hardware, users and groups, with search and CSV export.
+- **Software updates and deployment:** finds updates for installed programs by matching them to the winget community index, with
+  no catalog to maintain; installs and updates from winget manifests or your own uploaded installers, with hash checks,
+  maintenance windows and a verified/unverified safety step.
+- **Windows Updates:** approval, update rings, maintenance windows, reboot policy and compliance reports.
+- **Agent self-update** with a pilot group and automatic rollback.
+- **Security first:** mutual TLS, jobs signed by the server and verified on the PC, mandatory two-factor sign-in with
+  security-key support, role-based access (optionally per site), scoped API tokens and a hash-chained audit log.
+- **Your branding**, five accessible themes, encrypted backups, and an MSI for deployment through GPO, Intune or an RMM.
+
+**Status: early software.** It comes with a large automated test suite (unit, database, end-to-end and browser tests), but it has
+not had an independent security audit, and several Windows-only paths (the MSI, agent self-update, restart
+handling) have had little real-world testing. It runs installers as SYSTEM on your computers, so treat it like any
+new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a few machines first, and keep backups.
 
 ## Quick start (production-style, one host)
 ```bash
@@ -66,4 +82,11 @@ Run the web console against a local server: start the server with `RENOVATIO_DEV
 
 **Branding:** the organization name, product name, logos, colors and sign-in texts are configuration, not source: set them in the first-run wizard and under Settings > Branding (administrators only).
 
-License: proprietary, all rights reserved (see [LICENSE](LICENSE)). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Contributing, security and license
+- **Contributing:** bug reports, ideas and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Security problems:** please report them privately; see [SECURITY.md](SECURITY.md).
+- **License:** Copyright © 2026 the Renovatio contributors. Renovatio is free software under the
+  [GNU Affero General Public License v3.0 or later](LICENSE). You may use it, including at work, and change it. If you run a
+  modified version for other people, or distribute a modified agent, you must make your changes available under the same
+  license. The name "Renovatio" is not part of that license: see [TRADEMARKS.md](TRADEMARKS.md).
+- Third-party components and their licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
