@@ -260,7 +260,7 @@ func TestAboutAndSupportBundleHaveNoSecrets(t *testing.T) {
 		t.Fatalf("operator bundle: %d", st)
 	}
 	st, a := h.do("GET", "/api/v1/settings/about", nil, nil)
-	if st != 200 || a["version"] == nil || a["database_migration"] == nil || a["license"] == nil {
+	if st != 200 || a["version"] == nil || a["database_migration"] == nil {
 		t.Fatalf("about: %d %v", st, a)
 	}
 	status, hdr, body := h.raw("GET", "/api/v1/settings/support-bundle", "", nil)

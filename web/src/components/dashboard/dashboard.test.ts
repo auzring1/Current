@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WIDGET_IDS } from "./layout";
 import { moveWidget, resolveLayout, setWidgetHidden } from "./layout";
-import { historySummary, humanAction, licenseKind, missingUpdateLink, niceMax, normaliseHistory } from "./format";
+import { historySummary, humanAction, missingUpdateLink, niceMax, normaliseHistory } from "./format";
 
 const ALL = ["a", "b", "c", "d"];
 
@@ -74,10 +74,5 @@ describe("format helpers", () => {
   });
   it("picks a nice axis maximum", () => {
     expect([0, 1, 3, 7, 12, 99, 101].map(niceMax)).toEqual([1, 1, 5, 10, 20, 100, 200]);
-  });
-  it("colors the license tile", () => {
-    expect(licenseKind({ state: "licensed", at_capacity: true })).toBe("danger");
-    expect(licenseKind({ state: "licensed" })).toBe("success");
-    expect(licenseKind({ state: "grace" })).toBe("warning");
   });
 });

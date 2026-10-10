@@ -216,13 +216,37 @@ func dropUnknown(fields []Field, in map[string]any) map[string]any {
 		}
 		if f.Kind == List {
 			if arr, ok := v.([]any); ok {
+				var built map[string]bool // a fixed list keeps only the items that are still built in
+				if f.Fixed {
+					built = optsSet(findOptions(f))
+				}
 				items := make([]any, 0, len(arr))
 				for _, e := range arr {
 					if m, ok := e.(map[string]any); ok {
+						if built != nil {
+							if key, _ := m[f.ItemKey].(string); !built[key] {
+								continue
+							}
+						}
 						items = append(items, dropUnknown(f.Fields, m))
 					}
 				}
 				v = items
+			}
+		}
+		if f.Kind == Multi { // a choice that is no longer offered (a retired event) is dropped
+			if ss, ok := toStrings(v); ok {
+				offered := optsSet(f.Options)
+				kept := make([]string, 0, len(ss))
+				for _, x := range ss {
+					if offered[x] {
+						kept = append(kept, x)
+					}
+				}
+				if len(kept) == 0 && len(ss) > 0 {
+					continue // nothing valid is left: fall back to the default
+				}
+				v = toAny(kept)
 			}
 		}
 		out[f.Key] = v

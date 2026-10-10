@@ -375,30 +375,11 @@ Written in Phase 6 and exercised **locally** with throw-away keys (`scripts/rele
 - **Sigstore keyless trust** rests on GitHub's OIDC issuer, Fulcio and the Rekor log being honest and available; verification needs network access to the trust root unless the customer mirrors it.
 - **Action pinning is by SHA of a tag at the time of writing**; the SHAs were resolved from the upstream repositories at authoring time and are re-reviewed when bumped. Third-party actions still run with the job's permissions, so the signing jobs keep their list short (Microsoft's signing action, `azure/login`, AWS credentials, cosign installer, GitHub's attestation action).
 
-## 9g. Phase 6: licensing
+## 9g. Phase 6: licensing (removed)
 
-Offline-verifiable license keys (`internal/shared/license`, `internal/server/licensing`, `cmd/renovatio-license`; decisions D85-D88, operations in RUNBOOK §5f). The license is a vendor-signed document that the server checks locally; nothing is ever sent to the vendor (O9).
-
-| Threat | Control | Evidence |
-|---|---|---|
-| **Forged license** (anyone makes their own document) | Ed25519 signature under a vendor license key whose public half is compiled into the server; a build with no key trusts nothing ("licensing not configured") and there is no default or development key in the repository. Test and demo keys can only be added by whoever controls the server's environment (`RENOVATIO_LICENSE_PUBLIC_KEYS`) | `TestRefuses`, `TestNoKeyMeansNotConfigured`, `TestNoKeyMeansUnlicensed`; e2e `TestLicenseDeviceCap` (wrong-key license refused, audited as `license.invalid`) |
-| **Tampered license** (raise `max_devices`, extend `expires_at`) | The signature covers the exact document bytes, so any change fails; the stored text is **re-verified on every use**, so editing the database row cannot raise the cap either (the application role cannot even UPDATE `licenses`) | `TestRefuses` (tampered document and signature), `TestNoKeyMeansUnlicensed` (tampered row) |
-| **Cross-protocol use of signatures** (a release signature as a license, or the reverse) | A distinct domain separator `renovatio/license/v1\0` and a distinct key; signatures made without the separator, with the release domain or with another version do not verify | `TestRefuses` (wrong domains, license signature vs `release.Verify`) |
-| **Malformed or hostile input** (pasted text, a crafted document) | Strict JSON (unknown fields, trailing data, wrong types rejected), strict base64url, size limits (blob 16 KiB, document 4 KiB), field validation (ids, features, ranges, control characters), fuzzed | `TestStrictJSON`, `TestValidate`, `FuzzVerify`, `FuzzDecode` |
-| **A customer administrator extends their own cap or term** | Impossible without the vendor key: the cap is the signed `max_devices`, the term the signed `expires_at`. The only levers an administrator has are the installed license text (verified) and the clock (below) | as above |
-| **Clock rollback** (reviving an expired subscription) | Expiry is judged by the later of the system clock and the highest time the server ever recorded (`license_clock`). The recorded time advances at most 36 h per minute, so a clock that jumped far ahead once cannot expire a license for good | `TestClockRollbackDoesNotReviveAnExpiredLicense`, `TestClockAdvanceIsBounded` |
-| **Replay of an older, larger license** | Installing the same license ID with an older or equal `issued_at` is refused (`409`); history is insert-only. This does not stop deliberate use of an old file: see the gaps | `TestInstallRefusals` |
-| **Licensing as a denial-of-service lever** (an expired or missing license stopping a fleet) | The only effect of any licensing state is refusing a NEW enrollment or approval, at two audited points inside one transaction. Jobs, updates, inventory, sign-in, revocation and uninstalling do not consult licensing. `updates_until` affects only agent self-update rollout | `TestLicenseDeviceCap` (existing agents stay connected, revoking works, over-cap after a smaller license), `TestLicenseUpdatePeriodGatesAgentReleasesOnly` |
-| **Two enrollments racing for the last slot** | Per-organization advisory lock inside the enrollment/approval transaction | `TestConcurrentEnrollmentsNeverExceedTheCap` |
-| **Who may install or read** | `license:write` is administrator-only, `license:read` administrators and operators. Install attempts are audited (`license.install`, `license.invalid`) | `TestRBAC`, e2e audit assertions |
-
-**Known gaps and residual risks:**
-- **Licensing is deterrence, not DRM.** The product is closed source (O1) but a determined customer who can modify and rebuild the server binary, or who can edit the database and the clock together (the high-water mark is only a database row), can bypass the cap. The signature scheme stops casual and accidental over-use and makes a bypass an active act; it does not stop a motivated attacker who owns the server host.
-- A customer can keep and re-install an **older, more generous license** of a *different* license ID, or re-install an old file after the newer one lapsed (the older one is refused only when it is the same ID and not newer). Issue licenses with an `expires_at` when this matters.
-- There is **no revocation list**: a license cannot be recalled before its `expires_at` because that would need the server to phone home (O9).
-- `features` are carried, verified and displayed, but Phase 6 gates nothing on them.
-- The device cap counts active devices of an organization; it does not distinguish a device that has been offline for years.
-- Vendor key custody (generation, KMS, rotation, an offline backup) is an owner decision (compare O7); until then demo keys must not be used for real customers.
+Phase 6 added offline-verifiable license keys and a device cap. Renovatio is now open source (decision D100), so that
+mechanism, its threat-model rows and its residual risks no longer exist. Nothing in the product limits the number of devices,
+and nothing contacts the vendor (O9 stands). Migration 00018 drops the `licenses` and `license_clock` tables.
 
 ## 9h. Phase 7: branding
 

@@ -34,7 +34,6 @@ import (
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/gateway"
 	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/licensing"
 	"github.com/auzring1/renovatio/internal/server/maintenance"
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
@@ -69,8 +68,6 @@ type App struct {
 	// Winget keeps the winget community index (what installed programs are and their newest versions); nil when
 	// RENOVATIO_WINGET_SOURCE=off.
 	Winget *wingetindex.Service
-	// Licensing verifies the installed license and enforces the device cap on new enrollments only.
-	Licensing *licensing.Service
 	// Branding holds the per-deployment names, colors, login texts and images.
 	Branding *branding.Service
 
@@ -122,18 +119,11 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	if extra, err := release.ParseKeys(cfg.ReleasePublicKeys); err == nil && len(extra) > 0 {
 		a.Releases.Keys = append(release.TrustedKeys(), extra...)
 	}
-	lic, err := licensing.New(pool, cfg.LicensePublicKeys, log.With("component", "licensing"))
-	if err != nil {
-		pool.Close()
-		return nil, err
-	}
-	a.Licensing = lic
 	a.Branding = &branding.Service{Pool: pool, Log: log.With("component", "branding")}
-	a.Releases.Licensing = lic
 	a.Dashboard = &dashboard.Service{Pool: pool, Log: log.With("component", "dashboard")}
 	a.Settings = &settings.Service{Pool: pool, Sealer: sealer, Log: log.With("component", "settings")}
 	a.Maint = &maintenance.Service{Pool: pool, Settings: a.Settings, Log: log.With("component", "maintenance")}
-	a.Notify = &notify.Service{Pool: pool, Settings: a.Settings, Branding: a.Branding, Licensing: lic, Log: log.With("component", "notify")}
+	a.Notify = &notify.Service{Pool: pool, Settings: a.Settings, Branding: a.Branding, Log: log.With("component", "notify")}
 	a.Sched = &reportsched.Service{Pool: pool, Settings: a.Settings, Mail: a.Notify, Log: log.With("component", "reports"), Names: func(ctx context.Context) (string, string, string) {
 		if p, err := a.Branding.Public(ctx); err == nil {
 			return p.OrgName, p.ProductName, p.AccentColor
@@ -265,7 +255,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Licensing: a.Licensing, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))
@@ -349,7 +339,7 @@ func (a *App) startGateway() error {
 	}
 	ctx := a.runCtx
 	gw := gateway.New(gateway.Options{Config: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Authority: a.Authority(),
-		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Updates: a.Updates, Content: a.Catalog.Content, Licensing: a.Licensing})
+		Events: a.Events, Hub: a.Hub, Log: a.Log.With("component", "gateway"), Deploy: a.Deploy, Updates: a.Updates, Content: a.Catalog.Content})
 	if err := gw.RefreshCertificate(ctx); err != nil {
 		return fmt.Errorf("gateway certificate: %w", err)
 	}
@@ -381,7 +371,6 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Deploy.Sweep(ctx)
 			a.Updates.Tick(ctx)
 			a.Releases.Tick(ctx)
-			a.Licensing.Tick(ctx)
 			a.Notify.Tick(ctx)
 			a.Sched.Tick(ctx)
 			if n%5 == 0 {

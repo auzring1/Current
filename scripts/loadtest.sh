@@ -15,8 +15,7 @@
 #                                              devices:write, updates:write, reports:read
 #   LOADTEST_GATEWAY=agents.example.com:8443   gateway address as in its certificate
 # The enrollment rate limits of that server must allow the fleet (RENOVATIO_ENROLL_RATE_PER_IP and
-# RENOVATIO_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes, and it must have a license
-# for at least that many devices installed (an unlicensed server enrolls at most 25).
+# RENOVATIO_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes.
 #
 # Usage: scripts/loadtest.sh [--agents N] [--scenarios "steady storm churn"] [--duration 2m]
 #          [--ramp-per-sec N] [--storm-mode client|server-restart] [--jobs-fraction F]
@@ -90,8 +89,6 @@ start_server() {
     export RENOVATIO_WINGET_SOURCE=off RENOVATIO_LOG_LEVEL="$LOG_LEVEL"
     # Enrollment limits are raised for the test: one machine enrolls the whole fleet from one address.
     export RENOVATIO_ENROLL_RATE_PER_IP=1000000 RENOVATIO_ENROLL_RATE_PER_TOKEN=1000000
-    # Without a license the server enrolls at most 25 devices: this run signs itself a throw-away one.
-    export RENOVATIO_LICENSE_PUBLIC_KEYS="$(tr -d '[:space:]' <"$OUT/license.pub")"
     exec "$OUT/bin/renovatio-server" serve >>"$OUT/server.log" 2>&1
   ) &
   server_pid=$!
@@ -111,17 +108,13 @@ else
   psql "$RENOVATIO_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
   dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$RENOVATIO_TEST_PG_URL" "$dbname")
   (umask 077; openssl rand -hex 32 >"$OUT/master_key")
-  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/renovatio-license" ./cmd/renovatio-license
-  (umask 077; "$OUT/bin/renovatio-license" keygen --out "$OUT/license.key" >/dev/null
-   "$OUT/bin/renovatio-license" sign --key "$OUT/license.key" --licensee "load test" --max-devices 1000000 \
-     --expires "$(date -u -d '+30 days' +%F)" --out "$OUT/load.lic" >/dev/null)
   echo "== starting the server (database $dbname, http :$HTTP_PORT, gateway :$GW_PORT)"
   start_server
   for _ in $(seq 1 100); do grep -q "setup token" "$OUT/server.log" 2>/dev/null && break; sleep 0.2; done
   token=$(grep -A2 "enter this one-time setup token" "$OUT/server.log" | tail -1 | tr -d ' ')
   if ! kill -0 "$server_pid" 2>/dev/null || [ -z "$token" ]; then echo "server failed to start"; cat "$OUT/server.log"; exit 1; fi
   "$OUT/bin/bootstrap" -url "http://localhost:$HTTP_PORT" -setup-token "$token" -max-uses 100000 \
-    -license-file "$OUT/load.lic" -api-token-out "$OUT/api_token" >"$OUT/enrollment_string" 2>"$OUT/bootstrap.log" || { cat "$OUT/bootstrap.log"; exit 1; }
+    -api-token-out "$OUT/api_token" >"$OUT/enrollment_string" 2>"$OUT/bootstrap.log" || { cat "$OUT/bootstrap.log"; exit 1; }
   chmod 600 "$OUT/api_token" "$OUT/enrollment_string"
   api="http://localhost:$HTTP_PORT"; gateway="127.0.0.1:$GW_PORT"
   RENOVATIO_LOADSIM_API_TOKEN=$(cat "$OUT/api_token"); export RENOVATIO_LOADSIM_API_TOKEN

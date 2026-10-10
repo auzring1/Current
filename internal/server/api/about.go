@@ -90,15 +90,6 @@ func (s *server) aboutInfo(r *http.Request) map[string]any {
 	if s.Settings != nil {
 		info["settings_schema_version"] = 1
 	}
-	if s.Licensing != nil {
-		if st, err := s.Licensing.Status(ctx, principalFrom(r).OrgID); err == nil {
-			lic := map[string]any{"state": st.State, "message": st.Message, "devices": st.Devices, "max_devices": st.MaxDevices, "configured": st.Configured}
-			if st.License != nil {
-				lic["licensee"], lic["license_id"], lic["expires_at"] = st.License.Licensee, st.License.LicenseID, st.License.ExpiresAt
-			}
-			info["license"] = lic
-		}
-	}
 	org := principalFrom(r).OrgID
 	counts := map[string]int64{}
 	rows, err := s.Pool.Query(ctx, `SELECT status, count(*) FROM devices WHERE org_id = $1 GROUP BY status`, org)

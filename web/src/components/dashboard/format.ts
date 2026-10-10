@@ -73,12 +73,4 @@ export function historySummary(days: readonly Day[]): string {
   return `Compliance from ${first.date} to ${last.date} (${days.length} days). First day: ${first.compliant} compliant, ${first.nonCompliant} not compliant, ${first.unknown} not scanned. Latest: ${now}`;
 }
 
-/** The kind (tile accent) for a license tile. */
-export function licenseKind(l: { state?: string; at_capacity?: boolean }): "danger" | "warning" | "success" | "info" {
-  if (l.at_capacity || l.state === "invalid") return "danger";
-  if (l.state === "grace") return "warning";
-  if (l.state === "evaluation") return "info";
-  return "success";
-}
-
 export const positiveKind = <K extends string>(n: number | null | undefined, kind: K): K | undefined => ((n ?? 0) > 0 ? kind : undefined);

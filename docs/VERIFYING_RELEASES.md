@@ -20,7 +20,7 @@ a release is cut) is in `docs/RUNBOOK.md`, section 9; the design is `docs/DECISI
 | `renovatio-agent_<v>_windows_x64.msi` | The agent MSI (GPO, Intune, RMM). Carries the signed exe; itself Authenticode-signed. |
 | `renovatio-agent_<v>_windows_amd64.rnr` | The **vendor release bundle**: manifest (hash, size, version, signer) + Ed25519 signature. This is what agents check when they update themselves. |
 | `renovatio-server_<v>_linux_amd64` | The server binary (also inside the container image). |
-| `renovatio-release_<v>_linux_amd64`, `renovatio-license_<v>_linux_amd64` | Vendor tools (the license tool only exists from the release that introduced it). |
+| `renovatio-release_<v>_linux_amd64` | The release-signing tool (manifest, sign, verify). |
 | `renovatio-web_<v>.tar.gz` | The web console bundle that is embedded in the server. |
 | `*.cdx.json` | CycloneDX 1.5 SBOMs: one per binary, one for the web bundle, one for the container image. |
 | `unsigned-SHA256SUMS` | Digests of the build **before** signing. Anyone can reproduce these (see the last section). |

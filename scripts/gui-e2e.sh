@@ -11,11 +11,6 @@ trap 'kill ${server_pid:-0} 2>/dev/null || true; rm -rf "$work"' EXIT
 (cd web && npm run build >/dev/null)
 go build -o "$work/renovatio-server" ./cmd/renovatio-server
 go build -o "$work/renovatio-agent" ./cmd/renovatio-agent
-# A license key pair made for this run only (never committed): the server trusts its public half
-# (RENOVATIO_LICENSE_PUBLIC_KEYS) and the test signs demo licenses with the tool.
-go build -o "$work/renovatio-license" ./cmd/renovatio-license
-"$work/renovatio-license" keygen --out "$work/license.key" >/dev/null
-license_pub=$(tr -d '[:space:]' < "$work/license.pub")
 
 db="rnv_gui_$(date +%s)"
 psql "$RENOVATIO_TEST_PG_URL" -qc "CREATE DATABASE $db"
@@ -23,7 +18,7 @@ dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print
 
 RENOVATIO_DEV_MODE=true RENOVATIO_PUBLIC_URL=http://localhost:18080 RENOVATIO_HTTP_ADDR=127.0.0.1:18080 \
 RENOVATIO_GATEWAY_ADDR=127.0.0.1:18443 RENOVATIO_GATEWAY_PUBLIC_ADDR=localhost:18443 RENOVATIO_GATEWAY_SANS=127.0.0.1 \
-RENOVATIO_LICENSE_PUBLIC_KEYS="$license_pub" RENOVATIO_CONTENT_DIR="$work/content" RENOVATIO_DATABASE_URL="$dburl" RENOVATIO_MASTER_KEY=$(openssl rand -hex 32) RENOVATIO_HEARTBEAT_INTERVAL=5s \
+RENOVATIO_CONTENT_DIR="$work/content" RENOVATIO_DATABASE_URL="$dburl" RENOVATIO_MASTER_KEY=$(openssl rand -hex 32) RENOVATIO_HEARTBEAT_INTERVAL=5s \
   "$work/renovatio-server" serve >"$work/server.log" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 50); do grep -q "setup token" "$work/server.log" 2>/dev/null && break; sleep 0.2; done
@@ -34,5 +29,4 @@ fi
 
 cd web
 RENOVATIO_SETUP_TOKEN="$token" RENOVATIO_AGENT_BIN="$work/renovatio-agent" RENOVATIO_GATEWAY=127.0.0.1:18443 \
-RENOVATIO_LICENSE_TOOL="$work/renovatio-license" RENOVATIO_LICENSE_KEY="$work/license.key" \
   npx playwright test "$@" || { echo "--- server log ---"; tail -50 "$work/server.log"; exit 1; }

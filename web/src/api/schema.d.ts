@@ -493,7 +493,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a pending device (requires devices:write). 409 license_device_limit when the license device cap is reached (existing devices are unaffected) */
+        /** Approve a pending device (requires devices:write). */
         post: {
             parameters: {
                 query?: never;
@@ -3002,7 +3002,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Version, build, database, license state and counts (administrators) */
+        /** Version, build, database and counts (administrators) */
         get: {
             parameters: {
                 query?: never;
@@ -3042,7 +3042,7 @@ export interface paths {
         };
         /**
          * A zip for support with configuration and settings but no secrets (administrators; audited)
-         * @description Contains version and build information, license state, counts, the server configuration with every secret replaced, the settings export, the last audit entries without their details and the last notification deliveries without their content. Never contains keys, passwords, tokens, certificates or device data.
+         * @description Contains version and build information, counts, the server configuration with every secret replaced, the settings export, the last audit entries without their details and the last notification deliveries without their content. Never contains keys, passwords, tokens, certificates or device data.
          */
         get: {
             parameters: {
@@ -3390,7 +3390,7 @@ export interface paths {
         };
         /**
          * The dashboard's numbers in one request (each section only when the caller may see it; site-limited callers get their sites)
-         * @description Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's site scope; the license, held updates and the audit activity need organization-wide rights. The compliance history is one point per day from an hourly snapshot (last 30 days).
+         * @description Sections the caller may not see are null (or empty lists). Device, update and job numbers follow the caller's site scope; held updates and the audit activity need organization-wide rights. The compliance history is one point per day from an hourly snapshot (last 30 days).
          */
         get: {
             parameters: {
@@ -3431,7 +3431,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Things that need attention now (failed jobs in the last 24 hours, held updates, license warnings), limited to what the caller may see */
+        /** Things that need attention now (failed jobs in the last 24 hours and held updates), limited to what the caller may see */
         get: {
             parameters: {
                 query?: never;
@@ -4044,112 +4044,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/license": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The effective licensing state, the installed license and device usage (requires license:read)
-         * @description Offline-verifiable license (no phone-home). State is licensed, grace (subscription ended, within 30 days), evaluation (no usable license; limited to 25 devices) or invalid (an installed license cannot be used). A license problem only blocks NEW enrollments and approvals.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["LicenseStatus"];
-                    };
-                };
-            };
-        };
-        /** Install a pasted license (requires license:write; audited as license.install / license.invalid) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description RNL1.<document>.<signature>; whitespace is ignored */
-                        license: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Installed; the new state */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["LicenseStatus"];
-                    };
-                };
-                409: components["responses"]["Error"];
-                422: components["responses"]["Error"];
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/license/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Every license that was installed, newest first (requires license:read) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            items: components["schemas"]["LicenseHistoryItem"][];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6177,7 +6071,7 @@ export interface components {
         Notification: {
             id?: string;
             /** @enum {string} */
-            kind?: "failed_job" | "held_update" | "license";
+            kind?: "failed_job" | "held_update";
             /** @enum {string} */
             severity?: "info" | "warning" | "critical";
             title?: string;
@@ -6200,13 +6094,6 @@ export interface components {
             missing_critical_devices?: number | null;
             failed_jobs_24h?: number | null;
             held_updates?: number | null;
-            license?: {
-                state?: string;
-                message?: string;
-                used?: number;
-                max?: number;
-                at_capacity?: boolean;
-            } | null;
             compliance?: {
                 compliant?: number;
                 non_compliant?: number;
@@ -6473,62 +6360,6 @@ export interface components {
              */
             devices_on: number;
             is_target: boolean;
-        };
-        LicenseInfo: {
-            license_id: string;
-            licensee: string;
-            /** Format: date-time */
-            issued_at: string;
-            /** Format: date-time */
-            not_before: string;
-            /** Format: date-time */
-            expires_at: string | null;
-            max_devices: number;
-            features: string[];
-            /** Format: date-time */
-            updates_until: string | null;
-            notes: string;
-            key_id: string;
-            /** Format: date-time */
-            installed_at: string;
-        };
-        LicenseStatus: {
-            /** @enum {string} */
-            state: "licensed" | "grace" | "evaluation" | "invalid";
-            message: string;
-            /** @description false when this build contains no vendor license key */
-            configured: boolean;
-            /** @description the cap that applies now */
-            max_devices: number;
-            /** @description enrolled (active) devices */
-            devices: number;
-            pending_devices: number;
-            /** @description no free slot: new enrollments and approvals are refused */
-            at_capacity: boolean;
-            over_capacity: boolean;
-            /** Format: date-time */
-            grace_ends_at: string | null;
-            evaluation_max_devices: number;
-            features: string[];
-            license: components["schemas"]["LicenseInfo"] | null;
-            /** Format: date-time */
-            now: string;
-        };
-        LicenseHistoryItem: {
-            /** Format: uuid */
-            id: string;
-            license_id: string;
-            licensee: string;
-            max_devices: number;
-            /** Format: date-time */
-            expires_at: string | null;
-            /** Format: date-time */
-            updates_until: string | null;
-            key_id: string;
-            /** Format: date-time */
-            installed_at: string;
-            installed_by: string;
-            current: boolean;
         };
         AgentRollout: {
             /** Format: uuid */

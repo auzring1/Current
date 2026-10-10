@@ -276,8 +276,6 @@ Do this now, before you put anything of value on the server.
 2. Keep the **CA root passphrase** and the **recovery codes** offline.
 3. Database backups with `maintenance backup` are described in `docs/RUNBOOK.md`, section 6.
 
-**Licensing:** without a license the server runs as a 25-device evaluation, which is plenty for a lab. See `docs/RUNBOOK.md` section 5f.
-
 ---
 
 ## Troubleshooting
@@ -290,7 +288,6 @@ Do this now, before you put anything of value on the server.
 | Console says "Cross-origin request rejected" | The address in the browser must be exactly `https://<RENOVATIO_HOSTNAME>` (plus the port suffix, if you changed the port). |
 | The agent install says it cannot connect / "chain does not match the pinned root" | The agent machine cannot resolve `renovatio.lab` to the server machine (hosts file), port 8443 is blocked (firewall), or a security product intercepts TLS on 8443. |
 | The agent connects but the server log says the name is not in the certificate | You enrolled using an IP or another name. Use the name from the install command, or add the IP to `RENOVATIO_GATEWAY_SANS` and recreate the server (`docker compose ... up -d server`). |
-| "device limit reached" | The evaluation limit of 25 devices (see `docs/RUNBOOK.md` 5f). |
 | The server container keeps restarting | `docker compose -f deploy/docker-compose.yml logs server`. A password or database-name error means old secrets were reused with the new build: stop the stack, run `docker compose ... down -v`, delete `deploy/secrets`, run `./scripts/init-secrets.sh` again and start again. |
 | Docker is very slow or runs out of disk | Docker Desktop → Settings → Resources; WSL 2 keeps its disk in a `.vhdx` file that you can shrink after pruning. |
 | You lost the master key | Without it the data cannot be decrypted: repeat Parts 1–3 for a fresh server and enroll the machines again. |

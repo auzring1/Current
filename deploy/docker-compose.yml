@@ -16,9 +16,6 @@ x-hardening: &hardening
 x-server-build: &server-build
   context: ..
   dockerfile: deploy/Dockerfile.server
-  args:
-    # The vendor license public key(s), hex, comma-separated; empty = the server runs unlicensed (evaluation).
-    LICENSE_PUBLIC_KEYS: ${RENOVATIO_LICENSE_PUBKEYS:-}
 
 services:
   caddy:
@@ -77,7 +74,6 @@ services:
       RENOVATIO_WINGET_SOURCE: ${RENOVATIO_WINGET_SOURCE:-github}
       RENOVATIO_WINGET_INDEX_URL: ${RENOVATIO_WINGET_INDEX_URL:-}
       RENOVATIO_RELEASE_PUBLIC_KEYS: ${RENOVATIO_RELEASE_PUBLIC_KEYS:-}
-      RENOVATIO_LICENSE_PUBLIC_KEYS: ${RENOVATIO_LICENSE_PUBLIC_KEYS:-}
     volumes:
       - content:/var/lib/renovatio/content
     secrets: [database_url, master_key]

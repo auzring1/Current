@@ -4,7 +4,7 @@ import { ago } from "../../api/format";
 import type { Dashboard } from "../../api/client";
 import { Card, Donut, Icons, SeverityBadge, StatGrid, StatTile, StatusPill, type PillKind } from "../../ui";
 import { ComplianceChart } from "./ComplianceChart";
-import { REASON_TEXT, type Reason, historySummary, humanAction, kbLabel, licenseKind, missingUpdateLink, normaliseHistory, positiveKind } from "./format";
+import { REASON_TEXT, type Reason, historySummary, humanAction, kbLabel, missingUpdateLink, normaliseHistory, positiveKind } from "./format";
 import type { WidgetId } from "./layout";
 
 type Props = { d: Dashboard };
@@ -23,11 +23,6 @@ export function tileList(d: Dashboard) {
   if (d.needs_restart != null) tiles.push({ key: "restart", label: "Devices needing restart", value: d.needs_restart, kind: positiveKind(d.needs_restart, "warning"), to: "/devices?restart=1", icon: <Icons.Restart size={ICON} aria-hidden="true" /> });
   if (d.missing_critical_devices != null) tiles.push({ key: "critical", label: "Devices missing critical updates", value: d.missing_critical_devices, kind: positiveKind(d.missing_critical_devices, "danger"), to: "/updates?severity=Critical&missing=1", icon: <Icons.Critical size={ICON} aria-hidden="true" /> });
   if (d.failed_jobs_24h != null) tiles.push({ key: "failed", label: "Failed jobs, last 24 h", value: d.failed_jobs_24h, kind: positiveKind(d.failed_jobs_24h, "danger"), to: "/deployments?failed=1", icon: <Icons.NavDeployments size={ICON} aria-hidden="true" /> });
-  if (d.license) {
-    const l = d.license;
-    const max = l.max ?? 0;
-    tiles.push({ key: "license", label: "License usage", value: max > 0 ? `${l.used ?? 0} / ${max}` : `${l.used ?? 0}`, kind: licenseKind(l), hint: l.message || l.state, to: "/license", icon: <Icons.NavLicense size={ICON} aria-hidden="true" /> });
-  }
   return tiles;
 }
 
