@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 )
 
 const formatV1 byte = 1
@@ -55,7 +56,14 @@ func (s *Sealer) Seal(purpose string, plaintext []byte) ([]byte, error) {
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	out := make([]byte, 0, 1+4+len(nonce)+len(plaintext)+s.aead.Overhead())
+
+	baseSize := uint64(1 + 4 + len(nonce) + s.aead.Overhead())
+	totalSize := baseSize + uint64(len(plaintext))
+	if totalSize > uint64(math.MaxInt) {
+		return nil, errors.New("kek: plaintext too large")
+	}
+
+	out := make([]byte, 0, int(totalSize))
 	out = append(out, formatV1)
 	out = append(out, s.keyID[:]...)
 	out = append(out, nonce...)
