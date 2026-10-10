@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,7 +73,11 @@ func Write(ctx context.Context, tx pgx.Tx, e Entry, now time.Time) (int64, error
 		return 0, err
 	}
 	if id, ok := ctx.Value(ctxKey{}).(string); ok && id != "" {
-		d := make(map[string]any, len(e.Details)+1)
+		n := len(e.Details)
+		if n == math.MaxInt {
+			return 0, errors.New("audit: details too large")
+		}
+		d := make(map[string]any, n+1)
 		for k, v := range e.Details {
 			d[k] = v
 		}
