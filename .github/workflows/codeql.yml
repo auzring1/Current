@@ -13,6 +13,7 @@ jobs:
   analyze:
     runs-on: ubuntu-24.04
     permissions:
+      actions: read          # the analysis reads its own workflow run (needed to report its status)
       contents: read
       security-events: write
     strategy:

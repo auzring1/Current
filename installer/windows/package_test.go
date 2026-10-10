@@ -689,7 +689,7 @@ func TestWorkflowJobMSI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(b)
+	s := strings.ReplaceAll(string(b), "\r\n", "\n") // a Windows checkout may have converted the line endings
 	i := strings.Index(s, "\n  msi:\n")
 	if i < 0 {
 		t.Fatal("job msi is missing from windows.yml")

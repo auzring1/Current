@@ -118,7 +118,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "${{ env.GO_VERSION }}", cache: false }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: "${{ env.NODE_VERSION }}" }
       - name: "Release public keys (dry run: generate a throw-away pair)"
         id: keys
@@ -143,7 +143,7 @@ jobs:
           fi
           echo "pubkeys=$pub" >> "$GITHUB_OUTPUT"
           echo "subjects=$subjects" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: needs.prepare.outputs.dry_run == 'true'
         with: { name: dryrun-key, path: "${{ runner.temp }}/dryrun-key/", retention-days: 1 }
       - name: Reproducible build (Go binaries, web bundle, SBOMs)
@@ -152,7 +152,7 @@ jobs:
           PUBKEYS: ${{ steps.keys.outputs.pubkeys }}
           SUBJECTS: ${{ steps.keys.outputs.subjects }}
         run: scripts/build-release.sh --version "$VERSION" --release-pubkeys "$PUBKEYS" --authenticode-subjects "$SUBJECTS" --out "$PWD/dist-release/out"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: unsigned, path: dist-release/out/, retention-days: 14 }
 
   # A second, independent build on a fresh runner in a different directory must give identical digests.
@@ -166,7 +166,7 @@ jobs:
         with: { path: elsewhere/checkout, persist-credentials: false }
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "${{ env.GO_VERSION }}", cache: false }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: "${{ env.NODE_VERSION }}" }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: unsigned, path: first-build }
@@ -301,7 +301,7 @@ jobs:
         shell: pwsh
         run: ./scripts/authenticode.ps1 -Action Verify -Subject $env:SUBJECT -Files "dist-release\msi\current-agent_$($env:VERSION)_windows_x64.msi"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-signed
           path: |
@@ -396,7 +396,7 @@ jobs:
             --out "dist-release/manifest/current-agent_${VERSION}_windows_amd64.curr"
           echo "$pub" > "$work/pub.hex"
           "$tool" verify --bundle "dist-release/manifest/current-agent_${VERSION}_windows_amd64.curr" --exe "$exe" --pub "$work/pub.hex"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest
           path: dist-release/manifest/current-agent_${{ needs.prepare.outputs.version }}_windows_amd64.curr
@@ -489,7 +489,7 @@ jobs:
           subject-name: ${{ steps.build.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: needs.prepare.outputs.dry_run == 'false'
         with:
           name: image-meta
@@ -571,7 +571,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PUBKEYS: ${{ needs.build.outputs.pubkeys }}
         run: scripts/verify-release.sh --dir dist-release/final --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --pub "$PUBKEYS"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ needs.prepare.outputs.version }}
           path: dist-release/final/

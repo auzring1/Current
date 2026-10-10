@@ -125,11 +125,11 @@ func varint(b []byte) (uint64, int) {
 
 func decodeRecord(p []byte) ([]Value, error) {
 	hl, n := varint(p)
-	if n == 0 || hl < uint64(n) || hl > uint64(len(p)) {
+	if n == 0 || hl < uint64(n) || hl > uint64(len(p)) { // #nosec G115 -- n is a byte count of 0 to 9 and len(p) is not negative
 		return nil, corrupt("record header")
 	}
 	var types []uint64
-	for pos := n; pos < int(hl); {
+	for pos := n; pos < int(hl); { // #nosec G115 -- hl was checked to be at most len(p) above
 		t, m := varint(p[pos:hl])
 		if m == 0 {
 			return nil, corrupt("record serial type")
@@ -141,7 +141,7 @@ func decodeRecord(p []byte) ([]Value, error) {
 		}
 	}
 	vals := make([]Value, len(types))
-	pos := int(hl)
+	pos := int(hl) // #nosec G115 -- hl was checked to be at most len(p) above
 	take := func(k int) ([]byte, error) {
 		if k < 0 || pos+k > len(p) {
 			return nil, corrupt("record body")
@@ -180,13 +180,13 @@ func decodeRecord(p []byte) ([]Value, error) {
 		case t == 10 || t == 11:
 			return nil, corrupt("reserved serial type")
 		case t%2 == 0:
-			s, err := take(int(t-12) / 2)
+			s, err := take(int(t-12) / 2) // #nosec G115 -- take rejects a negative or oversized length, so a wrapped value is refused
 			if err != nil {
 				return nil, err
 			}
 			vals[i] = Value{kind: 4, b: s}
 		default:
-			s, err := take(int(t-13) / 2)
+			s, err := take(int(t-13) / 2) // #nosec G115 -- take rejects a negative or oversized length, so a wrapped value is refused
 			if err != nil {
 				return nil, err
 			}
@@ -298,7 +298,7 @@ func (d *sqliteDB) scan(root int, index bool, fn func(rowid int64, rec []Value) 
 				if m == 0 || m2 == 0 || total > uint64(len(d.b)) {
 					return corrupt("table cell")
 				}
-				pl, err := d.payload(cell[m+m2:], int(total), false)
+				pl, err := d.payload(cell[m+m2:], int(total), false) // #nosec G115 -- total was checked to be at most the file size above
 				if err != nil {
 					return err
 				}
@@ -309,7 +309,7 @@ func (d *sqliteDB) scan(root int, index bool, fn func(rowid int64, rec []Value) 
 				if rows++; rows > maxCells {
 					return corrupt("too many rows")
 				}
-				if err := fn(int64(rid), rec); err != nil {
+				if err := fn(int64(rid), rec); err != nil { // #nosec G115 -- a SQLite rowid is a signed 64-bit integer stored as its two's complement
 					return err
 				}
 			case 0x02, 0x0a: // index interior: left child, payload size, payload; index leaf: payload size, payload
@@ -326,7 +326,7 @@ func (d *sqliteDB) scan(root int, index bool, fn func(rowid int64, rec []Value) 
 				if m == 0 || total > uint64(len(d.b)) {
 					return corrupt("index cell")
 				}
-				pl, err := d.payload(cell[m:], int(total), true)
+				pl, err := d.payload(cell[m:], int(total), true) // #nosec G115 -- total was checked to be at most the file size above
 				if err != nil {
 					return err
 				}
