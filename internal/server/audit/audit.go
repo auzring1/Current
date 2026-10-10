@@ -74,7 +74,7 @@ func Write(ctx context.Context, tx pgx.Tx, e Entry, now time.Time) (int64, error
 	}
 	if id, ok := ctx.Value(ctxKey{}).(string); ok && id != "" {
 		n := len(e.Details)
-		if n == math.MaxInt {
+		if n > math.MaxInt-1 {
 			return 0, errors.New("audit: details too large")
 		}
 		d := make(map[string]any, n+1)
