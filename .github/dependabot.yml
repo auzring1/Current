@@ -9,9 +9,18 @@ updates:
     directory: /web
     schedule: { interval: weekly }
     open-pull-requests-limit: 10
+    # Major versions change APIs and peer requirements (TypeScript 7 broke `npm ci`, the table library 9 is a rewrite).
+    # Take them deliberately, by hand, not as a routine update.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
   - package-ecosystem: docker
     directory: /deploy
     schedule: { interval: weekly }
+    # Stay on long-term-support base images (Node 22): odd-numbered Node majors are short-lived.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

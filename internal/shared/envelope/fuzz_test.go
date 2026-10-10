@@ -22,7 +22,11 @@ func FuzzOpenSigned(f *testing.F) {
 	f.Add([]byte{0x08, 0x01})
 	f.Fuzz(func(t *testing.T, payload []byte) {
 		se := &agentv1.SignedEnvelope{Payload: payload, KeyId: spkix.KeyID(fx.signer)}
-		se.Signature = ed25519.Sign(fx.key, signedBytes(payload))
+		sb, err := signedBytes(payload)
+		if err != nil {
+			return
+		}
+		se.Signature = ed25519.Sign(fx.key, sb)
 		env, err := fx.verifier(memLedger{}).Open(se)
 		if err != nil {
 			return
