@@ -7,7 +7,6 @@ import { api, errorMessage, type Device, type ReportOverview } from "../api/clie
 import { ago } from "../api/format";
 import { useSiteScope } from "../ui/SiteScope";
 import { useEffective } from "../settings/useEffective";
-import { LicenseBanner } from "../components/LicenseBanner";
 import { DataTable, EmptyState, Icons, IconButton, Page, PageHeader, StatGrid, StatTile, Status, StatusPill, TileSkeleton, toast, useConfirm, type Column } from "../ui";
 
 export function DevicesPage() {
@@ -179,7 +178,6 @@ export function DevicesPage() {
 
   return (
     <Page>
-      <LicenseBanner />
       <PageHeader
         title="Devices"
         description="Every Windows device that reports to this server, with its health at a glance."

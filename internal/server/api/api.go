@@ -24,7 +24,6 @@ import (
 	"github.com/auzring1/renovatio/internal/server/deploy"
 	"github.com/auzring1/renovatio/internal/server/events"
 	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/licensing"
 	"github.com/auzring1/renovatio/internal/server/maintenance"
 	"github.com/auzring1/renovatio/internal/server/notify"
 	"github.com/auzring1/renovatio/internal/server/pki"
@@ -66,7 +65,6 @@ type Deps struct {
 	Updates   *updates.Service
 	Releases  *agentrel.Service
 	Policies  *policies.Service
-	Licensing *licensing.Service
 	Branding  *branding.Service
 	Settings  *settings.Service
 	Notify    *notify.Service
@@ -257,9 +255,6 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermBrandingWrite)).Put("/settings/branding/assets/{kind}", s.putBrandingAsset)
 	r.With(s.require(auth.PermBrandingWrite)).Delete("/settings/branding/assets/{kind}", s.deleteBrandingAsset)
 	r.With(s.require(auth.PermBrandingWrite)).Post("/settings/branding/reset", s.resetBranding)
-	r.With(s.require(auth.PermLicenseRead)).Get("/license", s.getLicense)
-	r.With(s.require(auth.PermLicenseWrite)).Put("/license", s.putLicense)
-	r.With(s.require(auth.PermLicenseRead)).Get("/license/history", s.licenseHistory)
 
 	r.With(s.requireAny(auth.PermSitesRead)).Get("/sites", s.listSites)
 	r.With(s.require(auth.PermSitesWrite)).Post("/sites", s.createSite)

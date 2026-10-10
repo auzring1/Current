@@ -31,7 +31,6 @@ export {
   IconBookmark as Bookmark,
   IconBookmarkPlus as BookmarkAdd,
   IconBrush as Brush,
-  IconCertificate as NavLicense,
   IconChartBar as NavReports,
   IconCheck as Check,
   IconChecklist as NavSoftwarePolicy,

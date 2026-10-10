@@ -100,12 +100,9 @@ func TestRBAC(t *testing.T) {
 	}
 	for _, x := range PermissionsFor([]string{RoleOperator}) {
 		switch x {
-		case PermCatalogOverride, PermSettingsWrite, PermUpdatesPolicy, PermReleasesWrite, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesWrite, PermLicenseWrite, PermBrandingWrite:
-			t.Fatalf("operator has %s: overrides, settings, update policy, releases, sites, users, automation policies, installing a license and branding are admin-only", x)
+		case PermCatalogOverride, PermSettingsWrite, PermUpdatesPolicy, PermReleasesWrite, PermSitesWrite, PermUsersRead, PermUsersWrite, PermPoliciesWrite, PermBrandingWrite:
+			t.Fatalf("operator has %s: overrides, settings, update policy, releases, sites, users, automation policies and branding are admin-only", x)
 		}
-	}
-	if !slices.Contains(PermissionsFor([]string{RoleOperator}), PermLicenseRead) || !slices.Contains(PermissionsFor([]string{RoleAdmin}), PermLicenseWrite) {
-		t.Fatal("operators read the license, administrators install it")
 	}
 	if !slices.Contains(PermissionsFor([]string{RoleAdmin}), PermBrandingWrite) {
 		t.Fatal("administrators manage branding")

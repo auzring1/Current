@@ -34,7 +34,7 @@ func TestDashboardNotificationsAndLayoutPreferences(t *testing.T) {
 	if num(dev["total"]) != 2 || num(dev["online"]) != 2 || num(dev["offline"]) != 0 {
 		t.Fatalf("device tiles: %v", dev)
 	}
-	for _, k := range []string{"needs_restart", "missing_critical_devices", "failed_jobs_24h", "license", "compliance", "held_updates"} {
+	for _, k := range []string{"needs_restart", "missing_critical_devices", "failed_jobs_24h", "compliance", "held_updates"} {
 		if d[k] == nil {
 			t.Errorf("an administrator should get %q: %v", k, d)
 		}
@@ -69,10 +69,10 @@ func TestDashboardNotificationsAndLayoutPreferences(t *testing.T) {
 		t.Fatalf("snapshot counts both devices: %v", p)
 	}
 
-	// A read-only user gets device and update numbers but no audit trail or license.
+	// A read-only user gets device and update numbers but no audit trail.
 	ro := h.orgUser("ro@example.com", "readonly")
 	st, d = ro.do("GET", "/api/v1/dashboard", nil, nil)
-	if st != 200 || d["devices"] == nil || d["compliance"] == nil || d["license"] != nil || len(d["activity"].([]any)) != 0 {
+	if st != 200 || d["devices"] == nil || d["compliance"] == nil || len(d["activity"].([]any)) != 0 {
 		t.Fatalf("read-only dashboard: %d %v", st, d)
 	}
 
@@ -88,7 +88,7 @@ func TestDashboardNotificationsAndLayoutPreferences(t *testing.T) {
 	if st != 200 || num(d["devices"].(map[string]any)["total"]) != 1 {
 		t.Fatalf("site-limited dashboard must count one device: %d %v", st, d)
 	}
-	if d["license"] != nil || d["held_updates"] != nil || len(d["activity"].([]any)) != 0 {
+	if d["held_updates"] != nil || len(d["activity"].([]any)) != 0 {
 		t.Fatalf("site-limited users get no organization-wide sections: %v", d)
 	}
 	for _, a := range d["attention"].([]any) {

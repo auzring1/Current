@@ -1,6 +1,6 @@
 # Renovatio: notes for Claude Code sessions
 
-Self-hosted Windows endpoint patch and software management by Auzring: a Go agent, a Go server (REST API, SSE, embedded
+Self-hosted Windows endpoint patch and software management: a Go agent, a Go server (REST API, SSE, embedded
 React console) and PostgreSQL, run with docker compose. Security first: mTLS, signed jobs, mandatory MFA, RBAC, hash-chained
 audit. Start with `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (latest decision: D99) and `docs/RUNBOOK.md`.
 

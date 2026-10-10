@@ -109,7 +109,7 @@ elif ! command -v gh >/dev/null; then
   fail "gh (GitHub CLI) is not installed; install it or pass --skip-attestations"
 else
   shopt -s nullglob
-  for f in renovatio-agent_*.exe renovatio-agent_*.msi renovatio-server_*_linux_amd64 renovatio-release_*_linux_amd64 renovatio-license_*_linux_amd64 renovatio-web_*.tar.gz; do
+  for f in renovatio-agent_*.exe renovatio-agent_*.msi renovatio-server_*_linux_amd64 renovatio-release_*_linux_amd64 renovatio-web_*.tar.gz; do
     if gh attestation verify "$f" --repo "$repo" --signer-workflow "$repo/.github/workflows/release.yml" >/dev/null 2>&1; then
       ok "provenance: $f was built by the $repo release workflow"
     else

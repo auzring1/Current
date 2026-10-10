@@ -195,7 +195,6 @@ Configuration (all optional, set in the server's environment):
 | `RENOVATIO_WINGET_SOURCE` | `github` (default) or `off`. `off` also stops the winget index download. |
 | `RENOVATIO_WINGET_INDEX_URL` | Where the winget index is downloaded from (https only). Empty = Microsoft's winget CDN. For an internal mirror. |
 | `RENOVATIO_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
-| `RENOVATIO_LICENSE_PUBLIC_KEYS` | Extra vendor license public keys (hex, comma-separated). Only for testing licensing with a key made by `renovatio-license keygen`; official builds carry the vendor key inside them. |
 | `RENOVATIO_GITHUB_TOKEN` / `RENOVATIO_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
 
 **Software updates without a catalog (decision D98).** The server keeps a copy of the winget community index (the file the winget client itself uses; about 15,000 packages with their newest version, the Windows product codes and the normalized names that identify them), downloaded from Microsoft's CDN a few seconds after the server starts and then once a day (**Updates → Software updates** shows its age and has **Refresh now**). Every installed program is checked against it: first by its product code or uninstall-key name, then by normalized name **and** publisher; a program that matches several packages equally well, or only a name with no matching publisher, is not matched. The result:
@@ -255,39 +254,6 @@ Configuration (all optional, set in the server's environment):
 | Reports | **Reports**: devices, online, patch compliance (no approved or Critical update missing, no failed install, scanned within a week), devices needing a restart, devices not seen for a week and job results of the last 30 days; **Export patch compliance (CSV)**. |
 | Search the audit log | **Audit log**: filter by action prefix (`user.`, `deployment`), outcome, actor (id or IP) and time; **Export CSV** (up to 100,000 rows; spreadsheet formulas are neutralized). |
 | Prove the log is intact | **Audit log → Verify the chain** walks every entry; a broken chain names the first bad entry. Do it before relying on the log in an investigation. |
-
-### 5f. Licensing (Phase 6)
-
-Licensing is checked on your server, offline; nothing is ever sent to the vendor. **Rule of thumb: a licensing problem only stops NEW devices from being enrolled or approved.** Existing devices, deployments, Windows and software updates, sign-in, revoking and uninstalling keep working in every state.
-
-| State (License page) | What it means | New devices |
-|---|---|---|
-| **Unlicensed (evaluation)** | No license installed (or the subscription ended more than 30 days ago) | up to 25 enrolled devices |
-| **Licensed** | A valid license is installed and inside its term | up to the license's device count |
-| **Expired (grace period)** | The subscription ended less than 30 days ago | the license's device count still applies until the date shown; renew before then |
-| **License not usable** | The installed license cannot be verified with this build's vendor key, or is not valid yet | the evaluation limit (25) |
-
-| Task | How |
-|---|---|
-| Install a license | **License** (administrators only) **→ paste the license text (it starts with `RNL1.`) → Install license**. Takes effect at once; the previous one stays in the history. Refused with a reason if the signature does not verify, it is not valid yet, it expired more than 30 days ago, or it is already installed. Each attempt is in the audit log (`license.install`, `license.invalid`). From a script: `PUT /api/v1/license` with `{"license": "RNL1...."}` (permission `license:write`). |
-| Renew | Install the new license text the same way, any time before or during the grace period. Devices are not touched. |
-| See usage and expiry | **License** shows "N of M devices", the term, the update period and the history. The **Devices** page shows a banner when the cap is reached or the subscription ends within 30 days (people with `license:read`, i.e. administrators and operators). |
-| At the cap | The next enrollment fails on the machine with `device limit reached: ... An administrator can install a license under License ...` (the installer prints it, and the service retries every ~15 minutes, so the machine enrolls by itself once there is room); a pending device cannot be approved (the console shows the same message). Fix: install a license with more devices, or **revoke and delete** devices you no longer manage. Every other function keeps working. A smaller license than your fleet removes nothing: you are simply over the cap until devices leave. |
-| A re-installed machine | Re-enrolling a known machine (same hardware) replaces its old device and is always allowed, even at the cap. |
-| Agent update period | If your license has an *updates until* date, agent releases published after it cannot be uploaded or rolled out ("Agent updates" shows why); a running rollout of such a release is paused. Windows, driver and software updates are never affected, and agents that are already installed keep working. |
-| "Licensing is not configured" | This server build contains no vendor license key, so it can only run as an unlicensed evaluation. Use the vendor's official build or image (compose: set `RENOVATIO_LICENSE_PUBKEYS=<hex>` in `deploy/.env` and `docker compose up --build`; plain docker: `--build-arg LICENSE_PUBLIC_KEYS=<hex>`; release builds: `RENOVATIO_LICENSE_PUBKEYS` or `release/license-public-keys.txt`, see below). |
-| Clock | The server remembers the latest time it has seen; setting the clock backwards does not bring back an expired subscription. Keep the server clock correct (NTP). |
-
-**Issuing licenses (vendor side).** `renovatio-license` is in `cmd/renovatio-license` and is not shipped to customers. Generate the license key once and keep it offline or in a KMS (it is a different key from the release key; never reuse one for the other):
-
-```
-renovatio-license keygen --out license.key            # writes license.key (secret) and license.pub
-renovatio-license sign --key license.key --licensee "Example GmbH" --max-devices 250 \
-    --expires 2027-10-01 --updates-until 2027-10-01 --features reports.export --out example.lic
-renovatio-license show --license example.lic --pub license.pub      # check before sending
-```
-
-Put the public key hex in server builds: `go build -ldflags "-X github.com/auzring1/renovatio/internal/shared/license.PublicKeysHex=<hex>[,<hex2>]" ./cmd/renovatio-server` (several keys allow rotation). With a KMS: `renovatio-license payload --licensee ... --max-devices ... --out doc.json --tosign doc.tosign`, have the KMS Ed25519-sign the **whole** `.tosign` file (it starts with the domain separator), then `renovatio-license attach --doc doc.json --signature sig.bin --pub license.pub --out example.lic`. Official release builds (`scripts/build-release.sh`, `scripts/build-image.sh`) take the key from `RENOVATIO_LICENSE_PUBKEYS`, `--license-pubkeys`, or the non-comment lines of `release/license-public-keys.txt`, and record it in `BUILD-INFO.txt`; with none the build warns and the server runs unlicensed. Demo keys for testing go under the git-ignored `dist-demo/`; never commit a key.
 
 ### 5g. Branding (Phase 7)
 
@@ -552,7 +518,7 @@ If something is wrong after step 5: delete the draft, leave the tag (do not move
 
 ### 9.4 Release-key custody (decision O7): key ceremony outline
 
-The vendor release key is an **Ed25519** key (the agents verify Ed25519 and nothing else). It signs the small manifest of each agent release and nothing else; the license-signing key (Phase 6) is a different key with a different custodian, never the same one.
+The vendor release key is an **Ed25519** key (the agents verify Ed25519 and nothing else). It signs the small manifest of each agent release and nothing else.
 
 **Where it lives.** In a KMS/HSM that can sign but not export. The pipeline contract is `scripts/release-kms.sh <provider> sign|pubkey` and works for any service that can do a raw Ed25519 (PureEdDSA) signature over a few hundred bytes:
 

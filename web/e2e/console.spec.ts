@@ -1,4 +1,4 @@
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,15 +10,6 @@ const setupToken = process.env.RENOVATIO_SETUP_TOKEN ?? "";
 const agentBin = process.env.RENOVATIO_AGENT_BIN ?? "";
 const gateway = process.env.RENOVATIO_GATEWAY ?? "127.0.0.1:18443";
 const shots = process.env.RENOVATIO_SCREENSHOTS ?? "";
-// The license tool and a key whose public half the server trusts (scripts/gui-e2e.sh makes both for this run).
-const licenseTool = process.env.RENOVATIO_LICENSE_TOOL ?? "";
-const licenseKey = process.env.RENOVATIO_LICENSE_KEY ?? "";
-
-/** Signs a demo license with the run's key; returns the pasteable RNL1 text. */
-function signLicense(key: string, args: string[]): string {
-  return execFileSync(licenseTool, ["sign", "--key", key, ...args], { encoding: "utf8" }).trim();
-}
-const ymd = (daysFromNow: number) => new Date(Date.now() + daysFromNow * 86_400_000).toISOString().slice(0, 10);
 const email = "admin@example.com";
 const password = "Granite-Lantern-Pickle-42";
 // Small PNGs made for these tests (a 220x64 logo, a 128x128 icon, a 32x32 favicon).
@@ -419,7 +410,7 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await tp.getByRole("button", { name: "I have saved them, continue" }).click();
   await expect(tp.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(tp.getByRole("link", { name: "Devices", exact: true })).toBeVisible();
-  for (const hidden of ["Inventory", "Groups", "Catalog", "Deployments", "Software updates", "Users and roles", "Audit log", "Settings", "License"]) {
+  for (const hidden of ["Inventory", "Groups", "Catalog", "Deployments", "Software updates", "Users and roles", "Audit log", "Settings"]) {
     await expect(tp.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
   }
   await shot(tp, "20-site-limited-console");
@@ -707,53 +698,9 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.keyboard.press("Escape");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
-  // --- License: unlicensed evaluation, a forged license is refused, a real one is installed, expiry warning ---
-  if (licenseTool && licenseKey) {
-    await mainNav(page).getByRole("link", { name: "License", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "License", exact: true })).toBeVisible();
-    await expect(page.getByTestId("license-state")).toHaveText("Unlicensed (evaluation)");
-    await expect(page.getByTestId("license-usage")).toContainText("of 25 devices enrolled");
-    await shot(page, "24-license-unlicensed");
-
-    // A license signed by some other key is refused with a clear message.
-    const otherDir = mkdtempSync(join(tmpdir(), "rnv-lic-"));
-    execFileSync(licenseTool, ["keygen", "--out", join(otherDir, "other.key")], { stdio: "ignore" });
-    const forged = signLicense(join(otherDir, "other.key"), ["--licensee", "Mallory", "--max-devices", "100000"]);
-    await page.getByTestId("license-input").fill(forged);
-    await page.getByTestId("license-install").click();
-    await expect(page.getByText(/does not verify under a trusted vendor license key/)).toBeVisible();
-    await expect(page.getByTestId("license-state")).toHaveText("Unlicensed (evaluation)");
-    await page.mouse.move(0, 0); // a hovered toast does not time out
-
-    // The real license (signed by this run's key) is installed and takes effect at once.
-    const lic1 = signLicense(licenseKey, ["--licensee", "GUI Test Ltd", "--max-devices", "50", "--features", "reports.export", "--expires", ymd(365), "--updates-until", ymd(365)]);
-    await page.getByTestId("license-input").fill(lic1);
-    await page.getByTestId("license-install").click();
-    await expect(page.getByText(/License installed/)).toBeVisible();
-    await expect(page.getByTestId("license-state")).toHaveText("Licensed");
-    await expect(page.getByTestId("license-usage")).toContainText("of 50 devices enrolled");
-    await expect(page.getByTestId("license-licensee")).toHaveText("GUI Test Ltd");
-    await expect(page.getByTestId("license-input")).toHaveValue("");
-    await shot(page, "25-license-installed");
-    await page.mouse.move(0, 0);
-
-    // A renewal that ends within 30 days makes the Devices page warn.
-    const lic2 = signLicense(licenseKey, ["--licensee", "GUI Test Ltd", "--max-devices", "50", "--expires", ymd(10)]);
-    await page.getByTestId("license-input").fill(lic2);
-    await page.getByTestId("license-install").click();
-    await expect(page.getByRole("table", { name: "License history" }).getByRole("row")).toHaveCount(3, { timeout: 15_000 }); // header + 2
-    await mainNav(page).getByRole("link", { name: "Devices", exact: true }).click();
-    await expect(page.getByTestId("license-banner")).toContainText("The license expires soon");
-    await shot(page, "26-license-banner");
-  }
-
   // --- Audit log ---
   await mainNav(page).getByRole("link", { name: "Audit log", exact: true }).click();
   await expect(page.getByRole("cell", { name: "setup.complete" })).toBeVisible();
-  if (licenseTool && licenseKey) {
-    await expect(page.getByRole("cell", { name: "license.install" }).first()).toBeVisible();
-    await expect(page.getByRole("cell", { name: "license.invalid" }).first()).toBeVisible();
-  }
   if (agentBin) await expect(page.getByRole("cell", { name: "device.revoke" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "branding.update" }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "branding.reset" })).toBeVisible();

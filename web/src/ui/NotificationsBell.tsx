@@ -6,9 +6,9 @@ import { ago } from "../api/format";
 import { useSession } from "../api/session";
 import * as I from "./icons";
 
-const ICON: Record<string, typeof I.Warning> = { failed_job: I.Danger, held_update: I.NavHeld, license: I.NavLicense };
+const ICON: Record<string, typeof I.Warning> = { failed_job: I.Danger, held_update: I.NavHeld };
 
-/** The bell: failed jobs (24 h), held updates and license warnings that the signed-in person may act on. */
+/** The bell: failed jobs (24 h), and held updates that the signed-in person may act on. */
 export function NotificationsBell() {
   const { session } = useSession();
   const q = useQuery({

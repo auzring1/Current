@@ -9,7 +9,6 @@
 #   renovatio-agent_<v>_windows_amd64.exe      the agent (UNSIGNED: Authenticode is applied later by release.yml)
 #   renovatio-server_<v>_linux_amd64           the server with the web console embedded
 #   renovatio-release_<v>_linux_amd64          vendor tool (manifest / sign / verify)
-#   renovatio-license_<v>_linux_amd64          license tool (only when cmd/renovatio-license exists)
 #   renovatio-web_<v>.tar.gz                   the web console bundle (what is embedded in the server)
 #   *.cdx.json                               CycloneDX 1.5 SBOMs, one per binary and one for the web bundle
 #   unsigned-SHA256SUMS                      digests of everything above (this is what a rebuild must match)
@@ -26,10 +25,6 @@
 #   --out DIR                output directory (default dist-release/<version>; must be empty or absent)
 #   --release-pubkeys LIST   comma-separated vendor release public keys (hex). Default: $RENOVATIO_RELEASE_PUBKEYS, else the
 #                            non-comment lines of release/release-public-keys.txt. No key = refuse (see --allow-no-release-key)
-#   --license-pubkeys LIST   comma-separated vendor LICENSE public keys (hex), compiled into the server so it accepts licenses
-#                            signed by them. Default: $RENOVATIO_LICENSE_PUBKEYS, else the non-comment lines of
-#                            release/license-public-keys.txt. Empty = the server runs unlicensed (evaluation limits).
-#                            This is a different key from the release key (docs/RUNBOOK.md, issuing licenses).
 #   --allow-no-release-key   build without any compiled-in release key (agents then refuse all updates; development only)
 #   --require-authenticode B true (default, release) or false: sets release.RequireAuthenticode
 #   --authenticode-subjects L "|"-separated signer CNs compiled into agent and server as the only subjects a release
@@ -51,7 +46,7 @@ AGENT_MAX_BYTES=15728640
 
 die() { echo "build-release: $*" >&2; exit 1; }
 
-version="" commit="HEAD" out="" pubkeys="${RENOVATIO_RELEASE_PUBKEYS:-}" licpubkeys="${RENOVATIO_LICENSE_PUBKEYS:-}" allow_no_key=0 req_auth=true
+version="" commit="HEAD" out="" pubkeys="${RENOVATIO_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
 subjects="${RENOVATIO_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
 with_arm64=0 skip_web=0 skip_sbom=0 want_image=0 allow_dirty=0
 while [ $# -gt 0 ]; do
@@ -60,7 +55,6 @@ while [ $# -gt 0 ]; do
     --commit) commit=${2:?}; shift 2 ;;
     --out) out=${2:?}; shift 2 ;;
     --release-pubkeys) pubkeys=${2:?}; shift 2 ;;
-    --license-pubkeys) licpubkeys=${2:?}; shift 2 ;;
     --allow-no-release-key) allow_no_key=1; shift ;;
     --require-authenticode) req_auth=${2:?}; shift 2 ;;
     --authenticode-subjects) subjects=${2:?}; shift 2 ;;
@@ -104,19 +98,6 @@ elif [ "$allow_no_key" = 0 ]; then
   die "no vendor release public key: pass --release-pubkeys, set RENOVATIO_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
 fi
 
-# --- license keys (a public value; empty means an unlicensed server, which is allowed) ------------------------
-if [ -z "$licpubkeys" ] && [ -f release/license-public-keys.txt ]; then
-  licpubkeys=$(grep -Ev '^[[:space:]]*(#|$)' release/license-public-keys.txt | tr -d '[:space:]' | paste -sd, - || true)
-fi
-if [ -n "$licpubkeys" ]; then
-  IFS=, read -ra _lkeys <<<"$licpubkeys"
-  for k in "${_lkeys[@]}"; do
-    [[ $k =~ ^[0-9a-f]{64}$ ]] || die "license public key '${k:0:16}...' is not 64 lowercase hex characters"
-  done
-else
-  echo "build-release: WARNING: no license public key; the server will run unlicensed (evaluation limits). Set RENOVATIO_LICENSE_PUBKEYS or release/license-public-keys.txt." >&2
-fi
-
 if [ -n "$subjects" ]; then
   case "$subjects" in *\'*|*\"*|*\\*|*$'\n'*) die "--authenticode-subjects must not contain quotes, backslashes or newlines" ;; esac
 elif [ "$req_auth" = true ] && [ "$allow_no_pin" = 0 ]; then
@@ -149,8 +130,6 @@ trap 'rm -rf "$work"' EXIT
 pkg=github.com/auzring1/renovatio/internal/shared
 ldflags="-s -w -buildid= -X $pkg/version.Version=$v -X $pkg/version.Commit=$short"
 ldflags="$ldflags -X $pkg/release.PublicKeysHex=$pubkeys -X $pkg/release.RequireAuthenticode=$req_auth"
-# only the server reads the license key, but one flag set keeps every binary built the same way
-ldflags="$ldflags -X $pkg/license.PublicKeysHex=$licpubkeys"
 # the subject list may contain spaces: single-quote the whole -X argument for the go tool's ldflags parser
 ldflags="$ldflags -X '$pkg/release.AuthenticodeSubjects=$subjects'"
 
@@ -181,15 +160,12 @@ if [ "$with_arm64" = 1 ]; then
 fi
 gobuild linux amd64 ./cmd/renovatio-server "$out/renovatio-server_${v}_linux_amd64"
 gobuild linux amd64 ./cmd/renovatio-release "$out/renovatio-release_${v}_linux_amd64"
-if [ -d cmd/renovatio-license ]; then
-  gobuild linux amd64 ./cmd/renovatio-license "$out/renovatio-license_${v}_linux_amd64"
-fi
 
 # --- SBOMs -------------------------------------------------------------------------------------------
 if [ "$skip_sbom" = 0 ]; then
   echo "== SBOMs"
   go build -trimpath -buildvcs=false -o "$work/renovatio-sbom" ./cmd/renovatio-sbom
-  for f in "$out"/renovatio-agent_* "$out"/renovatio-server_* "$out"/renovatio-release_* "$out"/renovatio-license_*; do
+  for f in "$out"/renovatio-agent_* "$out"/renovatio-server_* "$out"/renovatio-release_*; do
     [ -f "$f" ] || continue
     b=$(basename "$f")
     # component name: renovatio-agent_1.2.3_windows_amd64.exe -> renovatio-agent
@@ -208,7 +184,7 @@ fi
 image_digest=""
 if [ "$want_image" = 1 ]; then
   echo "== container image"
-  RENOVATIO_RELEASE_PUBKEYS="$pubkeys" RENOVATIO_LICENSE_PUBKEYS="$licpubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
+  RENOVATIO_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
       --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --authenticode-subjects "$subjects" --go-version "${want_go#go}" \
       --oci-out "$out/renovatio-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
   image_digest=$(cat "$out/image-digest.txt")
@@ -225,7 +201,6 @@ fi
   echo "go_sum_sha256:         $(sha256sum go.sum | cut -d' ' -f1)"
   echo "require_authenticode:  $req_auth"
   echo "release_public_keys:   ${pubkeys:-none}"
-  echo "license_public_keys:   ${licpubkeys:-none}"
   echo "authenticode_subjects: ${subjects:-none}"
   echo "go build flags:        -trimpath -buildvcs=false CGO_ENABLED=0 GOFLAGS=-mod=readonly"
   echo "ldflags:               $ldflags"
