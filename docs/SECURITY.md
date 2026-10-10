@@ -416,11 +416,10 @@ Themes, preferences and the redesigned console (decision D93). New attack surfac
 **Known gaps:** a person's own theme is cached in the browser's local storage until they sign out (cleared on sign-out); saved views are opaque to the server beyond their size and shape.
 
 ## 10. Vulnerability disclosure
-**Placeholder; the contact details are an owner decision.**
-- Report to: `security@<product-domain>` (PGP key published at `/.well-known/security.txt` on the product site), or through GitHub private vulnerability reporting on this repository.
-- We acknowledge within 3 business days, triage within 10, and aim to fix critical issues within 30 days and high within 60. Disclosure is coordinated with the reporter. Reporters who want credit get it.
-- Safe harbour for good-faith research on your own installations. Don't test against other customers' systems.
-- Supported versions: the current minor release and the previous one get security fixes.
+Reports go through GitHub private vulnerability reporting (Security tab, "Report a vulnerability"); the full policy is in the
+repository's [SECURITY.md](../SECURITY.md). Renovatio has a single maintainer, so response times there are goals, not guarantees.
+- Safe harbour for good-faith research on your own installations. Don't test against systems you do not own.
+- Supported versions: the latest release and the one before it get security fixes.
 
 ## 9f. Phase 6: security review
 
