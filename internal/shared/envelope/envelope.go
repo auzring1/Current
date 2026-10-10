@@ -46,14 +46,25 @@ func Sign(key ed25519.PrivateKey, keyID []byte, env *agentv1.JobEnvelope) (*agen
 	if err != nil {
 		return nil, err
 	}
-	sig := ed25519.Sign(key, signedBytes(payload))
+	if len(payload) > MaxPayload {
+		return nil, fmt.Errorf("envelope: payload too large: %d > %d", len(payload), MaxPayload)
+	}
+	sb, err := signedBytes(payload)
+	if err != nil {
+		return nil, err
+	}
+	sig := ed25519.Sign(key, sb)
 	return &agentv1.SignedEnvelope{Payload: payload, Signature: sig, KeyId: append([]byte(nil), keyID...)}, nil
 }
 
-func signedBytes(payload []byte) []byte {
+func signedBytes(payload []byte) ([]byte, error) {
+	maxInt := int(^uint(0) >> 1)
+	if len(payload) > maxInt-len(jobDomain) {
+		return nil, errors.New("envelope: payload too large")
+	}
 	b := make([]byte, 0, len(jobDomain)+len(payload))
 	b = append(b, jobDomain...)
-	return append(b, payload...)
+	return append(b, payload...), nil
 }
 
 // Ledger remembers job IDs to prevent replay.
