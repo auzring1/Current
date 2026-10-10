@@ -35,10 +35,10 @@ function Shell() {
   return (
     <Page>
       <PageHeader title="Settings" description="How this deployment behaves and how it looks. Every change is checked on the server and recorded in the audit log." />
-      <div className="rnv-set-layout">
-        <aside className="rnv-set-aside" aria-label="Settings navigation">
-          <div role="search" className="rnv-set-search">
-            <label htmlFor="settings-search" className="rnv-visually-hidden">
+      <div className="cur-set-layout">
+        <aside className="cur-set-aside" aria-label="Settings navigation">
+          <div role="search" className="cur-set-search">
+            <label htmlFor="settings-search" className="cur-visually-hidden">
               Search settings
             </label>
             <Icons.Search size={16} aria-hidden />
@@ -62,9 +62,9 @@ function Shell() {
           {q.trim() ? (
             <div aria-live="polite">
               {hits.length === 0 ? (
-                <p className="rnv-set-none">No setting matches “{q.trim()}”.</p>
+                <p className="cur-set-none">No setting matches “{q.trim()}”.</p>
               ) : (
-                <ul className="rnv-set-hits" aria-label="Search results">
+                <ul className="cur-set-hits" aria-label="Search results">
                   {hits.map((h) => (
                     <li key={h.to}>
                       <NavLink to={h.to} onClick={() => setQ("")}>
@@ -78,10 +78,10 @@ function Shell() {
             </div>
           ) : (
             <nav aria-label="Settings sections">
-              <ul className="rnv-set-nav">
+              <ul className="cur-set-nav">
                 {entries.map((s) => (
                   <li key={s.id}>
-                    <NavLink to={s.to} end={s.end} className="rnv-set-nav__link">
+                    <NavLink to={s.to} end={s.end} className="cur-set-nav__link">
                       <s.icon size={16} aria-hidden />
                       <span>{s.label}</span>
                     </NavLink>
@@ -92,7 +92,7 @@ function Shell() {
           )}
           {canOrg("settings:write") && <ExportImport />}
         </aside>
-        <div className="rnv-set-main">
+        <div className="cur-set-main">
           <Outlet />
         </div>
       </div>
@@ -156,7 +156,7 @@ function ExportImport() {
   };
   const open = file !== null;
   return (
-    <div className="rnv-set-io">
+    <div className="cur-set-io">
       <Text size="xs" c="dimmed" mb={6}>
         Move settings between installations. Secrets such as the mail password and webhook secrets are never included.
       </Text>
@@ -193,14 +193,14 @@ function ExportImport() {
             </Alert>
           )}
           {result && (
-            <ul className="rnv-set-report" aria-label="What the file would change">
+            <ul className="cur-set-report" aria-label="What the file would change">
               {result.sections.map((s) => (
                 <li key={s.section}>
                   <strong>{s.section}</strong>:{" "}
                   {s.skipped ? (
                     <span>skipped ({s.skipped})</span>
                   ) : s.errors && Object.keys(s.errors).length ? (
-                    <span className="rnv-set-bad">
+                    <span className="cur-set-bad">
                       not valid
                       <ul>
                         {Object.entries(s.errors).map(([k, v]) => (

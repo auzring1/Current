@@ -161,7 +161,7 @@ export function GroupsPage() {
       />
 
       <Modal opened={!!viewing} onClose={() => setViewing(null)} title={viewing?.name} size="xl">
-        <div className="rnv-block">
+        <div className="cur-block">
           {members.isLoading && <EmptyState icon={<Icons.Spinner size={26} />} title="Loading devices" />}
           {members.error && (
             <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
@@ -170,7 +170,7 @@ export function GroupsPage() {
           )}
           {members.data && (
             <>
-              <div className="rnv-row" style={{ justifyContent: "space-between" }}>
+              <div className="cur-row" style={{ justifyContent: "space-between" }}>
                 <StatusPill kind="info" icon={Icons.NavDevices}>
                   {members.data.total} device{members.data.total === 1 ? "" : "s"}
                 </StatusPill>
@@ -211,7 +211,7 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
   });
   return (
     <Modal opened onClose={onClose} title={group ? "Edit group" : "New group"} size="xl">
-      <div className="rnv-block">
+      <div className="cur-block">
         {!group && (
           <SegmentedControl
             value={kind}
@@ -226,18 +226,18 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
         <Textarea label="Description" value={description} onChange={(e) => setDescription(e.currentTarget.value)} maxLength={1000} autosize minRows={1} maxRows={3} />
         {kind === "dynamic" ? (
           <>
-            <h3 className="rnv-subhead">Devices that match</h3>
+            <h3 className="cur-subhead">Devices that match</h3>
             <FilterEditor node={filter} onChange={setFilter} />
           </>
         ) : (
-          <p className="rnv-hint">Save the group, then open it to add devices.</p>
+          <p className="cur-hint">Save the group, then open it to add devices.</p>
         )}
         {error && (
           <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
             {error}
           </Alert>
         )}
-        <div className="rnv-row">
+        <div className="cur-row">
           {kind === "dynamic" && (
             <Button variant="default" onClick={() => preview.mutate()} loading={preview.isPending} leftSection={<Icons.Eye size={16} aria-hidden />}>
               Preview matches
@@ -249,7 +249,7 @@ function GroupEditor({ group, onClose }: { group: Grp | null; onClose: () => voi
         </div>
         {preview.data && (
           <Card flush>
-            <div className="rnv-block" style={{ padding: "var(--rnv-space-3)" }}>
+            <div className="cur-block" style={{ padding: "var(--cur-space-3)" }}>
               <span data-testid="preview-total">
                 <StatusPill kind={preview.data.total > 0 ? "info" : "neutral"} icon={Icons.NavDevices}>
                   {preview.data.total} matching device{preview.data.total === 1 ? "" : "s"}
@@ -269,7 +269,7 @@ function AddMembers({ existing, onAdd }: { existing: string[]; onAdd: (ids: stri
   const devices = useQuery({ queryKey: ["devices", "active"], queryFn: () => api<{ items: Device[] }>("GET", "/devices?status=active&limit=500") });
   const data = (devices.data?.items ?? []).filter((d) => !existing.includes(d.id)).map((d) => ({ value: d.id, label: d.hostname }));
   return (
-    <div className="rnv-row" style={{ alignItems: "flex-end", flexWrap: "nowrap" }}>
+    <div className="cur-row" style={{ alignItems: "flex-end", flexWrap: "nowrap" }}>
       <MultiSelect label="Add devices" searchable data={data} value={sel} onChange={setSel} style={{ flex: 1 }} placeholder="Choose devices" />
       <Button onClick={() => (onAdd(sel), setSel([]))} disabled={!sel.length} leftSection={<Icons.Plus size={16} aria-hidden />}>
         Add

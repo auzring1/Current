@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/deploy"
-	"github.com/auzring1/renovatio/internal/server/pki"
-	"github.com/auzring1/renovatio/internal/testutil/pgtest"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/current/internal/server/pki"
+	"github.com/auzring1/current/internal/testutil/pgtest"
 )
 
 type offers struct {

@@ -16,14 +16,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/server/auth"
+	"github.com/auzring1/current/internal/server/auth"
 )
 
 var totpOut, apiTokenOut *string
 var maxUses *int
 
 func main() {
-	base := flag.String("url", "http://localhost:18080", "server base URL (must equal RENOVATIO_PUBLIC_URL)")
+	base := flag.String("url", "http://localhost:18080", "server base URL (must equal CURRENT_PUBLIC_URL)")
 	setupTok := flag.String("setup-token", "", "one-time setup token from the server log")
 	email := flag.String("email", "admin@example.com", "admin email")
 	password := flag.String("password", "Granite-Lantern-Pickle-42", "admin password")

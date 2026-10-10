@@ -117,7 +117,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
                   Driver
                 </StatusPill>
               )}
-              {i.classification && <span className="rnv-muted" style={{ fontSize: "var(--rnv-text-xs)" }}>{i.classification}</span>}
+              {i.classification && <span className="cur-muted" style={{ fontSize: "var(--cur-text-xs)" }}>{i.classification}</span>}
             </div>
           </>
         ),
@@ -143,7 +143,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
         header: "Severity",
         value: (i) => i.severity ?? "",
         width: 130,
-        cell: (i) => (i.severity ? <SeverityBadge severity={i.severity} size="sm" /> : <span className="rnv-muted">—</span>),
+        cell: (i) => (i.severity ? <SeverityBadge severity={i.severity} size="sm" /> : <span className="cur-muted">—</span>),
         filter: { type: "select", options: ["Critical", "Important", "Moderate", "Low"].map((v) => ({ value: v, label: v })) },
       },
       { id: "approval", header: "Approval", value: (i) => i.decision ?? "", width: 140, cell: (i) => <DecisionPill decision={i.decision ?? ""} size="sm" /> },
@@ -156,7 +156,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           <>
             {i.attempt_state || "—"}
             {(i.attempt_failures ?? 0) > 0 && (
-              <span className="rnv-dt__cell-sub" style={{ color: "var(--rnv-danger-fg)" }}>
+              <span className="cur-dt__cell-sub" style={{ color: "var(--cur-danger-fg)" }}>
                 {i.attempt_failures} failed attempt{i.attempt_failures === 1 ? "" : "s"}
               </span>
             )}
@@ -231,7 +231,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
         }
         toolbar={
           <>
-            <span className="rnv-muted" style={{ fontSize: "var(--rnv-text-sm)" }}>
+            <span className="cur-muted" style={{ fontSize: "var(--cur-text-sm)" }}>
               {d.scanned_at ? `Last scan ${dateTime(d.scanned_at)}` : "This device has not reported a scan yet."}
               {d.truncated ? " The list is cut off; the device has more updates than it reports." : ""}
             </span>

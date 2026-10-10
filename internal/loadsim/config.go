@@ -1,4 +1,4 @@
-// Package loadsim simulates a large fleet of Renovatio agents against a real server.
+// Package loadsim simulates a large fleet of Current agents against a real server.
 //
 // Each simulated agent speaks the real protocol: it enrolls with a token and a CSR over the pinned
 // TLS channel, reconnects over TLS 1.3 mutual TLS, sends Hello, hardware, software and user
@@ -36,7 +36,7 @@ type Config struct {
 	// Server is the agent gateway, host:port. It must be one of the names in the gateway certificate.
 	// When Enrollment is set and Server is empty, the address inside the enrollment string is used.
 	Server string
-	// Enrollment is an "RNV1." enrollment string (token, root pin and gateway). If empty, the tool
+	// Enrollment is an "CUR1." enrollment string (token, root pin and gateway). If empty, the tool
 	// mints one through the REST API (API and APIToken).
 	Enrollment string
 	// API is the server's REST base URL (for example http://127.0.0.1:18080) and APIToken an API
@@ -185,7 +185,7 @@ func (c *Config) Validate() error {
 		return errors.New("jobs need --api and --api-token")
 	}
 	if c.Enrollment == "" && (c.API == "" || c.APIToken == "") {
-		return errors.New("give --enrollment (an RNV1 string) or --api and --api-token to mint one")
+		return errors.New("give --enrollment (an CUR1 string) or --api and --api-token to mint one")
 	}
 	if c.Log == nil {
 		c.Log = slog.Default()

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 // These tests run on a real Windows machine (the Windows CI "wu" job). They read, they never

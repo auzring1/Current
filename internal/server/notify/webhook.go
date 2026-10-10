@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"net"
 	"net/http"
@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/gen/dbq"
+	"github.com/auzring1/current/gen/dbq"
 )
 
 // Poster delivers one webhook call (replaced in tests).

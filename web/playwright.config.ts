@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: process.env.RENOVATIO_GUI_URL ?? "http://localhost:18080",
+    baseURL: process.env.CURRENT_GUI_URL ?? "http://localhost:18080",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

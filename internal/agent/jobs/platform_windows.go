@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,10 +17,10 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/auzring1/renovatio/internal/agent/inventory"
-	"github.com/auzring1/renovatio/internal/agent/selfupdate"
-	"github.com/auzring1/renovatio/internal/agent/wu"
-	"github.com/auzring1/renovatio/internal/shared/installer"
+	"github.com/auzring1/current/internal/agent/inventory"
+	"github.com/auzring1/current/internal/agent/selfupdate"
+	"github.com/auzring1/current/internal/agent/wu"
+	"github.com/auzring1/current/internal/shared/installer"
 )
 
 type winPlatform struct {

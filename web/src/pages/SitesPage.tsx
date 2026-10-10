@@ -26,8 +26,8 @@ export function SitesPage() {
   const columns = useMemo<Column<Site>[]>(
     () => [
       { id: "name", header: "Name", value: (s) => s.name, primary: true, required: true, width: 260, wrap: true },
-      { id: "timezone", header: "Time zone", value: (s) => s.timezone, width: 200, cell: (s) => <span className="rnv-mono">{s.timezone}</span> },
-      { id: "devices", header: "Devices", value: (s) => s.devices, align: "right", width: 110, cell: (s) => <span className="rnv-num">{s.devices}</span> },
+      { id: "timezone", header: "Time zone", value: (s) => s.timezone, width: 200, cell: (s) => <span className="cur-mono">{s.timezone}</span> },
+      { id: "devices", header: "Devices", value: (s) => s.devices, align: "right", width: 110, cell: (s) => <span className="cur-num">{s.devices}</span> },
       { id: "created", header: "Created", value: (s) => (s.created_at ? new Date(s.created_at).getTime() : 0), width: 150, defaultHidden: true, cell: (s) => (s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"), csv: (s) => s.created_at ?? "" },
       ...(canWrite
         ? [

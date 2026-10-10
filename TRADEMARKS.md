@@ -1,15 +1,15 @@
-# The name "Renovatio"
+# The name "Current"
 
 The source code is licensed under the [GNU AGPL-3.0](LICENSE). That license covers the code; it does not give anyone the
 right to use the project's name, logos or other branding to identify a different product.
 
 **You may**
 - use, study, change and redistribute the code as the AGPL allows, including a fork;
-- say that your product is "based on Renovatio" or "compatible with Renovatio";
+- say that your product is "based on Current" or "compatible with Current";
 - refer to the project by name when you write about it.
 
 **Please do not**
-- name a fork, a hosted service or a commercial offering "Renovatio", or something easily confused with it;
+- name a fork, a hosted service or a commercial offering "Current", or something easily confused with it;
 - imply that the project, or its maintainer, endorses or operates your version.
 
 A fork that changes the code should change the name too. The console already supports this: the product name, organization

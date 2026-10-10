@@ -7,20 +7,20 @@ export interface Slice {
   token: string;
 }
 
-const fill = (token: string) => (token.startsWith("chart-") ? `var(--rnv-${token})` : `var(--rnv-${token}-solid)`);
+const fill = (token: string) => (token.startsWith("chart-") ? `var(--cur-${token})` : `var(--cur-${token}-solid)`);
 
 /** A single stacked bar with a legend that carries the numbers, so the chart never depends on color alone. */
 export function StackedBar({ slices, label }: { slices: Slice[]; label: string }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
   return (
     <div>
-      <div className="rnv-stack" role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`}>
+      <div className="cur-stack" role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`}>
         {total > 0 && slices.filter((s) => s.value > 0).map((s) => <span key={s.label} style={{ width: `${(100 * s.value) / total}%`, background: fill(s.token) }} />)}
       </div>
-      <ul className="rnv-legend">
+      <ul className="cur-legend">
         {slices.map((s) => (
           <li key={s.label}>
-            <span className="rnv-dot" style={{ background: fill(s.token) }} aria-hidden="true" />
+            <span className="cur-dot" style={{ background: fill(s.token) }} aria-hidden="true" />
             {s.label} <b>{s.value}</b>
           </li>
         ))}
@@ -36,9 +36,9 @@ export function Donut({ slices, label, center, sub, size = 132 }: { slices: Slic
   const c = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--rnv-space-5)", flexWrap: "wrap" }}>
-      <svg className="rnv-donut" width={size} height={size} viewBox="0 0 120 120" role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`}>
-        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--rnv-surface-sunken)" strokeWidth="14" />
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--cur-space-5)", flexWrap: "wrap" }}>
+      <svg className="cur-donut" width={size} height={size} viewBox="0 0 120 120" role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`}>
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--cur-surface-sunken)" strokeWidth="14" />
         {total > 0 &&
           slices
             .filter((s) => s.value > 0)
@@ -52,15 +52,15 @@ export function Donut({ slices, label, center, sub, size = 132 }: { slices: Slic
           {center ?? total}
         </text>
         {sub && (
-          <text className="rnv-donut__sub" x="60" y="76" textAnchor="middle" fontSize="10">
+          <text className="cur-donut__sub" x="60" y="76" textAnchor="middle" fontSize="10">
             {sub}
           </text>
         )}
       </svg>
-      <ul className="rnv-legend" style={{ flexDirection: "column", margin: 0 }}>
+      <ul className="cur-legend" style={{ flexDirection: "column", margin: 0 }}>
         {slices.map((s) => (
           <li key={s.label}>
-            <span className="rnv-dot" style={{ background: fill(s.token) }} aria-hidden="true" />
+            <span className="cur-dot" style={{ background: fill(s.token) }} aria-hidden="true" />
             {s.label} <b>{s.value}</b>
           </li>
         ))}

@@ -55,7 +55,7 @@ Permission: `settings:security`. Sign-in, sessions and access to the console. Mu
 | **Lock an account after failed sign-ins** (`lockout_threshold`) | int | `10` | 3 to 20 attempts | in effect | Wrong passwords or second-factor codes in a row before the account is locked. |
 | **Lockout duration** (`lockout_minutes`) | int | `15` | 1 to 1440 minutes | in effect | How long a locked account stays locked. An administrator can reset the account sooner. |
 | **Allow security keys as a second factor** (`allow_security_keys`) | bool | `true` |  | in effect | When off, people cannot add new security keys (the authenticator app is always how an account first gets its second factor). Keys people already have keep working. |
-| **Console IP allow-list** (`ip_allowlist`) | cidrs | empty | up to 50 entries | in effect | When not empty, only these addresses and networks can reach the console and its API (agents are not affected). Your own current address must be in the list, or the change is refused. If you lock yourself out anyway, start the server with RENOVATIO_IGNORE_IP_ALLOWLIST=true, fix the list, and restart without it. |
+| **Console IP allow-list** (`ip_allowlist`) | cidrs | empty | up to 50 entries | in effect | When not empty, only these addresses and networks can reach the console and its API (agents are not affected). Your own current address must be in the list, or the change is refused. If you lock yourself out anyway, start the server with CURRENT_IGNORE_IP_ALLOWLIST=true, fix the list, and restart without it. |
 | **Longest API token lifetime** (`api_token_max_days`) | int | `365` | 1 to 365 days | in effect | New API tokens cannot be valid for longer than this. Existing tokens keep their expiry. |
 | **Show a notice on the sign-in page** (`login_banner_enabled`) | bool | `false` |  | in effect | Shows the text below before sign-in, for example a consent or authorized-use notice. |
 | **Notice text** (`login_banner`) | text | empty | up to 2000 characters | in effect | Plain text, up to 2000 characters. Visible to anyone who can reach the sign-in page, so do not put anything private in it. |
@@ -186,7 +186,7 @@ Permission: `settings:integrations`. Outgoing webhooks and the reference for wha
 
 | Setting | Type | Default | Limits | Effect | What it does |
 |---|---|---|---|---|---|
-| **Webhooks** (`webhooks`) | list | empty | up to 20 entries | in effect | Each webhook receives a JSON POST for the events it listens to, signed with HMAC-SHA256 in the X-Renovatio-Signature header so the receiver can check where it came from. |
+| **Webhooks** (`webhooks`) | list | empty | up to 20 entries | in effect | Each webhook receives a JSON POST for the events it listens to, signed with HMAC-SHA256 in the X-Current-Signature header so the receiver can check where it came from. |
 
 **Each item of “Webhooks”:**
 

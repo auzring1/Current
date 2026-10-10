@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package renovatio.agent.v1;
+package current.agent.v1;
 
-import "renovatio/agent/v1/envelope.proto";
-import "renovatio/agent/v1/inventory.proto";
+import "current/agent/v1/envelope.proto";
+import "current/agent/v1/inventory.proto";
 
-option go_package = "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1";
+option go_package = "github.com/auzring1/current/gen/proto/current/agent/v1;agentv1";
 
 // AgentChannelService requires a verified device client certificate.
 // See docs/PROTOCOL.md §4.2.
@@ -66,7 +66,7 @@ message HelloAck {
 message SigningKeyRevocation {
   bytes key_id = 1;
   int64 revoked_at = 2;
-  // ECDSA signature by the root key over "renovatio/revoke/v1\x00" || key_id || be64(revoked_at).
+  // ECDSA signature by the root key over "current/revoke/v1\x00" || key_id || be64(revoked_at).
   bytes signature = 3;
 }
 

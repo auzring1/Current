@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/internal/server/settings"
+	"github.com/auzring1/current/internal/server/settings"
 )
 
 // secSettings returns the organization's Security settings (never nil; defaults if settings are unavailable).

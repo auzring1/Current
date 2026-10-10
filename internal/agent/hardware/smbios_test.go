@@ -3,7 +3,7 @@ package hardware
 import (
 	"testing"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
 )
 
 func structure(typ byte, formatted []byte, strs ...string) []byte {

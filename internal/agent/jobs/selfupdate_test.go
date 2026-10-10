@@ -5,16 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/agent/selfupdate"
-	"github.com/auzring1/renovatio/internal/shared/release"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/agent/selfupdate"
+	"github.com/auzring1/current/internal/shared/release"
 )
 
 // fakeUpdater records the slot operations of an agent update.
@@ -265,7 +265,7 @@ func TestAgentUpdateRefusals(t *testing.T) {
 		}, "does not report version", 0},
 		{"pinned signer does not match", func(s *suRig) (*agentv1.SignedEnvelope, *agentv1.JobEnvelope) {
 			s.p.sig = Signature{Signed: true, Valid: true, Subject: "Somebody Else"}
-			return s.env("r8", s.manifest("1.1.0", func(m *release.Manifest) { m.AuthenticodeSubject = "Renovatio Software" }), s.priv)
+			return s.env("r8", s.manifest("1.1.0", func(m *release.Manifest) { m.AuthenticodeSubject = "Current Software" }), s.priv)
 		}, "pinned signer", agentv1.SecurityEventKind_SECURITY_EVENT_KIND_SIGNER_MISMATCH},
 		{"rollback task cannot be armed", func(s *suRig) (*agentv1.SignedEnvelope, *agentv1.JobEnvelope) {
 			s.p.su.failArm = true

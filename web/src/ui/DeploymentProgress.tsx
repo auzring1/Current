@@ -4,11 +4,11 @@ export function DeploymentProgress({ total, succeeded, failed }: { total: number
   const done = succeeded + failed;
   return (
     <div style={{ minWidth: 160 }}>
-      <div className="rnv-stack" role="img" aria-label={`${succeeded} succeeded, ${failed} failed, ${Math.max(total - done, 0)} not finished`}>
-        <span style={{ width: pct(succeeded), background: "var(--rnv-success-solid)" }} />
-        <span style={{ width: pct(failed), background: "var(--rnv-danger-solid)" }} />
+      <div className="cur-stack" role="img" aria-label={`${succeeded} succeeded, ${failed} failed, ${Math.max(total - done, 0)} not finished`}>
+        <span style={{ width: pct(succeeded), background: "var(--cur-success-solid)" }} />
+        <span style={{ width: pct(failed), background: "var(--cur-danger-solid)" }} />
       </div>
-      <span className="rnv-dt__cell-sub">
+      <span className="cur-dt__cell-sub">
         {done} of {total} finished{failed ? `, ${failed} failed` : ""}
       </span>
     </div>

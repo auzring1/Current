@@ -1,9 +1,9 @@
-// Command renovatio-loadsim simulates thousands of agents against a Renovatio server and measures how
+// Command current-loadsim simulates thousands of agents against a Current server and measures how
 // the server copes: a steady fleet, a reconnect storm after a mass disconnect, or random churn.
 // The simulated agents enroll and speak the real gateway protocol; see docs/LOADTEST.md.
 //
-//	renovatio-loadsim --enrollment RNV1.… --agents 1000 --scenario steady --report out.json
-//	renovatio-loadsim --api http://127.0.0.1:8080 --api-token … --server localhost:8443 --scenario storm
+//	current-loadsim --enrollment CUR1.… --agents 1000 --scenario steady --report out.json
+//	current-loadsim --api http://127.0.0.1:8080 --api-token … --server localhost:8443 --scenario storm
 package main
 
 import (
@@ -17,31 +17,31 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/loadsim"
-	"github.com/auzring1/renovatio/internal/shared/version"
+	"github.com/auzring1/current/internal/loadsim"
+	"github.com/auzring1/current/internal/shared/version"
 )
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "renovatio-loadsim:", err)
+		fmt.Fprintln(os.Stderr, "current-loadsim:", err)
 		os.Exit(2)
 	}
 }
 
 func run(args []string) error {
-	fs := flag.NewFlagSet("renovatio-loadsim", flag.ContinueOnError)
+	fs := flag.NewFlagSet("current-loadsim", flag.ContinueOnError)
 	var (
 		cfg      loadsim.Config
 		report   = fs.String("report", "", "write the JSON report to this file")
 		mdReport = fs.String("report-md", "", "write a Markdown report to this file")
-		tokenEnv = fs.String("token-env", "RENOVATIO_LOADSIM_API_TOKEN", "environment variable that holds the API token (keeps it off the command line)")
-		enrEnv   = fs.String("enrollment-env", "RENOVATIO_LOADSIM_ENROLLMENT", "environment variable that holds the enrollment string")
+		tokenEnv = fs.String("token-env", "CURRENT_LOADSIM_API_TOKEN", "environment variable that holds the API token (keeps it off the command line)")
+		enrEnv   = fs.String("enrollment-env", "CURRENT_LOADSIM_ENROLLMENT", "environment variable that holds the enrollment string")
 		verbose  = fs.Bool("v", false, "debug logging")
 		noFail   = fs.Bool("no-fail", false, "exit 0 even when the success criteria are not met")
 		scenario = fs.String("scenario", "steady", "steady, storm or churn")
 	)
 	fs.StringVar(&cfg.Server, "server", "", "gateway host:port (default: the address in the enrollment string); must match the gateway certificate")
-	fs.StringVar(&cfg.Enrollment, "enrollment", "", "RNV1 enrollment string (or set the variable named by --enrollment-env); otherwise a token is minted through --api")
+	fs.StringVar(&cfg.Enrollment, "enrollment", "", "CUR1 enrollment string (or set the variable named by --enrollment-env); otherwise a token is minted through --api")
 	fs.StringVar(&cfg.API, "api", "", "REST base URL, for example http://127.0.0.1:8080 (mints tokens, creates jobs, reads the server's own device count)")
 	fs.IntVar(&cfg.Agents, "agents", 100, "number of simulated agents")
 	fs.Float64Var(&cfg.RampPerSec, "ramp-per-sec", 100, "agents started per second")

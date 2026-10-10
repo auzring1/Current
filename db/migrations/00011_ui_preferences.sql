@@ -16,8 +16,8 @@ CREATE TABLE user_preferences (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON user_preferences TO renovatio_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON user_preferences TO current_app;
     END IF;
 END
 $$;

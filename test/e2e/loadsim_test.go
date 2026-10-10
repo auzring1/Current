@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/loadsim"
-	sconfig "github.com/auzring1/renovatio/internal/server/config"
+	"github.com/auzring1/current/internal/loadsim"
+	sconfig "github.com/auzring1/current/internal/server/config"
 )
 
 // loadsimHarness is a server whose enrollment limits allow a fleet of simulated agents from one address.

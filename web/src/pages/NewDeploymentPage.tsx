@@ -122,8 +122,8 @@ export function NewDeploymentPage() {
         crumb="New deployment"
         description="Choose what to install, update or remove, who gets it, and when."
       />
-      <div className="rnv-wizard">
-        <div className="rnv-wizard__main">
+      <div className="cur-wizard">
+        <div className="cur-wizard__main">
           <Card title="1. Package" description="Pick the software from the catalog.">
             <Stack>
               <Select
@@ -249,10 +249,10 @@ export function NewDeploymentPage() {
           </Card>
         </div>
 
-        <div className="rnv-wizard__summary">
+        <div className="cur-wizard__summary">
           <Card title="Summary">
             <Stack>
-              <dl className="rnv-wizard__facts">
+              <dl className="cur-wizard__facts">
                 <dt>Package</dt>
                 <dd>{pkg ? pkg.name : "—"}</dd>
                 <dt>Version</dt>
@@ -276,9 +276,9 @@ export function NewDeploymentPage() {
                   </>
                 )}
               </dl>
-              <ul className="rnv-wizard__list" aria-label="Before you start">
+              <ul className="cur-wizard__list" aria-label="Before you start">
                 {todo.map((t) => (
-                  <li key={t.text} className={t.done ? "rnv-wizard__ok" : "rnv-wizard__todo"}>
+                  <li key={t.text} className={t.done ? "cur-wizard__ok" : "cur-wizard__todo"}>
                     {t.done ? <Icons.Success size={16} aria-hidden /> : <Icons.Warning size={16} aria-hidden />}
                     <span>{t.text}</span>
                   </li>

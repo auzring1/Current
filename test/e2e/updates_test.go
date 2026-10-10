@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/agent/wu"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/agent/wu"
 )
 
 const (

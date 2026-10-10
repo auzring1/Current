@@ -11,10 +11,10 @@
     if (el) { try { org = JSON.parse(el.textContent || "{}") || {}; } catch (e) { org = {}; } }
     var allowed = org.allowed_themes || [];
     var dark = !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    var choice = (ls && ls.getItem("rnv-theme")) || "";
+    var choice = (ls && ls.getItem("cur-theme")) || "";
     var exists = function (id) {
       root.setAttribute("data-theme", id);
-      return getComputedStyle(root).getPropertyValue("--rnv-scheme").replace(/\s/g, "") !== "";
+      return getComputedStyle(root).getPropertyValue("--cur-scheme").replace(/\s/g, "") !== "";
     };
     var offered = function (id) { return allowed.length === 0 || allowed.indexOf(id) >= 0; };
     var concrete = function (id) {
@@ -30,7 +30,7 @@
     var picked = null;
     for (var i = 0; i < candidates.length && !picked; i++) if (candidates[i]) picked = concrete(candidates[i]);
     root.setAttribute("data-theme", picked || "light");
-    var density = ls && ls.getItem("rnv-density");
+    var density = ls && ls.getItem("cur-density");
     if (density === "compact" || density === "comfortable") root.setAttribute("data-density", density);
   } catch (e) {
     root.setAttribute("data-theme", "light");

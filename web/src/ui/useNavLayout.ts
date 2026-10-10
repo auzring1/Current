@@ -9,7 +9,7 @@ export interface NavLayout {
   closed: string[];
 }
 
-const KEY = "rnv-nav";
+const KEY = "cur-nav";
 const read = (): NavLayout & { chosen: boolean } => {
   try {
     const raw = window.localStorage.getItem(KEY);

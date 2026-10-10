@@ -15,15 +15,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/renovatio/internal/shared/brand"
+	"github.com/auzring1/current/internal/shared/brand"
 	"regexp"
 	"strings"
 
-	"github.com/auzring1/renovatio/internal/shared/vercmp"
+	"github.com/auzring1/current/internal/shared/vercmp"
 )
 
 // Domain separates release signatures from every other Ed25519 signature in the product.
-const Domain = "renovatio/release/v1\x00"
+const Domain = "current/release/v1\x00"
 
 // Product is the only product name a manifest may carry.
 const Product = brand.ManifestProduct
@@ -38,7 +38,7 @@ const (
 // PublicKeysHex is the comma-separated list of trusted vendor release public keys (hex Ed25519).
 // Release builds set it with
 //
-//	-ldflags "-X github.com/auzring1/renovatio/internal/shared/release.PublicKeysHex=<hex>[,<hex>]"
+//	-ldflags "-X github.com/auzring1/current/internal/shared/release.PublicKeysHex=<hex>[,<hex>]"
 //
 // A build without a key refuses every update (there is no default key and no "dev" key in the tree).
 var PublicKeysHex = ""
@@ -75,7 +75,7 @@ type Manifest struct {
 	Notes               string `json:"notes,omitempty"`
 }
 
-// Bundle is the file the vendor publishes next to the binary (.rnr).
+// Bundle is the file the vendor publishes next to the binary (.curr).
 type Bundle struct {
 	Manifest  []byte `json:"manifest"`
 	Signature []byte `json:"signature"`

@@ -72,13 +72,13 @@ export function CatalogPage() {
         cell: (p) => (
           <>
             {p.name}
-            <span className="rnv-dt__cell-sub rnv-mono">{p.identifier}</span>
+            <span className="cur-dt__cell-sub cur-mono">{p.identifier}</span>
           </>
         ),
       },
       { id: "identifier", header: "Identifier", value: (p) => p.identifier, width: 220, defaultHidden: true },
       { id: "publisher", header: "Publisher", value: (p) => p.publisher ?? "", width: 200 },
-      { id: "versions", header: "Versions", value: (p) => p.version_count ?? 0, align: "right", width: 100, cell: (p) => <span className="rnv-num">{p.version_count ?? 0}</span> },
+      { id: "versions", header: "Versions", value: (p) => p.version_count ?? 0, align: "right", width: 100, cell: (p) => <span className="cur-num">{p.version_count ?? 0}</span> },
       {
         id: "source",
         header: "Source",
@@ -98,7 +98,7 @@ export function CatalogPage() {
         header: "Verification",
         value: (p) => (p.source === "winget" ? (p.verified ? "verified" : "unverified") : ""),
         width: 130,
-        cell: (p) => (p.source === "winget" ? <VerifiedPill p={p} /> : <span className="rnv-muted">—</span>),
+        cell: (p) => (p.source === "winget" ? <VerifiedPill p={p} /> : <span className="cur-muted">—</span>),
         filter: {
           type: "select",
           options: [
@@ -112,7 +112,7 @@ export function CatalogPage() {
         header: "Updates itself",
         value: (p) => (p.self_updating ? "yes" : "no"),
         width: 150,
-        cell: (p) => (p.self_updating ? <SelfUpdatingPill p={p} /> : <span className="rnv-muted">—</span>),
+        cell: (p) => (p.self_updating ? <SelfUpdatingPill p={p} /> : <span className="cur-muted">—</span>),
         filter: {
           type: "select",
           options: [
@@ -241,9 +241,9 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (r: Imp
             {search.data.index.map((p) => (
               <Button key={p.identifier} role="listitem" size="compact-sm" variant="subtle" justify="space-between" fullWidth disabled={p.in_catalog} onClick={() => setId(p.identifier)}>
                 <span>
-                  {p.name} <span className="rnv-muted rnv-mono">{p.identifier}</span>
+                  {p.name} <span className="cur-muted cur-mono">{p.identifier}</span>
                 </span>
-                <span className="rnv-mono">{p.in_catalog ? "in catalog" : p.latest_version}</span>
+                <span className="cur-mono">{p.in_catalog ? "in catalog" : p.latest_version}</span>
               </Button>
             ))}
           </Stack>

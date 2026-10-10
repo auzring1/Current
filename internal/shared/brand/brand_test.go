@@ -72,24 +72,23 @@ func utf8Text(b []byte) bool {
 	return true
 }
 
-// companyFiles may name the company (Auzring) because the company is not the product.
-var companyFiles = map[string]bool{
-	"LICENSE": true, "internal/shared/brand/brand.go": true, "internal/shared/brand/brand_test.go": true,
-	"web/src/brand.generated.ts": true, "cmd/renovatio-agent/winres/winres.json": true,
-}
-
-// githubOrg is the GitHub organisation, which is named after the company.
+// githubOrg is the GitHub organisation (the author's account), which appears in repository paths.
 var githubOrg = regexp.MustCompile(`auzring1`)
 
-// TestPreviousNameIsGone fails when "Auzring" (in any spelling) appears anywhere in the repository except as the
-// company name or as the GitHub organisation (auzring1) in a repository path.
+// Assembled so this file does not contain the words it forbids.
+var previousNames = []string{"reno" + "vatio", "auz" + "ring"}
+
+// TestPreviousNameIsGone fails when a previous product name (in any spelling) appears anywhere in the repository,
+// except as the GitHub organisation (the author's account) in a repository path. A document may name the old
+// files it tells you to delete between <!-- old-names:begin --> and <!-- old-names:end -->, or on a line marked
+// <!-- old-name -->.
 func TestPreviousNameIsGone(t *testing.T) {
 	var bad []string
 	walk(t, func(rel string, data []byte) {
-		if companyFiles[rel] {
+		if rel == "internal/shared/brand/brand_test.go" {
 			return
 		}
-		inOldNames := false // between <!-- old-names:begin --> and <!-- old-names:end --> a document may name the old files it tells you to delete
+		inOldNames := false
 		for i, line := range strings.Split(string(data), "\n") {
 			if strings.HasSuffix(rel, ".md") {
 				if strings.Contains(line, "<!-- old-names:begin -->") {
@@ -101,21 +100,21 @@ func TestPreviousNameIsGone(t *testing.T) {
 					}
 					continue
 				}
+				if strings.Contains(line, "<!-- old-name -->") {
+					continue
+				}
 			}
-			if strings.HasSuffix(rel, ".md") && strings.Contains(strings.ToLower(line), "company") {
-				continue // prose that names the company (Auzring) next to the word "company"
-			}
-			if strings.HasSuffix(rel, ".md") && strings.Contains(line, "<!-- old-name -->") {
-				continue // clean-up instructions that must name the old files
-			}
-			l := githubOrg.ReplaceAllString(line, "")
-			if strings.Contains(strings.ToLower(l), "auzring") {
-				bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
+			l := strings.ToLower(githubOrg.ReplaceAllString(line, ""))
+			for _, old := range previousNames {
+				if strings.Contains(l, old) {
+					bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
+					break
+				}
 			}
 		}
 	})
 	if len(bad) > 0 {
-		t.Fatalf("the previous product name is still spelled in %d places (use the brand package, the generated web constants or the WiX defines):\n%s",
+		t.Fatalf("a previous product name is still spelled in %d places (use the brand package, the generated web constants or the WiX defines):\n%s",
 			len(bad), strings.Join(bad, "\n"))
 	}
 }
@@ -142,9 +141,23 @@ func TestNoCustomerNames(t *testing.T) {
 	}
 }
 
-// TestNameIsNotHardCoded fails when the current product name is typed into a Go string literal, a web
-// source file or an MSI attribute: it must come from the single source of truth.
+// TestNameIsNotHardCoded fails when the product's derived names are typed into a Go string literal, a web
+// source file or an MSI attribute: they must come from the single source of truth.
+//
+// The product name is the ordinary English word "Current", which legitimately appears in text such as "Current
+// password". So the Go and web checks look for the forms that can only mean the product (the agent's name and the
+// Windows service name), while the MSI and the page template, which contain no ordinary prose, are checked for the
+// bare name.
 func TestNameIsNotHardCoded(t *testing.T) {
+	forms := []string{AgentName, ServiceName, StageFolderName, SetupFolderName, KeyPrefix}
+	hasForm := func(v string) bool {
+		for _, f := range forms {
+			if strings.Contains(v, f) {
+				return true
+			}
+		}
+		return false
+	}
 	var bad []string
 	root := repoRoot(t)
 	walk(t, func(rel string, data []byte) {
@@ -157,7 +170,7 @@ func TestNameIsNotHardCoded(t *testing.T) {
 			}
 			ast.Inspect(f, func(n ast.Node) bool {
 				if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					if v, err := strconv.Unquote(lit.Value); err == nil && strings.Contains(v, Name) {
+					if v, err := strconv.Unquote(lit.Value); err == nil && hasForm(v) {
 						bad = append(bad, rel+":"+strconv.Itoa(fset.Position(lit.Pos()).Line)+": "+lit.Value)
 					}
 				}
@@ -166,23 +179,24 @@ func TestNameIsNotHardCoded(t *testing.T) {
 		case strings.HasPrefix(rel, "web/src/") && rel != "web/src/brand.generated.ts" && !strings.HasSuffix(rel, "schema.d.ts") &&
 			(strings.HasSuffix(rel, ".ts") || strings.HasSuffix(rel, ".tsx")) && !strings.HasSuffix(rel, ".test.ts"):
 			for i, line := range strings.Split(string(data), "\n") {
-				if strings.Contains(line, Name) {
+				if hasForm(line) {
 					bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
 				}
 			}
 		case strings.HasSuffix(rel, ".wxs") || strings.HasSuffix(rel, ".wxi"):
 			noComments := regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(string(data), "")
-			if strings.Contains(noComments, Name) {
+			// Whole word only: Windows' own registry keys (CurrentControlSet, CurrentVersion) contain the name.
+			if regexp.MustCompile(`\b` + Name + `\b`).MatchString(noComments) {
 				bad = append(bad, rel+": the product name is spelled in an attribute; use $(ProductName), $(AgentName) or $(Company)")
 			}
 		case rel == "web/index.html":
-			if strings.Contains(string(data), Name) {
+			if regexp.MustCompile(`\b` + Name + `\b`).MatchString(string(data)) {
 				bad = append(bad, rel+": the server fills the title from the deployment's branding")
 			}
 		}
 	})
 	if len(bad) > 0 {
-		t.Fatalf("the product name must come from internal/shared/brand, not be typed:\n%s", strings.Join(bad, "\n"))
+		t.Fatalf("the product's names must come from internal/shared/brand, not be typed:\n%s", strings.Join(bad, "\n"))
 	}
 }
 
@@ -202,7 +216,7 @@ func TestGeneratedWebConstantsMatch(t *testing.T) {
 // TestAgentVersionResource checks that the compiled Windows version resource says what Task Manager and the
 // file properties should show.
 func TestAgentVersionResource(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join(repoRoot(t), "cmd", "renovatio-agent", "rsrc_windows_amd64.syso"))
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "cmd", "current-agent", "rsrc_windows_amd64.syso"))
 	if err != nil {
 		t.Fatal(err)
 	}

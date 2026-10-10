@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/dashboard"
-	"github.com/auzring1/renovatio/internal/server/settings"
-	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/dashboard"
+	"github.com/auzring1/current/internal/server/settings"
+	"github.com/auzring1/current/internal/server/store"
 )
 
 // Service runs the clean-up.

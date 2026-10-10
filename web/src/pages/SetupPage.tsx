@@ -69,8 +69,8 @@ export function SetupPage() {
     <AuthShell width={640}>
       <Stack gap="xs">
         <AuthBrand />
-        <h1 className="rnv-auth__title">Set up {productName}</h1>
-        <p className="rnv-auth__org">Create the first administrator and the organization. This page is only available until setup is complete.</p>
+        <h1 className="cur-auth__title">Set up {productName}</h1>
+        <p className="cur-auth__org">Create the first administrator and the organization. This page is only available until setup is complete.</p>
       </Stack>
       <Stepper active={step} size="sm" allowNextStepsSelect={false}>
         <Stepper.Step label="Verify" description="Setup token">
@@ -114,7 +114,7 @@ export function SetupPage() {
                 src={logo.dataUrl}
                 alt="Logo preview"
                 data-testid="setup-logo-preview"
-                style={{ maxHeight: 64, maxWidth: 240, objectFit: "contain", alignSelf: "flex-start", padding: 8, border: "1px solid var(--rnv-border)", borderRadius: "var(--rnv-radius-md)", background: "var(--rnv-surface-sunken)" }}
+                style={{ maxHeight: 64, maxWidth: 240, objectFit: "contain", alignSelf: "flex-start", padding: 8, border: "1px solid var(--cur-border)", borderRadius: "var(--cur-radius-md)", background: "var(--cur-surface-sunken)" }}
               />
             )}
             <TextInput label="Your name" value={f.name} onChange={set("name")} autoComplete="name" required />

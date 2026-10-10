@@ -18,10 +18,10 @@ const when = (j: DeploymentJob) => j.finished_at ?? j.started_at ?? j.sent_at ??
 
 function Facts({ items }: { items: [string, React.ReactNode][] }) {
   return (
-    <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "var(--rnv-space-4)", margin: 0 }}>
+    <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "var(--cur-space-4)", margin: 0 }}>
       {items.map(([k, v]) => (
         <div key={k} style={{ minWidth: 0 }}>
-          <dt className="rnv-muted" style={{ fontSize: "var(--rnv-text-sm)" }}>
+          <dt className="cur-muted" style={{ fontSize: "var(--cur-text-sm)" }}>
             {k}
           </dt>
           <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{v}</dd>
@@ -70,7 +70,7 @@ export function DeploymentPage() {
         cell: (j) => (
           <>
             {j.hostname}
-            {j.user_sid && <span className="rnv-dt__cell-sub">user {j.user_sid}</span>}
+            {j.user_sid && <span className="cur-dt__cell-sub">user {j.user_sid}</span>}
           </>
         ),
       },
@@ -83,7 +83,7 @@ export function DeploymentPage() {
         cell: (j) => (
           <>
             {j.title}
-            {(j.attempt ?? 1) > 1 && <span className="rnv-dt__cell-sub">attempt {j.attempt}</span>}
+            {(j.attempt ?? 1) > 1 && <span className="cur-dt__cell-sub">attempt {j.attempt}</span>}
           </>
         ),
       },
@@ -97,7 +97,7 @@ export function DeploymentPage() {
         cell: (j) => (
           <>
             <JobBadge status={j.status} />
-            {j.status_reason && <span className="rnv-dt__cell-sub">{j.status_reason}</span>}
+            {j.status_reason && <span className="cur-dt__cell-sub">{j.status_reason}</span>}
           </>
         ),
         csv: (j) => (j.status_reason ? `${j.status} (${j.status_reason})` : j.status),
@@ -193,13 +193,13 @@ export function DeploymentPage() {
             />
             {counts.length > 0 && (
               <div>
-                <Text size="sm" className="rnv-muted" mb={6}>
+                <Text size="sm" className="cur-muted" mb={6}>
                   Jobs by state
                 </Text>
                 <Group gap="md">
                   {counts.map((s) => (
                     <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <b className="rnv-num">{(x.job_counts ?? {})[s]}</b>
+                      <b className="cur-num">{(x.job_counts ?? {})[s]}</b>
                       <JobBadge status={s} />
                     </span>
                   ))}
@@ -222,7 +222,7 @@ export function DeploymentPage() {
           </Stack>
         </Card>
       )}
-      {x && <h2 className="rnv-card__title">Jobs per device</h2>}
+      {x && <h2 className="cur-card__title">Jobs per device</h2>}
       {x && (
         <DataTable<DeploymentJob>
           id="deployment-jobs"

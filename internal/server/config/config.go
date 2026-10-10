@@ -2,7 +2,7 @@
 //
 // Secrets are never read from plain environment variables in production:
 // every secret has a *_FILE variant intended for Docker secrets, and the
-// plain variant is only accepted when RENOVATIO_DEV_MODE=true.
+// plain variant is only accepted when CURRENT_DEV_MODE=true.
 package config
 
 import (
@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/shared/release"
+	"github.com/auzring1/current/internal/shared/release"
 )
 
 // Default enrollment rate limits, per minute (PROTOCOL §4.1).
@@ -31,7 +31,7 @@ type Config struct {
 
 	// HTTPAddr serves the REST API, GUI and SSE (behind Caddy).
 	HTTPAddr string
-	// PublicURL is the browser-facing origin, e.g. https://renovatio.example.com.
+	// PublicURL is the browser-facing origin, e.g. https://current.example.com.
 	// Used for Origin/CSRF checks and cookie security.
 	PublicURL *url.URL
 	// TrustedProxies are the CIDRs whose X-Forwarded-For header is trusted.
@@ -98,9 +98,9 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	var errs []error
 	var err error
 
-	c.DevMode, err = strconv.ParseBool(get("RENOVATIO_DEV_MODE", "false"))
+	c.DevMode, err = strconv.ParseBool(get("CURRENT_DEV_MODE", "false"))
 	if err != nil {
-		errs = append(errs, fmt.Errorf("RENOVATIO_DEV_MODE: %w", err))
+		errs = append(errs, fmt.Errorf("CURRENT_DEV_MODE: %w", err))
 	}
 	secret := func(name string) (string, error) {
 		if path := get(name+"_FILE", ""); path != "" {
@@ -112,57 +112,57 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		}
 		if v := get(name, ""); v != "" {
 			if !c.DevMode {
-				return "", fmt.Errorf("%s must be provided via %s_FILE (Docker secret); plain env vars are only allowed with RENOVATIO_DEV_MODE=true", name, name)
+				return "", fmt.Errorf("%s must be provided via %s_FILE (Docker secret); plain env vars are only allowed with CURRENT_DEV_MODE=true", name, name)
 			}
 			return v, nil
 		}
 		return "", nil
 	}
 
-	c.HTTPAddr = get("RENOVATIO_HTTP_ADDR", ":8080")
-	c.GatewayAddr = get("RENOVATIO_GATEWAY_ADDR", ":8443")
-	c.LogLevel = get("RENOVATIO_LOG_LEVEL", "info")
-	c.ContentDir = get("RENOVATIO_CONTENT_DIR", "")
-	if c.GitHubToken, err = secret("RENOVATIO_GITHUB_TOKEN"); err != nil {
+	c.HTTPAddr = get("CURRENT_HTTP_ADDR", ":8080")
+	c.GatewayAddr = get("CURRENT_GATEWAY_ADDR", ":8443")
+	c.LogLevel = get("CURRENT_LOG_LEVEL", "info")
+	c.ContentDir = get("CURRENT_CONTENT_DIR", "")
+	if c.GitHubToken, err = secret("CURRENT_GITHUB_TOKEN"); err != nil {
 		errs = append(errs, err)
 	}
-	c.WingetSource = get("RENOVATIO_WINGET_SOURCE", "github")
-	if c.WingetIndexURL = strings.TrimSpace(get("RENOVATIO_WINGET_INDEX_URL", "")); c.WingetIndexURL != "" {
+	c.WingetSource = get("CURRENT_WINGET_SOURCE", "github")
+	if c.WingetIndexURL = strings.TrimSpace(get("CURRENT_WINGET_INDEX_URL", "")); c.WingetIndexURL != "" {
 		if u, perr := url.Parse(c.WingetIndexURL); perr != nil || u.Scheme != "https" || u.Host == "" {
-			errs = append(errs, errors.New("RENOVATIO_WINGET_INDEX_URL must be an https URL"))
+			errs = append(errs, errors.New("CURRENT_WINGET_INDEX_URL must be an https URL"))
 		}
 	}
-	c.ReleasePublicKeys = get("RENOVATIO_RELEASE_PUBLIC_KEYS", "")
+	c.ReleasePublicKeys = get("CURRENT_RELEASE_PUBLIC_KEYS", "")
 	if _, err := release.ParseKeys(c.ReleasePublicKeys); err != nil {
-		errs = append(errs, fmt.Errorf("RENOVATIO_RELEASE_PUBLIC_KEYS: %w", err))
+		errs = append(errs, fmt.Errorf("CURRENT_RELEASE_PUBLIC_KEYS: %w", err))
 	}
 	if c.WingetSource != "github" && c.WingetSource != "off" {
-		errs = append(errs, errors.New("RENOVATIO_WINGET_SOURCE must be github or off"))
+		errs = append(errs, errors.New("CURRENT_WINGET_SOURCE must be github or off"))
 	}
 
-	pub := get("RENOVATIO_PUBLIC_URL", "")
+	pub := get("CURRENT_PUBLIC_URL", "")
 	if pub == "" {
-		errs = append(errs, errors.New("RENOVATIO_PUBLIC_URL is required (e.g. https://renovatio.example.com)"))
+		errs = append(errs, errors.New("CURRENT_PUBLIC_URL is required (e.g. https://current.example.com)"))
 	} else if u, perr := url.Parse(pub); perr != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
-		errs = append(errs, fmt.Errorf("RENOVATIO_PUBLIC_URL %q is not a valid http(s) origin", pub))
+		errs = append(errs, fmt.Errorf("CURRENT_PUBLIC_URL %q is not a valid http(s) origin", pub))
 	} else {
 		if u.Scheme == "http" && !c.DevMode {
-			errs = append(errs, errors.New("RENOVATIO_PUBLIC_URL must be https unless RENOVATIO_DEV_MODE=true"))
+			errs = append(errs, errors.New("CURRENT_PUBLIC_URL must be https unless CURRENT_DEV_MODE=true"))
 		}
 		u.Path, u.RawQuery, u.Fragment = "", "", ""
 		c.PublicURL = u
 	}
 
-	c.GatewayPublicAddr = get("RENOVATIO_GATEWAY_PUBLIC_ADDR", "")
+	c.GatewayPublicAddr = get("CURRENT_GATEWAY_PUBLIC_ADDR", "")
 	if c.GatewayPublicAddr == "" && c.PublicURL != nil {
 		c.GatewayPublicAddr = net.JoinHostPort(c.PublicURL.Hostname(), "8443")
 	}
 	if c.GatewayPublicAddr != "" {
 		if _, _, serr := net.SplitHostPort(c.GatewayPublicAddr); serr != nil {
-			errs = append(errs, fmt.Errorf("RENOVATIO_GATEWAY_PUBLIC_ADDR %q must be host:port", c.GatewayPublicAddr))
+			errs = append(errs, fmt.Errorf("CURRENT_GATEWAY_PUBLIC_ADDR %q must be host:port", c.GatewayPublicAddr))
 		}
 	}
-	for _, s := range strings.Split(get("RENOVATIO_GATEWAY_SANS", ""), ",") {
+	for _, s := range strings.Split(get("CURRENT_GATEWAY_SANS", ""), ",") {
 		if s = strings.TrimSpace(s); s != "" {
 			c.GatewaySANs = append(c.GatewaySANs, s)
 		}
@@ -172,35 +172,35 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	}
 
 	// Commas or spaces separate the entries: the same list is handed to Caddy, which wants spaces.
-	for _, s := range strings.FieldsFunc(get("RENOVATIO_TRUSTED_PROXIES", ""), func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
+	for _, s := range strings.FieldsFunc(get("CURRENT_TRUSTED_PROXIES", ""), func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
 		p, perr := netip.ParsePrefix(s)
 		if perr != nil {
-			errs = append(errs, fmt.Errorf("RENOVATIO_TRUSTED_PROXIES: %w", perr))
+			errs = append(errs, fmt.Errorf("CURRENT_TRUSTED_PROXIES: %w", perr))
 			continue
 		}
 		c.TrustedProxies = append(c.TrustedProxies, p)
 	}
 
-	if c.DatabaseURL, err = secret("RENOVATIO_DATABASE_URL"); err != nil {
+	if c.DatabaseURL, err = secret("CURRENT_DATABASE_URL"); err != nil {
 		errs = append(errs, err)
 	} else if c.DatabaseURL == "" {
-		errs = append(errs, errors.New("RENOVATIO_DATABASE_URL_FILE is required"))
+		errs = append(errs, errors.New("CURRENT_DATABASE_URL_FILE is required"))
 	}
-	if c.MigrateDatabaseURL, err = secret("RENOVATIO_MIGRATE_DATABASE_URL"); err != nil {
+	if c.MigrateDatabaseURL, err = secret("CURRENT_MIGRATE_DATABASE_URL"); err != nil {
 		errs = append(errs, err)
 	}
-	c.MigrateOnStart, err = strconv.ParseBool(get("RENOVATIO_MIGRATE_ON_START", "true"))
+	c.MigrateOnStart, err = strconv.ParseBool(get("CURRENT_MIGRATE_ON_START", "true"))
 	if err != nil {
-		errs = append(errs, fmt.Errorf("RENOVATIO_MIGRATE_ON_START: %w", err))
+		errs = append(errs, fmt.Errorf("CURRENT_MIGRATE_ON_START: %w", err))
 	}
 
-	mk, err := secret("RENOVATIO_MASTER_KEY")
+	mk, err := secret("CURRENT_MASTER_KEY")
 	if err != nil {
 		errs = append(errs, err)
 	} else if mk == "" {
-		errs = append(errs, errors.New("RENOVATIO_MASTER_KEY_FILE is required (32 random bytes, hex or base64)"))
+		errs = append(errs, errors.New("CURRENT_MASTER_KEY_FILE is required (32 random bytes, hex or base64)"))
 	} else if c.MasterKey, err = decodeKey(mk); err != nil {
-		errs = append(errs, fmt.Errorf("RENOVATIO_MASTER_KEY: %w", err))
+		errs = append(errs, fmt.Errorf("CURRENT_MASTER_KEY: %w", err))
 	}
 
 	dur := func(name string, def time.Duration, min time.Duration) time.Duration {
@@ -232,15 +232,15 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	if c.DevMode {
 		minLife = 10 * time.Second
 	}
-	c.DeviceCertLifetime = dur("RENOVATIO_DEVICE_CERT_LIFETIME", 90*24*time.Hour, minLife)
-	c.DeviceRenewGrace = dur("RENOVATIO_DEVICE_RENEW_GRACE", 180*24*time.Hour, 0)
-	c.EnrollPollInterval = dur("RENOVATIO_ENROLL_POLL_INTERVAL", 60*time.Second, time.Second)
-	c.EnrollRatePerIP = count("RENOVATIO_ENROLL_RATE_PER_IP", DefaultEnrollRatePerIP)
-	c.EnrollRatePerToken = count("RENOVATIO_ENROLL_RATE_PER_TOKEN", DefaultEnrollRatePerToken)
-	c.HeartbeatInterval = dur("RENOVATIO_HEARTBEAT_INTERVAL", 5*time.Minute, time.Second)
-	c.IgnoreIPAllowlist = os.Getenv("RENOVATIO_IGNORE_IP_ALLOWLIST") == "true"
-	c.SessionIdleTimeout = dur("RENOVATIO_SESSION_IDLE_TIMEOUT", 30*time.Minute, time.Minute)
-	c.SessionAbsTimeout = dur("RENOVATIO_SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour, 5*time.Minute)
+	c.DeviceCertLifetime = dur("CURRENT_DEVICE_CERT_LIFETIME", 90*24*time.Hour, minLife)
+	c.DeviceRenewGrace = dur("CURRENT_DEVICE_RENEW_GRACE", 180*24*time.Hour, 0)
+	c.EnrollPollInterval = dur("CURRENT_ENROLL_POLL_INTERVAL", 60*time.Second, time.Second)
+	c.EnrollRatePerIP = count("CURRENT_ENROLL_RATE_PER_IP", DefaultEnrollRatePerIP)
+	c.EnrollRatePerToken = count("CURRENT_ENROLL_RATE_PER_TOKEN", DefaultEnrollRatePerToken)
+	c.HeartbeatInterval = dur("CURRENT_HEARTBEAT_INTERVAL", 5*time.Minute, time.Second)
+	c.IgnoreIPAllowlist = os.Getenv("CURRENT_IGNORE_IP_ALLOWLIST") == "true"
+	c.SessionIdleTimeout = dur("CURRENT_SESSION_IDLE_TIMEOUT", 30*time.Minute, time.Minute)
+	c.SessionAbsTimeout = dur("CURRENT_SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour, 5*time.Minute)
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)

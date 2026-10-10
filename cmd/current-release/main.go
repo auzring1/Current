@@ -1,16 +1,16 @@
-// Command renovatio-release is the vendor-side tool that creates and checks signed agent releases.
+// Command current-release is the vendor-side tool that creates and checks signed agent releases.
 //
-//	renovatio-release keygen --out release.key            create an Ed25519 release key pair (writes release.key and release.pub)
-//	renovatio-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
-//	                     [--min-version V] [--rollback-from V,...] [--authenticode-subject CN] [--notes TEXT] --out agent-1.2.3.rnr
-//	renovatio-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
-//	renovatio-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.rnr
-//	renovatio-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
-//	renovatio-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
-//	renovatio-release verify --bundle agent-1.2.3.rnr --exe agent.exe --pub release.pub
+//	current-release keygen --out release.key            create an Ed25519 release key pair (writes release.key and release.pub)
+//	current-release sign --key release.key --exe agent.exe --version 1.2.3 [--os windows --arch amd64]
+//	                     [--min-version V] [--rollback-from V,...] [--authenticode-subject CN] [--notes TEXT] --out agent-1.2.3.curr
+//	current-release manifest --exe agent.exe --version 1.2.3 ... --out manifest.json     (for an HSM/KMS signer)
+//	current-release attach --manifest manifest.json --signature sig.bin (--pub HEX|FILE | --key-id ID) --out agent-1.2.3.curr
+//	current-release tosign --manifest manifest.json --out tosign.bin     (the exact bytes a KMS must sign: domain prefix + manifest)
+//	current-release sign-bytes --key release.key --in tosign.bin --out sig.bin   (stand-in for the KMS, throw-away keys only)
+//	current-release verify --bundle agent-1.2.3.curr --exe agent.exe --pub release.pub
 //
 // The private key never leaves the signer: with a cloud KMS use `manifest`, sign the bytes
-// with "renovatio/release/v1\x00" prepended, then `attach`. This tool is not part of the shipped
+// with "current/release/v1\x00" prepended, then `attach`. This tool is not part of the shipped
 // product; it runs in the vendor's release pipeline (docs/RUNBOOK.md, release signing).
 package main
 
@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/renovatio/internal/shared/release"
+	"github.com/auzring1/current/internal/shared/release"
 )
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, "usage: renovatio-release keygen|sign|manifest|attach|tosign|sign-bytes|verify (see the package comment)\n")
+	fmt.Fprint(os.Stderr, "usage: current-release keygen|sign|manifest|attach|tosign|sign-bytes|verify (see the package comment)\n")
 }
 
 func keygen(args []string) error {
@@ -162,7 +162,7 @@ func sign(args []string) error {
 	var c common
 	c.flags(fl)
 	keyPath := fl.String("key", "", "private key file")
-	out := fl.String("out", "", "bundle to write (.rnr)")
+	out := fl.String("out", "", "bundle to write (.curr)")
 	if err := fl.Parse(args); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func attach(args []string) error {
 	sf := fl.String("signature", "", "raw 64-byte Ed25519 signature file")
 	keyID := fl.String("key-id", "", "key id (hex) of the signing key")
 	pub := fl.String("pub", "", "the signing key's public key (hex, or a file holding it): the key id is derived from it and the signature is verified before the bundle is written")
-	out := fl.String("out", "", "bundle to write (.rnr)")
+	out := fl.String("out", "", "bundle to write (.curr)")
 	if err := fl.Parse(args); err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func writeBundle(path string, manifest, sig []byte, keyID string) error {
 
 func verify(args []string) error {
 	fl := flag.NewFlagSet("verify", flag.ContinueOnError)
-	bp := fl.String("bundle", "", "bundle (.rnr)")
+	bp := fl.String("bundle", "", "bundle (.curr)")
 	exe := fl.String("exe", "", "binary to check against the manifest (optional)")
 	pubf := fl.String("pub", "", "public key file (hex)")
 	if err := fl.Parse(args); err != nil {

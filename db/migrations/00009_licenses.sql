@@ -24,9 +24,9 @@ CREATE TABLE license_clock (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'renovatio_app') THEN
-        GRANT SELECT, INSERT ON licenses TO renovatio_app;
-        GRANT SELECT, INSERT, UPDATE ON license_clock TO renovatio_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
+        GRANT SELECT, INSERT ON licenses TO current_app;
+        GRANT SELECT, INSERT, UPDATE ON license_clock TO current_app;
     END IF;
 END
 $$;

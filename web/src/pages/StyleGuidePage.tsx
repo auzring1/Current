@@ -89,7 +89,7 @@ export function StyleGuidePage() {
       { id: "status", header: "Status", value: (r) => r.status, width: 120, cell: (r) => <Status value={r.status} size="sm" />, filter: { type: "select", options: ["active", "pending", "revoked"].map((v) => ({ value: v, label: v })) } },
       { id: "conn", header: "Connection", value: (r) => (r.online ? "online" : "offline"), width: 130, cell: (r) => <Status value={r.online ? "online" : "offline"} size="sm" />, filter: { type: "select", options: [{ value: "online", label: "Online" }, { value: "offline", label: "Offline" }] } },
       { id: "sev", header: "Worst missing update", value: (r) => r.severity, width: 170, cell: (r) => <SeverityBadge severity={r.severity} size="sm" /> },
-      { id: "missing", header: "Missing", value: (r) => r.missing, width: 100, align: "right", cell: (r) => <span className="rnv-num">{r.missing}</span> },
+      { id: "missing", header: "Missing", value: (r) => r.missing, width: 100, align: "right", cell: (r) => <span className="cur-num">{r.missing}</span> },
       { id: "os", header: "Operating system", value: (r) => r.os, width: 190 },
       { id: "site", header: "Site", value: (r) => r.site, width: 140, filter: { type: "select", options: SITES.map((s) => ({ value: s, label: s })) } },
       { id: "seen", header: "Last seen", value: (r) => r.seen, defaultHidden: true, width: 150, cell: (r) => new Date(r.seen).toLocaleString() },
@@ -126,9 +126,9 @@ export function StyleGuidePage() {
             </Text>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
               {g.names.map((n) => (
-                <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--rnv-text-xs)" }}>
-                  <span style={{ width: 28, height: 28, borderRadius: 6, background: `var(--rnv-${n})`, border: "1px solid var(--rnv-border-strong)", flex: "none" }} aria-hidden="true" />
-                  <code>--rnv-{n}</code>
+                <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--cur-text-xs)" }}>
+                  <span style={{ width: 28, height: 28, borderRadius: 6, background: `var(--cur-${n})`, border: "1px solid var(--cur-border-strong)", flex: "none" }} aria-hidden="true" />
+                  <code>--cur-{n}</code>
                 </div>
               ))}
             </div>
@@ -147,11 +147,11 @@ export function StyleGuidePage() {
             ["sm", "Table text 13: the quick brown fox jumps over the lazy dog 0123456789"],
             ["xs", "Captions 12: the quick brown fox jumps over the lazy dog"],
           ].map(([k, s]) => (
-            <div key={k} style={{ fontSize: `var(--rnv-text-${k})`, fontWeight: k === "md" || k === "sm" || k === "xs" ? 400 : 600 }}>
+            <div key={k} style={{ fontSize: `var(--cur-text-${k})`, fontWeight: k === "md" || k === "sm" || k === "xs" ? 400 : 600 }}>
               {s}
             </div>
           ))}
-          <div className="rnv-mono">Monospace: 3f9c1a — C:\Program Files\{PRODUCT_NAME}</div>
+          <div className="cur-mono">Monospace: 3f9c1a — C:\Program Files\{PRODUCT_NAME}</div>
         </div>
       </Section>
 
@@ -353,11 +353,11 @@ export function StyleGuidePage() {
         <Text fw={600} size="sm">
           Loading and empty states
         </Text>
-        <div className="rnv-card" style={{ overflow: "hidden" }}>
+        <div className="cur-card" style={{ overflow: "hidden" }}>
           <TableSkeleton rows={3} cols={4} />
         </div>
         <TileSkeleton count={3} />
-        <div className="rnv-card">
+        <div className="cur-card">
           <EmptyState title="No deployments yet" description="Deployments install or update software on the devices you choose." actions={<Button leftSection={<Icons.Plus size={16} aria-hidden />}>New deployment</Button>} />
         </div>
         <Group>
@@ -418,7 +418,7 @@ export function StyleGuidePage() {
               const I = Ic as React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
               return (
                 <Tooltip key={name} label={name}>
-                  <span style={{ display: "inline-flex", color: "var(--rnv-text)" }} role="img" aria-label={name}>
+                  <span style={{ display: "inline-flex", color: "var(--cur-text)" }} role="img" aria-label={name}>
                     <I size={22} aria-hidden />
                   </span>
                 </Tooltip>

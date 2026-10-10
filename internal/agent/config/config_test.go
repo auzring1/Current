@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/renovatio/internal/shared/bundle"
+	"github.com/auzring1/current/internal/shared/bundle"
 )
 
 func enrollment(t *testing.T) string {

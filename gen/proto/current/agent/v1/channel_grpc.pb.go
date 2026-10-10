@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: renovatio/agent/v1/channel.proto
+// source: current/agent/v1/channel.proto
 
 package agentv1
 
@@ -19,9 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentChannelService_Connect_FullMethodName          = "/renovatio.agent.v1.AgentChannelService/Connect"
-	AgentChannelService_FetchContent_FullMethodName     = "/renovatio.agent.v1.AgentChannelService/FetchContent"
-	AgentChannelService_RenewCertificate_FullMethodName = "/renovatio.agent.v1.AgentChannelService/RenewCertificate"
+	AgentChannelService_Connect_FullMethodName          = "/current.agent.v1.AgentChannelService/Connect"
+	AgentChannelService_FetchContent_FullMethodName     = "/current.agent.v1.AgentChannelService/FetchContent"
+	AgentChannelService_RenewCertificate_FullMethodName = "/current.agent.v1.AgentChannelService/RenewCertificate"
 )
 
 // AgentChannelServiceClient is the client API for AgentChannelService service.
@@ -182,7 +182,7 @@ func _AgentChannelService_RenewCertificate_Handler(srv interface{}, ctx context.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AgentChannelService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "renovatio.agent.v1.AgentChannelService",
+	ServiceName: "current.agent.v1.AgentChannelService",
 	HandlerType: (*AgentChannelServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -203,5 +203,5 @@ var AgentChannelService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "renovatio/agent/v1/channel.proto",
+	Metadata: "current/agent/v1/channel.proto",
 }

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: renovatio/agent/v1/envelope.proto
+// source: current/agent/v1/envelope.proto
 
 package agentv1
 
@@ -81,11 +81,11 @@ func (x JobType) String() string {
 }
 
 func (JobType) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[0].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[0].Descriptor()
 }
 
 func (JobType) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[0]
+	return &file_current_agent_v1_envelope_proto_enumTypes[0]
 }
 
 func (x JobType) Number() protoreflect.EnumNumber {
@@ -94,7 +94,7 @@ func (x JobType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use JobType.Descriptor instead.
 func (JobType) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{0}
 }
 
 type InstallScope int32
@@ -130,11 +130,11 @@ func (x InstallScope) String() string {
 }
 
 func (InstallScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[1].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[1].Descriptor()
 }
 
 func (InstallScope) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[1]
+	return &file_current_agent_v1_envelope_proto_enumTypes[1]
 }
 
 func (x InstallScope) Number() protoreflect.EnumNumber {
@@ -143,7 +143,7 @@ func (x InstallScope) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use InstallScope.Descriptor instead.
 func (InstallScope) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{1}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{1}
 }
 
 type InstallerType int32
@@ -197,11 +197,11 @@ func (x InstallerType) String() string {
 }
 
 func (InstallerType) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[2].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[2].Descriptor()
 }
 
 func (InstallerType) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[2]
+	return &file_current_agent_v1_envelope_proto_enumTypes[2]
 }
 
 func (x InstallerType) Number() protoreflect.EnumNumber {
@@ -210,7 +210,7 @@ func (x InstallerType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use InstallerType.Descriptor instead.
 func (InstallerType) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
 }
 
 type JobOutcome int32
@@ -252,11 +252,11 @@ func (x JobOutcome) String() string {
 }
 
 func (JobOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[3].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[3].Descriptor()
 }
 
 func (JobOutcome) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[3]
+	return &file_current_agent_v1_envelope_proto_enumTypes[3]
 }
 
 func (x JobOutcome) Number() protoreflect.EnumNumber {
@@ -265,7 +265,7 @@ func (x JobOutcome) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use JobOutcome.Descriptor instead.
 func (JobOutcome) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
 }
 
 type ContentSourceKind int32
@@ -301,11 +301,11 @@ func (x ContentSourceKind) String() string {
 }
 
 func (ContentSourceKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[4].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[4].Descriptor()
 }
 
 func (ContentSourceKind) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[4]
+	return &file_current_agent_v1_envelope_proto_enumTypes[4]
 }
 
 func (x ContentSourceKind) Number() protoreflect.EnumNumber {
@@ -314,7 +314,7 @@ func (x ContentSourceKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContentSourceKind.Descriptor instead.
 func (ContentSourceKind) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
 }
 
 type DetectionKind int32
@@ -356,11 +356,11 @@ func (x DetectionKind) String() string {
 }
 
 func (DetectionKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[5].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[5].Descriptor()
 }
 
 func (DetectionKind) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[5]
+	return &file_current_agent_v1_envelope_proto_enumTypes[5]
 }
 
 func (x DetectionKind) Number() protoreflect.EnumNumber {
@@ -369,7 +369,7 @@ func (x DetectionKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DetectionKind.Descriptor instead.
 func (DetectionKind) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
 }
 
 type VersionCmp int32
@@ -405,11 +405,11 @@ func (x VersionCmp) String() string {
 }
 
 func (VersionCmp) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[6].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[6].Descriptor()
 }
 
 func (VersionCmp) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[6]
+	return &file_current_agent_v1_envelope_proto_enumTypes[6]
 }
 
 func (x VersionCmp) Number() protoreflect.EnumNumber {
@@ -418,7 +418,7 @@ func (x VersionCmp) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VersionCmp.Descriptor instead.
 func (VersionCmp) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
 }
 
 type RebootAllow int32
@@ -463,11 +463,11 @@ func (x RebootAllow) String() string {
 }
 
 func (RebootAllow) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[7].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[7].Descriptor()
 }
 
 func (RebootAllow) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[7]
+	return &file_current_agent_v1_envelope_proto_enumTypes[7]
 }
 
 func (x RebootAllow) Number() protoreflect.EnumNumber {
@@ -476,7 +476,7 @@ func (x RebootAllow) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RebootAllow.Descriptor instead.
 func (RebootAllow) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
 }
 
 // WuService chooses which update service a scan or install talks to.
@@ -516,11 +516,11 @@ func (x WuService) String() string {
 }
 
 func (WuService) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[8].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[8].Descriptor()
 }
 
 func (WuService) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[8]
+	return &file_current_agent_v1_envelope_proto_enumTypes[8]
 }
 
 func (x WuService) Number() protoreflect.EnumNumber {
@@ -529,7 +529,7 @@ func (x WuService) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WuService.Descriptor instead.
 func (WuService) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
 }
 
 type UninstallMethod int32
@@ -565,11 +565,11 @@ func (x UninstallMethod) String() string {
 }
 
 func (UninstallMethod) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_envelope_proto_enumTypes[9].Descriptor()
+	return file_current_agent_v1_envelope_proto_enumTypes[9].Descriptor()
 }
 
 func (UninstallMethod) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_envelope_proto_enumTypes[9]
+	return &file_current_agent_v1_envelope_proto_enumTypes[9]
 }
 
 func (x UninstallMethod) Number() protoreflect.EnumNumber {
@@ -578,12 +578,12 @@ func (x UninstallMethod) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UninstallMethod.Descriptor instead.
 func (UninstallMethod) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
 }
 
 // SignedEnvelope carries a job. The signature covers exactly `payload`
 // (a serialized JobEnvelope) prefixed with the domain separator
-// "renovatio/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
+// "current/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
 type SignedEnvelope struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Payload       []byte                 `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
@@ -595,7 +595,7 @@ type SignedEnvelope struct {
 
 func (x *SignedEnvelope) Reset() {
 	*x = SignedEnvelope{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[0]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -607,7 +607,7 @@ func (x *SignedEnvelope) String() string {
 func (*SignedEnvelope) ProtoMessage() {}
 
 func (x *SignedEnvelope) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[0]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -620,7 +620,7 @@ func (x *SignedEnvelope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedEnvelope.ProtoReflect.Descriptor instead.
 func (*SignedEnvelope) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SignedEnvelope) GetPayload() []byte {
@@ -657,7 +657,7 @@ type JobEnvelope struct {
 	Nonce         []byte                 `protobuf:"bytes,9,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	Attempt       uint32                 `protobuf:"varint,10,opt,name=attempt,proto3" json:"attempt,omitempty"`
 	DeploymentId  string                 `protobuf:"bytes,11,opt,name=deployment_id,json=deploymentId,proto3" json:"deployment_id,omitempty"`
-	Type          JobType                `protobuf:"varint,13,opt,name=type,proto3,enum=renovatio.agent.v1.JobType" json:"type,omitempty"`
+	Type          JobType                `protobuf:"varint,13,opt,name=type,proto3,enum=current.agent.v1.JobType" json:"type,omitempty"`
 	// Optional: the job must not start outside this window (evaluated on the device).
 	Window *MaintenanceWindow `protobuf:"bytes,12,opt,name=window,proto3" json:"window,omitempty"`
 	// Types that are valid to be assigned to Body:
@@ -678,7 +678,7 @@ type JobEnvelope struct {
 
 func (x *JobEnvelope) Reset() {
 	*x = JobEnvelope{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[1]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -690,7 +690,7 @@ func (x *JobEnvelope) String() string {
 func (*JobEnvelope) ProtoMessage() {}
 
 func (x *JobEnvelope) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[1]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -703,7 +703,7 @@ func (x *JobEnvelope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobEnvelope.ProtoReflect.Descriptor instead.
 func (*JobEnvelope) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{1}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *JobEnvelope) GetVersion() uint32 {
@@ -956,7 +956,7 @@ type MaintenanceWindow struct {
 
 func (x *MaintenanceWindow) Reset() {
 	*x = MaintenanceWindow{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[2]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -968,7 +968,7 @@ func (x *MaintenanceWindow) String() string {
 func (*MaintenanceWindow) ProtoMessage() {}
 
 func (x *MaintenanceWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[2]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -981,7 +981,7 @@ func (x *MaintenanceWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MaintenanceWindow.ProtoReflect.Descriptor instead.
 func (*MaintenanceWindow) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *MaintenanceWindow) GetDays() []uint32 {
@@ -1015,7 +1015,7 @@ func (x *MaintenanceWindow) GetTz() string {
 // ContentSource is untrusted: bytes must match Installer.sha256 whatever the origin.
 type ContentSource struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          ContentSourceKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=renovatio.agent.v1.ContentSourceKind" json:"kind,omitempty"`
+	Kind          ContentSourceKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=current.agent.v1.ContentSourceKind" json:"kind,omitempty"`
 	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"` // vendor sources only
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1023,7 +1023,7 @@ type ContentSource struct {
 
 func (x *ContentSource) Reset() {
 	*x = ContentSource{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[3]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1035,7 +1035,7 @@ func (x *ContentSource) String() string {
 func (*ContentSource) ProtoMessage() {}
 
 func (x *ContentSource) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[3]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1048,7 @@ func (x *ContentSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentSource.ProtoReflect.Descriptor instead.
 func (*ContentSource) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ContentSource) GetKind() ContentSourceKind {
@@ -1075,7 +1075,7 @@ type SignerPin struct {
 
 func (x *SignerPin) Reset() {
 	*x = SignerPin{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[4]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1087,7 +1087,7 @@ func (x *SignerPin) String() string {
 func (*SignerPin) ProtoMessage() {}
 
 func (x *SignerPin) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[4]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1100,7 +1100,7 @@ func (x *SignerPin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignerPin.ProtoReflect.Descriptor instead.
 func (*SignerPin) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SignerPin) GetSubject() string {
@@ -1119,17 +1119,17 @@ func (x *SignerPin) GetThumbprintSha256() []byte {
 
 type Installer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          InstallerType          `protobuf:"varint,1,opt,name=type,proto3,enum=renovatio.agent.v1.InstallerType" json:"type,omitempty"`
-	NestedType    InstallerType          `protobuf:"varint,2,opt,name=nested_type,json=nestedType,proto3,enum=renovatio.agent.v1.InstallerType" json:"nested_type,omitempty"` // for ZIP: type of the installer inside
-	NestedPath    string                 `protobuf:"bytes,3,opt,name=nested_path,json=nestedPath,proto3" json:"nested_path,omitempty"`                                        // for ZIP: relative path inside the archive
-	Sha256        []byte                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`                                                                  // 32 bytes, mandatory
-	Size          uint64                 `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`                                                                     // mandatory upper bound for the download
-	FileName      string                 `protobuf:"bytes,6,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`                                              // base name only
+	Type          InstallerType          `protobuf:"varint,1,opt,name=type,proto3,enum=current.agent.v1.InstallerType" json:"type,omitempty"`
+	NestedType    InstallerType          `protobuf:"varint,2,opt,name=nested_type,json=nestedType,proto3,enum=current.agent.v1.InstallerType" json:"nested_type,omitempty"` // for ZIP: type of the installer inside
+	NestedPath    string                 `protobuf:"bytes,3,opt,name=nested_path,json=nestedPath,proto3" json:"nested_path,omitempty"`                                      // for ZIP: relative path inside the archive
+	Sha256        []byte                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`                                                                // 32 bytes, mandatory
+	Size          uint64                 `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`                                                                   // mandatory upper bound for the download
+	FileName      string                 `protobuf:"bytes,6,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`                                            // base name only
 	SignerPin     *SignerPin             `protobuf:"bytes,7,opt,name=signer_pin,json=signerPin,proto3" json:"signer_pin,omitempty"`
 	Sources       []*ContentSource       `protobuf:"bytes,8,rep,name=sources,proto3" json:"sources,omitempty"`
 	Args          []string               `protobuf:"bytes,9,rep,name=args,proto3" json:"args,omitempty"` // pre-built argument tokens (validated by the agent again)
 	SuccessCodes  []int32                `protobuf:"varint,10,rep,packed,name=success_codes,json=successCodes,proto3" json:"success_codes,omitempty"`
-	CodeMap       map[int32]JobOutcome   `protobuf:"bytes,11,rep,name=code_map,json=codeMap,proto3" json:"code_map,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=renovatio.agent.v1.JobOutcome"`
+	CodeMap       map[int32]JobOutcome   `protobuf:"bytes,11,rep,name=code_map,json=codeMap,proto3" json:"code_map,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=current.agent.v1.JobOutcome"`
 	ProductCode   string                 `protobuf:"bytes,12,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"` // MSI {GUID}
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1137,7 +1137,7 @@ type Installer struct {
 
 func (x *Installer) Reset() {
 	*x = Installer{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[5]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1149,7 +1149,7 @@ func (x *Installer) String() string {
 func (*Installer) ProtoMessage() {}
 
 func (x *Installer) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[5]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1162,7 +1162,7 @@ func (x *Installer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Installer.ProtoReflect.Descriptor instead.
 func (*Installer) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Installer) GetType() InstallerType {
@@ -1251,18 +1251,18 @@ func (x *Installer) GetProductCode() string {
 
 type Detection struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          DetectionKind          `protobuf:"varint,1,opt,name=kind,proto3,enum=renovatio.agent.v1.DetectionKind" json:"kind,omitempty"`
+	Kind          DetectionKind          `protobuf:"varint,1,opt,name=kind,proto3,enum=current.agent.v1.DetectionKind" json:"kind,omitempty"`
 	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	ValueName     string                 `protobuf:"bytes,3,opt,name=value_name,json=valueName,proto3" json:"value_name,omitempty"`
 	Version       string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
-	Cmp           VersionCmp             `protobuf:"varint,5,opt,name=cmp,proto3,enum=renovatio.agent.v1.VersionCmp" json:"cmp,omitempty"`
+	Cmp           VersionCmp             `protobuf:"varint,5,opt,name=cmp,proto3,enum=current.agent.v1.VersionCmp" json:"cmp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Detection) Reset() {
 	*x = Detection{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[6]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1274,7 +1274,7 @@ func (x *Detection) String() string {
 func (*Detection) ProtoMessage() {}
 
 func (x *Detection) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[6]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1287,7 +1287,7 @@ func (x *Detection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Detection.ProtoReflect.Descriptor instead.
 func (*Detection) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Detection) GetKind() DetectionKind {
@@ -1335,7 +1335,7 @@ type Preconditions struct {
 
 func (x *Preconditions) Reset() {
 	*x = Preconditions{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[7]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1347,7 +1347,7 @@ func (x *Preconditions) String() string {
 func (*Preconditions) ProtoMessage() {}
 
 func (x *Preconditions) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[7]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1360,7 +1360,7 @@ func (x *Preconditions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Preconditions.ProtoReflect.Descriptor instead.
 func (*Preconditions) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Preconditions) GetMinFreeMb() uint32 {
@@ -1389,7 +1389,7 @@ type ActiveHours struct {
 
 func (x *ActiveHours) Reset() {
 	*x = ActiveHours{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[8]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1401,7 +1401,7 @@ func (x *ActiveHours) String() string {
 func (*ActiveHours) ProtoMessage() {}
 
 func (x *ActiveHours) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[8]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1414,7 +1414,7 @@ func (x *ActiveHours) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActiveHours.ProtoReflect.Descriptor instead.
 func (*ActiveHours) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ActiveHours) GetStartMinute() uint32 {
@@ -1434,7 +1434,7 @@ func (x *ActiveHours) GetEndMinute() uint32 {
 // RebootPolicy says what the agent may do when an installation leaves the machine needing a restart.
 type RebootPolicy struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Allow         RebootAllow            `protobuf:"varint,1,opt,name=allow,proto3,enum=renovatio.agent.v1.RebootAllow" json:"allow,omitempty"`
+	Allow         RebootAllow            `protobuf:"varint,1,opt,name=allow,proto3,enum=current.agent.v1.RebootAllow" json:"allow,omitempty"`
 	ActiveHours   *ActiveHours           `protobuf:"bytes,2,opt,name=active_hours,json=activeHours,proto3" json:"active_hours,omitempty"`
 	DeadlineAt    int64                  `protobuf:"varint,3,opt,name=deadline_at,json=deadlineAt,proto3" json:"deadline_at,omitempty"`          // unix seconds; REBOOT_ALLOW_DEADLINE
 	NotifyMinutes uint32                 `protobuf:"varint,4,opt,name=notify_minutes,json=notifyMinutes,proto3" json:"notify_minutes,omitempty"` // countdown shown to signed-in users, 1..1440
@@ -1444,7 +1444,7 @@ type RebootPolicy struct {
 
 func (x *RebootPolicy) Reset() {
 	*x = RebootPolicy{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[9]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1456,7 @@ func (x *RebootPolicy) String() string {
 func (*RebootPolicy) ProtoMessage() {}
 
 func (x *RebootPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[9]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1469,7 @@ func (x *RebootPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RebootPolicy.ProtoReflect.Descriptor instead.
 func (*RebootPolicy) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RebootPolicy) GetAllow() RebootAllow {
@@ -1502,7 +1502,7 @@ func (x *RebootPolicy) GetNotifyMinutes() uint32 {
 
 type WuScanBody struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=renovatio.agent.v1.WuService" json:"service,omitempty"`
+	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=current.agent.v1.WuService" json:"service,omitempty"`
 	IncludeDrivers bool                   `protobuf:"varint,2,opt,name=include_drivers,json=includeDrivers,proto3" json:"include_drivers,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1510,7 +1510,7 @@ type WuScanBody struct {
 
 func (x *WuScanBody) Reset() {
 	*x = WuScanBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[10]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1522,7 +1522,7 @@ func (x *WuScanBody) String() string {
 func (*WuScanBody) ProtoMessage() {}
 
 func (x *WuScanBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[10]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1535,7 +1535,7 @@ func (x *WuScanBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuScanBody.ProtoReflect.Descriptor instead.
 func (*WuScanBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{10}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WuScanBody) GetService() WuService {
@@ -1562,7 +1562,7 @@ type WuUpdateRef struct {
 
 func (x *WuUpdateRef) Reset() {
 	*x = WuUpdateRef{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[11]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1574,7 +1574,7 @@ func (x *WuUpdateRef) String() string {
 func (*WuUpdateRef) ProtoMessage() {}
 
 func (x *WuUpdateRef) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[11]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1587,7 +1587,7 @@ func (x *WuUpdateRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuUpdateRef.ProtoReflect.Descriptor instead.
 func (*WuUpdateRef) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{11}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WuUpdateRef) GetUpdateId() string {
@@ -1607,7 +1607,7 @@ func (x *WuUpdateRef) GetRevision() int32 {
 // WuInstallBody installs exactly the listed updates (found by a fresh scan, never by title).
 type WuInstallBody struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=renovatio.agent.v1.WuService" json:"service,omitempty"`
+	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=current.agent.v1.WuService" json:"service,omitempty"`
 	IncludeDrivers bool                   `protobuf:"varint,2,opt,name=include_drivers,json=includeDrivers,proto3" json:"include_drivers,omitempty"`
 	Updates        []*WuUpdateRef         `protobuf:"bytes,3,rep,name=updates,proto3" json:"updates,omitempty"` // 1..200
 	Reboot         *RebootPolicy          `protobuf:"bytes,4,opt,name=reboot,proto3" json:"reboot,omitempty"`
@@ -1620,7 +1620,7 @@ type WuInstallBody struct {
 
 func (x *WuInstallBody) Reset() {
 	*x = WuInstallBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[12]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1632,7 +1632,7 @@ func (x *WuInstallBody) String() string {
 func (*WuInstallBody) ProtoMessage() {}
 
 func (x *WuInstallBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[12]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1645,7 +1645,7 @@ func (x *WuInstallBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuInstallBody.ProtoReflect.Descriptor instead.
 func (*WuInstallBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{12}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WuInstallBody) GetService() WuService {
@@ -1699,7 +1699,7 @@ func (x *WuInstallBody) GetRetryBackoffS() uint32 {
 
 type WuHideBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Service       WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=renovatio.agent.v1.WuService" json:"service,omitempty"`
+	Service       WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=current.agent.v1.WuService" json:"service,omitempty"`
 	Updates       []*WuUpdateRef         `protobuf:"bytes,2,rep,name=updates,proto3" json:"updates,omitempty"`
 	Hide          bool                   `protobuf:"varint,3,opt,name=hide,proto3" json:"hide,omitempty"` // false = unhide
 	unknownFields protoimpl.UnknownFields
@@ -1708,7 +1708,7 @@ type WuHideBody struct {
 
 func (x *WuHideBody) Reset() {
 	*x = WuHideBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[13]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1720,7 +1720,7 @@ func (x *WuHideBody) String() string {
 func (*WuHideBody) ProtoMessage() {}
 
 func (x *WuHideBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[13]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1733,7 +1733,7 @@ func (x *WuHideBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WuHideBody.ProtoReflect.Descriptor instead.
 func (*WuHideBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{13}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *WuHideBody) GetService() WuService {
@@ -1767,7 +1767,7 @@ type RebootBody struct {
 
 func (x *RebootBody) Reset() {
 	*x = RebootBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[14]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1779,7 +1779,7 @@ func (x *RebootBody) String() string {
 func (*RebootBody) ProtoMessage() {}
 
 func (x *RebootBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[14]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1792,7 +1792,7 @@ func (x *RebootBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RebootBody.ProtoReflect.Descriptor instead.
 func (*RebootBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{14}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RebootBody) GetReboot() *RebootPolicy {
@@ -1814,14 +1814,14 @@ type InstallBody struct {
 	PackageId      string                 `protobuf:"bytes,1,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"` // catalog identifier, informational
 	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Version        string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
-	Scope          InstallScope           `protobuf:"varint,4,opt,name=scope,proto3,enum=renovatio.agent.v1.InstallScope" json:"scope,omitempty"`
+	Scope          InstallScope           `protobuf:"varint,4,opt,name=scope,proto3,enum=current.agent.v1.InstallScope" json:"scope,omitempty"`
 	Installer      *Installer             `protobuf:"bytes,5,opt,name=installer,proto3" json:"installer,omitempty"`
 	Detection      []*Detection           `protobuf:"bytes,6,rep,name=detection,proto3" json:"detection,omitempty"` // pre-check (skip if satisfied) and post-check
 	Preconditions  *Preconditions         `protobuf:"bytes,7,opt,name=preconditions,proto3" json:"preconditions,omitempty"`
 	TimeoutS       uint32                 `protobuf:"varint,8,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
 	MaxRetries     uint32                 `protobuf:"varint,9,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	RetryBackoffS  uint32                 `protobuf:"varint,10,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
-	Reboot         RebootAllow            `protobuf:"varint,11,opt,name=reboot,proto3,enum=renovatio.agent.v1.RebootAllow" json:"reboot,omitempty"`
+	Reboot         RebootAllow            `protobuf:"varint,11,opt,name=reboot,proto3,enum=current.agent.v1.RebootAllow" json:"reboot,omitempty"`
 	AllowDowngrade bool                   `protobuf:"varint,12,opt,name=allow_downgrade,json=allowDowngrade,proto3" json:"allow_downgrade,omitempty"`
 	Update         bool                   `protobuf:"varint,13,opt,name=update,proto3" json:"update,omitempty"` // an upgrade of an existing install (job type SOFTWARE_UPDATE)
 	unknownFields  protoimpl.UnknownFields
@@ -1830,7 +1830,7 @@ type InstallBody struct {
 
 func (x *InstallBody) Reset() {
 	*x = InstallBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[15]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1842,7 +1842,7 @@ func (x *InstallBody) String() string {
 func (*InstallBody) ProtoMessage() {}
 
 func (x *InstallBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[15]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1855,7 +1855,7 @@ func (x *InstallBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallBody.ProtoReflect.Descriptor instead.
 func (*InstallBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{15}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *InstallBody) GetPackageId() string {
@@ -1955,11 +1955,11 @@ type UninstallBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PackageId     string                 `protobuf:"bytes,1,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Scope         InstallScope           `protobuf:"varint,3,opt,name=scope,proto3,enum=renovatio.agent.v1.InstallScope" json:"scope,omitempty"`
+	Scope         InstallScope           `protobuf:"varint,3,opt,name=scope,proto3,enum=current.agent.v1.InstallScope" json:"scope,omitempty"`
 	ItemSource    string                 `protobuf:"bytes,4,opt,name=item_source,json=itemSource,proto3" json:"item_source,omitempty"`    // reg64 | reg32 | hku | hku32 | msi
 	ItemKey       string                 `protobuf:"bytes,5,opt,name=item_key,json=itemKey,proto3" json:"item_key,omitempty"`             // Uninstall subkey name or MSI product code
 	ProductCode   string                 `protobuf:"bytes,6,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"` // optional, validated
-	Method        UninstallMethod        `protobuf:"varint,7,opt,name=method,proto3,enum=renovatio.agent.v1.UninstallMethod" json:"method,omitempty"`
+	Method        UninstallMethod        `protobuf:"varint,7,opt,name=method,proto3,enum=current.agent.v1.UninstallMethod" json:"method,omitempty"`
 	ExtraArgs     []string               `protobuf:"bytes,8,rep,name=extra_args,json=extraArgs,proto3" json:"extra_args,omitempty"` // validated tokens appended for EXE uninstallers
 	TimeoutS      uint32                 `protobuf:"varint,9,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
 	MaxRetries    uint32                 `protobuf:"varint,10,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
@@ -1974,7 +1974,7 @@ type UninstallBody struct {
 
 func (x *UninstallBody) Reset() {
 	*x = UninstallBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[16]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +1986,7 @@ func (x *UninstallBody) String() string {
 func (*UninstallBody) ProtoMessage() {}
 
 func (x *UninstallBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[16]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +1999,7 @@ func (x *UninstallBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UninstallBody.ProtoReflect.Descriptor instead.
 func (*UninstallBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{16}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UninstallBody) GetPackageId() string {
@@ -2092,7 +2092,7 @@ func (x *UninstallBody) GetRemoveOlderThan() string {
 type AgentUpdateBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Manifest      []byte                 `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`        // the exact bytes the vendor signed (JSON, see internal/shared/release)
-	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`      // Ed25519 over "renovatio/release/v1\0" || manifest
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`      // Ed25519 over "current/release/v1\0" || manifest
 	KeyId         []byte                 `protobuf:"bytes,3,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"` // first 8 bytes of SHA-256 of the vendor public key
 	TimeoutS      uint32                 `protobuf:"varint,4,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2101,7 +2101,7 @@ type AgentUpdateBody struct {
 
 func (x *AgentUpdateBody) Reset() {
 	*x = AgentUpdateBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[17]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2113,7 +2113,7 @@ func (x *AgentUpdateBody) String() string {
 func (*AgentUpdateBody) ProtoMessage() {}
 
 func (x *AgentUpdateBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[17]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2126,7 +2126,7 @@ func (x *AgentUpdateBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentUpdateBody.ProtoReflect.Descriptor instead.
 func (*AgentUpdateBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{17}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AgentUpdateBody) GetManifest() []byte {
@@ -2166,7 +2166,7 @@ type CancelBody struct {
 
 func (x *CancelBody) Reset() {
 	*x = CancelBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[18]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2178,7 +2178,7 @@ func (x *CancelBody) String() string {
 func (*CancelBody) ProtoMessage() {}
 
 func (x *CancelBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[18]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2191,7 +2191,7 @@ func (x *CancelBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelBody.ProtoReflect.Descriptor instead.
 func (*CancelBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{18}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CancelBody) GetJobId() string {
@@ -2211,7 +2211,7 @@ type InventoryBody struct {
 
 func (x *InventoryBody) Reset() {
 	*x = InventoryBody{}
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[19]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2223,7 +2223,7 @@ func (x *InventoryBody) String() string {
 func (*InventoryBody) ProtoMessage() {}
 
 func (x *InventoryBody) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_envelope_proto_msgTypes[19]
+	mi := &file_current_agent_v1_envelope_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2236,7 +2236,7 @@ func (x *InventoryBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventoryBody.ProtoReflect.Descriptor instead.
 func (*InventoryBody) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_envelope_proto_rawDescGZIP(), []int{19}
+	return file_current_agent_v1_envelope_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *InventoryBody) GetSections() []uint32 {
@@ -2246,15 +2246,15 @@ func (x *InventoryBody) GetSections() []uint32 {
 	return nil
 }
 
-var File_renovatio_agent_v1_envelope_proto protoreflect.FileDescriptor
+var File_current_agent_v1_envelope_proto protoreflect.FileDescriptor
 
-const file_renovatio_agent_v1_envelope_proto_rawDesc = "" +
+const file_current_agent_v1_envelope_proto_rawDesc = "" +
 	"\n" +
-	"!renovatio/agent/v1/envelope.proto\x12\x12renovatio.agent.v1\"_\n" +
+	"\x1fcurrent/agent/v1/envelope.proto\x12\x10current.agent.v1\"_\n" +
 	"\x0eSignedEnvelope\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xfd\a\n" +
+	"\x06key_id\x18\x03 \x01(\fR\x05keyId\"\xe7\a\n" +
 	"\vJobEnvelope\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x15\n" +
@@ -2269,58 +2269,58 @@ const file_renovatio_agent_v1_envelope_proto_rawDesc = "" +
 	"\x05nonce\x18\t \x01(\fR\x05nonce\x12\x18\n" +
 	"\aattempt\x18\n" +
 	" \x01(\rR\aattempt\x12#\n" +
-	"\rdeployment_id\x18\v \x01(\tR\fdeploymentId\x12/\n" +
-	"\x04type\x18\r \x01(\x0e2\x1b.renovatio.agent.v1.JobTypeR\x04type\x12=\n" +
-	"\x06window\x18\f \x01(\v2%.renovatio.agent.v1.MaintenanceWindowR\x06window\x12;\n" +
-	"\ainstall\x18\x14 \x01(\v2\x1f.renovatio.agent.v1.InstallBodyH\x00R\ainstall\x12A\n" +
-	"\tuninstall\x18\x15 \x01(\v2!.renovatio.agent.v1.UninstallBodyH\x00R\tuninstall\x129\n" +
-	"\awu_scan\x18\x16 \x01(\v2\x1e.renovatio.agent.v1.WuScanBodyH\x00R\x06wuScan\x12B\n" +
+	"\rdeployment_id\x18\v \x01(\tR\fdeploymentId\x12-\n" +
+	"\x04type\x18\r \x01(\x0e2\x19.current.agent.v1.JobTypeR\x04type\x12;\n" +
+	"\x06window\x18\f \x01(\v2#.current.agent.v1.MaintenanceWindowR\x06window\x129\n" +
+	"\ainstall\x18\x14 \x01(\v2\x1d.current.agent.v1.InstallBodyH\x00R\ainstall\x12?\n" +
+	"\tuninstall\x18\x15 \x01(\v2\x1f.current.agent.v1.UninstallBodyH\x00R\tuninstall\x127\n" +
+	"\awu_scan\x18\x16 \x01(\v2\x1c.current.agent.v1.WuScanBodyH\x00R\x06wuScan\x12@\n" +
 	"\n" +
-	"wu_install\x18\x17 \x01(\v2!.renovatio.agent.v1.WuInstallBodyH\x00R\twuInstall\x129\n" +
-	"\awu_hide\x18\x18 \x01(\v2\x1e.renovatio.agent.v1.WuHideBodyH\x00R\x06wuHide\x128\n" +
-	"\x06reboot\x18\x19 \x01(\v2\x1e.renovatio.agent.v1.RebootBodyH\x00R\x06reboot\x12A\n" +
-	"\tinventory\x18\x1a \x01(\v2!.renovatio.agent.v1.InventoryBodyH\x00R\tinventory\x12H\n" +
-	"\fagent_update\x18\x1b \x01(\v2#.renovatio.agent.v1.AgentUpdateBodyH\x00R\vagentUpdate\x128\n" +
-	"\x06cancel\x18\x1c \x01(\v2\x1e.renovatio.agent.v1.CancelBodyH\x00R\x06cancelB\x06\n" +
+	"wu_install\x18\x17 \x01(\v2\x1f.current.agent.v1.WuInstallBodyH\x00R\twuInstall\x127\n" +
+	"\awu_hide\x18\x18 \x01(\v2\x1c.current.agent.v1.WuHideBodyH\x00R\x06wuHide\x126\n" +
+	"\x06reboot\x18\x19 \x01(\v2\x1c.current.agent.v1.RebootBodyH\x00R\x06reboot\x12?\n" +
+	"\tinventory\x18\x1a \x01(\v2\x1f.current.agent.v1.InventoryBodyH\x00R\tinventory\x12F\n" +
+	"\fagent_update\x18\x1b \x01(\v2!.current.agent.v1.AgentUpdateBodyH\x00R\vagentUpdate\x126\n" +
+	"\x06cancel\x18\x1c \x01(\v2\x1c.current.agent.v1.CancelBodyH\x00R\x06cancelB\x06\n" +
 	"\x04body\"\x85\x01\n" +
 	"\x11MaintenanceWindow\x12\x12\n" +
 	"\x04days\x18\x01 \x03(\rR\x04days\x12!\n" +
 	"\fstart_minute\x18\x02 \x01(\rR\vstartMinute\x12)\n" +
 	"\x10duration_minutes\x18\x03 \x01(\rR\x0fdurationMinutes\x12\x0e\n" +
-	"\x02tz\x18\x04 \x01(\tR\x02tz\"\\\n" +
-	"\rContentSource\x129\n" +
-	"\x04kind\x18\x01 \x01(\x0e2%.renovatio.agent.v1.ContentSourceKindR\x04kind\x12\x10\n" +
+	"\x02tz\x18\x04 \x01(\tR\x02tz\"Z\n" +
+	"\rContentSource\x127\n" +
+	"\x04kind\x18\x01 \x01(\x0e2#.current.agent.v1.ContentSourceKindR\x04kind\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\"R\n" +
 	"\tSignerPin\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12+\n" +
-	"\x11thumbprint_sha256\x18\x02 \x01(\fR\x10thumbprintSha256\"\xea\x04\n" +
-	"\tInstaller\x125\n" +
-	"\x04type\x18\x01 \x01(\x0e2!.renovatio.agent.v1.InstallerTypeR\x04type\x12B\n" +
-	"\vnested_type\x18\x02 \x01(\x0e2!.renovatio.agent.v1.InstallerTypeR\n" +
+	"\x11thumbprint_sha256\x18\x02 \x01(\fR\x10thumbprintSha256\"\xde\x04\n" +
+	"\tInstaller\x123\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x1f.current.agent.v1.InstallerTypeR\x04type\x12@\n" +
+	"\vnested_type\x18\x02 \x01(\x0e2\x1f.current.agent.v1.InstallerTypeR\n" +
 	"nestedType\x12\x1f\n" +
 	"\vnested_path\x18\x03 \x01(\tR\n" +
 	"nestedPath\x12\x16\n" +
 	"\x06sha256\x18\x04 \x01(\fR\x06sha256\x12\x12\n" +
 	"\x04size\x18\x05 \x01(\x04R\x04size\x12\x1b\n" +
-	"\tfile_name\x18\x06 \x01(\tR\bfileName\x12<\n" +
+	"\tfile_name\x18\x06 \x01(\tR\bfileName\x12:\n" +
 	"\n" +
-	"signer_pin\x18\a \x01(\v2\x1d.renovatio.agent.v1.SignerPinR\tsignerPin\x12;\n" +
-	"\asources\x18\b \x03(\v2!.renovatio.agent.v1.ContentSourceR\asources\x12\x12\n" +
+	"signer_pin\x18\a \x01(\v2\x1b.current.agent.v1.SignerPinR\tsignerPin\x129\n" +
+	"\asources\x18\b \x03(\v2\x1f.current.agent.v1.ContentSourceR\asources\x12\x12\n" +
 	"\x04args\x18\t \x03(\tR\x04args\x12#\n" +
 	"\rsuccess_codes\x18\n" +
-	" \x03(\x05R\fsuccessCodes\x12E\n" +
-	"\bcode_map\x18\v \x03(\v2*.renovatio.agent.v1.Installer.CodeMapEntryR\acodeMap\x12!\n" +
-	"\fproduct_code\x18\f \x01(\tR\vproductCode\x1aZ\n" +
+	" \x03(\x05R\fsuccessCodes\x12C\n" +
+	"\bcode_map\x18\v \x03(\v2(.current.agent.v1.Installer.CodeMapEntryR\acodeMap\x12!\n" +
+	"\fproduct_code\x18\f \x01(\tR\vproductCode\x1aX\n" +
 	"\fCodeMapEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\x05R\x03key\x124\n" +
-	"\x05value\x18\x02 \x01(\x0e2\x1e.renovatio.agent.v1.JobOutcomeR\x05value:\x028\x01\"\xbf\x01\n" +
-	"\tDetection\x125\n" +
-	"\x04kind\x18\x01 \x01(\x0e2!.renovatio.agent.v1.DetectionKindR\x04kind\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\x05R\x03key\x122\n" +
+	"\x05value\x18\x02 \x01(\x0e2\x1c.current.agent.v1.JobOutcomeR\x05value:\x028\x01\"\xbb\x01\n" +
+	"\tDetection\x123\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x1f.current.agent.v1.DetectionKindR\x04kind\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1d\n" +
 	"\n" +
 	"value_name\x18\x03 \x01(\tR\tvalueName\x12\x18\n" +
-	"\aversion\x18\x04 \x01(\tR\aversion\x120\n" +
-	"\x03cmp\x18\x05 \x01(\x0e2\x1e.renovatio.agent.v1.VersionCmpR\x03cmp\"Q\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12.\n" +
+	"\x03cmp\x18\x05 \x01(\x0e2\x1c.current.agent.v1.VersionCmpR\x03cmp\"Q\n" +
 	"\rPreconditions\x12\x1e\n" +
 	"\vmin_free_mb\x18\x01 \x01(\rR\tminFreeMb\x12 \n" +
 	"\fos_build_min\x18\x02 \x01(\rR\n" +
@@ -2328,65 +2328,65 @@ const file_renovatio_agent_v1_envelope_proto_rawDesc = "" +
 	"\vActiveHours\x12!\n" +
 	"\fstart_minute\x18\x01 \x01(\rR\vstartMinute\x12\x1d\n" +
 	"\n" +
-	"end_minute\x18\x02 \x01(\rR\tendMinute\"\xd1\x01\n" +
-	"\fRebootPolicy\x125\n" +
-	"\x05allow\x18\x01 \x01(\x0e2\x1f.renovatio.agent.v1.RebootAllowR\x05allow\x12B\n" +
-	"\factive_hours\x18\x02 \x01(\v2\x1f.renovatio.agent.v1.ActiveHoursR\vactiveHours\x12\x1f\n" +
+	"end_minute\x18\x02 \x01(\rR\tendMinute\"\xcd\x01\n" +
+	"\fRebootPolicy\x123\n" +
+	"\x05allow\x18\x01 \x01(\x0e2\x1d.current.agent.v1.RebootAllowR\x05allow\x12@\n" +
+	"\factive_hours\x18\x02 \x01(\v2\x1d.current.agent.v1.ActiveHoursR\vactiveHours\x12\x1f\n" +
 	"\vdeadline_at\x18\x03 \x01(\x03R\n" +
 	"deadlineAt\x12%\n" +
-	"\x0enotify_minutes\x18\x04 \x01(\rR\rnotifyMinutes\"n\n" +
+	"\x0enotify_minutes\x18\x04 \x01(\rR\rnotifyMinutes\"l\n" +
 	"\n" +
-	"WuScanBody\x127\n" +
-	"\aservice\x18\x01 \x01(\x0e2\x1d.renovatio.agent.v1.WuServiceR\aservice\x12'\n" +
+	"WuScanBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x12'\n" +
 	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\"F\n" +
 	"\vWuUpdateRef\x12\x1b\n" +
 	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
-	"\brevision\x18\x02 \x01(\x05R\brevision\"\xcc\x02\n" +
-	"\rWuInstallBody\x127\n" +
-	"\aservice\x18\x01 \x01(\x0e2\x1d.renovatio.agent.v1.WuServiceR\aservice\x12'\n" +
-	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\x129\n" +
-	"\aupdates\x18\x03 \x03(\v2\x1f.renovatio.agent.v1.WuUpdateRefR\aupdates\x128\n" +
-	"\x06reboot\x18\x04 \x01(\v2 .renovatio.agent.v1.RebootPolicyR\x06reboot\x12\x1b\n" +
+	"\brevision\x18\x02 \x01(\x05R\brevision\"\xc6\x02\n" +
+	"\rWuInstallBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x12'\n" +
+	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\x127\n" +
+	"\aupdates\x18\x03 \x03(\v2\x1d.current.agent.v1.WuUpdateRefR\aupdates\x126\n" +
+	"\x06reboot\x18\x04 \x01(\v2\x1e.current.agent.v1.RebootPolicyR\x06reboot\x12\x1b\n" +
 	"\ttimeout_s\x18\x05 \x01(\rR\btimeoutS\x12\x1f\n" +
 	"\vmax_retries\x18\x06 \x01(\rR\n" +
 	"maxRetries\x12&\n" +
-	"\x0fretry_backoff_s\x18\a \x01(\rR\rretryBackoffS\"\x94\x01\n" +
+	"\x0fretry_backoff_s\x18\a \x01(\rR\rretryBackoffS\"\x90\x01\n" +
 	"\n" +
-	"WuHideBody\x127\n" +
-	"\aservice\x18\x01 \x01(\x0e2\x1d.renovatio.agent.v1.WuServiceR\aservice\x129\n" +
-	"\aupdates\x18\x02 \x03(\v2\x1f.renovatio.agent.v1.WuUpdateRefR\aupdates\x12\x12\n" +
-	"\x04hide\x18\x03 \x01(\bR\x04hide\"^\n" +
+	"WuHideBody\x125\n" +
+	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x127\n" +
+	"\aupdates\x18\x02 \x03(\v2\x1d.current.agent.v1.WuUpdateRefR\aupdates\x12\x12\n" +
+	"\x04hide\x18\x03 \x01(\bR\x04hide\"\\\n" +
 	"\n" +
-	"RebootBody\x128\n" +
-	"\x06reboot\x18\x01 \x01(\v2 .renovatio.agent.v1.RebootPolicyR\x06reboot\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\"\xb5\x04\n" +
+	"RebootBody\x126\n" +
+	"\x06reboot\x18\x01 \x01(\v2\x1e.current.agent.v1.RebootPolicyR\x06reboot\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\xab\x04\n" +
 	"\vInstallBody\x12\x1d\n" +
 	"\n" +
 	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\x126\n" +
-	"\x05scope\x18\x04 \x01(\x0e2 .renovatio.agent.v1.InstallScopeR\x05scope\x12;\n" +
-	"\tinstaller\x18\x05 \x01(\v2\x1d.renovatio.agent.v1.InstallerR\tinstaller\x12;\n" +
-	"\tdetection\x18\x06 \x03(\v2\x1d.renovatio.agent.v1.DetectionR\tdetection\x12G\n" +
-	"\rpreconditions\x18\a \x01(\v2!.renovatio.agent.v1.PreconditionsR\rpreconditions\x12\x1b\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x124\n" +
+	"\x05scope\x18\x04 \x01(\x0e2\x1e.current.agent.v1.InstallScopeR\x05scope\x129\n" +
+	"\tinstaller\x18\x05 \x01(\v2\x1b.current.agent.v1.InstallerR\tinstaller\x129\n" +
+	"\tdetection\x18\x06 \x03(\v2\x1b.current.agent.v1.DetectionR\tdetection\x12E\n" +
+	"\rpreconditions\x18\a \x01(\v2\x1f.current.agent.v1.PreconditionsR\rpreconditions\x12\x1b\n" +
 	"\ttimeout_s\x18\b \x01(\rR\btimeoutS\x12\x1f\n" +
 	"\vmax_retries\x18\t \x01(\rR\n" +
 	"maxRetries\x12&\n" +
 	"\x0fretry_backoff_s\x18\n" +
-	" \x01(\rR\rretryBackoffS\x127\n" +
-	"\x06reboot\x18\v \x01(\x0e2\x1f.renovatio.agent.v1.RebootAllowR\x06reboot\x12'\n" +
+	" \x01(\rR\rretryBackoffS\x125\n" +
+	"\x06reboot\x18\v \x01(\x0e2\x1d.current.agent.v1.RebootAllowR\x06reboot\x12'\n" +
 	"\x0fallow_downgrade\x18\f \x01(\bR\x0eallowDowngrade\x12\x16\n" +
-	"\x06update\x18\r \x01(\bR\x06update\"\xc7\x03\n" +
+	"\x06update\x18\r \x01(\bR\x06update\"\xc3\x03\n" +
 	"\rUninstallBody\x12\x1d\n" +
 	"\n" +
 	"package_id\x18\x01 \x01(\tR\tpackageId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
-	"\x05scope\x18\x03 \x01(\x0e2 .renovatio.agent.v1.InstallScopeR\x05scope\x12\x1f\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
+	"\x05scope\x18\x03 \x01(\x0e2\x1e.current.agent.v1.InstallScopeR\x05scope\x12\x1f\n" +
 	"\vitem_source\x18\x04 \x01(\tR\n" +
 	"itemSource\x12\x19\n" +
 	"\bitem_key\x18\x05 \x01(\tR\aitemKey\x12!\n" +
-	"\fproduct_code\x18\x06 \x01(\tR\vproductCode\x12;\n" +
-	"\x06method\x18\a \x01(\x0e2#.renovatio.agent.v1.UninstallMethodR\x06method\x12\x1d\n" +
+	"\fproduct_code\x18\x06 \x01(\tR\vproductCode\x129\n" +
+	"\x06method\x18\a \x01(\x0e2!.current.agent.v1.UninstallMethodR\x06method\x12\x1d\n" +
 	"\n" +
 	"extra_args\x18\b \x03(\tR\textraArgs\x12\x1b\n" +
 	"\ttimeout_s\x18\t \x01(\rR\btimeoutS\x12\x1f\n" +
@@ -2469,92 +2469,92 @@ const file_renovatio_agent_v1_envelope_proto_rawDesc = "" +
 	"\x0fUninstallMethod\x12 \n" +
 	"\x1cUNINSTALL_METHOD_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15UNINSTALL_METHOD_AUTO\x10\x01\x12!\n" +
-	"\x1dUNINSTALL_METHOD_PRODUCT_CODE\x10\x02BDZBgithub.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1b\x06proto3"
+	"\x1dUNINSTALL_METHOD_PRODUCT_CODE\x10\x02B@Z>github.com/auzring1/current/gen/proto/current/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_renovatio_agent_v1_envelope_proto_rawDescOnce sync.Once
-	file_renovatio_agent_v1_envelope_proto_rawDescData []byte
+	file_current_agent_v1_envelope_proto_rawDescOnce sync.Once
+	file_current_agent_v1_envelope_proto_rawDescData []byte
 )
 
-func file_renovatio_agent_v1_envelope_proto_rawDescGZIP() []byte {
-	file_renovatio_agent_v1_envelope_proto_rawDescOnce.Do(func() {
-		file_renovatio_agent_v1_envelope_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_envelope_proto_rawDesc), len(file_renovatio_agent_v1_envelope_proto_rawDesc)))
+func file_current_agent_v1_envelope_proto_rawDescGZIP() []byte {
+	file_current_agent_v1_envelope_proto_rawDescOnce.Do(func() {
+		file_current_agent_v1_envelope_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_current_agent_v1_envelope_proto_rawDesc), len(file_current_agent_v1_envelope_proto_rawDesc)))
 	})
-	return file_renovatio_agent_v1_envelope_proto_rawDescData
+	return file_current_agent_v1_envelope_proto_rawDescData
 }
 
-var file_renovatio_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_renovatio_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
-var file_renovatio_agent_v1_envelope_proto_goTypes = []any{
-	(JobType)(0),              // 0: renovatio.agent.v1.JobType
-	(InstallScope)(0),         // 1: renovatio.agent.v1.InstallScope
-	(InstallerType)(0),        // 2: renovatio.agent.v1.InstallerType
-	(JobOutcome)(0),           // 3: renovatio.agent.v1.JobOutcome
-	(ContentSourceKind)(0),    // 4: renovatio.agent.v1.ContentSourceKind
-	(DetectionKind)(0),        // 5: renovatio.agent.v1.DetectionKind
-	(VersionCmp)(0),           // 6: renovatio.agent.v1.VersionCmp
-	(RebootAllow)(0),          // 7: renovatio.agent.v1.RebootAllow
-	(WuService)(0),            // 8: renovatio.agent.v1.WuService
-	(UninstallMethod)(0),      // 9: renovatio.agent.v1.UninstallMethod
-	(*SignedEnvelope)(nil),    // 10: renovatio.agent.v1.SignedEnvelope
-	(*JobEnvelope)(nil),       // 11: renovatio.agent.v1.JobEnvelope
-	(*MaintenanceWindow)(nil), // 12: renovatio.agent.v1.MaintenanceWindow
-	(*ContentSource)(nil),     // 13: renovatio.agent.v1.ContentSource
-	(*SignerPin)(nil),         // 14: renovatio.agent.v1.SignerPin
-	(*Installer)(nil),         // 15: renovatio.agent.v1.Installer
-	(*Detection)(nil),         // 16: renovatio.agent.v1.Detection
-	(*Preconditions)(nil),     // 17: renovatio.agent.v1.Preconditions
-	(*ActiveHours)(nil),       // 18: renovatio.agent.v1.ActiveHours
-	(*RebootPolicy)(nil),      // 19: renovatio.agent.v1.RebootPolicy
-	(*WuScanBody)(nil),        // 20: renovatio.agent.v1.WuScanBody
-	(*WuUpdateRef)(nil),       // 21: renovatio.agent.v1.WuUpdateRef
-	(*WuInstallBody)(nil),     // 22: renovatio.agent.v1.WuInstallBody
-	(*WuHideBody)(nil),        // 23: renovatio.agent.v1.WuHideBody
-	(*RebootBody)(nil),        // 24: renovatio.agent.v1.RebootBody
-	(*InstallBody)(nil),       // 25: renovatio.agent.v1.InstallBody
-	(*UninstallBody)(nil),     // 26: renovatio.agent.v1.UninstallBody
-	(*AgentUpdateBody)(nil),   // 27: renovatio.agent.v1.AgentUpdateBody
-	(*CancelBody)(nil),        // 28: renovatio.agent.v1.CancelBody
-	(*InventoryBody)(nil),     // 29: renovatio.agent.v1.InventoryBody
-	nil,                       // 30: renovatio.agent.v1.Installer.CodeMapEntry
+var file_current_agent_v1_envelope_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_current_agent_v1_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_current_agent_v1_envelope_proto_goTypes = []any{
+	(JobType)(0),              // 0: current.agent.v1.JobType
+	(InstallScope)(0),         // 1: current.agent.v1.InstallScope
+	(InstallerType)(0),        // 2: current.agent.v1.InstallerType
+	(JobOutcome)(0),           // 3: current.agent.v1.JobOutcome
+	(ContentSourceKind)(0),    // 4: current.agent.v1.ContentSourceKind
+	(DetectionKind)(0),        // 5: current.agent.v1.DetectionKind
+	(VersionCmp)(0),           // 6: current.agent.v1.VersionCmp
+	(RebootAllow)(0),          // 7: current.agent.v1.RebootAllow
+	(WuService)(0),            // 8: current.agent.v1.WuService
+	(UninstallMethod)(0),      // 9: current.agent.v1.UninstallMethod
+	(*SignedEnvelope)(nil),    // 10: current.agent.v1.SignedEnvelope
+	(*JobEnvelope)(nil),       // 11: current.agent.v1.JobEnvelope
+	(*MaintenanceWindow)(nil), // 12: current.agent.v1.MaintenanceWindow
+	(*ContentSource)(nil),     // 13: current.agent.v1.ContentSource
+	(*SignerPin)(nil),         // 14: current.agent.v1.SignerPin
+	(*Installer)(nil),         // 15: current.agent.v1.Installer
+	(*Detection)(nil),         // 16: current.agent.v1.Detection
+	(*Preconditions)(nil),     // 17: current.agent.v1.Preconditions
+	(*ActiveHours)(nil),       // 18: current.agent.v1.ActiveHours
+	(*RebootPolicy)(nil),      // 19: current.agent.v1.RebootPolicy
+	(*WuScanBody)(nil),        // 20: current.agent.v1.WuScanBody
+	(*WuUpdateRef)(nil),       // 21: current.agent.v1.WuUpdateRef
+	(*WuInstallBody)(nil),     // 22: current.agent.v1.WuInstallBody
+	(*WuHideBody)(nil),        // 23: current.agent.v1.WuHideBody
+	(*RebootBody)(nil),        // 24: current.agent.v1.RebootBody
+	(*InstallBody)(nil),       // 25: current.agent.v1.InstallBody
+	(*UninstallBody)(nil),     // 26: current.agent.v1.UninstallBody
+	(*AgentUpdateBody)(nil),   // 27: current.agent.v1.AgentUpdateBody
+	(*CancelBody)(nil),        // 28: current.agent.v1.CancelBody
+	(*InventoryBody)(nil),     // 29: current.agent.v1.InventoryBody
+	nil,                       // 30: current.agent.v1.Installer.CodeMapEntry
 }
-var file_renovatio_agent_v1_envelope_proto_depIdxs = []int32{
-	0,  // 0: renovatio.agent.v1.JobEnvelope.type:type_name -> renovatio.agent.v1.JobType
-	12, // 1: renovatio.agent.v1.JobEnvelope.window:type_name -> renovatio.agent.v1.MaintenanceWindow
-	25, // 2: renovatio.agent.v1.JobEnvelope.install:type_name -> renovatio.agent.v1.InstallBody
-	26, // 3: renovatio.agent.v1.JobEnvelope.uninstall:type_name -> renovatio.agent.v1.UninstallBody
-	20, // 4: renovatio.agent.v1.JobEnvelope.wu_scan:type_name -> renovatio.agent.v1.WuScanBody
-	22, // 5: renovatio.agent.v1.JobEnvelope.wu_install:type_name -> renovatio.agent.v1.WuInstallBody
-	23, // 6: renovatio.agent.v1.JobEnvelope.wu_hide:type_name -> renovatio.agent.v1.WuHideBody
-	24, // 7: renovatio.agent.v1.JobEnvelope.reboot:type_name -> renovatio.agent.v1.RebootBody
-	29, // 8: renovatio.agent.v1.JobEnvelope.inventory:type_name -> renovatio.agent.v1.InventoryBody
-	27, // 9: renovatio.agent.v1.JobEnvelope.agent_update:type_name -> renovatio.agent.v1.AgentUpdateBody
-	28, // 10: renovatio.agent.v1.JobEnvelope.cancel:type_name -> renovatio.agent.v1.CancelBody
-	4,  // 11: renovatio.agent.v1.ContentSource.kind:type_name -> renovatio.agent.v1.ContentSourceKind
-	2,  // 12: renovatio.agent.v1.Installer.type:type_name -> renovatio.agent.v1.InstallerType
-	2,  // 13: renovatio.agent.v1.Installer.nested_type:type_name -> renovatio.agent.v1.InstallerType
-	14, // 14: renovatio.agent.v1.Installer.signer_pin:type_name -> renovatio.agent.v1.SignerPin
-	13, // 15: renovatio.agent.v1.Installer.sources:type_name -> renovatio.agent.v1.ContentSource
-	30, // 16: renovatio.agent.v1.Installer.code_map:type_name -> renovatio.agent.v1.Installer.CodeMapEntry
-	5,  // 17: renovatio.agent.v1.Detection.kind:type_name -> renovatio.agent.v1.DetectionKind
-	6,  // 18: renovatio.agent.v1.Detection.cmp:type_name -> renovatio.agent.v1.VersionCmp
-	7,  // 19: renovatio.agent.v1.RebootPolicy.allow:type_name -> renovatio.agent.v1.RebootAllow
-	18, // 20: renovatio.agent.v1.RebootPolicy.active_hours:type_name -> renovatio.agent.v1.ActiveHours
-	8,  // 21: renovatio.agent.v1.WuScanBody.service:type_name -> renovatio.agent.v1.WuService
-	8,  // 22: renovatio.agent.v1.WuInstallBody.service:type_name -> renovatio.agent.v1.WuService
-	21, // 23: renovatio.agent.v1.WuInstallBody.updates:type_name -> renovatio.agent.v1.WuUpdateRef
-	19, // 24: renovatio.agent.v1.WuInstallBody.reboot:type_name -> renovatio.agent.v1.RebootPolicy
-	8,  // 25: renovatio.agent.v1.WuHideBody.service:type_name -> renovatio.agent.v1.WuService
-	21, // 26: renovatio.agent.v1.WuHideBody.updates:type_name -> renovatio.agent.v1.WuUpdateRef
-	19, // 27: renovatio.agent.v1.RebootBody.reboot:type_name -> renovatio.agent.v1.RebootPolicy
-	1,  // 28: renovatio.agent.v1.InstallBody.scope:type_name -> renovatio.agent.v1.InstallScope
-	15, // 29: renovatio.agent.v1.InstallBody.installer:type_name -> renovatio.agent.v1.Installer
-	16, // 30: renovatio.agent.v1.InstallBody.detection:type_name -> renovatio.agent.v1.Detection
-	17, // 31: renovatio.agent.v1.InstallBody.preconditions:type_name -> renovatio.agent.v1.Preconditions
-	7,  // 32: renovatio.agent.v1.InstallBody.reboot:type_name -> renovatio.agent.v1.RebootAllow
-	1,  // 33: renovatio.agent.v1.UninstallBody.scope:type_name -> renovatio.agent.v1.InstallScope
-	9,  // 34: renovatio.agent.v1.UninstallBody.method:type_name -> renovatio.agent.v1.UninstallMethod
-	3,  // 35: renovatio.agent.v1.Installer.CodeMapEntry.value:type_name -> renovatio.agent.v1.JobOutcome
+var file_current_agent_v1_envelope_proto_depIdxs = []int32{
+	0,  // 0: current.agent.v1.JobEnvelope.type:type_name -> current.agent.v1.JobType
+	12, // 1: current.agent.v1.JobEnvelope.window:type_name -> current.agent.v1.MaintenanceWindow
+	25, // 2: current.agent.v1.JobEnvelope.install:type_name -> current.agent.v1.InstallBody
+	26, // 3: current.agent.v1.JobEnvelope.uninstall:type_name -> current.agent.v1.UninstallBody
+	20, // 4: current.agent.v1.JobEnvelope.wu_scan:type_name -> current.agent.v1.WuScanBody
+	22, // 5: current.agent.v1.JobEnvelope.wu_install:type_name -> current.agent.v1.WuInstallBody
+	23, // 6: current.agent.v1.JobEnvelope.wu_hide:type_name -> current.agent.v1.WuHideBody
+	24, // 7: current.agent.v1.JobEnvelope.reboot:type_name -> current.agent.v1.RebootBody
+	29, // 8: current.agent.v1.JobEnvelope.inventory:type_name -> current.agent.v1.InventoryBody
+	27, // 9: current.agent.v1.JobEnvelope.agent_update:type_name -> current.agent.v1.AgentUpdateBody
+	28, // 10: current.agent.v1.JobEnvelope.cancel:type_name -> current.agent.v1.CancelBody
+	4,  // 11: current.agent.v1.ContentSource.kind:type_name -> current.agent.v1.ContentSourceKind
+	2,  // 12: current.agent.v1.Installer.type:type_name -> current.agent.v1.InstallerType
+	2,  // 13: current.agent.v1.Installer.nested_type:type_name -> current.agent.v1.InstallerType
+	14, // 14: current.agent.v1.Installer.signer_pin:type_name -> current.agent.v1.SignerPin
+	13, // 15: current.agent.v1.Installer.sources:type_name -> current.agent.v1.ContentSource
+	30, // 16: current.agent.v1.Installer.code_map:type_name -> current.agent.v1.Installer.CodeMapEntry
+	5,  // 17: current.agent.v1.Detection.kind:type_name -> current.agent.v1.DetectionKind
+	6,  // 18: current.agent.v1.Detection.cmp:type_name -> current.agent.v1.VersionCmp
+	7,  // 19: current.agent.v1.RebootPolicy.allow:type_name -> current.agent.v1.RebootAllow
+	18, // 20: current.agent.v1.RebootPolicy.active_hours:type_name -> current.agent.v1.ActiveHours
+	8,  // 21: current.agent.v1.WuScanBody.service:type_name -> current.agent.v1.WuService
+	8,  // 22: current.agent.v1.WuInstallBody.service:type_name -> current.agent.v1.WuService
+	21, // 23: current.agent.v1.WuInstallBody.updates:type_name -> current.agent.v1.WuUpdateRef
+	19, // 24: current.agent.v1.WuInstallBody.reboot:type_name -> current.agent.v1.RebootPolicy
+	8,  // 25: current.agent.v1.WuHideBody.service:type_name -> current.agent.v1.WuService
+	21, // 26: current.agent.v1.WuHideBody.updates:type_name -> current.agent.v1.WuUpdateRef
+	19, // 27: current.agent.v1.RebootBody.reboot:type_name -> current.agent.v1.RebootPolicy
+	1,  // 28: current.agent.v1.InstallBody.scope:type_name -> current.agent.v1.InstallScope
+	15, // 29: current.agent.v1.InstallBody.installer:type_name -> current.agent.v1.Installer
+	16, // 30: current.agent.v1.InstallBody.detection:type_name -> current.agent.v1.Detection
+	17, // 31: current.agent.v1.InstallBody.preconditions:type_name -> current.agent.v1.Preconditions
+	7,  // 32: current.agent.v1.InstallBody.reboot:type_name -> current.agent.v1.RebootAllow
+	1,  // 33: current.agent.v1.UninstallBody.scope:type_name -> current.agent.v1.InstallScope
+	9,  // 34: current.agent.v1.UninstallBody.method:type_name -> current.agent.v1.UninstallMethod
+	3,  // 35: current.agent.v1.Installer.CodeMapEntry.value:type_name -> current.agent.v1.JobOutcome
 	36, // [36:36] is the sub-list for method output_type
 	36, // [36:36] is the sub-list for method input_type
 	36, // [36:36] is the sub-list for extension type_name
@@ -2562,12 +2562,12 @@ var file_renovatio_agent_v1_envelope_proto_depIdxs = []int32{
 	0,  // [0:36] is the sub-list for field type_name
 }
 
-func init() { file_renovatio_agent_v1_envelope_proto_init() }
-func file_renovatio_agent_v1_envelope_proto_init() {
-	if File_renovatio_agent_v1_envelope_proto != nil {
+func init() { file_current_agent_v1_envelope_proto_init() }
+func file_current_agent_v1_envelope_proto_init() {
+	if File_current_agent_v1_envelope_proto != nil {
 		return
 	}
-	file_renovatio_agent_v1_envelope_proto_msgTypes[1].OneofWrappers = []any{
+	file_current_agent_v1_envelope_proto_msgTypes[1].OneofWrappers = []any{
 		(*JobEnvelope_Install)(nil),
 		(*JobEnvelope_Uninstall)(nil),
 		(*JobEnvelope_WuScan)(nil),
@@ -2582,18 +2582,18 @@ func file_renovatio_agent_v1_envelope_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_envelope_proto_rawDesc), len(file_renovatio_agent_v1_envelope_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_current_agent_v1_envelope_proto_rawDesc), len(file_current_agent_v1_envelope_proto_rawDesc)),
 			NumEnums:      10,
 			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_renovatio_agent_v1_envelope_proto_goTypes,
-		DependencyIndexes: file_renovatio_agent_v1_envelope_proto_depIdxs,
-		EnumInfos:         file_renovatio_agent_v1_envelope_proto_enumTypes,
-		MessageInfos:      file_renovatio_agent_v1_envelope_proto_msgTypes,
+		GoTypes:           file_current_agent_v1_envelope_proto_goTypes,
+		DependencyIndexes: file_current_agent_v1_envelope_proto_depIdxs,
+		EnumInfos:         file_current_agent_v1_envelope_proto_enumTypes,
+		MessageInfos:      file_current_agent_v1_envelope_proto_msgTypes,
 	}.Build()
-	File_renovatio_agent_v1_envelope_proto = out.File
-	file_renovatio_agent_v1_envelope_proto_goTypes = nil
-	file_renovatio_agent_v1_envelope_proto_depIdxs = nil
+	File_current_agent_v1_envelope_proto = out.File
+	file_current_agent_v1_envelope_proto_goTypes = nil
+	file_current_agent_v1_envelope_proto_depIdxs = nil
 }

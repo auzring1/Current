@@ -134,13 +134,13 @@ function RingsCard({ canEdit }: { canEdit: boolean }) {
     const groupName = (id: string) => groupList?.find((g) => g.id === id)?.name ?? id.slice(0, 8);
     const groupText = (r: UpdateRing) => (r.group_ids ?? []).map(groupName).join(", ");
     return [
-      { id: "ordinal", header: "#", width: 60, value: (r) => r.ordinal, cell: (r) => <span className="rnv-num">{r.ordinal}</span> },
+      { id: "ordinal", header: "#", width: 60, value: (r) => r.ordinal, cell: (r) => <span className="cur-num">{r.ordinal}</span> },
       { id: "name", header: "Name", required: true, width: 190, value: (r) => r.name },
       { id: "enabled", header: "Status", width: 120, value: (r) => (r.enabled === false ? "disabled" : "enabled"), cell: (r) => enabledPill(r.enabled), filter: enabledFilter },
       { id: "groups", header: "Groups", width: 220, wrap: true, value: groupText, cell: (r) => groupText(r) || "—" },
-      { id: "delay", header: "Delay", align: "right", width: 90, value: (r) => r.delay_days ?? 0, cell: (r) => <span className="rnv-num">{r.delay_days ?? 0} d</span> },
-      { id: "soak", header: "Soak", align: "right", width: 90, value: (r) => r.soak_hours ?? 0, cell: (r) => <span className="rnv-num">{r.soak_hours ?? 0} h</span> },
-      { id: "threshold", header: "Success needed", align: "right", width: 140, value: (r) => r.success_threshold, cell: (r) => <span className="rnv-num">{r.success_threshold}%</span> },
+      { id: "delay", header: "Delay", align: "right", width: 90, value: (r) => r.delay_days ?? 0, cell: (r) => <span className="cur-num">{r.delay_days ?? 0} d</span> },
+      { id: "soak", header: "Soak", align: "right", width: 90, value: (r) => r.soak_hours ?? 0, cell: (r) => <span className="cur-num">{r.soak_hours ?? 0} h</span> },
+      { id: "threshold", header: "Success needed", align: "right", width: 140, value: (r) => r.success_threshold, cell: (r) => <span className="cur-num">{r.success_threshold}%</span> },
       { id: "window", header: "Window", width: 210, value: (r) => (r.window ? `${(r.window.days ?? []).map((d) => dayNames[d]).join(" ") || "daily"} ${hhmm(r.window.start_minute)} +${r.window.duration_minutes} min` : "any time") },
       { id: "restart", header: "Restart", width: 190, value: (r) => restartLabel(r.restart) },
     ];

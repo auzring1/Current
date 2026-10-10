@@ -30,17 +30,17 @@ export function BrandPreview({ draft, view }: Props) {
   const secondary = isHexColor(draft.secondary_color ?? "") ? draft.secondary_color!.toLowerCase() : "";
   const style = useMemo(() => {
     const v: Record<string, string> = { colorScheme: t.scheme };
-    for (const [k, val] of Object.entries(t.tokens)) v[`--rnv-${k}`] = val;
+    for (const [k, val] of Object.entries(t.tokens)) v[`--cur-${k}`] = val;
     if (accent) {
       const d = deriveAccent(accent, t);
-      v["--rnv-accent"] = d.accent;
-      v["--rnv-on-accent"] = d.onAccent;
-      v["--rnv-accent-text"] = d.accentText;
-      v["--rnv-accent-subtle"] = d.subtle;
-      v["--rnv-accent-subtle-text"] = d.subtleText;
-      v["--rnv-accent-border"] = d.border;
+      v["--cur-accent"] = d.accent;
+      v["--cur-on-accent"] = d.onAccent;
+      v["--cur-accent-text"] = d.accentText;
+      v["--cur-accent-subtle"] = d.subtle;
+      v["--cur-accent-subtle-text"] = d.subtleText;
+      v["--cur-accent-border"] = d.border;
     }
-    if (secondary) v["--rnv-secondary"] = deriveSecondary(secondary, t);
+    if (secondary) v["--cur-secondary"] = deriveSecondary(secondary, t);
     return v as CSSProperties;
   }, [t, accent, secondary]);
 
@@ -55,7 +55,7 @@ export function BrandPreview({ draft, view }: Props) {
     const img = <img src={ref.url} alt="" style={{ height: h, width: "auto", maxWidth: 200, display: "block" }} />;
     // A logo made for the other kind of background sits on a chip of that background so it stays readable.
     return needsChip && logoRef ? (
-      <div className="rnv-preview__chip" style={{ background: dark ? WHITE : DARK_SURFACE }}>
+      <div className="cur-preview__chip" style={{ background: dark ? WHITE : DARK_SURFACE }}>
         {img}
       </div>
     ) : (
@@ -78,7 +78,7 @@ export function BrandPreview({ draft, view }: Props) {
         renderOption={({ option }) => {
           const x = findTheme(option.value);
           return (
-            <span className="rnv-theme-option">
+            <span className="cur-theme-option">
               {x && <ThemeSwatch theme={x} />}
               {option.label}
               {option.value === defaultId ? " (default)" : ""}
@@ -86,43 +86,43 @@ export function BrandPreview({ draft, view }: Props) {
           );
         }}
       />
-      <div className="rnv-preview" style={style}>
-        <div className="rnv-preview__bar">
+      <div className="cur-preview" style={style}>
+        <div className="cur-preview__bar">
           {mark(28)}
           <strong data-testid="preview-product">{product}</strong>
           {org && (
-            <span data-testid="preview-org" className="rnv-preview__muted" style={{ fontSize: 13 }}>
+            <span data-testid="preview-org" className="cur-preview__muted" style={{ fontSize: 13 }}>
               {org}
             </span>
           )}
-          <span className="rnv-preview__bar-link">Sign out</span>
+          <span className="cur-preview__bar-link">Sign out</span>
         </div>
-        <div className="rnv-preview__body">
-          <div className="rnv-preview__card">
+        <div className="cur-preview__body">
+          <div className="cur-preview__card">
             {mark(36)}
             <div style={{ fontSize: 18, fontWeight: 700 }} data-testid="preview-headline">
               {(draft.login_headline ?? "").trim() || `Sign in to ${product}`}
             </div>
             {org && (
-              <div className="rnv-preview__muted" style={{ fontSize: 12 }}>
+              <div className="cur-preview__muted" style={{ fontSize: 12 }}>
                 {org}
               </div>
             )}
             {draft.login_message && <div style={{ fontSize: 13, whiteSpace: "pre-line" }}>{draft.login_message}</div>}
-            <div className="rnv-preview__field" />
-            <div className="rnv-preview__field" />
-            <div className="rnv-preview__button">Continue</div>
-            <div className="rnv-preview__link" style={{ fontSize: 12 }}>
+            <div className="cur-preview__field" />
+            <div className="cur-preview__field" />
+            <div className="cur-preview__button">Continue</div>
+            <div className="cur-preview__link" style={{ fontSize: 12 }}>
               Use a recovery code instead
             </div>
           </div>
           {draft.login_footer && (
-            <div className="rnv-preview__muted" style={{ fontSize: 11, textAlign: "center", whiteSpace: "pre-line", maxWidth: 320 }} data-testid="preview-footer">
+            <div className="cur-preview__muted" style={{ fontSize: 11, textAlign: "center", whiteSpace: "pre-line", maxWidth: 320 }} data-testid="preview-footer">
               {draft.login_footer}
             </div>
           )}
           {support && (
-            <div className="rnv-preview__link" style={{ fontSize: 11, textAlign: "center" }} data-testid="preview-support">
+            <div className="cur-preview__link" style={{ fontSize: 11, textAlign: "center" }} data-testid="preview-support">
               Need help? {support}
             </div>
           )}

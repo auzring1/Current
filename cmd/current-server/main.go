@@ -1,15 +1,15 @@
-// Command renovatio-server is the Renovatio management server.
+// Command current-server is the Current management server.
 //
-//	renovatio-server [serve]            run the server (default)
-//	renovatio-server migrate [--down-to N]  apply database migrations and exit (or roll back to version N)
-//	renovatio-server backup --out F|-   write an age-encrypted backup (database + content files)
-//	renovatio-server backup --verify F  check a backup without touching any database
-//	renovatio-server restore --in F|-   restore a backup into an empty database
-//	renovatio-server healthcheck        exit 0 if the local server is healthy (Docker HEALTHCHECK)
-//	renovatio-server admin reset-mfa --email E   force MFA re-enrollment for a user
-//	renovatio-server admin unlock --email E      clear a login lockout
-//	renovatio-server admin verify-audit          verify the audit-log hash chain
-//	renovatio-server version
+//	current-server [serve]            run the server (default)
+//	current-server migrate [--down-to N]  apply database migrations and exit (or roll back to version N)
+//	current-server backup --out F|-   write an age-encrypted backup (database + content files)
+//	current-server backup --verify F  check a backup without touching any database
+//	current-server restore --in F|-   restore a backup into an empty database
+//	current-server healthcheck        exit 0 if the local server is healthy (Docker HEALTHCHECK)
+//	current-server admin reset-mfa --email E   force MFA re-enrollment for a user
+//	current-server admin unlock --email E      clear a login lockout
+//	current-server admin verify-audit          verify the audit-log hash chain
+//	current-server version
 package main
 
 import (
@@ -27,13 +27,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/app"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/backup"
-	"github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/server/store"
-	"github.com/auzring1/renovatio/internal/shared/version"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/app"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/backup"
+	"github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/shared/version"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 	case "admin":
 		err = admin(os.Args[2:])
 	case "version", "--version", "-v":
-		fmt.Printf("renovatio-server %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf("current-server %s (%s)\n", version.Version, version.Commit)
 	default:
 		err = fmt.Errorf("unknown command %q (serve|migrate|backup|restore|healthcheck|admin|version)", cmd)
 	}
@@ -78,7 +78,7 @@ func serve() error {
 		return err
 	}
 	log := logger(cfg.LogLevel)
-	log.Info("starting renovatio-server", "version", version.Version, "commit", version.Commit, "dev_mode", cfg.DevMode)
+	log.Info("starting current-server", "version", version.Version, "commit", version.Commit, "dev_mode", cfg.DevMode)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	a, err := app.New(ctx, cfg, log)
@@ -112,7 +112,7 @@ func migrate(args []string) error {
 }
 
 func healthcheck() error {
-	addr := os.Getenv("RENOVATIO_HTTP_ADDR")
+	addr := os.Getenv("CURRENT_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"
 	}

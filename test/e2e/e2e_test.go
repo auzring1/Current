@@ -32,17 +32,17 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/agent/config"
-	"github.com/auzring1/renovatio/internal/agent/core"
-	"github.com/auzring1/renovatio/internal/agent/keystore"
-	"github.com/auzring1/renovatio/internal/agent/store"
-	"github.com/auzring1/renovatio/internal/server/app"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	sconfig "github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/testutil/pgtest"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/agent/config"
+	"github.com/auzring1/current/internal/agent/core"
+	"github.com/auzring1/current/internal/agent/keystore"
+	"github.com/auzring1/current/internal/agent/store"
+	"github.com/auzring1/current/internal/server/app"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/auth"
+	sconfig "github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/current/internal/testutil/pgtest"
 )
 
 // ---------- harness ----------
@@ -219,7 +219,7 @@ func (h *harness) createToken(name string, uses int, approval bool) string {
 	if st != 201 {
 		h.t.Fatalf("create token: %d %v", st, b)
 	}
-	if !strings.Contains(b["install_command"].(string), "renovatio-agent.exe install --server") {
+	if !strings.Contains(b["install_command"].(string), "current-agent.exe install --server") {
 		h.t.Fatalf("install command: %v", b["install_command"])
 	}
 	return b["enrollment_string"].(string)
@@ -628,7 +628,7 @@ func (h *harness) restartAgent(old *testAgent, opts ...func(*core.Agent, *store.
 func uniquePrefix(t *testing.T) string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	p := "Renovatio-Test-" + hex.EncodeToString(b) + "-"
+	p := "Current-Test-" + hex.EncodeToString(b) + "-"
 	t.Cleanup(func() {
 		ks := keystore.Default(t.TempDir())
 		for g := 1; g <= 10; g++ {

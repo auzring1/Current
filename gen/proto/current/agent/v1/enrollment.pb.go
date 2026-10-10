@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: renovatio/agent/v1/enrollment.proto
+// source: current/agent/v1/enrollment.proto
 
 package agentv1
 
@@ -57,11 +57,11 @@ func (x EnrollStatus) String() string {
 }
 
 func (EnrollStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_renovatio_agent_v1_enrollment_proto_enumTypes[0].Descriptor()
+	return file_current_agent_v1_enrollment_proto_enumTypes[0].Descriptor()
 }
 
 func (EnrollStatus) Type() protoreflect.EnumType {
-	return &file_renovatio_agent_v1_enrollment_proto_enumTypes[0]
+	return &file_current_agent_v1_enrollment_proto_enumTypes[0]
 }
 
 func (x EnrollStatus) Number() protoreflect.EnumNumber {
@@ -70,7 +70,7 @@ func (x EnrollStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EnrollStatus.Descriptor instead.
 func (EnrollStatus) EnumDescriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{0}
 }
 
 type EnrollRequest struct {
@@ -91,7 +91,7 @@ type EnrollRequest struct {
 
 func (x *EnrollRequest) Reset() {
 	*x = EnrollRequest{}
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[0]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -103,7 +103,7 @@ func (x *EnrollRequest) String() string {
 func (*EnrollRequest) ProtoMessage() {}
 
 func (x *EnrollRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[0]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -116,7 +116,7 @@ func (x *EnrollRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollRequest.ProtoReflect.Descriptor instead.
 func (*EnrollRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{0}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *EnrollRequest) GetToken() string {
@@ -184,7 +184,7 @@ type EnrollResponse struct {
 
 func (x *EnrollResponse) Reset() {
 	*x = EnrollResponse{}
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[1]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -196,7 +196,7 @@ func (x *EnrollResponse) String() string {
 func (*EnrollResponse) ProtoMessage() {}
 
 func (x *EnrollResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[1]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -209,7 +209,7 @@ func (x *EnrollResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollResponse.ProtoReflect.Descriptor instead.
 func (*EnrollResponse) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{1}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EnrollResponse) GetResult() *EnrollResult {
@@ -228,7 +228,7 @@ type EnrollStatusResponse struct {
 
 func (x *EnrollStatusResponse) Reset() {
 	*x = EnrollStatusResponse{}
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[2]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -240,7 +240,7 @@ func (x *EnrollStatusResponse) String() string {
 func (*EnrollStatusResponse) ProtoMessage() {}
 
 func (x *EnrollStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[2]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +253,7 @@ func (x *EnrollStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollStatusResponse.ProtoReflect.Descriptor instead.
 func (*EnrollStatusResponse) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{2}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EnrollStatusResponse) GetResult() *EnrollResult {
@@ -266,7 +266,7 @@ func (x *EnrollStatusResponse) GetResult() *EnrollResult {
 // EnrollResult is shared by Enroll and EnrollStatus.
 type EnrollResult struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
-	Status   EnrollStatus           `protobuf:"varint,1,opt,name=status,proto3,enum=renovatio.agent.v1.EnrollStatus" json:"status,omitempty"`
+	Status   EnrollStatus           `protobuf:"varint,1,opt,name=status,proto3,enum=current.agent.v1.EnrollStatus" json:"status,omitempty"`
 	DeviceId string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	OrgId    string                 `protobuf:"bytes,3,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
 	// Opaque secret used with EnrollStatus while pending.
@@ -282,7 +282,7 @@ type EnrollResult struct {
 
 func (x *EnrollResult) Reset() {
 	*x = EnrollResult{}
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[3]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +294,7 @@ func (x *EnrollResult) String() string {
 func (*EnrollResult) ProtoMessage() {}
 
 func (x *EnrollResult) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[3]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +307,7 @@ func (x *EnrollResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollResult.ProtoReflect.Descriptor instead.
 func (*EnrollResult) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{3}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *EnrollResult) GetStatus() EnrollStatus {
@@ -382,7 +382,7 @@ type EnrollStatusRequest struct {
 
 func (x *EnrollStatusRequest) Reset() {
 	*x = EnrollStatusRequest{}
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[4]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -394,7 +394,7 @@ func (x *EnrollStatusRequest) String() string {
 func (*EnrollStatusRequest) ProtoMessage() {}
 
 func (x *EnrollStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_renovatio_agent_v1_enrollment_proto_msgTypes[4]
+	mi := &file_current_agent_v1_enrollment_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -407,7 +407,7 @@ func (x *EnrollStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollStatusRequest.ProtoReflect.Descriptor instead.
 func (*EnrollStatusRequest) Descriptor() ([]byte, []int) {
-	return file_renovatio_agent_v1_enrollment_proto_rawDescGZIP(), []int{4}
+	return file_current_agent_v1_enrollment_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EnrollStatusRequest) GetTicket() string {
@@ -417,11 +417,11 @@ func (x *EnrollStatusRequest) GetTicket() string {
 	return ""
 }
 
-var File_renovatio_agent_v1_enrollment_proto protoreflect.FileDescriptor
+var File_current_agent_v1_enrollment_proto protoreflect.FileDescriptor
 
-const file_renovatio_agent_v1_enrollment_proto_rawDesc = "" +
+const file_current_agent_v1_enrollment_proto_rawDesc = "" +
 	"\n" +
-	"#renovatio/agent/v1/enrollment.proto\x12\x12renovatio.agent.v1\"\xe7\x01\n" +
+	"!current/agent/v1/enrollment.proto\x12\x10current.agent.v1\"\xe7\x01\n" +
 	"\rEnrollRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x17\n" +
 	"\acsr_der\x18\x02 \x01(\fR\x06csrDer\x12\x1a\n" +
@@ -431,13 +431,13 @@ const file_renovatio_agent_v1_enrollment_proto_rawDesc = "" +
 	"\x06serial\x18\x05 \x01(\tR\x06serial\x12\x19\n" +
 	"\bos_build\x18\x06 \x01(\tR\aosBuild\x12\x12\n" +
 	"\x04arch\x18\a \x01(\tR\x04arch\x12#\n" +
-	"\ragent_version\x18\b \x01(\tR\fagentVersion\"J\n" +
-	"\x0eEnrollResponse\x128\n" +
-	"\x06result\x18\x01 \x01(\v2 .renovatio.agent.v1.EnrollResultR\x06result\"P\n" +
-	"\x14EnrollStatusResponse\x128\n" +
-	"\x06result\x18\x01 \x01(\v2 .renovatio.agent.v1.EnrollResultR\x06result\"\xd9\x02\n" +
-	"\fEnrollResult\x128\n" +
-	"\x06status\x18\x01 \x01(\x0e2 .renovatio.agent.v1.EnrollStatusR\x06status\x12\x1b\n" +
+	"\ragent_version\x18\b \x01(\tR\fagentVersion\"H\n" +
+	"\x0eEnrollResponse\x126\n" +
+	"\x06result\x18\x01 \x01(\v2\x1e.current.agent.v1.EnrollResultR\x06result\"N\n" +
+	"\x14EnrollStatusResponse\x126\n" +
+	"\x06result\x18\x01 \x01(\v2\x1e.current.agent.v1.EnrollResultR\x06result\"\xd7\x02\n" +
+	"\fEnrollResult\x126\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x1e.current.agent.v1.EnrollStatusR\x06status\x12\x1b\n" +
 	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\x12\x15\n" +
 	"\x06org_id\x18\x03 \x01(\tR\x05orgId\x12\x16\n" +
 	"\x06ticket\x18\x04 \x01(\tR\x06ticket\x12&\n" +
@@ -452,41 +452,41 @@ const file_renovatio_agent_v1_enrollment_proto_rawDesc = "" +
 	"\x19ENROLL_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ENROLL_STATUS_APPROVED\x10\x01\x12\x19\n" +
 	"\x15ENROLL_STATUS_PENDING\x10\x02\x12\x1a\n" +
-	"\x16ENROLL_STATUS_REJECTED\x10\x032\xc7\x01\n" +
-	"\x11EnrollmentService\x12O\n" +
-	"\x06Enroll\x12!.renovatio.agent.v1.EnrollRequest\x1a\".renovatio.agent.v1.EnrollResponse\x12a\n" +
-	"\fEnrollStatus\x12'.renovatio.agent.v1.EnrollStatusRequest\x1a(.renovatio.agent.v1.EnrollStatusResponseBDZBgithub.com/auzring1/renovatio/gen/proto/renovatio/agent/v1;agentv1b\x06proto3"
+	"\x16ENROLL_STATUS_REJECTED\x10\x032\xbf\x01\n" +
+	"\x11EnrollmentService\x12K\n" +
+	"\x06Enroll\x12\x1f.current.agent.v1.EnrollRequest\x1a .current.agent.v1.EnrollResponse\x12]\n" +
+	"\fEnrollStatus\x12%.current.agent.v1.EnrollStatusRequest\x1a&.current.agent.v1.EnrollStatusResponseB@Z>github.com/auzring1/current/gen/proto/current/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_renovatio_agent_v1_enrollment_proto_rawDescOnce sync.Once
-	file_renovatio_agent_v1_enrollment_proto_rawDescData []byte
+	file_current_agent_v1_enrollment_proto_rawDescOnce sync.Once
+	file_current_agent_v1_enrollment_proto_rawDescData []byte
 )
 
-func file_renovatio_agent_v1_enrollment_proto_rawDescGZIP() []byte {
-	file_renovatio_agent_v1_enrollment_proto_rawDescOnce.Do(func() {
-		file_renovatio_agent_v1_enrollment_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_enrollment_proto_rawDesc), len(file_renovatio_agent_v1_enrollment_proto_rawDesc)))
+func file_current_agent_v1_enrollment_proto_rawDescGZIP() []byte {
+	file_current_agent_v1_enrollment_proto_rawDescOnce.Do(func() {
+		file_current_agent_v1_enrollment_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_current_agent_v1_enrollment_proto_rawDesc), len(file_current_agent_v1_enrollment_proto_rawDesc)))
 	})
-	return file_renovatio_agent_v1_enrollment_proto_rawDescData
+	return file_current_agent_v1_enrollment_proto_rawDescData
 }
 
-var file_renovatio_agent_v1_enrollment_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_renovatio_agent_v1_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_renovatio_agent_v1_enrollment_proto_goTypes = []any{
-	(EnrollStatus)(0),            // 0: renovatio.agent.v1.EnrollStatus
-	(*EnrollRequest)(nil),        // 1: renovatio.agent.v1.EnrollRequest
-	(*EnrollResponse)(nil),       // 2: renovatio.agent.v1.EnrollResponse
-	(*EnrollStatusResponse)(nil), // 3: renovatio.agent.v1.EnrollStatusResponse
-	(*EnrollResult)(nil),         // 4: renovatio.agent.v1.EnrollResult
-	(*EnrollStatusRequest)(nil),  // 5: renovatio.agent.v1.EnrollStatusRequest
+var file_current_agent_v1_enrollment_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_current_agent_v1_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_current_agent_v1_enrollment_proto_goTypes = []any{
+	(EnrollStatus)(0),            // 0: current.agent.v1.EnrollStatus
+	(*EnrollRequest)(nil),        // 1: current.agent.v1.EnrollRequest
+	(*EnrollResponse)(nil),       // 2: current.agent.v1.EnrollResponse
+	(*EnrollStatusResponse)(nil), // 3: current.agent.v1.EnrollStatusResponse
+	(*EnrollResult)(nil),         // 4: current.agent.v1.EnrollResult
+	(*EnrollStatusRequest)(nil),  // 5: current.agent.v1.EnrollStatusRequest
 }
-var file_renovatio_agent_v1_enrollment_proto_depIdxs = []int32{
-	4, // 0: renovatio.agent.v1.EnrollResponse.result:type_name -> renovatio.agent.v1.EnrollResult
-	4, // 1: renovatio.agent.v1.EnrollStatusResponse.result:type_name -> renovatio.agent.v1.EnrollResult
-	0, // 2: renovatio.agent.v1.EnrollResult.status:type_name -> renovatio.agent.v1.EnrollStatus
-	1, // 3: renovatio.agent.v1.EnrollmentService.Enroll:input_type -> renovatio.agent.v1.EnrollRequest
-	5, // 4: renovatio.agent.v1.EnrollmentService.EnrollStatus:input_type -> renovatio.agent.v1.EnrollStatusRequest
-	2, // 5: renovatio.agent.v1.EnrollmentService.Enroll:output_type -> renovatio.agent.v1.EnrollResponse
-	3, // 6: renovatio.agent.v1.EnrollmentService.EnrollStatus:output_type -> renovatio.agent.v1.EnrollStatusResponse
+var file_current_agent_v1_enrollment_proto_depIdxs = []int32{
+	4, // 0: current.agent.v1.EnrollResponse.result:type_name -> current.agent.v1.EnrollResult
+	4, // 1: current.agent.v1.EnrollStatusResponse.result:type_name -> current.agent.v1.EnrollResult
+	0, // 2: current.agent.v1.EnrollResult.status:type_name -> current.agent.v1.EnrollStatus
+	1, // 3: current.agent.v1.EnrollmentService.Enroll:input_type -> current.agent.v1.EnrollRequest
+	5, // 4: current.agent.v1.EnrollmentService.EnrollStatus:input_type -> current.agent.v1.EnrollStatusRequest
+	2, // 5: current.agent.v1.EnrollmentService.Enroll:output_type -> current.agent.v1.EnrollResponse
+	3, // 6: current.agent.v1.EnrollmentService.EnrollStatus:output_type -> current.agent.v1.EnrollStatusResponse
 	5, // [5:7] is the sub-list for method output_type
 	3, // [3:5] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -494,27 +494,27 @@ var file_renovatio_agent_v1_enrollment_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_renovatio_agent_v1_enrollment_proto_init() }
-func file_renovatio_agent_v1_enrollment_proto_init() {
-	if File_renovatio_agent_v1_enrollment_proto != nil {
+func init() { file_current_agent_v1_enrollment_proto_init() }
+func file_current_agent_v1_enrollment_proto_init() {
+	if File_current_agent_v1_enrollment_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_renovatio_agent_v1_enrollment_proto_rawDesc), len(file_renovatio_agent_v1_enrollment_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_current_agent_v1_enrollment_proto_rawDesc), len(file_current_agent_v1_enrollment_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_renovatio_agent_v1_enrollment_proto_goTypes,
-		DependencyIndexes: file_renovatio_agent_v1_enrollment_proto_depIdxs,
-		EnumInfos:         file_renovatio_agent_v1_enrollment_proto_enumTypes,
-		MessageInfos:      file_renovatio_agent_v1_enrollment_proto_msgTypes,
+		GoTypes:           file_current_agent_v1_enrollment_proto_goTypes,
+		DependencyIndexes: file_current_agent_v1_enrollment_proto_depIdxs,
+		EnumInfos:         file_current_agent_v1_enrollment_proto_enumTypes,
+		MessageInfos:      file_current_agent_v1_enrollment_proto_msgTypes,
 	}.Build()
-	File_renovatio_agent_v1_enrollment_proto = out.File
-	file_renovatio_agent_v1_enrollment_proto_goTypes = nil
-	file_renovatio_agent_v1_enrollment_proto_depIdxs = nil
+	File_current_agent_v1_enrollment_proto = out.File
+	file_current_agent_v1_enrollment_proto_goTypes = nil
+	file_current_agent_v1_enrollment_proto_depIdxs = nil
 }

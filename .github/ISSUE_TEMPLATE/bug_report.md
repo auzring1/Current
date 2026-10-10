@@ -17,10 +17,10 @@ labels: bug
 
 ## Environment
 
-- Renovatio version (Settings > About):
+- Current version (Settings > About):
 - Server: Docker on ... (Synology, Linux, Windows Docker Desktop ...)
 - Windows version of the affected PC (if it is about the agent):
 
 ## Logs
 
-<!-- The relevant lines of the server log or C:\ProgramData\Renovatio\logs\agent.log. Remove host names, addresses and secrets. -->
+<!-- The relevant lines of the server log or C:\ProgramData\Current\logs\agent.log. Remove host names, addresses and secrets. -->

@@ -15,9 +15,9 @@ import (
 	"filippo.io/age"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/testutil/pgtest"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/testutil/pgtest"
 )
 
 func randKey() []byte {
@@ -32,7 +32,7 @@ func asApp(t testing.TB, ownerURL string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.User = url.UserPassword("renovatio_app", pgtest.AppPassword)
+	u.User = url.UserPassword("current_app", pgtest.AppPassword)
 	return u.String()
 }
 
@@ -376,7 +376,7 @@ func TestRefusesNewerSchemaAndUnknownFormat(t *testing.T) {
 	for _, repeatable := range []bool{true, false} {
 		dst := newEmptyDB(t)
 		_, err := Restore(ctx, RestoreOptions{DatabaseURL: dst, Source: bytesSource(archive, repeatable), Identities: []age.Identity{id}, Log: discard})
-		if !errors.Is(err, ErrNewerSchema) || !strings.Contains(err.Error(), "newer renovatio-server") {
+		if !errors.Is(err, ErrNewerSchema) || !strings.Contains(err.Error(), "newer current-server") {
 			t.Fatalf("newer schema: %v", err)
 		}
 		assertNoTables(t, dst)

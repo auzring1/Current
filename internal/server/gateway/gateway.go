@@ -23,17 +23,17 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	agentv1 "github.com/auzring1/renovatio/gen/proto/renovatio/agent/v1"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/catalog"
-	"github.com/auzring1/renovatio/internal/server/config"
-	"github.com/auzring1/renovatio/internal/server/deploy"
-	"github.com/auzring1/renovatio/internal/server/events"
-	"github.com/auzring1/renovatio/internal/server/inventory"
-	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/pki"
-	"github.com/auzring1/renovatio/internal/server/updates"
+	"github.com/auzring1/current/gen/dbq"
+	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/catalog"
+	"github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/current/internal/server/events"
+	"github.com/auzring1/current/internal/server/inventory"
+	"github.com/auzring1/current/internal/server/kek"
+	"github.com/auzring1/current/internal/server/pki"
+	"github.com/auzring1/current/internal/server/updates"
 )
 
 // MaxMessageBytes bounds every gRPC message (PROTOCOL §1).

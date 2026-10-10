@@ -24,10 +24,10 @@ export function NotificationsBell() {
   return (
     <Menu position="bottom-end" width={380} shadow="md" withinPortal>
       <Menu.Target>
-        <button type="button" className="rnv-bell" aria-label={n ? `Notifications, ${n} need attention` : "Notifications, none"} data-testid="notifications">
+        <button type="button" className="cur-bell" aria-label={n ? `Notifications, ${n} need attention` : "Notifications, none"} data-testid="notifications">
           {n ? <I.BellRinging size={20} aria-hidden /> : <I.Bell size={20} aria-hidden />}
           {n > 0 && (
-            <span className="rnv-bell__count" data-severity={worst} aria-hidden="true">
+            <span className="cur-bell__count" data-severity={worst} aria-hidden="true">
               {n > 9 ? "9+" : n}
             </span>
           )}
@@ -35,14 +35,14 @@ export function NotificationsBell() {
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>Needs attention</Menu.Label>
-        {q.isError && <div className="rnv-search__none">Could not load notifications.</div>}
-        {!q.isError && n === 0 && <div className="rnv-search__none">{q.isLoading ? "Loading…" : "You are all caught up."}</div>}
+        {q.isError && <div className="cur-search__none">Could not load notifications.</div>}
+        {!q.isError && n === 0 && <div className="cur-search__none">{q.isLoading ? "Loading…" : "You are all caught up."}</div>}
         {items.map((i) => {
           const Icon = (i.kind && ICON[i.kind]) || I.Info;
           return (
             <Menu.Item key={i.id ?? i.title} component={Link} to={i.to ?? "/"} leftSection={<Icon size={16} aria-hidden />}>
-              <div className="rnv-note__title">{i.title}</div>
-              <div className="rnv-note__meta">
+              <div className="cur-note__title">{i.title}</div>
+              <div className="cur-note__meta">
                 {i.severity === "critical" ? "Critical · " : i.severity === "warning" ? "Warning · " : ""}
                 {i.detail ? `${i.detail} · ` : ""}
                 {ago(i.at ?? null)}

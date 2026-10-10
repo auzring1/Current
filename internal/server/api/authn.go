@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/renovatio/gen/dbq"
-	"github.com/auzring1/renovatio/internal/server/audit"
-	"github.com/auzring1/renovatio/internal/server/auth"
-	"github.com/auzring1/renovatio/internal/server/kek"
-	"github.com/auzring1/renovatio/internal/server/store"
+	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/current/internal/server/audit"
+	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/current/internal/server/kek"
+	"github.com/auzring1/current/internal/server/store"
 )
 
 const (
