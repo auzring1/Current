@@ -301,6 +301,19 @@ jobs:
           return $leaked
           }
 
+          # Diagnostic: which properties does the built MSI declare hidden? (Windows Installer masks only those in logs.)
+          function Show-MsiProperty([string]$Msi, [string]$Name) {
+            $wi = New-Object -ComObject WindowsInstaller.Installer
+            $db = $wi.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $null, $wi, @($Msi, 0))
+            $view = $db.GetType().InvokeMember("OpenView", "InvokeMethod", $null, $db, @("SELECT Value FROM Property WHERE Property='$Name'"))
+            $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null) | Out-Null
+            $rec = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
+            if ($rec) { Write-Host "MSI property ${Name} = $($rec.GetType().InvokeMember('StringData', 'GetProperty', $null, $rec, @(1)))" }
+            else { Write-Host "MSI property ${Name} is not in the Property table" }
+          }
+          Show-MsiProperty $v1 "MsiHiddenProperties"
+          $leaks = @()
+
           # 1. Failures must exit 1603 and leave nothing behind.
           $bad = @{
             "malformed token"      = "SERVER=localhost:18443 TOKEN=CUR1.not-a-real-token"
@@ -314,7 +327,7 @@ jobs:
             $rc = Invoke-Msi "/i `"$v1`" /qn $($bad[$k]) /l*v `"$PWD\fail.log`""
             Write-Host "failure case '$k': msiexec exit $rc"
             if ($rc -ne 1603) { Get-Content "$data\logs\agent.log" -Tail 30 -ErrorAction SilentlyContinue; throw "'$k' exited $rc, expected 1603" }
-            if (Test-LogLeak "$PWD\fail.log" $enroll) { throw "'$k': the token is in the MSI log" }
+            if (Test-LogLeak "$PWD\fail.log" $enroll) { $leaks += "failed install '$k': the token is in the MSI log" }
             Assert-Clean "after failed install '$k'"
           }
 
@@ -331,8 +344,8 @@ jobs:
           if ($cfg -notmatch 'inventory' -or $cfg -notmatch 'wu_scan') { throw "ALLOWEDJOBS did not reach config.json" }
           if ($cfg -match 'enrollment_token') { throw "token left in config.json" }
           if (-not (Test-Path "$pf\Current\Agent\slot-a\current-agent.exe")) { throw "slot-a binary missing" }
-          if (Test-LogLeak "$PWD\msi.log" $enroll) { throw "the enrollment token is in msi.log" }
-          if (Test-LogLeak "$PWD\msi.log" $enroll.Substring(6, 24)) { throw "part of the enrollment token is in msi.log" }
+          if (Test-LogLeak "$PWD\msi.log" $enroll) { $leaks += "the enrollment token is in msi.log" }
+          elseif (Test-LogLeak "$PWD\msi.log" $enroll.Substring(6, 24)) { $leaks += "part of the enrollment token is in msi.log" }
 
           # 3. Major upgrade of an enrolled machine: no properties, no new token, same device, still running.
           $rc = Invoke-Msi "/i `"$v2`" /qn /l*v `"$PWD\upgrade.log`""
@@ -343,7 +356,7 @@ jobs:
           if ($n -ne 1) { throw "upgrade re-enrolled: $n devices" }
           $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "Current Agent"
           if (@($arp).Count -ne 1) { throw "expected one Current Agent product after the upgrade, found $(@($arp).Count)" }
-          if (Test-LogLeak "$PWD\upgrade.log" $enroll) { throw "the enrollment token is in upgrade.log" }
+          if (Test-LogLeak "$PWD\upgrade.log" $enroll) { $leaks += "the enrollment token is in upgrade.log" }
 
           # 4. Uninstall removes service, data, program files and the staged copy.
           $rc = Invoke-Msi "/x `"$v2`" /qn /l*v `"$PWD\uninstall.log`""
@@ -358,6 +371,7 @@ jobs:
           if ($rc -ne 0) { throw "/qb uninstall exited $rc" }
           Assert-Clean "after /qb uninstall"
           Stop-Process -Id $server.Id
+          if ($leaks.Count -gt 0) { throw ("The enrollment token reached the Windows Installer log:`n" + ($leaks -join "`n")) }
 
       - name: Collect logs
         if: always()

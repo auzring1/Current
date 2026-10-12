@@ -115,7 +115,18 @@ func TestLimitsAndShape(t *testing.T) {
 	mustCompile(t, ok)
 }
 
+func wordOnly(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 func FuzzCompile(f *testing.F) {
+	f.Add(`{"op":"software","title":"soft"}`) // "soft" is part of the table name software_installs (found by the fuzzer)
 	f.Add(`{"op":"device","field":"hostname","cmp":"in","value":["a","b"]}`)
 	f.Add(`{"op":"software","title":"chrome","version":{"cmp":"lt","value":"1.2"}}`)
 	f.Add(`{"op":"not","children":[{"op":"device","field":"online","cmp":"eq","value":true}]}`)
@@ -128,9 +139,16 @@ func FuzzCompile(f *testing.F) {
 		if err != nil {
 			return
 		}
-		// Whatever compiled must not carry quoted literals from the input.
+		// Whatever compiled must not carry literals from the input. The fixed template has three quoted
+		// JSON keys of its own; any other quote in the SQL would be an inlined string.
+		sql := strings.NewReplacer("'disks'", "", "'[]'", "", "'bitlocker'", "").Replace(c.SQL)
+		if strings.Contains(sql, "'") {
+			t.Fatalf("a quoted literal in %s", c.SQL)
+		}
 		for _, a := range c.Args {
-			if str, ok := a.(string); ok && len(str) > 3 && strings.Contains(c.SQL, str) {
+			// An argument made only of word characters ("soft", "from") also occurs inside the template's own
+			// table and keyword names, so a substring match proves nothing for it; the quote check above covers it.
+			if str, ok := a.(string); ok && len(str) > 3 && !wordOnly(str) && strings.Contains(c.SQL, str) {
 				t.Fatalf("argument %q inlined into %s", str, c.SQL)
 			}
 		}
