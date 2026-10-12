@@ -303,7 +303,6 @@ jobs:
             }
             return $leaked
           }
-          }
 
           # Diagnostic: which properties does the built MSI declare hidden? (Windows Installer masks only those in logs.)
           function Show-MsiProperty([string]$Msi, [string]$Name) {
