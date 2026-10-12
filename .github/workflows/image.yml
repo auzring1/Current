@@ -3,6 +3,9 @@
 #
 #   Push to main            -> :edge and :edge-<commit>   (the newest main; for testing, not for production)
 #   Run workflow by hand    -> :<version> and :latest     (a release; type the version, for example 1.0.0)
+#                              and a GitHub release "server-<version>" with current-deploy-<version>.zip: the few files
+#                              (compose file, Caddy and database setup files, secrets script) an install needs next to
+#                              the image, so a NAS can download one file instead of cloning the repository
 #
 # This is deliberately separate from release.yml (signed releases with Authenticode and a KMS key, tags "v*").
 # It uses no secret: the built-in GITHUB_TOKEN may push to the repository's own package.
@@ -33,7 +36,7 @@ jobs:
   publish:
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write   # create the "server-<version>" release that carries the deploy zip (release runs only)
       packages: write   # push to ghcr.io/<owner>/current-server
     env:
       INPUT_VERSION: ${{ inputs.version }}
@@ -73,4 +76,29 @@ jobs:
             echo "- \`$image:$MAIN_TAG\`"
             echo "- \`$image:$EXTRA_TAG\`"
             echo "- digest \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build the deploy zip
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: scripts/make-deploy-bundle.sh "$VERSION" "$RUNNER_TEMP/current-deploy-$VERSION.zip"
+      - name: Publish the deploy zip as a GitHub release (release runs only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          set -euo pipefail
+          zip="$RUNNER_TEMP/current-deploy-$VERSION.zip"
+          tag="server-$VERSION"   # not "v*": that pattern starts the signed release pipeline (release.yml)
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/current-deploy-$VERSION.zip"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "$zip" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "$zip" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Server $VERSION" \
+              --notes "Server image \`ghcr.io/${GITHUB_REPOSITORY,,}-server:$VERSION\`. The zip holds the install files; instructions are in README.txt inside it and in docs/RUNBOOK.md, section 2.2."
+          fi
+          {
+            echo "- deploy zip: $url"
+            echo ""
+            echo "On the server: \`curl -L -o current-deploy.zip $url && unzip current-deploy.zip\`"
           } >> "$GITHUB_STEP_SUMMARY"
