@@ -565,9 +565,12 @@ func TestCertificateRenewal(t *testing.T) {
 		id, _ := ta.st.Identity()
 		return id != nil && id.KeyGen >= 2 && h.app.Hub.Online(devID)
 	})
-	if _, err := keystore.Default(ta.dir).Open(ta.agent.KeyPrefix + "1"); !errors.Is(err, keystore.ErrNotFound) {
-		t.Fatalf("old device key was not deleted after renewal: %v", err)
-	}
+	// The agent saves the new identity first and deletes the old key right after, so give the delete a moment
+	// (a real CNG key takes noticeably longer to delete than a file).
+	waitFor(t, 10*time.Second, "old device key deleted", func() bool {
+		_, err := keystore.Default(ta.dir).Open(ta.agent.KeyPrefix + "1")
+		return errors.Is(err, keystore.ErrNotFound)
+	})
 	waitFor(t, 10*time.Second, "old certificate superseded", func() bool {
 		var n int
 		_ = h.db.Pool.QueryRow(context.Background(),

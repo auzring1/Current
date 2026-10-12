@@ -64,6 +64,40 @@ Use this when another proxy already owns ports 80 and 443 and does the browser T
 
 Not verified on a Synology: the Caddy part was run with the real Caddy binary (a trusted caller's header is kept and extended, an untrusted caller's header is replaced); DSM itself and Docker on DSM were not available.
 
+### 2.2 Install from the published image (no building, easy updates)
+
+The repository publishes the server image to GitHub's registry: `ghcr.io/auzring1/current-server`. A second compose file,
+`deploy/docker-compose.image.yml`, is the same stack but **pulls** that image instead of building it. Use it when you want
+updating to be "pull and restart". It is generated from `docker-compose.yml` (`scripts/gen-image-compose.sh`), so the two
+cannot drift apart, and the build-from-source path in section 2 keeps working.
+
+Tags: `1.2.3` (a release you published, see below), `latest` (the newest release), `edge` (the newest `main`, for testing).
+Production should pin a release number.
+
+```bash
+# same first two steps as section 2 (clone, ./scripts/init-secrets.sh, cp deploy/.env.example deploy/.env, edit it), then:
+echo 'CURRENT_VERSION=1.2.3' >> deploy/.env          # which release to run; leave out for "latest"
+docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
+```
+
+**Update:** back up first (section 6), change `CURRENT_VERSION` in `deploy/.env` to the new number, then run
+`docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env pull` and the same `up -d` line again. Migrations run
+by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
+database migration; otherwise restore the backup you took (section 6.5).
+
+On a Synology, run the same commands over SSH (or make a Container Manager project from `docker-compose.image.yml`). Whether
+Container Manager's own "Build"/"Update" buttons re-pull a changed `CURRENT_VERSION` has **not been verified**; the commands above are the safe way.
+
+**Publishing a release (maintainer):**
+1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the image from the chosen
+   branch and pushes `:1.2.3` and `:latest`. Every push to `main` also refreshes `:edge`.
+2. **Once, after the first publish:** the package starts private. Open GitHub, your profile (or organization), **Packages,
+   current-server, Package settings, Change visibility, Public**. Until then an install must `docker login ghcr.io` with a token that may read packages.
+3. The image carries no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
+
+This workflow is separate from the signed release pipeline in section 9 (`release.yml`, tags `v*`). Nothing in it was run before
+this was written; the first run is the test.
+
 ### 2a. Moving from an earlier name (Renovatio or Auzring builds) <!-- old-name -->
 
 The product was renamed to **Current** (DECISIONS D101). Every name that the server and the agents depend on changed: the

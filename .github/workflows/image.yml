@@ -1,0 +1,76 @@
+# Publishes the server container image to GitHub's registry (ghcr.io) so installs can PULL it instead of
+# building from source. See docs/DECISIONS.md D102 and docs/RUNBOOK.md, "Install from the published image".
+#
+#   Push to main            -> :edge and :edge-<commit>   (the newest main; for testing, not for production)
+#   Run workflow by hand    -> :<version> and :latest     (a release; type the version, for example 1.0.0)
+#
+# This is deliberately separate from release.yml (signed releases with Authenticode and a KMS key, tags "v*").
+# It uses no secret: the built-in GITHUB_TOKEN may push to the repository's own package.
+#
+# The first publish creates the package as PRIVATE. Make it public once: GitHub > your profile/organization >
+# Packages > current-server > Package settings > Change visibility > Public (docs/RUNBOOK.md).
+#
+# NOT YET RUN: written without a GitHub runner. The first run is the test.
+name: image
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to publish, for example 1.0.0 (becomes :1.0.0 and :latest)"
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write   # push to ghcr.io/<owner>/current-server
+    env:
+      INPUT_VERSION: ${{ inputs.version }}
+      GH_ACTOR: ${{ github.actor }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Decide the tags
+        id: tags
+        run: |
+          set -euo pipefail
+          short=$(git rev-parse --short=12 HEAD)
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            [[ $INPUT_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::version must look like 1.2.3 (got '$INPUT_VERSION')"; exit 1; }
+            { echo "main=$INPUT_VERSION"; echo "extra=latest"; echo "version=$INPUT_VERSION"; } >> "$GITHUB_OUTPUT"
+          else
+            { echo "main=edge"; echo "extra=edge-$short"; echo "version=0.0.0-edge.$short"; } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push
+        env:
+          MAIN_TAG: ${{ steps.tags.outputs.main }}
+          EXTRA_TAG: ${{ steps.tags.outputs.extra }}
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-server"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          scripts/build-image.sh --version "$VERSION" --commit "$(git rev-parse --short=12 HEAD)" \
+            --source-date-epoch "$(git log -1 --format=%ct)" \
+            --push "$image:$MAIN_TAG" --digest-file "$RUNNER_TEMP/digest.txt"
+          digest=$(cat "$RUNNER_TEMP/digest.txt")
+          # The second tag points at the very same image (same digest), nothing is built twice.
+          docker buildx imagetools create --tag "$image:$EXTRA_TAG" "$image@$digest"
+          {
+            echo "### Published"
+            echo "- \`$image:$MAIN_TAG\`"
+            echo "- \`$image:$EXTRA_TAG\`"
+            echo "- digest \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"

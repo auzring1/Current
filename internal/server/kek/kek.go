@@ -57,7 +57,7 @@ func (s *Sealer) Seal(purpose string, plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	baseSize := uint64(1 + 4 + len(nonce) + s.aead.Overhead())
+	baseSize := uint64(1 + 4 + len(nonce) + s.aead.Overhead()) // #nosec G115 -- sum of small non-negative lengths
 	totalSize := baseSize + uint64(len(plaintext))
 	if totalSize > uint64(math.MaxInt) {
 		return nil, errors.New("kek: plaintext too large")

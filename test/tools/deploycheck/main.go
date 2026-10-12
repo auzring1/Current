@@ -99,20 +99,29 @@ func main() {
 	if err != nil {
 		fail("totp secret: %v", err)
 	}
-	step := auth.TOTPStep(time.Now())
 	login := a.must("POST", "/auth/login", map[string]any{"email": *email, "password": *password}, 200)
 	a.csrf, _ = login["csrf_token"].(string)
-	// Bootstrap already used steps t and t+1; the server accepts t-1..t+1 around now, so try the
-	// newest unused step and wait for the clock if it was consumed.
+	// Bootstrap already used the steps around its own start, and the server refuses a code it has seen.
+	// The server accepts t-1..t+1 around now, so try each step in that window once (newest first) and
+	// wait for the clock to move on to a fresh step when all of them were used.
 	var mfa map[string]any
-	for i := 0; i < 4; i++ {
-		st, out, err := a.do("POST", "/auth/mfa", map[string]any{"code": auth.TOTPCode(secret, step+int64(i))}, nil, nil)
-		if err == nil && st == 200 {
-			mfa = out
-			break
+	tried := map[int64]bool{}
+	for i := 0; i < 12 && mfa == nil; i++ {
+		cur := auth.TOTPStep(time.Now())
+		for _, st := range []int64{cur + 1, cur, cur - 1} {
+			if tried[st] {
+				continue
+			}
+			tried[st] = true
+			code, out, err := a.do("POST", "/auth/mfa", map[string]any{"code": auth.TOTPCode(secret, st)}, nil, nil)
+			if err == nil && code == 200 {
+				mfa = out
+				break
+			}
 		}
-		time.Sleep(10 * time.Second)
-		step = auth.TOTPStep(time.Now())
+		if mfa == nil {
+			time.Sleep(10 * time.Second)
+		}
 	}
 	if mfa == nil {
 		fail("could not complete MFA")
@@ -250,7 +259,7 @@ func unsignedPinned(a *api, device string) {
 	}
 	marker := filepath.Join(os.Getenv("ProgramFiles"), "RnvCheck", "never.txt")
 	pkg := a.must("POST", "/catalog/custom", map[string]any{"identifier": "RnvCheck.Unsigned", "name": "Unsigned check", "version": "1.0.0",
-		"sha256": up["sha256"], "file_name": "unsigned.exe", "type": "exe", "arch": "x64", "scope": "machine",
+		"sha256": up["sha256"], "file_name": "unsigned.exe", "type": "exe", "arch": "x64", "scope": "machine", "args": []string{"/S"},
 		"signer_subject": "CN=Nobody Inc", "detection": []map[string]any{{"kind": "file", "key": `%ProgramFiles%\RnvCheck\never.txt`}}}, 201)["package_id"].(string)
 	dep := a.must("POST", "/deployments", map[string]any{"name": "ci unsigned", "action": "install", "package_id": pkg,
 		"scope": "machine", "device_ids": []string{device}}, 201)["deployment_id"].(string)
