@@ -16,6 +16,8 @@
     * no cmd.exe, no PowerShell, no script custom action: the agent exe is started directly by
       WixSilentExec64, which neither logs the command line nor the child's output;
     * TOKEN is a secret: it is in MsiHiddenProperties, together with every property that carries it
+      (KNOWN LIMIT, D103: Windows Installer still prints the install action's data, token included, in a
+      /l*v log on the line "Executing op: CustomActionSchedule(Action=InstallAgent"; the owner accepted it)
       (the CustomActionData of InstallAgent), and it reaches the elevated action only as CustomActionData.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -119,7 +121,7 @@
     <!-- ===== Custom actions: run current-agent.exe directly, in SYSTEM context =====
          WixSilentExec64 needs the command line to BEGIN with the quoted exe path. It reads the
          command line from CustomActionData (the property named like the action). It logs neither the
-         command line nor the child's output, so the token cannot reach msi.log through it. -->
+         command line nor the child's output. (Windows Installer itself does log the action's data in a /l*v log: D103.) -->
     <CustomAction Id="InstallAgent" DllEntry="WixSilentExec64" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
                   Execute="deferred" Impersonate="no" Return="check" />
     <!-- Undoes a fresh install that failed (bad token, server unreachable, ...): removes the service,

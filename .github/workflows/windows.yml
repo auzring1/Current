@@ -287,18 +287,22 @@ jobs:
           }
           function Test-LogLeak([string]$Path, [string]$Secret) {
             # msiexec writes ANSI or UTF-16 depending on version: look for the secret in both encodings.
+            # Windows Installer itself prints the install action's data (with the token) on one known line even for
+            # hidden properties (DECISIONS D103, accepted by the owner). That line is ignored; the token anywhere
+            # else in the log is a failure.
             $bytes = [System.IO.File]::ReadAllBytes($Path)
             if ($bytes.Length -lt 2000) { throw "$Path is suspiciously small ($($bytes.Length) bytes): no verbose log" }
-            $ansi = [System.Text.Encoding]::Latin1.GetString($bytes)
-            $wide = [System.Text.Encoding]::Unicode.GetString($bytes)
-            $leaked = ($ansi.Contains($Secret) -or $wide.Contains($Secret))
-          if ($leaked) {
-            # Show where, with the (throw-away) token blanked out, so a failure can be diagnosed from the job log.
-            $text = if ($ansi.Contains($Secret)) { $ansi } else { $wide }
-            $text -split "`r?`n" | Where-Object { $_.Contains($Secret) } | Select-Object -First 6 |
-              ForEach-Object { Write-Host ("LEAK in ${Path}: " + $_.Replace($Secret, "<TOKEN>").Trim()) }
+            $leaked = $false
+            foreach ($text in @([System.Text.Encoding]::Latin1.GetString($bytes), [System.Text.Encoding]::Unicode.GetString($bytes))) {
+              foreach ($line in ($text -split "`r?`n")) {
+                if (-not $line.Contains($Secret)) { continue }
+                if ($line -match 'CustomActionSchedule\(Action=InstallAgent,') { Write-Host "known and accepted (D103): the install action's data is in ${Path}"; continue }
+                $leaked = $true
+                Write-Host ("LEAK in ${Path}: " + $line.Replace($Secret, "<TOKEN>").Trim())
+              }
+            }
+            return $leaked
           }
-          return $leaked
           }
 
           # Diagnostic: which properties does the built MSI declare hidden? (Windows Installer masks only those in logs.)
