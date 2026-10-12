@@ -30,6 +30,13 @@ mkdir -p "$stage/$root/deploy/postgres/init" "$stage/$root/scripts"
 sed "s/\${CURRENT_VERSION:-latest}/\${CURRENT_VERSION:-$version}/" deploy/docker-compose.image.yml > "$stage/$root/deploy/docker-compose.image.yml"
 grep -q "CURRENT_VERSION:-$version" "$stage/$root/deploy/docker-compose.image.yml" || { echo "make-deploy-bundle: could not set the default version" >&2; exit 1; }
 cp deploy/Caddyfile deploy/Caddyfile.behind-proxy deploy/.env.example "$stage/$root/deploy/"
+# With an update signing key configured, the server must trust its PUBLIC half to accept the signed update file.
+pubkeys=${CURRENT_RELEASE_PUBKEYS:-}
+if [ -n "$pubkeys" ]; then
+  [[ $pubkeys =~ ^[0-9a-f]{64}(,[0-9a-f]{64})*$ ]] || { echo "make-deploy-bundle: CURRENT_RELEASE_PUBKEYS must be comma-separated 64-character lowercase hex keys" >&2; exit 1; }
+  grep -q '^#CURRENT_RELEASE_PUBLIC_KEYS=$' "$stage/$root/deploy/.env.example" || { echo "make-deploy-bundle: .env.example has no CURRENT_RELEASE_PUBLIC_KEYS line" >&2; exit 1; }
+  sed -i "s/^#CURRENT_RELEASE_PUBLIC_KEYS=\$/CURRENT_RELEASE_PUBLIC_KEYS=$pubkeys/" "$stage/$root/deploy/.env.example"
+fi
 cp deploy/postgres/init/* "$stage/$root/deploy/postgres/init/"
 cp scripts/init-secrets.sh "$stage/$root/scripts/"
 chmod 755 "$stage/$root/scripts/init-secrets.sh" "$stage/$root/deploy/postgres/init/"*.sh
@@ -50,6 +57,10 @@ ghcr.io/auzring1/current-server:$version, which Docker downloads when you start 
        docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
 4. First-run setup token:
        docker compose -f deploy/docker-compose.image.yml logs server | grep -A2 "setup token"
+
+Agent updates: if deploy/.env.example already contains a CURRENT_RELEASE_PUBLIC_KEYS= line with a long value, that is
+the public key your agents trust (keep it in deploy/.env). The signed update file (.curr) from the same release goes under
+"Agent updates" in the console.
 
 Update later: download the newer current-deploy zip, or set CURRENT_VERSION=<new version> in deploy/.env,
 then run the same command with "pull" and again with "up -d". Back up first.

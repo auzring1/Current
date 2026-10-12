@@ -143,11 +143,18 @@ for a small installation:
 6. Save the 10 recovery codes. Each works once if you lose your authenticator.
 
 ## 4. Enroll devices
+**Get the agent.** Every server release (the GitHub release `server-<version>`, see 2.2) has `current-agent_<version>_windows_amd64.exe`, a
+`.sha256` file, and the Windows installer `current-agent_<version>_windows_x64.msi` (for GPO, Intune or RMM, see "Install with the MSI" below) next to the install zip. Download the exe on a PC (or on a file share), check it
+(`(Get-FileHash .\current-agent_1.2.3_windows_amd64.exe).Hash` must match the `.sha256` file, ignoring case), and run
+`Unblock-File .\current-agent_1.2.3_windows_amd64.exe`. **It is not code-signed**, so SmartScreen or antivirus may warn about it;
+use the same version as your server. You can run it under its long name or rename it to `current-agent.exe`. (Building it yourself
+is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.)
+
 1. In the console, go to **Enrollment**, then **New token**. Give it a name, a maximum number of uses and a lifetime. Optionally turn on **Require administrator approval**.
 2. Copy the install command. It is shown only once.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
-   .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...
+   .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...      (use the exe's file name)
    ```
    - `--server` is optional. It defaults to the address inside the token; set it when agents must use a different name or IP. That name or IP must be in the gateway certificate: add it with `CURRENT_GATEWAY_SANS`.
    - `--allowed-jobs inventory,wu_scan` is optional. It sets a local ceiling that the server can never raise (enforced from Phase 3, when jobs exist).
@@ -293,9 +300,28 @@ Configuration (all optional, set in the server's environment):
 
 ### 5c. Agent updates (Phase 5)
 
+**One-time setup for automatic updates with your own key.** Do this BEFORE you enroll PCs: an agent can only update itself if it was built
+with the public key that signs the updates, so agents installed earlier need one reinstall.
+
+1. Run **Actions, image, Run workflow** once (see 2.2). The release `server-<version>` then has `current-release_<version>_windows_amd64.exe`.
+2. On **your own PC**, in PowerShell: `.\current-release_<version>_windows_amd64.exe keygen --out release.key`. It writes `release.key`
+   (the PRIVATE key) and `release.pub` (the public key). Keep `release.key` in your password manager or another safe place and delete the loose copy.
+   Whoever has this key can push programs to every PC, so never put it in the repository, an email or a chat.
+3. In GitHub, **Settings, Secrets and variables, Actions**: create the **secret** `CURRENT_RELEASE_SIGNING_KEY` with the contents of
+   `release.key`, and the **variable** `CURRENT_RELEASE_PUBLIC_KEY` with the contents of `release.pub` (one line of 64 characters; several keys can be listed
+   separated by commas, which is how a key rotation works: release once trusting both, then drop the old one).
+4. Run the workflow again with a new version. That release has: the agent built with your public key, the signed `current-agent_<version>_windows_amd64.curr`,
+   the MSI, and a deploy zip whose `deploy/.env.example` already has `CURRENT_RELEASE_PUBLIC_KEYS=` filled in. Signing happens only for runs from `main`
+   and the workflow checks that your private key matches the public key before it publishes.
+5. On the server, keep that `CURRENT_RELEASE_PUBLIC_KEYS=<your public key>` line in `deploy/.env` and run `up -d`: the server then accepts your signed update files.
+6. Install the PCs from this release (exe or MSI). Later releases: download the new `.curr` and the matching `current-agent_<version>_windows_amd64.exe`, then
+   **Agent updates, Upload a release** (both files) and start a rollout.
+
+Without the secret and the variable the workflow still works; it just builds agents that cannot update themselves and makes no `.curr` file.
+
 | Task | How |
 |---|---|
-| One-time: get the agents to trust a release key | Agents only accept releases signed by the vendor release key compiled into them. Official builds carry it. For your own test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `CURRENT_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
+| One-time: get the agents to trust a release key | See the one-time setup above (your own key, built into the agents by the image workflow). Agents only accept releases signed by a key compiled into them. For throw-away test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `CURRENT_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
 | Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.curr` bundle (made with `current-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
 | Roll it out | **Agent updates → Rollout**: pick the target release, optional **pilot groups** (they update first), a **soak** time and the success percentage the pilot must reach, and how many devices per minute. Everyone else follows when the pilot has proven itself. |
 | Watch it | The page shows versions in use, how many updated/failed, why devices outside the pilot are waiting, and a banner if the rollout was put on hold. A failing pilot pauses the rollout by itself; look at the failed jobs (device → Jobs), fix or withdraw the release, then un-pause. |
