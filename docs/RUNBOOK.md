@@ -74,13 +74,24 @@ cannot drift apart, and the build-from-source path in section 2 keeps working.
 Tags: `1.2.3` (a release you published, see below), `latest` (the newest release), `edge` (the newest `main`, for testing).
 Production should pin a release number.
 
+**Get the install files** (no need to clone the repository). Every release comes with `current-deploy-<version>.zip` on the
+GitHub **Releases** page (the release is called `server-<version>`). It holds only the compose file, the Caddy and database setup
+files and the secrets script, and its compose file already defaults to that version's image. On the server:
+
 ```bash
-# same first two steps as section 2 (clone, ./scripts/init-secrets.sh, cp deploy/.env.example deploy/.env, edit it), then:
-echo 'CURRENT_VERSION=1.2.3' >> deploy/.env          # which release to run; leave out for "latest"
+cd /volume1/docker                       # any folder; on a Synology this is a shared folder
+curl -L -o current-deploy.zip https://github.com/auzring1/Current/releases/download/server-1.2.3/current-deploy-1.2.3.zip
+unzip current-deploy.zip && cd current-deploy-1.2.3
+./scripts/init-secrets.sh                # creates deploy/secrets; KEEP A COPY of it somewhere safe
+cp deploy/.env.example deploy/.env       # then edit it (host name; for DSM's reverse proxy see 2.1)
 docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
 ```
 
-**Update:** back up first (section 6), change `CURRENT_VERSION` in `deploy/.env` to the new number, then run
+The same zip's `README.txt` repeats these steps. If you cloned the repository instead, use the same commands from its root
+(add `CURRENT_VERSION=1.2.3` to `deploy/.env`; without it the tag is `latest`).
+
+**Update:** back up first (section 6), set `CURRENT_VERSION=<new number>` in `deploy/.env` (it overrides the version the zip
+was made for; or unpack the newer zip over the old folder, keeping `deploy/secrets` and `deploy/.env`), then run
 `docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env pull` and the same `up -d` line again. Migrations run
 by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
 database migration; otherwise restore the backup you took (section 6.5).
@@ -90,9 +101,11 @@ Container Manager's own "Build"/"Update" buttons re-pull a changed `CURRENT_VERS
 
 **Publishing a release (maintainer):**
 1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the image from the chosen
-   branch and pushes `:1.2.3` and `:latest`. Every push to `main` also refreshes `:edge`.
-2. **Once, after the first publish:** the package starts private. Open GitHub, your profile (or organization), **Packages,
-   current-server, Package settings, Change visibility, Public**. Until then an install must `docker login ghcr.io` with a token that may read packages.
+   branch, pushes `:1.2.3` and `:latest`, and creates the release `server-1.2.3` with `current-deploy-1.2.3.zip` attached (the job
+   summary shows the download command). Every push to `main` also refreshes `:edge` (no release, no zip).
+2. **Check once after the first publish:** the package is linked to the repository by the image's source label and followed the
+   repository's visibility (public). If it ever shows as private, open GitHub, **Packages, current-server, Package settings,
+   Change visibility, Public**; until then an install must `docker login ghcr.io` with a token that may read packages.
 3. The image carries no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
 
 This workflow is separate from the signed release pipeline in section 9 (`release.yml`, tags `v*`). Nothing in it was run before
