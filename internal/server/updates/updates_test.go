@@ -686,3 +686,40 @@ func TestGateRules(t *testing.T) {
 		}
 	}
 }
+
+// The dashboard and the reports count a device as "needs a restart" from the heartbeat's pending-reboot flag or from the
+// "restart required" of the last Windows Update scan. That scan flag is only refreshed by the next scan, so after the
+// person restarted it stayed true and the dashboard kept counting a device whose own page showed nothing. It now counts
+// only if the scan was taken after the last boot.
+func TestStaleRestartRequiredFromAScanBeforeTheLastBootIsIgnored(t *testing.T) {
+	f := newFx(t)
+	ctx := context.Background()
+	now := time.Now()
+	set := func(d dbq.Device, pending bool, scanRequired bool, scannedAgo time.Duration, uptime time.Duration) {
+		f.exec(`UPDATE devices SET pending_reboot = $2, wu_reboot_required = $3, wu_scanned_at = $4, last_seen_at = $5, uptime_s = $6 WHERE id = $1`,
+			d.ID, pending, scanRequired, now.Add(-scannedAgo), now, int64(uptime.Seconds()))
+	}
+	restarted := f.device("restarted-after-the-scan", true)
+	set(restarted, false, true, 2*time.Hour, 10*time.Minute) // scan 2 h ago, booted 10 minutes ago
+	stillPending := f.device("scan-after-the-boot", true)
+	set(stillPending, false, true, 2*time.Hour, 4*time.Hour) // booted 4 h ago, scanned 2 h ago: still needs it
+	heartbeat := f.device("heartbeat-says-so", true)
+	set(heartbeat, true, false, 2*time.Hour, 10*time.Minute) // the agent sees a pending restart right now
+	unknown := f.device("uptime-not-reported", true)
+	set(unknown, false, true, 2*time.Hour, 0) // no uptime to compare with: keep the old behaviour
+
+	rows, err := dbq.New(f.pool).ComplianceReport(ctx, f.org)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, r := range rows {
+		got[r.Hostname] = r.RebootPending != nil && *r.RebootPending
+	}
+	want := map[string]bool{"restarted-after-the-scan": false, "scan-after-the-boot": true, "heartbeat-says-so": true, "uptime-not-reported": true}
+	for host, w := range want {
+		if got[host] != w {
+			t.Errorf("%s: needs a restart = %v, want %v", host, got[host], w)
+		}
+	}
+}

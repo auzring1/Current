@@ -69,7 +69,13 @@ SELECT count(*)::bigint AS devices, COALESCE(sum(failures), 0)::bigint AS failur
 
 -- name: ComplianceReport :many
 SELECT d.id, d.hostname, d.site_id, d.os_caption, d.os_build, d.online, d.last_seen_at, d.wu_scanned_at, d.agent_version,
-       (d.pending_reboot OR d.wu_reboot_required) AS reboot_pending,
+       (d.pending_reboot OR
+        CASE WHEN d.wu_reboot_required AND d.wu_scanned_at IS NOT NULL AND d.last_seen_at IS NOT NULL AND d.uptime_s > 0
+             -- The "restart required" of a Windows Update scan only counts if the scan was taken after the last boot
+             -- (last boot = the last heartbeat minus the uptime it reported). Otherwise it is a leftover that stays
+             -- until the next scan, long after the person restarted.
+             THEN d.wu_scanned_at >= d.last_seen_at - make_interval(secs => d.uptime_s::float8)
+             ELSE d.wu_reboot_required END) AS reboot_pending,
        (count(du.update_id) FILTER (WHERE a.decision = 'approved'))::int AS approved_missing,
        (count(du.update_id) FILTER (WHERE u.severity = 'Critical' AND COALESCE(a.decision, '') <> 'declined'))::int AS critical_missing,
        (count(du.update_id) FILTER (WHERE du.state = 'failed'))::int AS failed_updates
