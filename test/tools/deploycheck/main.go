@@ -99,20 +99,29 @@ func main() {
 	if err != nil {
 		fail("totp secret: %v", err)
 	}
-	step := auth.TOTPStep(time.Now())
 	login := a.must("POST", "/auth/login", map[string]any{"email": *email, "password": *password}, 200)
 	a.csrf, _ = login["csrf_token"].(string)
-	// Bootstrap already used steps t and t+1; the server accepts t-1..t+1 around now, so try the
-	// newest unused step and wait for the clock if it was consumed.
+	// Bootstrap already used the steps around its own start, and the server refuses a code it has seen.
+	// The server accepts t-1..t+1 around now, so try each step in that window once (newest first) and
+	// wait for the clock to move on to a fresh step when all of them were used.
 	var mfa map[string]any
-	for i := 0; i < 4; i++ {
-		st, out, err := a.do("POST", "/auth/mfa", map[string]any{"code": auth.TOTPCode(secret, step+int64(i))}, nil, nil)
-		if err == nil && st == 200 {
-			mfa = out
-			break
+	tried := map[int64]bool{}
+	for i := 0; i < 12 && mfa == nil; i++ {
+		cur := auth.TOTPStep(time.Now())
+		for _, st := range []int64{cur + 1, cur, cur - 1} {
+			if tried[st] {
+				continue
+			}
+			tried[st] = true
+			code, out, err := a.do("POST", "/auth/mfa", map[string]any{"code": auth.TOTPCode(secret, st)}, nil, nil)
+			if err == nil && code == 200 {
+				mfa = out
+				break
+			}
 		}
-		time.Sleep(10 * time.Second)
-		step = auth.TOTPStep(time.Now())
+		if mfa == nil {
+			time.Sleep(10 * time.Second)
+		}
 	}
 	if mfa == nil {
 		fail("could not complete MFA")

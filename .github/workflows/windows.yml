@@ -140,6 +140,21 @@ jobs:
       - name: Platform tests (Authenticode, Job Objects, staging ACLs, locked files)
         run: go test -count=1 -v -run 'TestWin' ./internal/agent/jobs/
 
+      - name: Remove the runner's own 7-Zip (the winget scenario installs it and needs a clean image)
+        shell: pwsh
+        run: |
+          $pf = Join-Path $env:ProgramFiles "7-Zip"
+          if (Test-Path "$pf\Uninstall.exe") {
+            Start-Process "$pf\Uninstall.exe" -ArgumentList "/S" -Wait
+          } else {
+            $keys = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+            $e = Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "7-Zip*" } | Select-Object -First 1
+            if ($e -and $e.PSChildName -match '^\{') { Start-Process msiexec.exe -ArgumentList "/x", $e.PSChildName, "/qn" -Wait }
+          }
+          # The uninstaller can leave the folder behind; the scenario only looks for 7z.exe.
+          Remove-Item "$pf\7z.exe" -Force -ErrorAction SilentlyContinue
+          if (Test-Path "$pf\7z.exe") { throw "7z.exe is still there" }
+
       - name: Install the agent, then run the deployment scenarios
         shell: pwsh
         run: |

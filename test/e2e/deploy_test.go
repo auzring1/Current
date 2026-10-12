@@ -90,6 +90,7 @@ func (h *harness) waitJob(dep, want string) map[string]any {
 }
 
 func TestDeploymentEndToEnd(t *testing.T) {
+	skipOnWindows(t)
 	h := newHarness(t)
 	h.setupAndLogin()
 	ta := h.startAgent(h.createToken("dep", 5, false), &fakeHW{host: "LAP-D1", serial: "SD1", uuid: "UD1"}, nil, withJobs)
@@ -148,6 +149,7 @@ func TestDeploymentEndToEnd(t *testing.T) {
 }
 
 func TestDeploymentFailureRetryAndCancel(t *testing.T) {
+	skipOnWindows(t)
 	h := newHarness(t)
 	h.setupAndLogin()
 	ta := h.startAgent(h.createToken("dep2", 5, false), &fakeHW{host: "LAP-D2", serial: "SD2", uuid: "UD2"}, nil, withJobs)
@@ -207,6 +209,7 @@ func TestDeploymentFailureRetryAndCancel(t *testing.T) {
 }
 
 func TestOfflineDeviceReceivesJobOnConnect(t *testing.T) {
+	skipOnWindows(t)
 	h := newHarness(t)
 	h.setupAndLogin()
 	ta := h.startAgent(h.createToken("dep3", 5, false), &fakeHW{host: "LAP-D3", serial: "SD3", uuid: "UD3"}, nil, withJobs)
