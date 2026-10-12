@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.27.1"
+  GO_VERSION: "1.27.2"
   GOTOOLCHAIN: local
 
 jobs:
@@ -280,9 +280,9 @@ jobs:
           }
           function Assert-Clean([string]$When) {
             for ($i = 0; $i -lt 30 -and (Get-Service CurrentAgent -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
-            if (Get-Service CurrentAgent -ErrorAction SilentlyContinue) { throw "$When: service still present" }
+            if (Get-Service CurrentAgent -ErrorAction SilentlyContinue) { throw "${When}: service still present" }
             foreach ($d in @($data, "$pf\Current", "$pf\CurrentSetup")) {
-              if (Test-Path $d) { throw "$When: $d still present" }
+              if (Test-Path $d) { throw "${When}: $d still present" }
             }
           }
           function Test-LogLeak([string]$Path, [string]$Secret) {

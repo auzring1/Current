@@ -259,7 +259,7 @@ func unsignedPinned(a *api, device string) {
 	}
 	marker := filepath.Join(os.Getenv("ProgramFiles"), "RnvCheck", "never.txt")
 	pkg := a.must("POST", "/catalog/custom", map[string]any{"identifier": "RnvCheck.Unsigned", "name": "Unsigned check", "version": "1.0.0",
-		"sha256": up["sha256"], "file_name": "unsigned.exe", "type": "exe", "arch": "x64", "scope": "machine",
+		"sha256": up["sha256"], "file_name": "unsigned.exe", "type": "exe", "arch": "x64", "scope": "machine", "args": []string{"/S"},
 		"signer_subject": "CN=Nobody Inc", "detection": []map[string]any{{"kind": "file", "key": `%ProgramFiles%\RnvCheck\never.txt`}}}, 201)["package_id"].(string)
 	dep := a.must("POST", "/deployments", map[string]any{"name": "ci unsigned", "action": "install", "package_id": pkg,
 		"scope": "machine", "device_ids": []string{device}}, 201)["deployment_id"].(string)
