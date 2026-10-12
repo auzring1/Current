@@ -45,6 +45,10 @@ RUN go build -trimpath -buildvcs=false \
 RUN mkdir -p /out/content && chown 65532:65532 /out/content && chmod 700 /out/content
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+# The source label is what links the published package to this repository on GitHub.
+LABEL org.opencontainers.image.source="https://github.com/auzring1/Current" \
+      org.opencontainers.image.description="Current server: self-hosted Windows patch and software management" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
 COPY --from=build /out/current-server /current-server
 COPY --from=build --chown=65532:65532 /out/content /var/lib/current/content
 USER 65532:65532

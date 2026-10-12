@@ -28,10 +28,11 @@ generate: ## Regenerate protobuf, sqlc and TypeScript API code
 	buf generate
 	sqlc generate
 	cd web && npm run gen:api
+	scripts/gen-image-compose.sh
 
 .PHONY: check-generated
 check-generated: generate ## Fail if generated code is out of date
-	git diff --exit-code -- gen web/src/api/schema.d.ts web/src/brand.generated.ts
+	git diff --exit-code -- gen web/src/api/schema.d.ts web/src/brand.generated.ts deploy/docker-compose.image.yml
 
 .PHONY: web
 web: ## Build the web console into the server's embed directory
