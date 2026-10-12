@@ -143,11 +143,18 @@ for a small installation:
 6. Save the 10 recovery codes. Each works once if you lose your authenticator.
 
 ## 4. Enroll devices
+**Get the agent.** Every server release (the GitHub release `server-<version>`, see 2.2) has `current-agent_<version>_windows_amd64.exe` and a
+`.sha256` file next to the install zip. Download the exe on a PC (or on a file share), check it
+(`(Get-FileHash .\current-agent_1.2.3_windows_amd64.exe).Hash` must match the `.sha256` file, ignoring case), and run
+`Unblock-File .\current-agent_1.2.3_windows_amd64.exe`. **It is not code-signed**, so SmartScreen or antivirus may warn about it;
+use the same version as your server. You can run it under its long name or rename it to `current-agent.exe`. (Building it yourself
+is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.)
+
 1. In the console, go to **Enrollment**, then **New token**. Give it a name, a maximum number of uses and a lifetime. Optionally turn on **Require administrator approval**.
 2. Copy the install command. It is shown only once.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
-   .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...
+   .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...      (use the exe's file name)
    ```
    - `--server` is optional. It defaults to the address inside the token; set it when agents must use a different name or IP. That name or IP must be in the gateway certificate: add it with `CURRENT_GATEWAY_SANS`.
    - `--allowed-jobs inventory,wu_scan` is optional. It sets a local ceiling that the server can never raise (enforced from Phase 3, when jobs exist).

@@ -5,7 +5,8 @@
 #   Run workflow by hand    -> :<version> and :latest     (a release; type the version, for example 1.0.0)
 #                              and a GitHub release "server-<version>" with current-deploy-<version>.zip: the few files
 #                              (compose file, Caddy and database setup files, secrets script) an install needs next to
-#                              the image, so a NAS can download one file instead of cloning the repository
+#                              the image, so a NAS can download one file instead of cloning the repository,
+#                              and current-agent_<version>_windows_amd64.exe (the agent, UNSIGNED) with its .sha256
 #
 # This is deliberately separate from release.yml (signed releases with Authenticode and a KMS key, tags "v*").
 # It uses no secret: the built-in GITHUB_TOKEN may push to the repository's own package.
@@ -77,6 +78,20 @@ jobs:
             echo "- \`$image:$EXTRA_TAG\`"
             echo "- digest \`$digest\`"
           } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version-file: go.mod }
+      - name: Build the Windows agent
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          set -euo pipefail
+          pkg=github.com/auzring1/current/internal/shared/version
+          exe="$RUNNER_TEMP/current-agent_${VERSION}_windows_amd64.exe"
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -buildvcs=false \
+            -ldflags "-s -w -X $pkg.Version=$VERSION -X $pkg.Commit=$(git rev-parse --short=12 HEAD)" \
+            -o "$exe" ./cmd/current-agent
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$exe")" > "$(basename "$exe").sha256")
+          ls -l "$exe"
       - name: Build the deploy zip
         env:
           VERSION: ${{ steps.tags.outputs.version }}
@@ -88,17 +103,19 @@ jobs:
         run: |
           set -euo pipefail
           zip="$RUNNER_TEMP/current-deploy-$VERSION.zip"
+          exe="$RUNNER_TEMP/current-agent_${VERSION}_windows_amd64.exe"
           tag="server-$VERSION"   # not "v*": that pattern starts the signed release pipeline (release.yml)
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/current-deploy-$VERSION.zip"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" "$zip" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$tag" "$zip" "$exe" "$exe.sha256" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" "$zip" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            gh release create "$tag" "$zip" "$exe" "$exe.sha256" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "Server $VERSION" \
-              --notes "Server image \`ghcr.io/${GITHUB_REPOSITORY,,}-server:$VERSION\`. The zip holds the install files; instructions are in README.txt inside it and in docs/RUNBOOK.md, section 2.2."
+              --notes "Server image \`ghcr.io/${GITHUB_REPOSITORY,,}-server:$VERSION\`. The deploy zip holds the server install files (README.txt inside, and docs/RUNBOOK.md section 2.2). The agent exe is for the PCs (docs/RUNBOOK.md section 4); it is not code-signed, so Windows may warn: check the .sha256 and run Unblock-File."
           fi
           {
             echo "- deploy zip: $url"
+            echo "- agent exe: https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/current-agent_${VERSION}_windows_amd64.exe"
             echo ""
             echo "On the server: \`curl -L -o current-deploy.zip $url && unzip current-deploy.zip\`"
           } >> "$GITHUB_STEP_SUMMARY"
