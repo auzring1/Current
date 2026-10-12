@@ -291,7 +291,14 @@ jobs:
             if ($bytes.Length -lt 2000) { throw "$Path is suspiciously small ($($bytes.Length) bytes): no verbose log" }
             $ansi = [System.Text.Encoding]::Latin1.GetString($bytes)
             $wide = [System.Text.Encoding]::Unicode.GetString($bytes)
-            return ($ansi.Contains($Secret) -or $wide.Contains($Secret))
+            $leaked = ($ansi.Contains($Secret) -or $wide.Contains($Secret))
+          if ($leaked) {
+            # Show where, with the (throw-away) token blanked out, so a failure can be diagnosed from the job log.
+            $text = if ($ansi.Contains($Secret)) { $ansi } else { $wide }
+            $text -split "`r?`n" | Where-Object { $_.Contains($Secret) } | Select-Object -First 6 |
+              ForEach-Object { Write-Host ("LEAK in ${Path}: " + $_.Replace($Secret, "<TOKEN>").Trim()) }
+          }
+          return $leaked
           }
 
           # 1. Failures must exit 1603 and leave nothing behind.

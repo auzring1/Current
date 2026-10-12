@@ -17,7 +17,7 @@ tools: ## Install pinned code generators and linters into GOBIN
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
 	CGO_ENABLED=1 go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
-	go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
+	go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
 	go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
 	go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
 	go install github.com/google/go-licenses/v2@v2.0.1
