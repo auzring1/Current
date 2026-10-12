@@ -442,7 +442,7 @@ Everything except the Windows-specific calls (`mgr`, `schtasks`, the restart) is
 │   └── vm-matrix/             Windows VM matrix harness + results (Phase 3)
 ├── scripts/                   dev and release helpers
 ├── docs/
-└── .github/workflows/         ci.yml, windows.yml, release.yml, codeql/semgrep
+└── .github/workflows/         ci.yml, windows.yml, release.yml (CodeQL runs as GitHub's default setup, not a workflow file) / semgrep
 ```
 
 One Go module keeps protocol and shared code in lockstep. Platform-specific agent code uses `_windows.go` files behind the `platform` interfaces.

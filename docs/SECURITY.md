@@ -440,7 +440,7 @@ A line-by-line review of the code against every row of section 5 and every claim
 | Reserved device names stopped at COM3 and LPT3; trailing dots and spaces were not rejected in archive entries | COM1–9, LPT1–9, `CONIN$`, `CONOUT$` and trailing dots or spaces are refused |
 | The vendor download client had no timeout at all (a silent server could stall the single job loop forever) | Header timeout, handshake timeout and a 2-minute stall limit between bytes |
 | Deleting an agent release could delete a file that a custom package also uses | The file is deleted only when neither table references it |
-| Documentation claimed CodeQL and Renovate | CodeQL (`codeql.yml`, pinned) and Dependabot (`dependabot.yml`) were added; the claims were corrected where the feature did not exist (T-WEB-7 prefix, T-LPE-3, T-LPE-9, T-WEB-2, T-DEV-5, T-SRV-4, T-SRV-2, T-SUP-2/3, T-ENR-1) |
+| Documentation claimed CodeQL and Renovate | CodeQL (GitHub's default setup, switched on in the repository settings) and Dependabot (`dependabot.yml`) were added; the claims were corrected where the feature did not exist (T-WEB-7 prefix, T-LPE-3, T-LPE-9, T-WEB-2, T-DEV-5, T-SRV-4, T-SRV-2, T-SUP-2/3, T-ENR-1) |
 
 ### Residual risks and gaps (accepted for now, in order of concern)
 
