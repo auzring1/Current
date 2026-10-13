@@ -197,6 +197,9 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireDevice(auth.PermUpdatesRead)).Get("/devices/{id}/windows-updates", s.deviceWindowsUpdates)
 	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/scan", s.scanDeviceUpdates)
 	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/install", s.installDeviceUpdates)
+	// Going around WSUS or Configuration Manager is a policy decision, so it needs the policy permission (D105).
+	r.With(s.requireDevice(auth.PermUpdatesPolicy)).Post("/devices/{id}/windows-updates/scan-online", s.scanDeviceUpdatesOnline)
+	r.With(s.requireDevice(auth.PermUpdatesPolicy)).Post("/devices/{id}/windows-updates/install-online", s.installDeviceUpdatesOnline)
 	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/windows-updates/hide", s.hideDeviceUpdates)
 	r.With(s.requireDevice(auth.PermUpdatesWrite)).Post("/devices/{id}/reboot", s.rebootDevice)
 	r.With(s.require(auth.PermReleasesRead)).Get("/agent-releases", s.listAgentReleases)

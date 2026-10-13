@@ -574,6 +574,86 @@ func TestDeviceActions(t *testing.T) {
 	}
 }
 
+func TestOnlineCheckAndInstallAreOneOffAndAudited(t *testing.T) {
+	f := newFx(t)
+	ctx := context.Background()
+	d := f.device("wsus-pc", true)
+	f.snapshot(d, 1, upd(1, "Security Updates", "Critical", missing))
+	// The organization follows each device's own source (WSUS) and includes drivers.
+	if err := f.svc.SetSettings(ctx, f.actor(), Settings{Service: "default", IncludeDrivers: true}); err != nil {
+		t.Fatal(err)
+	}
+	body := func(id uuid.UUID) *agentv1.JobEnvelope {
+		var raw []byte
+		_ = f.pool.QueryRow(ctx, "SELECT body FROM jobs WHERE id = $1", id).Scan(&raw)
+		var env agentv1.JobEnvelope
+		_ = proto.Unmarshal(raw, &env)
+		return &env
+	}
+	// The normal scan and install keep using the organization's source and are not one-off.
+	id, err := f.svc.ScanDevice(ctx, f.actor(), d.ID)
+	if err != nil || body(id).GetWuScan().OneOff || body(id).GetWuScan().Service != agentv1.WuService_WU_SERVICE_DEFAULT {
+		t.Fatalf("normal scan: %v %+v", err, body(id).GetWuScan())
+	}
+	id, err = f.svc.InstallOnDevice(ctx, f.actor(), d.ID, []string{uid(1)}, RebootCfg{})
+	if err != nil || body(id).GetWuInstall().OneOff || body(id).GetWuInstall().Service != agentv1.WuService_WU_SERVICE_DEFAULT {
+		t.Fatalf("normal install: %v %+v", err, body(id).GetWuInstall())
+	}
+	// The online check goes to Windows Update on the internet, never with drivers, and is remembered by nobody.
+	id, err = f.svc.ScanDeviceOnline(ctx, f.actor(), d.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := body(id).GetWuScan(); !b.OneOff || b.Service != agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE || b.IncludeDrivers {
+		t.Fatalf("online scan: %+v", b)
+	}
+	id, err = f.svc.InstallOnDeviceOnline(ctx, f.actor(), d.ID, []string{uid(1)}, RebootCfg{})
+	f.dep.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := body(id).GetWuInstall(); !b.OneOff || b.Service != agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE || b.IncludeDrivers || len(b.Updates) != 1 {
+		t.Fatalf("online install: %+v", b)
+	}
+	if _, err := f.svc.InstallOnDeviceOnline(ctx, f.actor(), d.ID, []string{uuid.NewString()}, RebootCfg{}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("only updates the last scan lists can be installed online: %v", err)
+	}
+	// Going around the organization's source is audited under its own actions, with the source named.
+	if f.count("SELECT count(*) FROM audit_log WHERE action = 'wu.scan_online'") != 1 || f.count("SELECT count(*) FROM audit_log WHERE action = 'wu.install_online' AND details->>'source' = 'windows_update'") != 1 {
+		t.Fatal("online check and install must be audited as such")
+	}
+	if _, err := f.svc.ScanDeviceOnline(ctx, Actor{Org: uuid.New(), User: f.user}, d.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross-org: %v", err)
+	}
+}
+
+func TestOnlineCheckIsRefusedForAnAgentThatWouldRememberIt(t *testing.T) {
+	f := newFx(t)
+	ctx := context.Background()
+	d := f.device("old-agent", true)
+	f.snapshot(d, 1, upd(1, "Security Updates", "Critical", missing))
+	f.exec("UPDATE devices SET agent_version = '1.1.2' WHERE id = $1", d.ID)
+	// An agent before 1.1.3 ignores "one-off" and would use the internet for every daily scan from now on.
+	if _, err := f.svc.ScanDeviceOnline(ctx, f.actor(), d.ID); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "1.1.3") {
+		t.Fatalf("online scan for agent 1.1.2: %v", err)
+	}
+	if _, err := f.svc.InstallOnDeviceOnline(ctx, f.actor(), d.ID, []string{uid(1)}, RebootCfg{}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("online install for agent 1.1.2: %v", err)
+	}
+	if f.count("SELECT count(*) FROM jobs WHERE device_id = $1", d.ID) != 0 || f.count("SELECT count(*) FROM audit_log WHERE action LIKE 'wu.%_online'") != 0 {
+		t.Fatal("a refused request must not queue a job or write an audit entry")
+	}
+	if _, err := f.svc.ScanDevice(ctx, f.actor(), d.ID); err != nil {
+		t.Fatalf("the normal scan still works for an old agent: %v", err)
+	}
+	for _, v := range []string{"1.1.3", "1.2.0", "test"} { // newer releases and development builds
+		f.exec("UPDATE devices SET agent_version = $2 WHERE id = $1", d.ID, v)
+		if _, err := f.svc.ScanDeviceOnline(ctx, f.actor(), d.ID); err != nil {
+			t.Fatalf("online scan for agent %q: %v", v, err)
+		}
+	}
+}
+
 func TestSettingsReachEveryDeviceAndRingsAreValidated(t *testing.T) {
 	f := newFx(t)
 	ctx := context.Background()

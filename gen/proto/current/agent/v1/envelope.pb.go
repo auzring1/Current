@@ -1504,8 +1504,11 @@ type WuScanBody struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Service        WuService              `protobuf:"varint,1,opt,name=service,proto3,enum=current.agent.v1.WuService" json:"service,omitempty"`
 	IncludeDrivers bool                   `protobuf:"varint,2,opt,name=include_drivers,json=includeDrivers,proto3" json:"include_drivers,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// one_off: an administrator's single check against an explicit source (for example the internet
+	// although WSUS is configured). The agent must not remember these options for its own daily scan.
+	OneOff        bool `protobuf:"varint,3,opt,name=one_off,json=oneOff,proto3" json:"one_off,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WuScanBody) Reset() {
@@ -1548,6 +1551,13 @@ func (x *WuScanBody) GetService() WuService {
 func (x *WuScanBody) GetIncludeDrivers() bool {
 	if x != nil {
 		return x.IncludeDrivers
+	}
+	return false
+}
+
+func (x *WuScanBody) GetOneOff() bool {
+	if x != nil {
+		return x.OneOff
 	}
 	return false
 }
@@ -1614,6 +1624,7 @@ type WuInstallBody struct {
 	TimeoutS       uint32                 `protobuf:"varint,5,opt,name=timeout_s,json=timeoutS,proto3" json:"timeout_s,omitempty"`
 	MaxRetries     uint32                 `protobuf:"varint,6,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	RetryBackoffS  uint32                 `protobuf:"varint,7,opt,name=retry_backoff_s,json=retryBackoffS,proto3" json:"retry_backoff_s,omitempty"`
+	OneOff         bool                   `protobuf:"varint,8,opt,name=one_off,json=oneOff,proto3" json:"one_off,omitempty"` // as in WuScanBody: do not remember service and drivers
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1695,6 +1706,13 @@ func (x *WuInstallBody) GetRetryBackoffS() uint32 {
 		return x.RetryBackoffS
 	}
 	return 0
+}
+
+func (x *WuInstallBody) GetOneOff() bool {
+	if x != nil {
+		return x.OneOff
+	}
+	return false
 }
 
 type WuHideBody struct {
@@ -2334,14 +2352,15 @@ const file_current_agent_v1_envelope_proto_rawDesc = "" +
 	"\factive_hours\x18\x02 \x01(\v2\x1d.current.agent.v1.ActiveHoursR\vactiveHours\x12\x1f\n" +
 	"\vdeadline_at\x18\x03 \x01(\x03R\n" +
 	"deadlineAt\x12%\n" +
-	"\x0enotify_minutes\x18\x04 \x01(\rR\rnotifyMinutes\"l\n" +
+	"\x0enotify_minutes\x18\x04 \x01(\rR\rnotifyMinutes\"\x85\x01\n" +
 	"\n" +
 	"WuScanBody\x125\n" +
 	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x12'\n" +
-	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\"F\n" +
+	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\x12\x17\n" +
+	"\aone_off\x18\x03 \x01(\bR\x06oneOff\"F\n" +
 	"\vWuUpdateRef\x12\x1b\n" +
 	"\tupdate_id\x18\x01 \x01(\tR\bupdateId\x12\x1a\n" +
-	"\brevision\x18\x02 \x01(\x05R\brevision\"\xc6\x02\n" +
+	"\brevision\x18\x02 \x01(\x05R\brevision\"\xdf\x02\n" +
 	"\rWuInstallBody\x125\n" +
 	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x12'\n" +
 	"\x0finclude_drivers\x18\x02 \x01(\bR\x0eincludeDrivers\x127\n" +
@@ -2350,7 +2369,8 @@ const file_current_agent_v1_envelope_proto_rawDesc = "" +
 	"\ttimeout_s\x18\x05 \x01(\rR\btimeoutS\x12\x1f\n" +
 	"\vmax_retries\x18\x06 \x01(\rR\n" +
 	"maxRetries\x12&\n" +
-	"\x0fretry_backoff_s\x18\a \x01(\rR\rretryBackoffS\"\x90\x01\n" +
+	"\x0fretry_backoff_s\x18\a \x01(\rR\rretryBackoffS\x12\x17\n" +
+	"\aone_off\x18\b \x01(\bR\x06oneOff\"\x90\x01\n" +
 	"\n" +
 	"WuHideBody\x125\n" +
 	"\aservice\x18\x01 \x01(\x0e2\x1b.current.agent.v1.WuServiceR\aservice\x127\n" +

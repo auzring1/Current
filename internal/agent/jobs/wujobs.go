@@ -58,7 +58,9 @@ func (e *Engine) scanAndReport(ctx context.Context, o wu.Options) *agentv1.WuInv
 func (e *Engine) wuScan(ctx context.Context, env *agentv1.JobEnvelope) *outcome {
 	b := env.GetWuScan()
 	o := wuOptions(b.Service, b.IncludeDrivers)
-	e.saveWUOptions(o)
+	if !b.OneOff { // a one-off check must not change what the daily scan uses
+		e.saveWUOptions(o)
+	}
 	snap := e.scanAndReport(ctx, o)
 	if snap.ScanError != "" {
 		return &outcome{reason: "wu_scan_failed", res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_FAILED, Message: short("scan failed: " + snap.ScanError)}}
@@ -80,7 +82,9 @@ func (e *Engine) wuScan(ctx context.Context, env *agentv1.JobEnvelope) *outcome 
 func (e *Engine) wuInstall(ctx context.Context, env *agentv1.JobEnvelope) *outcome {
 	b := env.GetWuInstall()
 	o := wuOptions(b.Service, b.IncludeDrivers)
-	e.saveWUOptions(o)
+	if !b.OneOff {
+		e.saveWUOptions(o)
+	}
 	timeout, _ := timeoutOf(b.TimeoutS)
 	ictx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

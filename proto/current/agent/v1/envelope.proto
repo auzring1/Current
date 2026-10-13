@@ -186,6 +186,9 @@ enum WuService {
 message WuScanBody {
   WuService service = 1;
   bool include_drivers = 2;
+  // one_off: an administrator's single check against an explicit source (for example the internet
+  // although WSUS is configured). The agent must not remember these options for its own daily scan.
+  bool one_off = 3;
 }
 
 message WuUpdateRef {
@@ -202,6 +205,7 @@ message WuInstallBody {
   uint32 timeout_s = 5;
   uint32 max_retries = 6;
   uint32 retry_backoff_s = 7;
+  bool one_off = 8;                  // as in WuScanBody: do not remember service and drivers
 }
 
 message WuHideBody {

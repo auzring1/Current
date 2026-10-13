@@ -14,7 +14,20 @@ import (
 	"github.com/auzring1/current/internal/server/audit"
 	"github.com/auzring1/current/internal/server/deploy"
 	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/shared/vercmp"
 )
+
+// minOneOffAgent is the first agent release that treats a one-off job as one-off. An older agent
+// ignores the flag and would remember the internet as its source for every daily scan (D105), so
+// the server does not send it such a job. Versions that are not numbers (development builds) pass.
+const minOneOffAgent = "1.1.3"
+
+func checkOneOffAgent(d dbq.Device) error {
+	if vercmp.Key(d.AgentVersion) != nil && vercmp.Compare(d.AgentVersion, minOneOffAgent) < 0 {
+		return invalid("this device runs agent %s; update its agent to %s or later before checking Microsoft online", d.AgentVersion, minOneOffAgent)
+	}
+	return nil
+}
 
 func (s *Service) device(ctx context.Context, org, id uuid.UUID) (dbq.Device, error) {
 	d, err := dbq.New(s.Pool).GetDeviceInOrg(ctx, dbq.GetDeviceInOrgParams{ID: id, OrgID: org})
@@ -57,14 +70,34 @@ func (s *Service) enqueue(ctx context.Context, a Actor, d dbq.Device, spec deplo
 
 // ScanDevice asks a device to scan now (with the organization's source settings).
 func (s *Service) ScanDevice(ctx context.Context, a Actor, device uuid.UUID) (uuid.UUID, error) {
+	return s.scanDevice(ctx, a, device, false)
+}
+
+// ScanDeviceOnline asks a device to check Windows Update on the internet once, even when Group
+// Policy points it at WSUS or Configuration Manager. It is read-only and one-off: the device does
+// not remember this source for its daily scan, and no policy is changed (D105).
+func (s *Service) ScanDeviceOnline(ctx context.Context, a Actor, device uuid.UUID) (uuid.UUID, error) {
+	return s.scanDevice(ctx, a, device, true)
+}
+
+// onlineSource is what a one-off online check uses: Windows Update on the internet, never drivers.
+func onlineSource() orgWU { return orgWU{service: agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE} }
+
+func (s *Service) scanDevice(ctx context.Context, a Actor, device uuid.UUID, online bool) (uuid.UUID, error) {
 	d, err := s.device(ctx, a.Org, device)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	cfg := s.settings(ctx, a.Org)
+	cfg, action, title := s.settings(ctx, a.Org), "wu.scan", "Scan for Windows updates"
+	if online {
+		if err := checkOneOffAgent(d); err != nil {
+			return uuid.Nil, err
+		}
+		cfg, action, title = onlineSource(), "wu.scan_online", "Check Windows Update online (one time)"
+	}
 	now := s.now()
-	return s.enqueue(ctx, a, d, deploy.JobSpec{Type: agentv1.JobType_JOB_TYPE_WU_SCAN, DBType: "wu_scan", Title: "Scan for Windows updates", NotBefore: now,
-		Expires: now.Add(time.Hour), Body: &agentv1.WuScanBody{Service: cfg.service, IncludeDrivers: cfg.drivers}}, "wu.scan", nil, nil)
+	return s.enqueue(ctx, a, d, deploy.JobSpec{Type: agentv1.JobType_JOB_TYPE_WU_SCAN, DBType: "wu_scan", Title: title, NotBefore: now,
+		Expires: now.Add(time.Hour), Body: &agentv1.WuScanBody{Service: cfg.service, IncludeDrivers: cfg.drivers, OneOff: online}}, action, nil, nil)
 }
 
 func parseIDs(in []string) ([]uuid.UUID, error) {
@@ -85,6 +118,17 @@ func parseIDs(in []string) ([]uuid.UUID, error) {
 // InstallOnDevice installs the chosen updates now, ignoring rings and approval (an explicit
 // administrator action, audited). Only updates the device's last scan lists as missing are sent.
 func (s *Service) InstallOnDevice(ctx context.Context, a Actor, device uuid.UUID, updateIDs []string, reboot RebootCfg) (uuid.UUID, error) {
+	return s.installOnDevice(ctx, a, device, updateIDs, reboot, false)
+}
+
+// InstallOnDeviceOnline is InstallOnDevice for updates found by a one-off online check: the device
+// downloads them from Windows Update on the internet instead of WSUS (D105). Nothing is remembered
+// on the device afterwards.
+func (s *Service) InstallOnDeviceOnline(ctx context.Context, a Actor, device uuid.UUID, updateIDs []string, reboot RebootCfg) (uuid.UUID, error) {
+	return s.installOnDevice(ctx, a, device, updateIDs, reboot, true)
+}
+
+func (s *Service) installOnDevice(ctx context.Context, a Actor, device uuid.UUID, updateIDs []string, reboot RebootCfg, online bool) (uuid.UUID, error) {
 	ids, err := parseIDs(updateIDs)
 	if err != nil {
 		return uuid.Nil, err
@@ -95,6 +139,11 @@ func (s *Service) InstallOnDevice(ctx context.Context, a Actor, device uuid.UUID
 	d, err := s.device(ctx, a.Org, device)
 	if err != nil {
 		return uuid.Nil, err
+	}
+	if online {
+		if err := checkOneOffAgent(d); err != nil {
+			return uuid.Nil, err
+		}
 	}
 	rows, err := dbq.New(s.Pool).ListDeviceUpdateIDs(ctx, dbq.ListDeviceUpdateIDsParams{DeviceID: device, States: []string{"missing", "downloaded"}})
 	if err != nil {
@@ -115,12 +164,16 @@ func (s *Service) InstallOnDevice(ctx context.Context, a Actor, device uuid.UUID
 	if len(refs) == 0 {
 		return uuid.Nil, invalid("none of the chosen updates is missing on this device (scan it first)")
 	}
-	cfg := s.settings(ctx, a.Org)
+	cfg, action, title := s.settings(ctx, a.Org), "wu.install", "Install "+plural(len(refs), "Windows update")
+	details := map[string]any{"updates": len(refs), "restart": reboot.Allow}
+	if online {
+		cfg, action, title = onlineSource(), "wu.install_online", title+" from Windows Update online"
+		details["source"] = "windows_update"
+	}
 	now := s.now()
-	return s.enqueue(ctx, a, d, deploy.JobSpec{Type: agentv1.JobType_JOB_TYPE_WU_INSTALL, DBType: "wu_install", NotBefore: now, Expires: now.Add(jobLifetime),
-		Title: "Install " + plural(len(refs), "Windows update"),
-		Body:  &agentv1.WuInstallBody{Service: cfg.service, IncludeDrivers: cfg.drivers, Updates: refs, Reboot: reboot.Proto(now), TimeoutS: 3 * 3600, MaxRetries: 1, RetryBackoffS: 300}},
-		"wu.install", map[string]any{"updates": len(refs), "restart": reboot.Allow}, queued)
+	return s.enqueue(ctx, a, d, deploy.JobSpec{Type: agentv1.JobType_JOB_TYPE_WU_INSTALL, DBType: "wu_install", NotBefore: now, Expires: now.Add(jobLifetime), Title: title,
+		Body: &agentv1.WuInstallBody{Service: cfg.service, IncludeDrivers: cfg.drivers, Updates: refs, Reboot: reboot.Proto(now), TimeoutS: 3 * 3600, MaxRetries: 1, RetryBackoffS: 300, OneOff: online}},
+		action, details, queued)
 }
 
 // HideOnDevice hides or unhides updates on one device.

@@ -184,3 +184,68 @@ func TestWindowsUpdateEndToEnd(t *testing.T) {
 		}
 	}
 }
+
+// A device that Group Policy sends to WSUS can still be checked against Windows Update on the
+// internet, once, by an administrator (D105). Operators cannot; the device forgets the source.
+func TestOnlineWindowsUpdateCheck(t *testing.T) {
+	h := newHarness(t)
+	h.setupAndLogin()
+	operator := h.orgUser("op@example.com", "operator")
+	ta := h.startAgent(h.createToken("wu-online", 5, false), &fakeHW{host: "LAP-W2", serial: "SW2", uuid: "UW2"}, nil, withJobs)
+	writeWU(t, ta.dir, wu.DevFile{Updates: []wu.DevUpdate{
+		{ID: kbSecurity, Revision: 7, Title: "2026-03 Cumulative Update for Windows 11 (KB5000001)", KB: []string{"5000001"}, Classification: "Security Updates", Severity: "Critical"},
+	}, Policy: &agentv1.WuPolicyInfo{WsusConfigured: true, WsusServer: "http://wsus.example:8530", EffectiveSource: "wsus"}})
+	waitFor(t, 15*time.Second, "agent connected", func() bool { return ta.state() == "connected" })
+	dev := h.devices()[0]["id"].(string)
+
+	// Going around WSUS needs the update-policy permission.
+	for _, p := range []string{"scan-online", "install-online"} {
+		if st, _, _ := operator.raw("POST", "/api/v1/devices/"+dev+"/windows-updates/"+p, "application/json", []byte(`{"update_ids":["`+kbSecurity+`"]}`)); st != 403 {
+			t.Errorf("operator %s: %d, want 403", p, st)
+		}
+	}
+	var jobs int
+	_ = h.db.Pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE type IN ('wu_scan','wu_install') AND title LIKE '%online%'`).Scan(&jobs)
+	if jobs != 0 {
+		t.Fatalf("a refused request queued %d job(s)", jobs)
+	}
+
+	// An administrator's one-time check reaches the device, which reports the source it used.
+	st, sc := h.do("POST", "/api/v1/devices/"+dev+"/windows-updates/scan-online", map[string]any{}, nil)
+	if st != 202 {
+		t.Fatalf("scan-online: %d %v", st, sc)
+	}
+	h.waitJobByID(sc["job_id"].(string), "succeeded")
+	waitFor(t, 15*time.Second, "online scan reported", func() bool {
+		_, b := h.do("GET", "/api/v1/devices/"+dev+"/windows-updates", nil, nil)
+		return b["service"] == float64(agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE) && len(items(b)) == 1
+	})
+	if h.auditDetails("wu.scan_online")["hostname"] != "LAP-W2" {
+		t.Fatal("the online check must be audited with the device")
+	}
+
+	// The next normal scan goes back to the organization's source: the device did not keep the override.
+	st, sc = h.do("POST", "/api/v1/devices/"+dev+"/windows-updates/scan", map[string]any{}, nil)
+	if st != 202 {
+		t.Fatalf("scan: %d %v", st, sc)
+	}
+	h.waitJobByID(sc["job_id"].(string), "succeeded")
+	waitFor(t, 15*time.Second, "normal scan reported", func() bool {
+		_, b := h.do("GET", "/api/v1/devices/"+dev+"/windows-updates", nil, nil)
+		return b["service"] == float64(agentv1.WuService_WU_SERVICE_DEFAULT)
+	})
+
+	// The restart banner follows the live flag from the heartbeat, not the flag saved with the last scan.
+	if _, err := h.db.Pool.Exec(context.Background(), `UPDATE devices SET pending_reboot = false, wu_reboot_required = true WHERE id = $1`, dev); err != nil {
+		t.Fatal(err)
+	}
+	if _, b := h.do("GET", "/api/v1/devices/"+dev+"/windows-updates", nil, nil); b["reboot_required"] != false {
+		t.Fatalf("a restart since the last scan must clear the banner: %v", b["reboot_required"])
+	}
+	if _, err := h.db.Pool.Exec(context.Background(), `UPDATE devices SET pending_reboot = true, wu_reboot_required = false WHERE id = $1`, dev); err != nil {
+		t.Fatal(err)
+	}
+	if _, b := h.do("GET", "/api/v1/devices/"+dev+"/windows-updates", nil, nil); b["reboot_required"] != true {
+		t.Fatalf("a pending restart must show: %v", b["reboot_required"])
+	}
+}

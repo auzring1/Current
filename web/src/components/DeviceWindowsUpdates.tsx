@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Group, Modal, NumberInput, Select, Stack, Text, Tooltip } from "@mantine/core";
+import { Alert, Button, Checkbox, Group, Modal, NumberInput, Select, Stack, Text, Tooltip } from "@mantine/core";
 import { api, errorMessage, type DeviceWindowsUpdates, type RestartPolicy } from "../api/client";
 import { dateTime } from "../api/format";
 import { useSession } from "../api/session";
@@ -39,12 +39,23 @@ export const fetchWindowsUpdates = (id: string) => api<DeviceWindowsUpdates>("GE
 /** Updates that "install now" can act on: not hidden and not already waiting for a restart. */
 export const installable = (items: Item[]) => items.filter((i) => i.state !== "hidden" && i.state !== "pending_reboot");
 
-/** Asks the device to scan for Windows updates and waits for the answer. */
-export function useScanUpdates(id: string) {
+/** Update service number for Windows Update on the internet (WuService in the agent protocol). */
+const SERVICE_INTERNET = 2;
+/**
+ * True when the last scan was a check against Windows Update on the internet although Group Policy sends this device
+ * to WSUS: an administrator's one-time online check. What it found can only be installed from the same source.
+ */
+export const fromOnlineCheck = (wu: DeviceWindowsUpdates) => wu.service === SERVICE_INTERNET && !!wu.policy?.wsus_configured;
+
+/**
+ * Asks the device to scan for Windows updates and waits for the answer. With `online` the device checks Windows Update
+ * on the internet once, around its WSUS setting (needs `updates:policy`).
+ */
+export function useScanUpdates(id: string, online = false) {
   const done = useRefreshAfter(id);
   return useMutation({
     mutationFn: async () => {
-      const { job_id } = await api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/scan`, {});
+      const { job_id } = await api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/${online ? "scan-online" : "scan"}`, {});
       return waitForJob(job_id, 180);
     },
     onSuccess: (s) => {
@@ -61,7 +72,8 @@ export function useScanUpdates(id: string) {
 export function useInstallUpdates(id: string) {
   const done = useRefreshAfter(id);
   return useMutation({
-    mutationFn: ({ ids, restart }: { ids: string[]; restart: RestartPolicy }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/install`, { update_ids: ids, restart }),
+    mutationFn: ({ ids, restart, online }: { ids: string[]; restart: RestartPolicy; online?: boolean }) =>
+      api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/${online ? "install-online" : "install"}`, { update_ids: ids, restart }),
     onSuccess: () => (done(), toast.success("Install queued. Follow it on the Jobs tab.")),
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -81,10 +93,13 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
   const { can } = useSession();
   const done = useRefreshAfter(id);
   const canAct = can("updates:write") && active;
+  const canOnline = can("updates:policy") && canAct;
   const [installFor, setInstallFor] = useState<{ items: Item[]; clear: () => void } | null>(null);
   const [restartOpen, setRestartOpen] = useState(false);
+  const [onlineOpen, setOnlineOpen] = useState(false);
   const q = useQuery({ queryKey: windowsUpdatesKey(id), queryFn: () => fetchWindowsUpdates(id) });
   const scan = useScanUpdates(id);
+  const scanOnline = useScanUpdates(id, true);
   const install = useInstallUpdates(id);
   const hide = useMutation({
     mutationFn: ({ ids, hide }: { ids: string[]; hide: boolean; clear: () => void }) => api<{ job_id: string }>("POST", `/devices/${id}/windows-updates/hide`, { update_ids: ids, hide }),
@@ -172,6 +187,7 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
   const d = q.data!;
   const p = d.policy;
   const managed = p && (p.wsus_configured || p.wufb_deferrals || p.no_auto_update || p.wu_service_disabled);
+  const online = fromOnlineCheck(d);
 
   return (
     <Stack>
@@ -192,6 +208,21 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           )}
           <Text size="sm" mt={4}>
             {PRODUCT_NAME} does not change these policies. Installs can be delayed or blocked until you change them (for example with Group Policy).
+          </Text>
+          {canOnline && p.wsus_configured && (
+            <Group mt="xs">
+              <Button size="xs" variant="default" onClick={() => setOnlineOpen(true)} loading={scanOnline.isPending} leftSection={<Icons.NavAgentUpdates size={14} aria-hidden />}>
+                Check Microsoft online…
+              </Button>
+            </Group>
+          )}
+        </Alert>
+      )}
+      {online && (
+        <Alert color="blue" icon={<Icons.Info size={18} aria-hidden />} title="Showing a one-time check against Microsoft's servers">
+          <Text size="sm">
+            This list comes from Windows Update on the internet, not from this device's WSUS server, so it can include updates your WSUS has not approved. The device goes back to its usual source at its next
+            scan; <b>Scan now</b> does that right away.
           </Text>
         </Alert>
       )}
@@ -246,9 +277,13 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           const ready = installable(rows);
           return (
             <>
-              <Button size="compact-sm" onClick={() => setInstallFor({ items: ready, clear })} disabled={ready.length === 0}>
-                Install selected
-              </Button>
+              <Tooltip label="Installing what an online check found needs the update-policy permission." disabled={!online || canOnline}>
+                <span>
+                  <Button size="compact-sm" onClick={() => setInstallFor({ items: ready, clear })} disabled={ready.length === 0 || (online && !canOnline)}>
+                    Install selected
+                  </Button>
+                </span>
+              </Tooltip>
               <Button size="compact-sm" variant="default" onClick={() => hide.mutate({ ids: rows.filter((i) => i.state !== "hidden").map((i) => i.update_id), hide: true, clear })} disabled={rows.every((i) => i.state === "hidden")}>
                 Hide
               </Button>
@@ -259,18 +294,36 @@ export function WindowsUpdatesTab({ id, active }: { id: string; active: boolean 
           );
         }}
       />
-      {installFor && <InstallModal items={installFor.items} busy={install.isPending} onCancel={() => setInstallFor(null)} onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart }, { onSuccess: () => (installFor.clear(), setInstallFor(null)) })} />}
+      {installFor && (
+        <InstallModal
+          items={installFor.items}
+          online={online}
+          busy={install.isPending}
+          onCancel={() => setInstallFor(null)}
+          onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart, online }, { onSuccess: () => (installFor.clear(), setInstallFor(null)) })}
+        />
+      )}
+      {onlineOpen && <OnlineCheckModal busy={scanOnline.isPending} server={p?.wsus_server} onCancel={() => setOnlineOpen(false)} onConfirm={() => scanOnline.mutate(undefined, { onSettled: () => setOnlineOpen(false) })} />}
       {restartOpen && <RestartModal busy={reboot.isPending} onCancel={() => setRestartOpen(false)} onConfirm={(m) => reboot.mutate(m, { onSuccess: () => setRestartOpen(false) })} />}
     </Stack>
   );
 }
 
-export function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item[]; busy: boolean; onCancel: () => void; onConfirm: (r: RestartPolicy) => void }) {
+export function InstallModal({ items, busy, online = false, onCancel, onConfirm }: { items: Item[]; busy: boolean; online?: boolean; onCancel: () => void; onConfirm: (r: RestartPolicy) => void }) {
   const [restart, setRestart] = useState("never");
+  const [understood, setUnderstood] = useState(false);
   return (
     <Modal opened onClose={onCancel} title={`Install ${items.length} update${items.length === 1 ? "" : "s"} now`}>
       <Stack>
         <Text size="sm">This installs right away on this device, whatever the approval state and rings say.</Text>
+        {online && (
+          <Alert color="orange" icon={<Icons.Warning size={18} aria-hidden />} title="From Microsoft's servers, not your WSUS">
+            <Text size="sm">
+              This device will download these updates from Windows Update on the internet, skipping its WSUS or Configuration Manager server and any approval or change control you run there. The action is recorded in the audit log.
+            </Text>
+            <Checkbox mt="xs" label="I understand and want to install them anyway" checked={understood} onChange={(e) => setUnderstood(e.currentTarget.checked)} />
+          </Alert>
+        )}
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {items.map((i) => (
             <li key={i.update_id}>
@@ -292,8 +345,33 @@ export function InstallModal({ items, busy, onCancel, onConfirm }: { items: Item
           <Button variant="default" onClick={onCancel}>
             Cancel
           </Button>
-          <Button loading={busy} onClick={() => onConfirm(restart === "never" ? { allow: "never" } : { allow: "outside_active_hours", active_start: 8 * 60, active_end: 17 * 60, notify_minutes: 15 })}>
+          <Button loading={busy} disabled={online && !understood} onClick={() => onConfirm(restart === "never" ? { allow: "never" } : { allow: "outside_active_hours", active_start: 8 * 60, active_end: 17 * 60, notify_minutes: 15 })}>
             Install
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+/** Confirms a one-time check of Windows Update on the internet for a device that Group Policy sends to WSUS. */
+export function OnlineCheckModal({ busy, server, onCancel, onConfirm }: { busy: boolean; server?: string; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <Modal opened onClose={onCancel} title="Check Microsoft online">
+      <Stack>
+        <Text size="sm">
+          This asks the device to check Windows Update on the internet once{server ? <>, instead of its WSUS server (<code>{server}</code>)</> : ""}. It only looks: nothing is installed, no policy on the device is changed, and the device goes back to its usual source
+          at its next scan.
+        </Text>
+        <Text size="sm">
+          If the device's policy blocks internet access to Windows Update, the check fails and the reason appears on this tab. The action is recorded in the audit log.
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button loading={busy} onClick={onConfirm}>
+            Check online
           </Button>
         </Group>
       </Stack>
