@@ -321,6 +321,17 @@ paths:
       responses:
         "204": { description: Revoked }
         "404": { $ref: "#/components/responses/Error" }
+  /enrollment-tokens/{id}:
+    delete:
+      tags: [enrollment]
+      summary: Delete an enrollment token that can no longer be used, because it is revoked, expired or used up (requires enrollment:write; audited)
+      description: >
+        A token that can still enroll devices is refused with 409 and must be revoked first. Devices that enrolled with the token are kept.
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /audit:
     get:
       tags: [audit]

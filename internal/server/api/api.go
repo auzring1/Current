@@ -238,6 +238,7 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens", s.createToken)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens/{id}/revoke", s.revokeToken)
+	r.With(s.require(auth.PermEnrollmentWrite)).Delete("/enrollment-tokens/{id}", s.deleteToken)
 
 	r.With(s.require(auth.PermAuditRead)).Get("/audit", s.listAudit)
 	r.With(s.require(auth.PermAuditRead)).Post("/audit/verify", s.verifyAudit)

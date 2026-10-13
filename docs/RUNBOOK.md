@@ -151,7 +151,7 @@ use the same version as your server. You can run it under its long name or renam
 is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.)
 
 1. In the console, go to **Enrollment**, then **New token**. Give it a name, a maximum number of uses and a lifetime. Optionally turn on **Require administrator approval**.
-2. Copy the install command. It is shown only once.
+2. Copy the install command. It is shown only once. A token that can no longer be used (revoked, expired or used up) can be removed from the list with **Delete** on its row; a token that still works must be **Revoked** first. Devices that enrolled with it are not affected.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
    .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...      (use the exe's file name)
