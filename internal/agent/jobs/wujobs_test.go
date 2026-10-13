@@ -74,6 +74,58 @@ func TestWUScanReportsSnapshotAndRemembersOptions(t *testing.T) {
 	}
 }
 
+func TestWUOneOffScanDoesNotChangeTheOptionsOfTheDailyScan(t *testing.T) {
+	r := newRig(t)
+	r.offerUpdates(idKB1)
+	// the normal scan remembers the organization's source (here: the machine's own, e.g. WSUS)
+	se, env := r.wuEnv("n1", agentv1.JobType_JOB_TYPE_WU_SCAN, func(e *agentv1.JobEnvelope) {
+		e.GetWuScan().Service, e.GetWuScan().IncludeDrivers = agentv1.WuService_WU_SERVICE_DEFAULT, false
+	})
+	r.run("n1", se, env)
+	// an administrator's one-off check against the internet
+	var got *agentv1.WuInventory
+	r.e.WUReport = func(s *agentv1.WuInventory) { got = s }
+	se, env = r.wuEnv("o1", agentv1.JobType_JOB_TYPE_WU_SCAN, func(e *agentv1.JobEnvelope) {
+		b := e.GetWuScan()
+		b.Service, b.IncludeDrivers, b.OneOff = agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE, false, true
+	})
+	r.run("o1", se, env)
+	if r.state("o1") != agentv1.JobState_JOB_STATE_SUCCEEDED || got == nil || got.Service != int32(agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE) {
+		t.Fatalf("one-off scan: %v %+v", r.state("o1"), got)
+	}
+	if o := r.p.wuc.opts[len(r.p.wuc.opts)-1]; o.Service != agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE {
+		t.Fatalf("the one-off scan did not use the requested source: %+v", o)
+	}
+	if o := r.e.storedWUOptions(); o.Service != agentv1.WuService_WU_SERVICE_DEFAULT {
+		t.Fatalf("a one-off scan changed the options of the automatic scan: %+v", o)
+	}
+}
+
+func TestWUOneOffInstallDoesNotChangeTheOptionsOfTheDailyScan(t *testing.T) {
+	r := newRig(t)
+	r.offerUpdates(idKB1, idKB2)
+	se, env := r.wuEnv("n2", agentv1.JobType_JOB_TYPE_WU_SCAN, func(e *agentv1.JobEnvelope) {
+		e.GetWuScan().Service, e.GetWuScan().IncludeDrivers = agentv1.WuService_WU_SERVICE_DEFAULT, false
+	})
+	r.run("n2", se, env)
+	se, env = r.wuEnv("o2", agentv1.JobType_JOB_TYPE_WU_INSTALL, func(e *agentv1.JobEnvelope) {
+		b := e.GetWuInstall()
+		b.Service, b.OneOff = agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE, true
+	})
+	r.run("o2", se, env)
+	if r.state("o2") != agentv1.JobState_JOB_STATE_SUCCEEDED {
+		t.Fatalf("one-off install: %v", r.state("o2"))
+	}
+	for _, o := range r.p.wuc.opts[1:] {
+		if o.Service != agentv1.WuService_WU_SERVICE_WINDOWS_UPDATE {
+			t.Fatalf("the one-off install or its rescan used another source: %+v", r.p.wuc.opts)
+		}
+	}
+	if o := r.e.storedWUOptions(); o.Service != agentv1.WuService_WU_SERVICE_DEFAULT {
+		t.Fatalf("a one-off install changed the options of the automatic scan: %+v", o)
+	}
+}
+
 func TestWUScanFailureIsReportedInTheSnapshot(t *testing.T) {
 	r := newRig(t)
 	r.p.wuc.err = errors.New("0x80072ee2: the server name or address could not be resolved")

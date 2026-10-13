@@ -151,7 +151,7 @@ use the same version as your server. You can run it under its long name or renam
 is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.)
 
 1. In the console, go to **Enrollment**, then **New token**. Give it a name, a maximum number of uses and a lifetime. Optionally turn on **Require administrator approval**.
-2. Copy the install command. It is shown only once.
+2. Copy the install command. It is shown only once. A token that can no longer be used (revoked, expired or used up) can be removed from the list with **Delete** on its row; a token that still works must be **Revoked** first. Devices that enrolled with it are not affected.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
    .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...      (use the exe's file name)
@@ -296,6 +296,7 @@ Configuration (all optional, set in the server's environment):
 | Install now on one device | Device → **Windows updates** → tick updates → **Install selected** (ignores approval and rings; audited). **Restart now…** appears when the device is waiting for a restart (countdown 1–1440 min, visible to signed-in users; 1 minute is the shortest, so nobody is restarted without a warning). |
 | Source (WU / Microsoft Update / drivers) | **Update policy → Update source** (administrators). Devices get it as a scan job and rescan. |
 | Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Current does not change these policies. |
+| Check one PC against Microsoft online (WSUS-managed PCs) | On the device's **Windows updates** tab, the yellow banner has **Check Microsoft online…** (administrators only). The PC checks Windows Update on the internet once, in place of its WSUS or Configuration Manager server; nothing is installed and no policy is touched. The list is marked as an online check, and **Install selected** then downloads from Microsoft's servers after a confirmation (skipping your WSUS approvals; audited as `wu.scan_online` / `wu.install_online`). The PC returns to its usual source at its next scan, or press **Scan now**. If the PC's Group Policy blocks internet access to Windows Update, the check fails and the reason shows on the tab. Needs agent 1.1.3 or later (the console refuses it for older agents); not yet tried on a real PC. |
 | Limit what an endpoint will do | Add `wu_scan,wu_install,wu_hide,reboot` to (or leave them out of) `--allowed-jobs` at install time. |
 
 ### 5c. Agent updates (Phase 5)

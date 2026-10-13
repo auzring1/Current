@@ -40,6 +40,11 @@ export function TokensPage() {
     onSuccess: () => (toast.success("Token revoked."), qc.invalidateQueries({ queryKey: ["tokens"] })),
     onError: (e) => toast.error(errorMessage(e)),
   });
+  const remove = useMutation({
+    mutationFn: (id: string) => api("DELETE", `/enrollment-tokens/${id}`),
+    onSuccess: () => (toast.success("Token deleted."), qc.invalidateQueries({ queryKey: ["tokens"] })),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
   const canWrite = can("enrollment:write");
 
   const columns = useMemo<Column<EnrollmentToken>[]>(
@@ -108,29 +113,53 @@ export function TokensPage() {
         searchPlaceholder="Search tokens…"
         exportName="enrollment-tokens"
         initialSort={{ id: "expires", desc: true }}
-        rowActions={(t) =>
-          canWrite && t.state === "active" ? (
+        rowActions={(t) => {
+          if (!canWrite) return null;
+          if (t.state === "active")
+            return (
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                color="red"
+                leftSection={<Icons.Close size={14} aria-hidden />}
+                aria-label={`Revoke ${t.name}`}
+                loading={revoke.isPending && revoke.variables === t.id}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Revoke "${t.name}"?`,
+                    message: "Devices can no longer enroll with this token. Devices that already enrolled with it are not affected.",
+                    confirmLabel: "Revoke token",
+                    danger: true,
+                  });
+                  if (ok) revoke.mutate(t.id);
+                }}
+              >
+                Revoke
+              </Button>
+            );
+          // Revoked, expired or used up: nothing can enroll with it any more, so it can go.
+          return (
             <Button
               size="compact-sm"
               variant="subtle"
               color="red"
-              leftSection={<Icons.Close size={14} aria-hidden />}
-              aria-label={`Revoke ${t.name}`}
-              loading={revoke.isPending && revoke.variables === t.id}
+              leftSection={<Icons.Trash size={14} aria-hidden />}
+              aria-label={`Delete ${t.name}`}
+              loading={remove.isPending && remove.variables === t.id}
               onClick={async () => {
                 const ok = await confirm({
-                  title: `Revoke "${t.name}"?`,
-                  message: "Devices can no longer enroll with this token. Devices that already enrolled with it are not affected.",
-                  confirmLabel: "Revoke token",
+                  title: `Delete "${t.name}"?`,
+                  message: "The token is removed from this list. Devices that enrolled with it are not affected, and the audit log keeps the record.",
+                  confirmLabel: "Delete token",
                   danger: true,
                 });
-                if (ok) revoke.mutate(t.id);
+                if (ok) remove.mutate(t.id);
               }}
             >
-              Revoke
+              Delete
             </Button>
-          ) : null
-        }
+          );
+        }}
         empty={
           <EmptyState
             icon={<Icons.NavEnrollment size={26} />}

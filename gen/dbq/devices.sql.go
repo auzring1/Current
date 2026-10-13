@@ -180,6 +180,23 @@ func (q *Queries) DeleteDeviceCerts(ctx context.Context, deviceID uuid.UUID) err
 	return err
 }
 
+const deleteEnrollmentToken = `-- name: DeleteEnrollmentToken :execrows
+DELETE FROM enrollment_tokens WHERE id = $1 AND org_id = $2
+`
+
+type DeleteEnrollmentTokenParams struct {
+	ID    uuid.UUID
+	OrgID uuid.UUID
+}
+
+func (q *Queries) DeleteEnrollmentToken(ctx context.Context, arg DeleteEnrollmentTokenParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEnrollmentToken, arg.ID, arg.OrgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const findActiveDeviceByHardware = `-- name: FindActiveDeviceByHardware :one
 SELECT id, org_id, site_id, status, status_reason, hostname, smbios_uuid, serial, os_caption, os_build, arch, agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr, enrolled_at, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, last_ip, hardware, hardware_rev, hardware_updated_at, uptime_s, pending_reboot, logged_on_user, software_rev, users_rev, software_updated_at, software_count, inventory_truncated, chassis, manufacturer, model, ram_bytes, os_build_num, wu_rev, wu_scanned_at, wu_scan_error, wu_reboot_required, wu_policy, wu_service, wu_truncated, wu_settings_rev FROM devices
 WHERE org_id = $1 AND status = 'active' AND smbios_uuid = $2 AND serial = $3
@@ -440,6 +457,35 @@ SELECT id, org_id, site_id, name, token_hash, max_uses, used_count, expires_at, 
 
 func (q *Queries) GetEnrollmentTokenByHashForUpdate(ctx context.Context, tokenHash []byte) (EnrollmentToken, error) {
 	row := q.db.QueryRow(ctx, getEnrollmentTokenByHashForUpdate, tokenHash)
+	var i EnrollmentToken
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.SiteID,
+		&i.Name,
+		&i.TokenHash,
+		&i.MaxUses,
+		&i.UsedCount,
+		&i.ExpiresAt,
+		&i.RequireApproval,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const getEnrollmentTokenInOrg = `-- name: GetEnrollmentTokenInOrg :one
+SELECT id, org_id, site_id, name, token_hash, max_uses, used_count, expires_at, require_approval, created_by, created_at, revoked_at FROM enrollment_tokens WHERE id = $1 AND org_id = $2 FOR UPDATE
+`
+
+type GetEnrollmentTokenInOrgParams struct {
+	ID    uuid.UUID
+	OrgID uuid.UUID
+}
+
+func (q *Queries) GetEnrollmentTokenInOrg(ctx context.Context, arg GetEnrollmentTokenInOrgParams) (EnrollmentToken, error) {
+	row := q.db.QueryRow(ctx, getEnrollmentTokenInOrg, arg.ID, arg.OrgID)
 	var i EnrollmentToken
 	err := row.Scan(
 		&i.ID,

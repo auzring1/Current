@@ -185,4 +185,51 @@ func (s *server) revokeToken(w http.ResponseWriter, r *http.Request) {
 
 func spkiPin(c *x509.Certificate) string { return pkix.SPKIPin(c) }
 
-var errUnknownSite = errors.New("unknown site")
+var (
+	errUnknownSite  = errors.New("unknown site")
+	errTokenMissing = errors.New("token not found")
+)
+
+// deleteToken: DELETE /enrollment-tokens/{id}. Removes a token that can no longer enroll anything
+// (revoked, expired or used up) so the list does not fill with dead entries. A token that can still
+// be used must be revoked first, so a click cannot silently take away a rollout's token and a
+// leaked one stays visible until it is revoked. Devices enrolled with it are kept (D106).
+func (s *server) deleteToken(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "Token not found.")
+		return
+	}
+	p := principalFrom(r)
+	now := s.now()
+	err = store.Tx(r.Context(), s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
+		t, err := q.GetEnrollmentTokenInOrg(r.Context(), dbq.GetEnrollmentTokenInOrgParams{ID: id, OrgID: p.OrgID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errTokenMissing
+		} else if err != nil {
+			return err
+		}
+		v := viewToken(t, now)
+		if v.State == "active" {
+			return errConflict
+		}
+		if _, err := q.DeleteEnrollmentToken(r.Context(), dbq.DeleteEnrollmentTokenParams{ID: id, OrgID: p.OrgID}); err != nil {
+			return err
+		}
+		_, err = audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(),
+			ActorIP: clientIP(r), Action: "enrollment_token.delete", TargetType: "enrollment_token", TargetIDs: []string{id.String()},
+			Outcome: audit.Success, Details: map[string]any{"name": t.Name, "state": v.State, "used_count": t.UsedCount}}, now)
+		return err
+	})
+	switch {
+	case errors.Is(err, errTokenMissing):
+		writeError(w, http.StatusNotFound, "not_found", "Token not found.")
+	case errors.Is(err, errConflict):
+		writeError(w, http.StatusConflict, "token_active", "This token can still be used. Revoke it before deleting it.")
+	case err != nil:
+		s.Log.Error("delete token", "err", err)
+		internalError(w)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
+}

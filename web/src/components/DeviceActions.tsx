@@ -6,6 +6,7 @@ import { useSession } from "../api/session";
 import { Icons, toast } from "../ui";
 import {
   fetchWindowsUpdates,
+  fromOnlineCheck,
   InstallModal,
   installable,
   RestartModal,
@@ -45,7 +46,7 @@ export function DeviceActions({ device: d, approve, refreshDevice, onRevoke, onD
   const install = useInstallUpdates(d.id);
   const reboot = useRebootDevice(d.id);
   const [loadingInstall, setLoadingInstall] = useState(false);
-  const [installFor, setInstallFor] = useState<Item[] | null>(null);
+  const [installFor, setInstallFor] = useState<{ items: Item[]; online: boolean } | null>(null);
   const [restartOpen, setRestartOpen] = useState(false);
 
   const openInstall = async () => {
@@ -53,8 +54,10 @@ export function DeviceActions({ device: d, approve, refreshDevice, onRevoke, onD
     try {
       const wu = await qc.fetchQuery({ queryKey: windowsUpdatesKey(d.id), queryFn: () => fetchWindowsUpdates(d.id), staleTime: 0 });
       const items = installable(wu.items);
+      const online = fromOnlineCheck(wu);
       if (items.length === 0) toast.info("Nothing to install: no missing Windows updates are known for this device. Scan for updates first.");
-      else setInstallFor(items);
+      else if (online && !can("updates:policy")) toast.info("These updates come from an online check, which only people with the update-policy permission can install. Scan for updates to go back to the usual source.");
+      else setInstallFor({ items, online });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -116,10 +119,11 @@ export function DeviceActions({ device: d, approve, refreshDevice, onRevoke, onD
       )}
       {installFor && (
         <InstallModal
-          items={installFor}
+          items={installFor.items}
+          online={installFor.online}
           busy={install.isPending}
           onCancel={() => setInstallFor(null)}
-          onConfirm={(restart) => install.mutate({ ids: installFor.map((i) => i.update_id), restart }, { onSuccess: () => setInstallFor(null) })}
+          onConfirm={(restart) => install.mutate({ ids: installFor.items.map((i) => i.update_id), restart, online: installFor.online }, { onSuccess: () => setInstallFor(null) })}
         />
       )}
       {restartOpen && <RestartModal busy={reboot.isPending} onCancel={() => setRestartOpen(false)} onConfirm={(m) => reboot.mutate(m, { onSuccess: () => setRestartOpen(false) })} />}

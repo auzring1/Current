@@ -685,6 +685,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/enrollment-tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an enrollment token that can no longer be used, because it is revoked, expired or used up (requires enrollment:write; audited)
+         * @description A token that can still enroll devices is refused with 409 and must be revoked first. Devices that enrolled with the token are kept.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit": {
         parameters: {
             query?: never;
@@ -4998,6 +5039,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/devices/{id}/windows-updates/scan-online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Windows Update on the internet once, even when Group Policy sends this device to WSUS (requires updates:policy; audited)
+         * @description Read-only and one-off. The device reports the result like any scan (its `service` is the internet Windows Update) and does not remember this source for its daily scan. No policy on the device is changed. Drivers are never included.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{id}/windows-updates/install-online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install updates found by an online check, downloading them from Windows Update on the internet instead of WSUS (requires updates:policy; audited)
+         * @description Like install, but the device uses the internet Windows Update for this one job, whatever its Group Policy says about WSUS or Configuration Manager. Only updates the device's last scan lists as missing are sent, so run an online check first.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ID"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        update_ids: string[];
+                        restart?: components["schemas"]["RestartPolicy"];
+                    };
+                };
+            };
+            responses: {
+                202: components["responses"]["JobQueued"];
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/devices/{id}/windows-updates/hide": {
         parameters: {
             query?: never;
@@ -6631,8 +6754,10 @@ export interface components {
             /** Format: date-time */
             scanned_at?: string | null;
             scan_error?: string;
+            /** @description The device's live restart-pending flag (from its heartbeat) */
             reboot_required: boolean;
             truncated?: boolean;
+            /** @description Update service the last scan used: 1 the device's own source (WSUS if policy sets one), 2 Windows Update on the internet, 3 Microsoft Update */
             service?: number;
             policy?: components["schemas"]["WuPolicy"];
             items: {

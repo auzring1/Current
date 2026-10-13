@@ -321,6 +321,17 @@ paths:
       responses:
         "204": { description: Revoked }
         "404": { $ref: "#/components/responses/Error" }
+  /enrollment-tokens/{id}:
+    delete:
+      tags: [enrollment]
+      summary: Delete an enrollment token that can no longer be used, because it is revoked, expired or used up (requires enrollment:write; audited)
+      description: >
+        A token that can still enroll devices is refused with 409 and must be revoked first. Devices that enrolled with the token are kept.
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /audit:
     get:
       tags: [audit]
@@ -2083,6 +2094,46 @@ paths:
         "202": { $ref: "#/components/responses/JobQueued" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /devices/{id}/windows-updates/scan-online:
+    post:
+      tags: [updates]
+      summary: Check Windows Update on the internet once, even when Group Policy sends this device to WSUS (requires updates:policy; audited)
+      description: >
+        Read-only and one-off. The device reports the result like any scan (its `service` is the internet Windows Update) and does not
+        remember this source for its daily scan. No policy on the device is changed. Drivers are never included.
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /devices/{id}/windows-updates/install-online:
+    post:
+      tags: [updates]
+      summary: Install updates found by an online check, downloading them from Windows Update on the internet instead of WSUS (requires updates:policy; audited)
+      description: >
+        Like install, but the device uses the internet Windows Update for this one job, whatever its Group Policy says about WSUS or
+        Configuration Manager. Only updates the device's last scan lists as missing are sent, so run an online check first.
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [update_ids]
+              properties:
+                update_ids: { type: array, items: { type: string, format: uuid }, minItems: 1, maxItems: 200 }
+                restart: { $ref: "#/components/schemas/RestartPolicy" }
+      responses:
+        "202": { $ref: "#/components/responses/JobQueued" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /devices/{id}/windows-updates/hide:
     post:
       tags: [updates]
@@ -3210,9 +3261,9 @@ components:
       properties:
         scanned_at: { type: string, format: date-time, nullable: true }
         scan_error: { type: string }
-        reboot_required: { type: boolean }
+        reboot_required: { type: boolean, description: The device's live restart-pending flag (from its heartbeat), not the one saved with the last scan }
         truncated: { type: boolean }
-        service: { type: integer }
+        service: { type: integer, description: "Update service the last scan used: 1 the device's own source (WSUS if policy sets one), 2 Windows Update on the internet, 3 Microsoft Update" }
         policy: { $ref: "#/components/schemas/WuPolicy" }
         items:
           type: array

@@ -431,7 +431,9 @@ func (s *server) deviceWindowsUpdates(w http.ResponseWriter, r *http.Request) {
 		items = append(items, view{x.UpdateID, x.Revision, x.State, x.LastError, x.Title, nz(x.Kb), x.Classification, x.Severity, x.IsDriver, x.ReleaseDate,
 			x.RebootRequired, x.SupportUrl, x.Decision, x.AttemptState, x.AttemptFailures})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"scanned_at": wu.WuScannedAt, "scan_error": wu.WuScanError, "reboot_required": wu.WuRebootRequired,
+	// reboot_required is the live flag from the heartbeat, not the one saved with the last scan: a
+	// restart since then must clear the banner without waiting for the next scan.
+	writeJSON(w, http.StatusOK, map[string]any{"scanned_at": wu.WuScannedAt, "scan_error": wu.WuScanError, "reboot_required": d.PendingReboot,
 		"policy": json.RawMessage(wu.WuPolicy), "service": wu.WuService, "truncated": wu.WuTruncated, "items": items})
 }
 
@@ -455,7 +457,29 @@ func (s *server) scanDeviceUpdates(w http.ResponseWriter, r *http.Request) {
 	s.deviceJobResponse(w, id, err)
 }
 
+// scanDeviceUpdatesOnline: POST /devices/{id}/windows-updates/scan-online (updates:policy).
+func (s *server) scanDeviceUpdatesOnline(w http.ResponseWriter, r *http.Request) {
+	if !s.updatesSvc(w) {
+		return
+	}
+	d, ok := s.deviceFromURL(w, r)
+	if !ok {
+		return
+	}
+	id, err := s.Updates.ScanDeviceOnline(r.Context(), s.actor(r), d.ID)
+	s.deviceJobResponse(w, id, err)
+}
+
 func (s *server) installDeviceUpdates(w http.ResponseWriter, r *http.Request) {
+	s.installOnDevice(w, r, false)
+}
+
+// installDeviceUpdatesOnline: POST /devices/{id}/windows-updates/install-online (updates:policy).
+func (s *server) installDeviceUpdatesOnline(w http.ResponseWriter, r *http.Request) {
+	s.installOnDevice(w, r, true)
+}
+
+func (s *server) installOnDevice(w http.ResponseWriter, r *http.Request, online bool) {
 	if !s.updatesSvc(w) {
 		return
 	}
@@ -470,7 +494,11 @@ func (s *server) installDeviceUpdates(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id, err := s.Updates.InstallOnDevice(r.Context(), s.actor(r), d.ID, req.UpdateIDs, req.Restart)
+	install := s.Updates.InstallOnDevice
+	if online {
+		install = s.Updates.InstallOnDeviceOnline
+	}
+	id, err := install(r.Context(), s.actor(r), d.ID, req.UpdateIDs, req.Restart)
 	s.deviceJobResponse(w, id, err)
 }
 

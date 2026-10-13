@@ -15,6 +15,12 @@ UPDATE enrollment_tokens SET used_count = used_count + 1 WHERE id = $1;
 -- name: RevokeEnrollmentToken :execrows
 UPDATE enrollment_tokens SET revoked_at = $3 WHERE id = $1 AND org_id = $2 AND revoked_at IS NULL;
 
+-- name: GetEnrollmentTokenInOrg :one
+SELECT * FROM enrollment_tokens WHERE id = $1 AND org_id = $2 FOR UPDATE;
+
+-- name: DeleteEnrollmentToken :execrows
+DELETE FROM enrollment_tokens WHERE id = $1 AND org_id = $2;
+
 -- name: CreateDevice :exec
 INSERT INTO devices (id, org_id, site_id, status, hostname, smbios_uuid, serial, os_build, arch,
                      agent_version, enrolled_via, replaces_device_id, enroll_ticket_hash, pending_csr,
