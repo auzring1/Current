@@ -19,6 +19,7 @@ import (
 	"github.com/auzring1/current/internal/server/groups"
 	"github.com/auzring1/current/internal/server/inventory"
 	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/current/internal/server/wingetindex"
 	"github.com/auzring1/current/internal/shared/vercmp"
 )
 
@@ -317,6 +318,10 @@ type planner struct {
 	selfManaged bool
 	normName    string
 	jobs        []dbq.InsertJobParams
+	// indexed holds the installed copies the winget index recognised as this package although their display name
+	// differs from the package's, by rowKey; the value is the architecture the copy's name or registry view shows
+	// ("x64", "x86" or "" when it shows none).
+	indexed map[string]string
 }
 
 func (p *planner) prepare(ctx context.Context) error {
@@ -417,6 +422,13 @@ func (p *planner) build(ctx context.Context, devs []dbq.ListActiveDevicesByIDsRo
 	if err != nil {
 		return err
 	}
+	if p.req.Action == "update" && p.pkg.Source == "winget" {
+		extra, err := p.indexMatched(ctx, ids, installs)
+		if err != nil {
+			return err
+		}
+		installs = append(installs, extra...)
+	}
 	byDev := map[uuid.UUID][]dbq.ListPackageInstallsRow{}
 	for _, r := range installs {
 		byDev[r.DeviceID] = append(byDev[r.DeviceID], r)
@@ -445,6 +457,69 @@ func (p *planner) build(ctx context.Context, devs []dbq.ListActiveDevicesByIDsRo
 		}
 	}
 	return nil
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+func rowKey(device uuid.UUID, source, scope, userSID, itemKey string) string {
+	return device.String() + "|" + source + "|" + scope + "|" + userSID + "|" + itemKey
+}
+
+// installedArch is the architecture an installed copy shows: in its name ("(x86)") or in the registry view that lists it.
+func installedArch(name, source string) string {
+	if _, a := wingetindex.NormalizeName(name); a != "" {
+		return strings.ToLower(a)
+	}
+	switch source {
+	case "reg32", "hku32":
+		return "x86"
+	case "reg64":
+		return "x64"
+	}
+	return ""
+}
+
+// indexMatched finds the installed copies of this winget package that the name lookup missed. The Software updates
+// page recognises programs through the winget index (product codes and normalized names), so a program such as
+// "Microsoft Windows Desktop Runtime (x64)" is offered an update to the package "Microsoft .NET Windows Desktop
+// Runtime 10.0"; looking copies up by the package's own name, as ListPackageInstalls does, would find none of them and
+// plan nothing. Copies already in found are not repeated.
+func (p *planner) indexMatched(ctx context.Context, devices []uuid.UUID, found []dbq.ListPackageInstallsRow) ([]dbq.ListPackageInstallsRow, error) {
+	m := p.s.Winget.Matcher()
+	if m == nil {
+		return nil, nil
+	}
+	have := map[string]bool{}
+	for _, r := range found {
+		have[rowKey(r.DeviceID, r.Source, r.Scope, r.UserSid, r.ItemKey)] = true
+	}
+	rows, err := p.q.ListInstallRowsForDevices(ctx, devices)
+	if err != nil {
+		return nil, err
+	}
+	var out []dbq.ListPackageInstallsRow
+	for _, r := range rows {
+		k := rowKey(r.DeviceID, r.Source, r.Scope, r.UserSid, r.ItemKey)
+		if have[k] || r.VersionKey == nil {
+			continue
+		}
+		fm, ok := m.Find(wingetindex.Installed{Name: r.Name, Publisher: r.Publisher, ItemKey: r.ItemKey, ProductCode: r.ProductCode, Source: r.Source})
+		if !ok || !strings.EqualFold(fm.ID, p.pkg.Identifier) {
+			continue
+		}
+		if p.indexed == nil {
+			p.indexed = map[string]string{}
+		}
+		p.indexed[k] = installedArch(r.Name, r.Source)
+		out = append(out, dbq.ListPackageInstallsRow{DeviceID: r.DeviceID, Source: r.Source, Scope: r.Scope, UserSid: r.UserSid, ItemKey: r.ItemKey,
+			Version: r.Version, VersionKey: r.VersionKey, Name: r.Name})
+	}
+	return out, nil
 }
 
 func olderThanTarget(r dbq.ListPackageInstallsRow, key []byte) bool {
@@ -525,6 +600,69 @@ func (p *planner) planInstall(d dbq.ListActiveDevicesByIDsRow, rows []dbq.ListPa
 			return p.planUserExtras(d, userRows, nil)
 		}
 	}
+	// Copies the winget index recognised (their name differs from the package's) are updated with an installer of
+	// their own architecture, one job per architecture, and nothing is removed first: the installer upgrades them in
+	// place, and removing, say, the x86 runtime because an x64 one was installed would break programs.
+	var nameRows []dbq.ListPackageInstallsRow
+	archOld := map[string]bool{}
+	hasIndexed := false
+	for _, r := range machineRows {
+		if a, ok := p.indexed[rowKey(r.DeviceID, r.Source, r.Scope, r.UserSid, r.ItemKey)]; ok {
+			hasIndexed = true
+			if olderThanTarget(r, p.targetKey) {
+				archOld[a] = true
+			}
+			continue
+		}
+		nameRows = append(nameRows, r)
+	}
+	var indexJobs []uuid.UUID
+	for _, a := range []string{"", "x64", "x86"} {
+		if !archOld[a] {
+			continue
+		}
+		devArch := d.Arch
+		switch a {
+		case "x64":
+			devArch = "amd64"
+		case "x86":
+			devArch = "x86"
+		}
+		inst := catalog.SelectInstaller(p.installers, devArch, "machine")
+		if inst == nil {
+			p.skip(d.Hostname, "the package has no machine-wide installer for the installed copy ("+firstNonEmpty(a, d.Arch)+")")
+			continue
+		}
+		body, err := p.installBody(inst, "machine", true)
+		if err != nil {
+			p.skip(d.Hostname, err.Error())
+			continue
+		}
+		title := p.title("Update", "")
+		if a != "" {
+			title = p.title("Update", a)
+		}
+		id, err := p.addJobWhen(d.ID, "", agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, title, body, nil, "finished")
+		if err != nil {
+			return err
+		}
+		indexJobs = append(indexJobs, id)
+	}
+	nameOld := false
+	for _, r := range nameRows {
+		if olderThanTarget(r, p.targetKey) {
+			nameOld = true
+		}
+	}
+	if hasIndexed && !nameOld {
+		var dep *uuid.UUID
+		if len(indexJobs) > 0 {
+			dep = &indexJobs[0]
+		}
+		return p.planUserExtras(d, userRows, dep)
+	}
+	machineRows = nameRows
+
 	inst := catalog.SelectInstaller(p.installers, d.Arch, "machine")
 	if inst == nil {
 		p.skip(d.Hostname, "the package has no machine-wide installer for this device ("+d.Arch+")")

@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"strings"
 	"testing"
@@ -123,5 +124,68 @@ func TestACatalogEntryDecidesInsteadOfTheIndex(t *testing.T) {
 	f.exec("UPDATE package_overrides SET excluded = false, pin = '< 24.0'")
 	if ups, _ := f.svc.DeviceUpdates(ctx, f.org, d); len(ups) != 0 {
 		t.Fatalf("pinned package listed: %+v", ups)
+	}
+}
+
+// A program the winget index recognises under a different display name than the package's ("Microsoft Windows
+// Desktop Runtime 10.0.12 (x64)" for "Microsoft .NET Windows Desktop Runtime 10.0") used to be listed as updatable and
+// then refused with "not installed machine-wide", because the planner looked copies up by the package's own name.
+func TestUpdateOfAProgramRecognisedUnderAnotherName(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	q := dbq.New(f.pool)
+	snap := &wingetindex.Snapshot{Packages: []wingetindex.Package{{
+		ID: "Microsoft.DotNet.DesktopRuntime.10", Name: "Microsoft .NET Windows Desktop Runtime 10.0", LatestVersion: "10.0.13",
+		NormNames:      []string{"microsoftwindowsdesktopruntime(X64)", "microsoftwindowsdesktopruntime(X86)"},
+		NormPublishers: []string{"microsoft"},
+	}}}
+	w := &wingetindex.Service{}
+	w.Use(snap)
+	f.svc.Winget = w
+
+	pid, err := q.UpsertCatalogPackage(ctx, dbq.UpsertCatalogPackageParams{ID: uuid.New(), OrgID: f.org, Source: "winget", Identifier: "Microsoft.DotNet.DesktopRuntime.10",
+		Name: "Microsoft .NET Windows Desktop Runtime 10.0", Publisher: "Microsoft Corporation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	vid, err := q.UpsertCatalogVersion(ctx, dbq.UpsertCatalogVersionParams{ID: uuid.New(), PackageID: pid, Version: "10.0.13", VersionKey: vercmp.Key("10.0.13")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, arch := range []string{"x64", "x86"} {
+		sum := sha256.Sum256([]byte(arch))
+		if err := q.InsertCatalogInstaller(ctx, dbq.InsertCatalogInstallerParams{ID: uuid.New(), VersionID: vid, Architecture: arch, Scope: "machine", InstallerType: "burn",
+			Url: "https://v.example/dotnet-" + arch + ".exe", Sha256: sum[:], FileName: "dotnet-" + arch + ".exe", Switches: []byte(`{"silent":[],"custom":[]}`),
+			SuccessCodes: []int32{}, ExpectedCodes: []int32{}, Detection: []byte(`[]`)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.pkg, _ = q.GetCatalogPackage(ctx, dbq.GetCatalogPackageParams{ID: pid, OrgID: f.org})
+	f.exec("UPDATE catalog_packages SET verified = true WHERE id = $1", pid)
+
+	pc := f.device("pc", "amd64")
+	f.program(pc, "reg64", "{x64-bundle}", "Microsoft Windows Desktop Runtime - 10.0.12 (x64)", "Microsoft Corporation", "", "10.0.12.50000")
+	f.program(pc, "reg32", "{x86-bundle}", "Microsoft Windows Desktop Runtime - 10.0.12 (x86)", "Microsoft Corporation", "", "10.0.12.50000")
+	current := f.device("current", "amd64")
+	f.program(current, "reg64", "{x64-new}", "Microsoft Windows Desktop Runtime - 10.0.13 (x64)", "Microsoft Corporation", "", "10.0.13.50000")
+	none := f.device("none", "amd64")
+
+	plan, err := f.create(Request{Action: "update", Scope: "machine", DeviceIDs: []uuid.UUID{pc, current, none}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One update per installed architecture, none of them preceded by a removal, nothing for the current or empty PCs.
+	if plan.Jobs != 2 || len(plan.Skipped) != 2 {
+		t.Fatalf("plan: %+v", plan)
+	}
+	files := map[string]bool{}
+	for _, j := range f.jobs(plan.DeploymentID) {
+		if j.DeviceID != pc || j.Type != "software_update" {
+			t.Fatalf("unexpected job: %s for %s", j.Type, j.DeviceID)
+		}
+		files[envOf(t, j).GetInstall().Installer.FileName] = true
+	}
+	if !files["dotnet-x64.exe"] || !files["dotnet-x86.exe"] {
+		t.Fatalf("each architecture must get its own installer: %v", files)
 	}
 }

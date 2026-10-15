@@ -821,6 +821,60 @@ func (q *Queries) ListDispatchableJobs(ctx context.Context, deviceID uuid.UUID) 
 	return items, nil
 }
 
+const listInstallRowsForDevices = `-- name: ListInstallRowsForDevices :many
+SELECT si.device_id, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, si.publisher, si.product_code
+FROM software_installs si
+WHERE si.device_id = ANY($1::uuid[]) AND NOT si.system_component AND si.source NOT IN ('appx', 'portable')
+ORDER BY si.device_id, lower(si.name), si.scope, si.user_sid, si.item_key
+`
+
+type ListInstallRowsForDevicesRow struct {
+	DeviceID    uuid.UUID
+	Source      string
+	Scope       string
+	UserSid     string
+	ItemKey     string
+	Name        string
+	Version     string
+	VersionKey  []byte
+	Publisher   string
+	ProductCode string
+}
+
+// Everything these devices report that an installer could update (store apps and portable programs are left out),
+// with what the winget index needs to recognise it. Used to find installed copies whose display name differs from
+// the package's.
+func (q *Queries) ListInstallRowsForDevices(ctx context.Context, deviceIds []uuid.UUID) ([]ListInstallRowsForDevicesRow, error) {
+	rows, err := q.db.Query(ctx, listInstallRowsForDevices, deviceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInstallRowsForDevicesRow{}
+	for rows.Next() {
+		var i ListInstallRowsForDevicesRow
+		if err := rows.Scan(
+			&i.DeviceID,
+			&i.Source,
+			&i.Scope,
+			&i.UserSid,
+			&i.ItemKey,
+			&i.Name,
+			&i.Version,
+			&i.VersionKey,
+			&i.Publisher,
+			&i.ProductCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listJobEvents = `-- name: ListJobEvents :many
 SELECT id, ts, kind, message, data FROM job_events WHERE job_id = $1 ORDER BY id LIMIT 500
 `

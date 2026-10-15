@@ -47,6 +47,15 @@ FROM software_installs si JOIN software_titles st ON st.id = si.title_id
 WHERE st.org_id = @org_id::uuid AND si.device_id = ANY(@device_ids::uuid[]) AND st.normalized_name = @normalized_name::text
   AND NOT si.system_component;
 
+-- name: ListInstallRowsForDevices :many
+-- Everything these devices report that an installer could update (store apps and portable programs are left out),
+-- with what the winget index needs to recognise it. Used to find installed copies whose display name differs from
+-- the package's.
+SELECT si.device_id, si.source, si.scope, si.user_sid, si.item_key, si.name, si.version, si.version_key, si.publisher, si.product_code
+FROM software_installs si
+WHERE si.device_id = ANY(@device_ids::uuid[]) AND NOT si.system_component AND si.source NOT IN ('appx', 'portable')
+ORDER BY si.device_id, lower(si.name), si.scope, si.user_sid, si.item_key;
+
 -- name: ListDeviceUsersForDevices :many
 SELECT device_id, sid, username FROM device_users WHERE device_id = ANY($1::uuid[]) AND profile_path <> '' ORDER BY device_id, sid;
 
