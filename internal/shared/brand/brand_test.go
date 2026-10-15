@@ -78,7 +78,19 @@ var githubOrg = regexp.MustCompile(`auzring1`)
 // Assembled so this file does not contain the words it forbids.
 var previousNames = []string{"reno" + "vatio", "auz" + "ring"}
 
-// TestPreviousNameIsGone fails when a previous product name (in any spelling) appears anywhere in the repository,
+// previousForms are the spellings of the name the product had before this one ("Current" is also an ordinary English
+// word, so only the forms that can mean nothing but the product are forbidden). Lower case, matched case-insensitively.
+var previousForms = []string{
+	"curr" + "ent-agent", "curr" + "ent-server", "curr" + "ent-release", "curr" + "ent-sbom", "curr" + "ent-loadsim", "curr" + "ent-deploy",
+	"curr" + "entagent", "curr" + "entstage", "curr" + "entsetup", "the curr" + "ent contributors",
+	"curr" + "ent_app", "curr" + "ent_owner", "curr" + "ent_admin", "curr" + "ent.agent.v1", "urn:curr" + "ent:", "x-curr" + "ent-",
+	"__host-cur_", "auzring1/curr" + "ent", "ghcr.io/auzring1/curr" + "ent",
+}
+
+// previousEnvPrefix matches the environment variable prefix of the previous name (not HKEY_CURRENT_USER and the like).
+var previousEnvPrefix = regexp.MustCompile(`(^|[^A-Za-z0-9_])CURR` + `ENT_([A-TV-Z]|U[A-RT-Z])`)
+
+// TestPreviousNameIsGone fails when a previous product name (in any spelling) or a form of the one before this appears anywhere in the repository,
 // except as the GitHub organisation (the author's account) in a repository path. A document may name the old
 // files it tells you to delete between <!-- old-names:begin --> and <!-- old-names:end -->, or on a line marked
 // <!-- old-name -->.
@@ -104,12 +116,24 @@ func TestPreviousNameIsGone(t *testing.T) {
 					continue
 				}
 			}
+			// A line of any file type can be marked as naming an old file or setting on purpose.
+			if strings.Contains(line, "<!-- old-name -->") || strings.Contains(line, "# old-name") {
+				continue
+			}
 			l := strings.ToLower(githubOrg.ReplaceAllString(line, ""))
+			hit := previousEnvPrefix.MatchString(line)
 			for _, old := range previousNames {
 				if strings.Contains(l, old) {
-					bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
-					break
+					hit = true
 				}
+			}
+			for _, old := range previousForms {
+				if strings.Contains(strings.ToLower(line), old) {
+					hit = true
+				}
+			}
+			if hit {
+				bad = append(bad, rel+":"+strconv.Itoa(i+1)+": "+strings.TrimSpace(line))
 			}
 		}
 	})
@@ -144,10 +168,8 @@ func TestNoCustomerNames(t *testing.T) {
 // TestNameIsNotHardCoded fails when the product's derived names are typed into a Go string literal, a web
 // source file or an MSI attribute: they must come from the single source of truth.
 //
-// The product name is the ordinary English word "Current", which legitimately appears in text such as "Current
-// password". So the Go and web checks look for the forms that can only mean the product (the agent's name and the
-// Windows service name), while the MSI and the page template, which contain no ordinary prose, are checked for the
-// bare name.
+// The Go and web checks look for the forms that can only mean the product (the agent's name and the Windows service
+// name); the MSI and the page template, which contain no ordinary prose, are checked for the bare name.
 func TestNameIsNotHardCoded(t *testing.T) {
 	forms := []string{AgentName, ServiceName, StageFolderName, SetupFolderName, KeyPrefix}
 	hasForm := func(v string) bool {
@@ -185,7 +207,7 @@ func TestNameIsNotHardCoded(t *testing.T) {
 			}
 		case strings.HasSuffix(rel, ".wxs") || strings.HasSuffix(rel, ".wxi"):
 			noComments := regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(string(data), "")
-			// Whole word only: Windows' own registry keys (CurrentControlSet, CurrentVersion) contain the name.
+			// Whole word only.
 			if regexp.MustCompile(`\b` + Name + `\b`).MatchString(noComments) {
 				bad = append(bad, rel+": the product name is spelled in an attribute; use $(ProductName), $(AgentName) or $(Company)")
 			}
@@ -216,7 +238,7 @@ func TestGeneratedWebConstantsMatch(t *testing.T) {
 // TestAgentVersionResource checks that the compiled Windows version resource says what Task Manager and the
 // file properties should show.
 func TestAgentVersionResource(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join(repoRoot(t), "cmd", "current-agent", "rsrc_windows_amd64.syso"))
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "cmd", "librepatch-agent", "rsrc_windows_amd64.syso"))
 	if err != nil {
 		t.Fatal(err)
 	}

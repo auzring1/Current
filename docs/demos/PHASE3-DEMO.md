@@ -2,7 +2,7 @@
 
 Goal: import software into the catalog, install, update and remove it on a real Windows machine from the console, see live per-device results, upload your own installer, prove that a tampered or wrongly signed installer is refused, and try the per-user paths (two users on one machine). Allow about 90 minutes; Parts A to F are the core (about 45 minutes), Parts G to K are the checks that matter most for trust.
 
-You need the Phase 1 and 2 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md), [PHASE2-DEMO.md](PHASE2-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 test machine (a VM you can revert is best). For Part K you also need a second local user on that machine. The examples assume the server name `current.lab`.
+You need the Phase 1 and 2 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md), [PHASE2-DEMO.md](PHASE2-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 test machine (a VM you can revert is best). For Part K you also need a second local user on that machine. The examples assume the server name `librepatch.lab`.
 
 **Be honest about what is new:** the Windows execution paths in this phase (running installers as the system, Authenticode checks, Job Objects, and above all running installers inside another user's session) have only been compiled and run on a CI runner, never on a real multi-user machine. Part K is the first real test of the per-user helper. If anything fails there, that is useful information, not a surprise.
 
@@ -17,13 +17,13 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
    git fetch origin && git checkout phase-3
    docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
    docker compose -f deploy/docker-compose.yml logs server | grep -i migrat
-   docker compose -f deploy/docker-compose.yml exec server ls -ld /var/lib/current/content
+   docker compose -f deploy/docker-compose.yml exec server ls -ld /var/lib/librepatch/content
    ```
    ✅ The migration is applied and the server is `healthy`. The console shows new menu entries **Catalog**, **Deployments** and **Settings**.
 
 2. **Build the Phase 3 agent** (any machine with Go 1.27):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent
    ```
    Copy it to the Windows machine (`C:\Temp`). Phase 1 and 2 agents cannot run jobs, so they must be replaced (there is no agent self-update until Phase 5).
 
@@ -32,11 +32,11 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 3. On the Windows machine, **PowerShell as Administrator**:
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Current\Agent\slot-a\current-agent.exe" uninstall      # skip if never installed
+   & "C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" uninstall      # skip if never installed
    ```
    In the console: **Enrollment → New token**, then
    ```powershell
-   .\current-agent.exe install --server current.lab:8443 --token CUR1.....
+   .\librepatch-agent.exe install --server librepatch.lab:8443 --token LP1.....
    ```
    Approve the device if it asks (same hardware re-enrolls as *pending*; approving retires the old identity). ✅ The device is **online** and its Software tab is filled.
 
@@ -61,7 +61,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
    On the Windows machine:
    ```powershell
    Test-Path "C:\Program Files\7-Zip\7z.exe"                       # True
-   Get-Content C:\ProgramData\Current\logs\agent.log -Tail 30       # job accepted, hash verified, signature, exit code 0, detection passed
+   Get-Content C:\ProgramData\LibrePatch\logs\agent.log -Tail 30       # job accepted, hash verified, signature, exit code 0, detection passed
    ```
    ✅ After about a minute the device's **Software** tab (Phase 2) lists 7-Zip, and the deployment page says **completed**.
 
@@ -89,7 +89,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 10. **Retry** is shown after the failure in Part H (Step 16): a failed, expired, rejected or cancelled job has a **Retry** button that creates a new attempt.
 
-11. **Offline device.** On the Windows machine run `Stop-Service CurrentAgent`. In the console wait until the device shows offline, then deploy 7-Zip to it. ✅ The job sits in `queued`. Run `Start-Service CurrentAgent`: ✅ the job is offered as soon as the device reconnects and completes.
+11. **Offline device.** On the Windows machine run `Stop-Service LibrePatchAgent`. In the console wait until the device shows offline, then deploy 7-Zip to it. ✅ The job sits in `queued`. Run `Start-Service LibrePatchAgent`: ✅ the job is offered as soon as the device reconnects and completes.
 
 12. **Maintenance window.** **New deployment → Only run inside a maintenance window**: tick today's weekday, set **Starts** to about 10 minutes from now (device time) and 30 minutes duration. ✅ The job reaches `waiting` (reason `waiting_not_before`/outside window) and runs only when the window opens. The window is evaluated **on the device**, so it works even if the server is down at that moment (try `docker compose ... stop server` after the job shows `waiting`, then start it again later).
 
@@ -100,18 +100,18 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 14. Download any MSI or EXE installer you like to the **console machine** (the 7-Zip MSI from `7-zip.org` is fine). **Catalog → Upload custom installer**:
     - choose the file; Identifier `Acme.SevenZip`, Name `Acme 7-Zip`, Version `24.08`; Type `msi`, Architecture `x64`, Scope `machine`;
     - **Detection file path:** `%ProgramFiles%\7-Zip\7z.exe`.
-    ✅ You land on the package page with one installer marked *served by Current*, no "unverified" warning (you supplied the file).
+    ✅ You land on the package page with one installer marked *served by LibrePatch*, no "unverified" warning (you supplied the file).
 15. Deploy it to your device (**Install**, machine-wide). ✅ It succeeds. This time the device downloaded the bytes from **your server over the agent's mutual-TLS channel**, not from the internet (in the agent log: `fetch ... server`).
     🔒 *Check:* in the **Audit log** you see `catalog.upload` (with the SHA-256 and size), `catalog.custom` and `deployment.create`.
 
 ## Part H: Prove a bad installer is refused (about 10 minutes, important)
 
-16. **Wrong signer.** Upload `current-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\RnvCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
+16. **Wrong signer.** Upload `librepatch-agent.exe` itself as a custom installer (it is not Authenticode-signed): Identifier `Check.Unsigned`, type `exe`, silent args `/S`, **Detection file path** `%ProgramFiles%\RnvCheck\never.txt`, **Required signer** `CN=Nobody Inc`. Deploy it to the device.
     ✅ The job ends `failed` with "the installer's signature does not match the pinned signer" and **never runs** (nothing starts; no `RnvCheck` folder). The agent also reports a security event.
     Click **Retry** on the job ✅ a second attempt (`attempt 2`) is queued, runs and fails the same way: a retry is a brand-new signed job, never a re-run of the old one.
 17. **Tampered file.** (Needs shell access to the server.) Upload any small installer as a custom package, deploy it once successfully, then corrupt the stored file and deploy again:
     ```bash
-    docker compose -f deploy/docker-compose.yml exec server sh -c 'ls /var/lib/current/content/*'
+    docker compose -f deploy/docker-compose.yml exec server sh -c 'ls /var/lib/librepatch/content/*'
     ```
     The server container is read-only and distroless (no shell), so instead run
     `docker run --rm -v <project>_content:/c alpine sh -c "echo x >> /c/*/<hash>"` against the volume (use `docker volume ls` to find its name). Deploy again. ✅ The device refuses it: the downloaded bytes do not match the SHA-256 signed into the job, and nothing runs.
@@ -120,7 +120,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 
 ## Part I: Self-updating apps (about 5 minutes)
 
-20. **Catalog → Import from winget**: `Mozilla.Firefox`. ✅ It carries a grey **self-updating** badge. Try **New deployment → Update** for it. ✅ Refused: "This app updates itself, so Current leaves updates to the vendor… set the package's self-update policy to enforce". Install is still allowed. Under **Overrides → Self-updating behaviour: Enforce the pinned version anyway**, Update works.
+20. **Catalog → Import from winget**: `Mozilla.Firefox`. ✅ It carries a grey **self-updating** badge. Try **New deployment → Update** for it. ✅ Refused: "This app updates itself, so LibrePatch leaves updates to the vendor… set the package's self-update policy to enforce". Install is still allowed. Under **Overrides → Self-updating behaviour: Enforce the pinned version anyway**, Update works.
 
 ## Part J: Version pin and exclusion (about 3 minutes)
 
@@ -131,7 +131,7 @@ The server needs outbound HTTPS to `raw.githubusercontent.com` and `api.github.c
 You should have the second user `demo2` from Part B and have signed in as them once.
 
 22. **Per-user install.** Sign in to the Windows machine as **demo2** and stay signed in (switch users). In the console import `Microsoft.VisualStudioCode`, then **New deployment → Install, Scope: Per user**, your device.
-    ✅ The plan lists one job **per user profile** on the device (you and demo2). The demo2 job runs **inside demo2's session** (look in `C:\ProgramData\Current\logs\agent.log` for the helper starting). Verify as demo2: `Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe"` → True. The job for the user who is **signed out** shows **waiting for user logon**; sign that user in ✅ and it runs without anything else being clicked.
+    ✅ The plan lists one job **per user profile** on the device (you and demo2). The demo2 job runs **inside demo2's session** (look in `C:\ProgramData\LibrePatch\logs\agent.log` for the helper starting). Verify as demo2: `Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe"` → True. The job for the user who is **signed out** shows **waiting for user logon**; sign that user in ✅ and it runs without anything else being clicked.
     🔒 *Check:* the installer ran as demo2, not as SYSTEM: `Get-CimInstance Win32_Process -Filter "Name='Code.exe'" | % { (Invoke-CimMethod -InputObject $_ -MethodName GetOwner).User }` shows `demo2`.
 
 23. **Per-user policy.** With VS Code installed for demo2 (per user), open **Settings** and leave the default **Report only**. Run **Install, Machine-wide** of VS Code to the device.
@@ -143,18 +143,18 @@ You should have the second user `demo2` from Part B and have signed in as them o
 
 ## Part L: Logs and audit (about 3 minutes)
 
-25. **Audit log.** ✅ You see `catalog.import`, `catalog.upload`, `catalog.custom`, `catalog.override`, `deployment.create` (including whether unverified packages were confirmed), `deployment.cancel`, `job.retry`, `settings.update`. On the server: `docker compose ... exec server /current-server admin verify-audit` ✅ chain intact.
+25. **Audit log.** ✅ You see `catalog.import`, `catalog.upload`, `catalog.custom`, `catalog.override`, `deployment.create` (including whether unverified packages were confirmed), `deployment.cancel`, `job.retry`, `settings.update`. On the server: `docker compose ... exec server /librepatch-server admin verify-audit` ✅ chain intact.
 
 ## Clean up
 ```powershell
-& "C:\Program Files\Current\Agent\slot-a\current-agent.exe" uninstall
+& "C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" uninstall
 net user demo2 /delete
 # remove any leftovers: C:\Program Files\7-Zip, VS Code, the test installers in C:\Temp
 ```
 Revoke the device in the console. Revert the VM snapshot if you used one.
 
 ## What to tell me
-- Any job that failed, with its **Details** log and `C:\ProgramData\Current\logs\agent.log` around it.
+- Any job that failed, with its **Details** log and `C:\ProgramData\LibrePatch\logs\agent.log` around it.
 - Whether Part K worked at all (the helper starting in demo2's session, the logon queue, the dependent removal), and what the Task Manager "Users" tab showed for the installer processes.
 - Whether any installer needed a silent switch the importer did not know (the package page shows "not deployable" or the install hung).
 - How long a deployment took from **Start** to **succeeded** on an online device (I expect seconds plus the installer's own time).

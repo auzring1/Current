@@ -18,15 +18,15 @@ interface TileProps {
 
 /** A number with a label: the at-a-glance unit of the dashboards. */
 export function StatTile({ label, value, kind, icon, hint, to, onClick, selected }: TileProps) {
-  const cls = `cur-tile${kind ? ` cur-tile--${kind}` : ""}${selected ? " cur-tile--selected" : ""}`;
+  const cls = `lp-tile${kind ? ` lp-tile--${kind}` : ""}${selected ? " lp-tile--selected" : ""}`;
   const body = (
     <>
-      <span className="cur-tile__label">
+      <span className="lp-tile__label">
         {icon}
         {label}
       </span>
-      <span className="cur-tile__value">{value}</span>
-      {hint && <span className="cur-tile__hint">{hint}</span>}
+      <span className="lp-tile__value">{value}</span>
+      {hint && <span className="lp-tile__hint">{hint}</span>}
     </>
   );
   if (to) {
@@ -48,7 +48,7 @@ export function StatTile({ label, value, kind, icon, hint, to, onClick, selected
 
 export function StatGrid({ children, label }: { children: ReactNode; label?: string }) {
   return (
-    <div className="cur-tiles" role="group" aria-label={label}>
+    <div className="lp-tiles" role="group" aria-label={label}>
       {children}
     </div>
   );

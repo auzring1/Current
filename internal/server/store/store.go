@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/librepatch/gen/dbq"
 )
 
 // Open connects a pgx pool and verifies connectivity.
@@ -25,7 +25,7 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 	cfg.MaxConns = 32
 	cfg.MaxConnIdleTime = 5 * time.Minute
-	cfg.ConnConfig.RuntimeParams["application_name"] = "current-server"
+	cfg.ConnConfig.RuntimeParams["application_name"] = "librepatch-server"
 	// Defense in depth against runaway queries.
 	cfg.ConnConfig.RuntimeParams["statement_timeout"] = "30000"
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -99,7 +99,7 @@ func CheckLeastPrivilege(ctx context.Context, pool *pgxpool.Pool, log *slog.Logg
 		return
 	}
 	if current == owner {
-		log.Warn("runtime database user owns the schema; use a separate least-privilege role (current_app) in production",
+		log.Warn("runtime database user owns the schema; use a separate least-privilege role (librepatch_app) in production",
 			"user", current)
 	}
 }

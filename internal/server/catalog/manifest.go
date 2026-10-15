@@ -16,7 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/auzring1/current/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/shared/installer"
 )
 
 // MaxManifestBytes bounds each manifest file.

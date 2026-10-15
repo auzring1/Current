@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 type fakeSource struct {

@@ -51,8 +51,8 @@ CREATE INDEX webauthn_ceremonies_expiry ON webauthn_ceremonies (expires_at);
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON api_tokens, webauthn_credentials, webauthn_ceremonies TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON api_tokens, webauthn_credentials, webauthn_ceremonies TO librepatch_app;
     END IF;
 END
 $$;

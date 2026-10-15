@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sys/windows/svc"
 
-	"github.com/auzring1/current/internal/agent/jobs"
+	"github.com/auzring1/librepatch/internal/agent/jobs"
 )
 
 // IsService reports whether the process was started by the SCM.

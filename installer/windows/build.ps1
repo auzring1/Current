@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-  Builds the Current Agent MSI (WiX v7) from a built, ideally already signed, current-agent.exe.
+  Builds the LibrePatch Agent MSI (WiX v7) from a built, ideally already signed, librepatch-agent.exe.
 
 .DESCRIPTION
   Needs PowerShell 7, the .NET SDK (8+), Go (only to compute the numeric MSI version) and git (optional).
@@ -13,7 +13,7 @@
   Read installer/windows/README.md before running this in a commercial pipeline.
 
   Signing is NOT done here and no certificate is ever read by this script. Release pipeline:
-    1. signtool sign ... current-agent.exe          (before this script)
+    1. signtool sign ... librepatch-agent.exe          (before this script)
     2. build.ps1 -AgentExe ... -SignScript .\sign.ps1   (the script receives the MSI path)
     or run signtool on the MSI afterwards. See README.md for a signtool example.
 
@@ -25,7 +25,7 @@
 .PARAMETER BuildNumber
   Fourth MSI version field for pre-release builds (CI run number). Releases always get .0.
 .PARAMETER Output
-  Output .msi path. Default: installer/windows/out/current-agent-<version>-x64.msi
+  Output .msi path. Default: installer/windows/out/librepatch-agent-<version>-x64.msi
 .PARAMETER SignScript
   Optional script called as `& $SignScript <path-to-msi>` after the build and validation.
 .PARAMETER SkipValidate
@@ -78,7 +78,7 @@ try {
   $fileVersion = if ($Version) { $Version.TrimStart('v') } else { 'default' }
   Write-Host "Version '$Version' -> MSI ProductVersion $msiVersion"
 
-  if (-not $Output) { $Output = Join-Path $PSScriptRoot "out\current-agent-$($fileVersion -replace '[^0-9A-Za-z.+-]','_')-x64.msi" }
+  if (-not $Output) { $Output = Join-Path $PSScriptRoot "out\librepatch-agent-$($fileVersion -replace '[^0-9A-Za-z.+-]','_')-x64.msi" }
   $Output = [System.IO.Path]::GetFullPath($Output)
   New-Item -ItemType Directory -Force -Path (Split-Path $Output) | Out-Null
 

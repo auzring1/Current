@@ -1,9 +1,9 @@
-// Command current-sbom writes and checks CycloneDX 1.5 JSON SBOMs for release artifacts. It is a
+// Command librepatch-sbom writes and checks CycloneDX 1.5 JSON SBOMs for release artifacts. It is a
 // build-pipeline tool, not part of the shipped product.
 //
-//	current-sbom go  --binary current-agent.exe --version v1.2.3 --epoch 1700000000 --out agent.cdx.json [--name current-agent]
-//	current-sbom npm --lock web/package-lock.json --version v1.2.3 --epoch 1700000000 --out web.cdx.json
-//	current-sbom check file.cdx.json [...]
+//	librepatch-sbom go  --binary librepatch-agent.exe --version v1.2.3 --epoch 1700000000 --out agent.cdx.json [--name librepatch-agent]
+//	librepatch-sbom npm --lock web/package-lock.json --version v1.2.3 --epoch 1700000000 --out web.cdx.json
+//	librepatch-sbom check file.cdx.json [...]
 //
 // The timestamp is the --epoch value (the release commit time, SOURCE_DATE_EPOCH), never the wall clock,
 // so a reproducible build gives a byte-identical SBOM.
@@ -15,7 +15,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/auzring1/current/internal/sbom"
+	"github.com/auzring1/librepatch/internal/sbom"
 )
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, "usage: current-sbom go|npm|check (see the package comment)\n")
+	fmt.Fprint(os.Stderr, "usage: librepatch-sbom go|npm|check (see the package comment)\n")
 }
 
 // epochFlag defaults to SOURCE_DATE_EPOCH.

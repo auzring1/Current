@@ -15,4 +15,7 @@ regexes = [
   '''abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789''',
   # Prose in older versions of docs/PLAN.md ("Ed25519-signed license documents").
   '''Ed25519-signed''',
+  # A made-up enrollment string in installer/windows/package_test.go: "LP1." plus the base64 of {"token":"x"}. It enrolls
+  # nothing; the test only checks which MSI properties are accepted.
+  '''LP1\.eyJ0b2tlbiI6IngifQ-_x''',
 ]

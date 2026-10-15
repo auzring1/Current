@@ -14,8 +14,8 @@ CREATE INDEX device_custom_values_lookup ON device_custom_values (field_key, val
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON device_custom_values TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON device_custom_values TO librepatch_app;
     END IF;
 END
 $$;

@@ -11,14 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/auth"
-	"github.com/auzring1/current/internal/server/branding"
-	"github.com/auzring1/current/internal/server/kek"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/branding"
+	"github.com/auzring1/librepatch/internal/server/kek"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 )
 
 func (s *server) setupStatus(w http.ResponseWriter, r *http.Request) {

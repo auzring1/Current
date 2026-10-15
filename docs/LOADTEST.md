@@ -1,6 +1,6 @@
 # Load testing
 
-Phase 6 asks for a load test with 10,000 simulated agents, including a reconnect storm. This document describes the tool (`cmd/current-loadsim`), the method, how to run it, what to tune on the host, what to measure, what we measured in a small development sandbox, and the server defects the tool found.
+Phase 6 asks for a load test with 10,000 simulated agents, including a reconnect storm. This document describes the tool (`cmd/librepatch-loadsim`), the method, how to run it, what to tune on the host, what to measure, what we measured in a small development sandbox, and the server defects the tool found.
 
 **Read the results as "measured in the dev sandbox, not a capacity statement".** The sandbox is a 4-CPU, 15.7 GiB virtual machine on which the server, the load generator and PostgreSQL all run at the same time, over the loopback interface. Real capacity needs a run on separate hosts (section 6).
 
@@ -56,7 +56,7 @@ All latencies come from the client's clock, in the same process, and are histogr
 ### 4.1 One command, local server
 
 ```
-export CURRENT_TEST_PG_URL='postgres://postgres:PASSWORD@127.0.0.1:5432/postgres?sslmode=disable'   # a superuser; any PostgreSQL 16
+export LIBREPATCH_TEST_PG_URL='postgres://postgres:PASSWORD@127.0.0.1:5432/postgres?sslmode=disable'   # a superuser; any PostgreSQL 16
 scripts/loadtest.sh --agents 1000 --scenarios "steady storm" --duration 2m
 ```
 
@@ -67,23 +67,23 @@ Options: `--agents`, `--scenarios`, `--duration`, `--ramp-per-sec`, `--heartbeat
 ### 4.2 Against a server you already run
 
 ```
-export LOADTEST_API=https://current.example.com       # REST base URL
+export LOADTEST_API=https://librepatch.example.com       # REST base URL
 export LOADTEST_GATEWAY=agents.example.com:8443       # as in the gateway certificate
 export LOADTEST_API_TOKEN=...                         # scopes: enrollment:write devices:read devices:write updates:write reports:read
 scripts/loadtest.sh --external --agents 10000 --scenarios "steady storm"
 ```
 
-For docker compose, start the stack as the README says, finish setup in the console, create an API token with those scopes, and use the variables above. This path (compose plus `--external`) is documented but **was not run here**: the sandbox has no Docker daemon. Raise the enrollment limits first (`CURRENT_ENROLL_RATE_PER_IP`, `CURRENT_ENROLL_RATE_PER_TOKEN`, in the compose environment) or enrolling the fleet takes about `agents / 10` minutes; and set the open-file limit of the server container (section 5). Do not point the tool at a production system: it enrolls thousands of devices and writes to the audit log.
+For docker compose, start the stack as the README says, finish setup in the console, create an API token with those scopes, and use the variables above. This path (compose plus `--external`) is documented but **was not run here**: the sandbox has no Docker daemon. Raise the enrollment limits first (`LIBREPATCH_ENROLL_RATE_PER_IP`, `LIBREPATCH_ENROLL_RATE_PER_TOKEN`, in the compose environment) or enrolling the fleet takes about `agents / 10` minutes; and set the open-file limit of the server container (section 5). Do not point the tool at a production system: it enrolls thousands of devices and writes to the audit log.
 
 ### 4.3 The tool directly
 
 ```
-go build -o current-loadsim ./cmd/current-loadsim
-CURRENT_LOADSIM_API_TOKEN=... ./current-loadsim --api http://127.0.0.1:8080 --server localhost:8443 \
+go build -o librepatch-loadsim ./cmd/librepatch-loadsim
+LIBREPATCH_LOADSIM_API_TOKEN=... ./librepatch-loadsim --api http://127.0.0.1:8080 --server localhost:8443 \
   --agents 10000 --ramp-per-sec 100 --scenario storm --identity-cache ids.json --report storm.json --report-md storm.md
 ```
 
-`--enrollment CUR1...` (or `CURRENT_LOADSIM_ENROLLMENT`) uses an existing token; without it the tool mints one through the API. `--identity-cache FILE` keeps the enrolled identities (mode 0600, **contains private keys**), bound to the server's CA, so later runs skip enrollment. Run `./current-loadsim -h` for every flag. The exit status is 2 when the success criteria are not met (`--no-fail` to ignore).
+`--enrollment LP1...` (or `LIBREPATCH_LOADSIM_ENROLLMENT`) uses an existing token; without it the tool mints one through the API. `--identity-cache FILE` keeps the enrolled identities (mode 0600, **contains private keys**), bound to the server's CA, so later runs skip enrollment. Run `./librepatch-loadsim -h` for every flag. The exit status is 2 when the success criteria are not met (`--no-fail` to ignore).
 
 The in-process test `test/e2e/loadsim_test.go` runs 50 agents through the steady, storm and churn scenarios against the same server code in about 40 seconds, and `internal/loadsim/stats_test.go` tests the histogram, counters and recovery clock. Both run in `go test -race ./...`.
 
@@ -110,7 +110,7 @@ Record the environment first (CPUs, RAM, kernel, PostgreSQL version and settings
 
 ## 7. Results from the development sandbox
 
-**Not a capacity statement.** 4 vCPUs, 15.7 GiB RAM, Linux 6.18, PostgreSQL 16.15 with default settings on the same machine, open-file limit 20,000, Go 1.27.1. The server (`current-server serve`, dev mode, log level info), the load generator and PostgreSQL competed for the same four CPUs. Every simulated agent had 120 software items; heartbeats every 60 s; each agent changed 3 items about every 2 minutes; jobs for 1% of the fleet every 30 s (`inventory` kind; the server's own scheduler also queued a `wu_scan` job per device on its first connection). Ramp 100 agents per second. `netdev_max_backlog` was the default 1000 unless stated. Code at the commit that contains this file. Raw reports are not committed.
+**Not a capacity statement.** 4 vCPUs, 15.7 GiB RAM, Linux 6.18, PostgreSQL 16.15 with default settings on the same machine, open-file limit 20,000, Go 1.27.1. The server (`librepatch-server serve`, dev mode, log level info), the load generator and PostgreSQL competed for the same four CPUs. Every simulated agent had 120 software items; heartbeats every 60 s; each agent changed 3 items about every 2 minutes; jobs for 1% of the fleet every 30 s (`inventory` kind; the server's own scheduler also queued a `wu_scan` job per device on its first connection). Ramp 100 agents per second. `netdev_max_backlog` was the default 1000 unless stated. Code at the commit that contains this file. Raw reports are not committed.
 
 ### 7.1 Steady state
 
@@ -172,7 +172,7 @@ Fixed, with a test each:
 
 1. **Deadlocks in concurrent inventory ingest (server bug).** Every software snapshot upserted the device's titles with `INSERT ... ON CONFLICT DO UPDATE` in map-iteration (random) order, which locks every title the device has until commit. Devices with common software (every Windows machine has the same few hundred titles) that sent inventory at the same time deadlocked ("deadlock detected", SQLSTATE 40P01) and, when the lock waits were long, hit the statement timeout; the stream was closed with an error and the agent reconnected and resent. It appeared with only 50 agents. Titles are now created with `ON CONFLICT DO NOTHING` in sorted order and read back by a second statement, so a device that only references existing titles takes no lock on them. Test: `TestConcurrentSnapshotsOfCommonSoftwareDoNotDeadlock` (24 devices, 60 shared titles). Files: `db/queries/software.sql`, `internal/server/inventory/ingest.go`.
 2. **An enrollment burst starved the mTLS handshakes of database connections (server bug).** Enrollment holds a transaction that waits for the enrollment-token row lock and for the audit-chain lock, so enrollments run one at a time anyway, but each one held one of the pool's 32 database connections while waiting. With 10,000 devices enrolling at 100 per second the pool was fully occupied by enrollments, every mTLS handshake (which looks the device up in the database, with a 5 s timeout) failed, and all agents retried. Before the fix the 10,000-agent steady run could not finish its ramp in 6 minutes (9,797 connected; 73,134 connection attempts, 63,336 of them failed TLS handshakes). At most 8 enrollment transactions now run at the same time (`gate` in `internal/server/gateway/gate.go`, test `TestGate*`); the others wait for a slot. After the fix the ramp finished in 106 to 147 s with no failed attempts, at the cost of long `enroll` latencies for the queued devices (p50 up to 22 s and p99 up to 39 s at 10,000 in some runs; an agent waits up to its 60 s call timeout and retries).
-3. **Enrollment rate limits could not be changed although the protocol document said they could.** 10 enrollments per minute per source address and 60 per token (burst the same) were hard-coded, so enrolling a fleet from one NAT address takes `devices / 10` minutes (100 minutes for 1,000). They are now `CURRENT_ENROLL_RATE_PER_IP` and `CURRENT_ENROLL_RATE_PER_TOKEN` (attempts per minute, defaults unchanged at 10 and 60, test in `internal/server/config`). This is an operator setting, not a test backdoor; the test server raises it, nothing else is relaxed. The runbook says when to raise it.
+3. **Enrollment rate limits could not be changed although the protocol document said they could.** 10 enrollments per minute per source address and 60 per token (burst the same) were hard-coded, so enrolling a fleet from one NAT address takes `devices / 10` minutes (100 minutes for 1,000). They are now `LIBREPATCH_ENROLL_RATE_PER_IP` and `LIBREPATCH_ENROLL_RATE_PER_TOKEN` (attempts per minute, defaults unchanged at 10 and 60, test in `internal/server/config`). This is an operator setting, not a test backdoor; the test server raises it, nothing else is relaxed. The runbook says when to raise it.
 
 Not fixed (design or larger changes), for the owner to decide:
 
@@ -193,7 +193,7 @@ Not fixed (design or larger changes), for the owner to decide:
 |---|---|---|
 | Software titles inserted with `DO NOTHING` in sorted order (`db/queries/software.sql`, `internal/server/inventory/ingest.go`) | Deadlocks and lock queueing between devices | `TestConcurrentSnapshotsOfCommonSoftwareDoNotDeadlock` |
 | Enrollment gate of 8 transactions (`internal/server/gateway/gate.go`, `enroll.go`) | Enrollment bursts starved handshakes of database connections | `TestGateBoundsConcurrency`, `TestGateGivesUpWhenTheContextEnds`, `TestLoadsim*` |
-| `CURRENT_ENROLL_RATE_PER_IP`, `CURRENT_ENROLL_RATE_PER_TOKEN` (`internal/server/config`) | Limits were hard-coded; defaults unchanged | `TestEnrollRateLimits*` |
+| `LIBREPATCH_ENROLL_RATE_PER_IP`, `LIBREPATCH_ENROLL_RATE_PER_TOKEN` (`internal/server/config`) | Limits were hard-coded; defaults unchanged | `TestEnrollRateLimits*` |
 | `core.PinnedTLS`, `core.MutualTLS`, `core.DialOptions` exported (`internal/agent/core`) | The load generator uses the agent's own trust and dial settings; no behaviour change | existing agent tests |
 
 ## 9. Known gaps of the tool

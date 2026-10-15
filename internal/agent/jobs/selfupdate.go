@@ -6,16 +6,16 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/agent/selfupdate"
-	"github.com/auzring1/current/internal/shared/installer"
-	"github.com/auzring1/current/internal/shared/release"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/agent/selfupdate"
+	"github.com/auzring1/librepatch/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/shared/release"
 )
 
 // RequestServiceRestart makes the running service process exit so the service manager starts it
@@ -87,8 +87,8 @@ func (e *Engine) agentUpdate(ctx context.Context, r *Record, env *agentv1.JobEnv
 	if free, ferr := e.P.FreeSpaceMB(dir); ferr == nil && free < 2*m.Size/(1<<20)+64 {
 		return fail("not enough free disk space for the update")
 	}
-	file := filepath.Join(dir, "current-agent.exe")
-	in := &agentv1.Installer{Sha256: m.SHA256Bytes(), Size: m.Size, FileName: "current-agent.exe",
+	file := filepath.Join(dir, "librepatch-agent.exe")
+	in := &agentv1.Installer{Sha256: m.SHA256Bytes(), Size: m.Size, FileName: "librepatch-agent.exe",
 		Sources: []*agentv1.ContentSource{{Kind: agentv1.ContentSourceKind_CONTENT_SOURCE_KIND_SERVER}}}
 	mism, err := e.download(ctx, r.JobID, in, file)
 	if err != nil {

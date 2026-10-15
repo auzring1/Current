@@ -105,22 +105,22 @@ export function LoginPage() {
     <AuthShell below={<LoginFooter />}>
       <Stack gap="xs">
         <AuthBrand />
-        <h1 className="cur-auth__title" data-testid="login-headline">
+        <h1 className="lp-auth__title" data-testid="login-headline">
           {brand.login_headline || `Sign in to ${brand.product_name}`}
         </h1>
         {brand.org_name && (
-          <p className="cur-auth__org" data-testid="login-org">
+          <p className="lp-auth__org" data-testid="login-org">
             {brand.org_name}
           </p>
         )}
         {brand.login_message && (
-          <p className="cur-auth__msg" data-testid="login-message">
+          <p className="lp-auth__msg" data-testid="login-message">
             {brand.login_message}
           </p>
         )}
       </Stack>
       {stage.kind === "password" && noticeOn && (
-        <section className="cur-auth__notice" aria-label="Notice" data-testid="login-notice">
+        <section className="lp-auth__notice" aria-label="Notice" data-testid="login-notice">
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{notice.data!.text}</p>
           {notice.data!.require_ack && <Checkbox mt="xs" label="I have read and accept this notice" checked={accepted} onChange={(e) => setAccepted(e.currentTarget.checked)} />}
         </section>
@@ -210,9 +210,9 @@ function LoginFooter() {
   if (!footer && !support.email && !support.phone && !support.url) return null;
   return (
     <Stack gap={4} align="center" data-testid="login-footer">
-      {footer && <p className="cur-auth__foot">{footer}</p>}
+      {footer && <p className="lp-auth__foot">{footer}</p>}
       {(support.email || support.phone || support.url) && (
-        <p className="cur-auth__help">
+        <p className="lp-auth__help">
           Need help?{" "}
           {support.email && <a href={`mailto:${support.email}`}>{support.email}</a>}
           {support.email && (support.phone || support.url) && " · "}

@@ -57,11 +57,11 @@ export function Layout() {
   return (
     <SiteScopeProvider>
     <CommandPaletteProvider>
-    <div className="cur-shell" data-rail={rail ? "true" : undefined}>
-      <a className="cur-skip-link" href="#main">
+    <div className="lp-shell" data-rail={rail ? "true" : undefined}>
+      <a className="lp-skip-link" href="#main">
         Skip to main content
       </a>
-      <header className="cur-topbar">
+      <header className="lp-topbar">
         {narrow && (
           <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => setDrawer(true)} aria-label="Open navigation" aria-expanded={drawer} aria-controls="mobile-nav">
             <I.Menu size={20} aria-hidden />
@@ -72,32 +72,32 @@ export function Layout() {
             {rail ? <I.SidebarExpand size={20} aria-hidden /> : <I.SidebarCollapse size={20} aria-hidden />}
           </ActionIcon>
         )}
-        <Link to="/" className="cur-topbar__brand" aria-label={`${brand.product_name} home`}>
+        <Link to="/" className="lp-topbar__brand" aria-label={`${brand.product_name} home`}>
           <BrandMark height={28} />
-          <span className="cur-topbar__product" data-testid="product-name">
+          <span className="lp-topbar__product" data-testid="product-name">
             {brand.product_name}
           </span>
-          <span className="cur-topbar__org" data-testid="org-name">
+          <span className="lp-topbar__org" data-testid="org-name">
             {brand.org_name || session?.org.name}
           </span>
         </Link>
         <SiteSwitcher />
-        <div className="cur-topbar__search">
+        <div className="lp-topbar__search">
           <SearchButton />
         </div>
-        <span className="cur-topbar__spacer" />
-        <div className="cur-topbar__right">
+        <span className="lp-topbar__spacer" />
+        <div className="lp-topbar__right">
           <NotificationsBell />
           <UserMenu name={session?.user.display_name ?? ""} email={session?.user.email ?? ""} onSignOut={() => void logout()} />
         </div>
       </header>
       {!narrow && (
-        <div className="cur-nav cur-nav--static">
+        <div className="lp-nav lp-nav--static">
           <SideNav rail={rail} />
-          <div className="cur-nav__foot">
-            <button type="button" className="cur-nav__link cur-nav__rail-toggle" onClick={() => setCollapsed(!rail)} aria-pressed={rail} title={rail ? "Expand sidebar" : undefined} data-testid="nav-rail-toggle">
+          <div className="lp-nav__foot">
+            <button type="button" className="lp-nav__link lp-nav__rail-toggle" onClick={() => setCollapsed(!rail)} aria-pressed={rail} title={rail ? "Expand sidebar" : undefined} data-testid="nav-rail-toggle">
               {rail ? <I.SidebarExpand size={18} aria-hidden /> : <I.SidebarCollapse size={18} aria-hidden />}
-              <span className={rail ? "cur-visually-hidden" : "cur-nav__text"}>{rail ? "Expand sidebar" : "Collapse sidebar"}</span>
+              <span className={rail ? "lp-visually-hidden" : "lp-nav__text"}>{rail ? "Expand sidebar" : "Collapse sidebar"}</span>
             </button>
           </div>
         </div>
@@ -107,7 +107,7 @@ export function Layout() {
           <SideNav onNavigate={() => setDrawer(false)} />
         </Drawer>
       )}
-      <main id="main" className="cur-main" tabIndex={-1} key={displayKey}>
+      <main id="main" className="lp-main" tabIndex={-1} key={displayKey}>
         <Outlet />
       </main>
     </div>

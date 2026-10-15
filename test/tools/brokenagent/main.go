@@ -6,10 +6,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"os"
 
-	"github.com/auzring1/current/internal/shared/version"
+	"github.com/auzring1/librepatch/internal/shared/version"
 )
 
 func main() {

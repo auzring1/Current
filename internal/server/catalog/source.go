@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,7 +15,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Source provides winget manifests. Only the official winget-pkgs repository is

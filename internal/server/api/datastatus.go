@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/store"
 )
 
 type stamp struct {

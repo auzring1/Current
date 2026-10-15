@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"os"
 	"regexp"
 	"sort"
@@ -80,7 +80,7 @@ func fromNPMLock(data []byte, o NPMOptions) ([]byte, error) {
 		Description: brand.Name + " web console production bundle (Vite build embedded in the server binary)",
 		Licenses:    npmLicense(rootPkg.License),
 		Properties: []Property{
-			{Name: "current:scope", Value: "production dependencies of the lockfile (dev dependencies, which are not shipped, are excluded)"},
+			{Name: "librepatch:scope", Value: "production dependencies of the lockfile (dev dependencies, which are not shipped, are excluded)"},
 		},
 	}
 	b := newBOM(o.Epoch, root)
@@ -117,7 +117,7 @@ func fromNPMLock(data []byte, o NPMOptions) ([]byte, error) {
 			c.ExternalRefs = []ExternalRef{{Type: "distribution", URL: pkg.Resolved}}
 		}
 		if pkg.Optional {
-			c.Properties = append(c.Properties, Property{Name: "current:npm-optional", Value: "true"})
+			c.Properties = append(c.Properties, Property{Name: "librepatch:npm-optional", Value: "true"})
 		}
 		b.Components = append(b.Components, c)
 	}

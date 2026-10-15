@@ -3,4 +3,4 @@
 package install
 
 // DataDir is the default state directory on non-Windows development builds.
-func DataDir() string { return "/var/lib/current-agent" }
+func DataDir() string { return "/var/lib/librepatch-agent" }

@@ -10,8 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/updates"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/updates"
 )
 
 func (s *server) updatesSvc(w http.ResponseWriter) bool {

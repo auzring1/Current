@@ -15,7 +15,7 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/auzring1/current/internal/server/config"
+	"github.com/auzring1/librepatch/internal/server/config"
 )
 
 // scryptWorkFactor lets tests lower age's default scrypt cost (0 = default).
@@ -35,14 +35,14 @@ func OSEnv(load func() (*config.Config, error)) Env {
 	return Env{LoadConfig: load, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
 }
 
-// CommandBackup is the entry point for `current-server backup`.
+// CommandBackup is the entry point for `librepatch-server backup`.
 func CommandBackup(args []string, load func() (*config.Config, error)) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	return RunBackup(ctx, args, OSEnv(load))
 }
 
-// CommandRestore is the entry point for `current-server restore`.
+// CommandRestore is the entry point for `librepatch-server restore`.
 func CommandRestore(args []string, load func() (*config.Config, error)) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -55,10 +55,10 @@ func (s *stringList) String() string     { return strings.Join(*s, ",") }
 func (s *stringList) Set(v string) error { *s = append(*s, v); return nil }
 
 const backupUsage = `usage:
-  current-server backup --out FILE|-  (--recipient age1... [--recipient ...] | --recipient-file F | --passphrase-file F)
-  current-server backup --verify FILE|-  (--identity-file KEY | --passphrase-file F)
+  librepatch-server backup --out FILE|-  (--recipient age1... [--recipient ...] | --recipient-file F | --passphrase-file F)
+  librepatch-server backup --verify FILE|-  (--identity-file KEY | --passphrase-file F)
 
-The passphrase file can also be named by CURRENT_BACKUP_PASSPHRASE_FILE. With --out - the encrypted
+The passphrase file can also be named by LIBREPATCH_BACKUP_PASSPHRASE_FILE. With --out - the encrypted
 archive goes to standard output and nothing else does (logs go to standard error).
 `
 
@@ -70,7 +70,7 @@ func passphraseFile(flagValue string, env Env) string {
 	if flagValue != "" {
 		return flagValue
 	}
-	return strings.TrimSpace(env.Getenv("CURRENT_BACKUP_PASSPHRASE_FILE"))
+	return strings.TrimSpace(env.Getenv("LIBREPATCH_BACKUP_PASSPHRASE_FILE"))
 }
 
 func identitiesFor(identityFile, passFile string, env Env) ([]age.Identity, error) {
@@ -239,10 +239,10 @@ func writeOut(out string, stdout io.Writer, fn func(io.Writer) error) error {
 }
 
 const restoreUsage = `usage:
-  current-server restore --in FILE|-  (--identity-file KEY | --passphrase-file F)
+  librepatch-server restore --in FILE|-  (--identity-file KEY | --passphrase-file F)
                          [--force --wipe] [--skip-content] [--skip-kek-check]
 
-Restores into the database named by CURRENT_MIGRATE_DATABASE_URL (or CURRENT_DATABASE_URL), which must be empty.
+Restores into the database named by LIBREPATCH_MIGRATE_DATABASE_URL (or LIBREPATCH_DATABASE_URL), which must be empty.
 Stop the server first. --force --wipe DROPS everything in the public schema before restoring.
 `
 
@@ -257,7 +257,7 @@ func RunRestore(ctx context.Context, args []string, env Env) error {
 	force := fs.Bool("force", false, "allow replacing a database that already holds data (needs --wipe)")
 	wipe := fs.Bool("wipe", false, "DROP all objects in the public schema before restoring")
 	skipContent := fs.Bool("skip-content", false, "restore the database only, not the content files")
-	skipKEK := fs.Bool("skip-kek-check", false, "do not check CURRENT_MASTER_KEY against the CA keys in the backup")
+	skipKEK := fs.Bool("skip-kek-check", false, "do not check LIBREPATCH_MASTER_KEY against the CA keys in the backup")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

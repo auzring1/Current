@@ -62,9 +62,9 @@ export function ReportsPage() {
           ],
         },
       },
-      { id: "approved", header: "Approved missing", align: "right", width: 150, value: (r) => r.approved_missing ?? 0, cell: (r) => <span className="cur-num">{r.approved_missing}</span> },
-      { id: "critical", header: "Critical missing", align: "right", width: 150, value: (r) => r.critical_missing ?? 0, cell: (r) => <span className="cur-num">{r.critical_missing}</span> },
-      { id: "failed", header: "Failed", align: "right", width: 100, value: (r) => r.failed_updates ?? 0, cell: (r) => <span className="cur-num">{r.failed_updates}</span> },
+      { id: "approved", header: "Approved missing", align: "right", width: 150, value: (r) => r.approved_missing ?? 0, cell: (r) => <span className="lp-num">{r.approved_missing}</span> },
+      { id: "critical", header: "Critical missing", align: "right", width: 150, value: (r) => r.critical_missing ?? 0, cell: (r) => <span className="lp-num">{r.critical_missing}</span> },
+      { id: "failed", header: "Failed", align: "right", width: 100, value: (r) => r.failed_updates ?? 0, cell: (r) => <span className="lp-num">{r.failed_updates}</span> },
       { id: "scan", header: "Last scan", width: 180, value: (r) => (r.last_scan_at ? new Date(r.last_scan_at).getTime() : 0), csv: (r) => r.last_scan_at ?? "", cell: (r) => dateTime(r.last_scan_at) },
     ],
     [],
@@ -73,7 +73,7 @@ export function ReportsPage() {
   const jobColumns = useMemo<Column<JobRow>[]>(
     () => [
       { id: "type", header: "Type", required: true, width: 220, value: (j) => j.type.replace(/_/g, " ") },
-      { id: "ok", header: "Succeeded", align: "right", width: 120, value: (j) => j.ok, cell: (j) => <span className="cur-num">{j.ok}</span> },
+      { id: "ok", header: "Succeeded", align: "right", width: 120, value: (j) => j.ok, cell: (j) => <span className="lp-num">{j.ok}</span> },
       {
         id: "failed",
         header: "Failed",
@@ -86,11 +86,11 @@ export function ReportsPage() {
               {j.failed}
             </StatusPill>
           ) : (
-            <span className="cur-num">0</span>
+            <span className="lp-num">0</span>
           ),
       },
-      { id: "other", header: "Other", align: "right", width: 100, value: (j) => j.other, cell: (j) => <span className="cur-num">{j.other}</span> },
-      { id: "rate", header: "Success rate", align: "right", width: 130, value: (j) => (j.all ? Math.round((100 * j.ok) / j.all) : 0), cell: (j) => <span className="cur-num">{j.all ? Math.round((100 * j.ok) / j.all) : 0}%</span> },
+      { id: "other", header: "Other", align: "right", width: 100, value: (j) => j.other, cell: (j) => <span className="lp-num">{j.other}</span> },
+      { id: "rate", header: "Success rate", align: "right", width: 130, value: (j) => (j.all ? Math.round((100 * j.ok) / j.all) : 0), cell: (j) => <span className="lp-num">{j.all ? Math.round((100 * j.ok) / j.all) : 0}%</span> },
     ],
     [],
   );
@@ -135,7 +135,7 @@ export function ReportsPage() {
             <StatTile label="Not seen for a week" value={o.devices.not_seen_for_a_week ?? 0} kind={(o.devices.not_seen_for_a_week ?? 0) > 0 ? "warning" : "neutral"} icon={<Icons.Offline size={16} aria-hidden />} />
             <StatTile label="Pending approval" value={o.devices.pending ?? 0} kind={(o.devices.pending ?? 0) > 0 ? "warning" : "neutral"} icon={<Icons.Clock size={16} aria-hidden />} />
           </StatGrid>
-          <div style={{ display: "grid", gap: "var(--cur-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+          <div style={{ display: "grid", gap: "var(--lp-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
             <Card title="Compliance" description="Compliant = no approved or critical update missing, no failed install, and a Windows Update scan within the last week.">
               <Donut
                 label="Device compliance"
@@ -156,7 +156,7 @@ export function ReportsPage() {
                   { label: "Offline", value: Math.max(active - online, 0), token: "neutral" },
                 ]}
               />
-              <div style={{ marginTop: "var(--cur-space-4)" }}>
+              <div style={{ marginTop: "var(--lp-space-4)" }}>
                 <StackedBar
                   label="Devices that need attention"
                   slices={[

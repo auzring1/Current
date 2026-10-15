@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	sconfig "github.com/auzring1/current/internal/server/config"
+	sconfig "github.com/auzring1/librepatch/internal/server/config"
 )
 
 // The winget index: status, a manual refresh (audited), search by name, and the fleet list of available software

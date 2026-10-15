@@ -52,7 +52,7 @@ export function AboutPage() {
   }
   const a = q.data;
   return (
-    <div style={{ display: "grid", gap: "var(--cur-space-4)" }}>
+    <div style={{ display: "grid", gap: "var(--lp-space-4)" }}>
       <Card title={`About ${a.product}`} description={`${a.product} is made by ${a.company}.`}>
         <KeyValue
           label="Version and build"

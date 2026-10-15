@@ -4,7 +4,7 @@
 #   scripts/verify-reproducible.sh [--version 0.0.0-repro] [--commit REV] [--keep] [-- extra build-release.sh options]
 #
 # The two builds differ on purpose in everything that must not matter:
-#   - source path       (<work>/one/current-src  vs  <work>/two/some/other/place/checkout)
+#   - source path       (<work>/one/librepatch-src  vs  <work>/two/some/other/place/checkout)
 #   - Go build cache    (fresh and empty for each build; module downloads are shared and hash-verified by go.sum)
 #   - time zone, locale, umask (022 vs 077, which changes file modes in the checkout), npm cache
 #   - build time        (the second build starts at least two seconds later; nothing may embed the clock)
@@ -48,11 +48,11 @@ build() { # name checkout-dir tz locale umask
     git -C "$dir" checkout -q --detach "$rev"
     export TZ="$tz" LC_ALL="$loc" GOCACHE="$work/gocache-$name" GOMODCACHE="$gomod" npm_config_cache="$work/npmcache-$name"
     cd "$dir"
-    scripts/build-release.sh --version "$version" --release-pubkeys "$key" --authenticode-subjects "Current Repro Test" --out "$work/out-$name" ${extra[@]+"${extra[@]}"} >"$work/log-$name.txt" 2>&1
+    scripts/build-release.sh --version "$version" --release-pubkeys "$key" --authenticode-subjects "LibrePatch Repro Test" --out "$work/out-$name" ${extra[@]+"${extra[@]}"} >"$work/log-$name.txt" 2>&1
   ) || { tail -30 "$work/log-$name.txt" >&2; echo "build $name failed" >&2; exit 2; }
 }
 
-build one "$work/one/current-src" UTC C.UTF-8 022
+build one "$work/one/librepatch-src" UTC C.UTF-8 022
 sleep 2
 build two "$work/two/some/other/place/checkout" Pacific/Auckland C 077
 

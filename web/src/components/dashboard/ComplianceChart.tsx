@@ -26,12 +26,12 @@ export function ComplianceChart({ days }: { days: Day[] }) {
   const label = (n: number) => String(Math.round(n * 10) / 10);
 
   return (
-    <div className="cur-dash-data">
-      <svg className="cur-dash-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={historySummary(days)} focusable="false">
+    <div className="lp-dash-data">
+      <svg className="lp-dash-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={historySummary(days)} focusable="false">
         {ticks.map((t) => (
           <g key={t}>
-            <line className="cur-dash-chart__grid" x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} />
-            <text className="cur-dash-chart__axis" x={M.left - 6} y={y(t) + 4} textAnchor="end">
+            <line className="lp-dash-chart__grid" x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} />
+            <text className="lp-dash-chart__axis" x={M.left - 6} y={y(t) + 4} textAnchor="end">
               {label(t)}
             </text>
           </g>
@@ -39,9 +39,9 @@ export function ComplianceChart({ days }: { days: Day[] }) {
         {days.map((d, i) => {
           const x = M.left + band * i + (band - bw) / 2;
           const parts = [
-            { v: d.compliant, cls: "cur-dash-seg--ok" },
-            { v: d.nonCompliant, cls: "cur-dash-seg--bad" },
-            { v: d.unknown, cls: "cur-dash-seg--unk" },
+            { v: d.compliant, cls: "lp-dash-seg--ok" },
+            { v: d.nonCompliant, cls: "lp-dash-seg--bad" },
+            { v: d.unknown, cls: "lp-dash-seg--unk" },
           ];
           let acc = 0;
           return (
@@ -59,36 +59,36 @@ export function ComplianceChart({ days }: { days: Day[] }) {
         })}
         {days.length > 0 && (
           <>
-            <text className="cur-dash-chart__axis" x={M.left} y={H - 6} textAnchor="start">
+            <text className="lp-dash-chart__axis" x={M.left} y={H - 6} textAnchor="start">
               {shortDate(days[0]!.date)}
             </text>
             {days.length > 1 && (
-              <text className="cur-dash-chart__axis" x={W - M.right} y={H - 6} textAnchor="end">
+              <text className="lp-dash-chart__axis" x={W - M.right} y={H - 6} textAnchor="end">
                 {shortDate(days[days.length - 1]!.date)}
               </text>
             )}
           </>
         )}
       </svg>
-      <ul className="cur-legend" aria-label="Chart legend">
+      <ul className="lp-legend" aria-label="Chart legend">
         <li>
-          <span className="cur-dot" style={{ background: "var(--cur-success-solid)" }} aria-hidden="true" />
+          <span className="lp-dot" style={{ background: "var(--lp-success-solid)" }} aria-hidden="true" />
           Compliant
         </li>
         <li>
-          <span className="cur-dot" style={{ background: "var(--cur-danger-solid)" }} aria-hidden="true" />
+          <span className="lp-dot" style={{ background: "var(--lp-danger-solid)" }} aria-hidden="true" />
           Not compliant
         </li>
         <li>
-          <span className="cur-dot" style={{ background: "var(--cur-neutral-solid)" }} aria-hidden="true" />
+          <span className="lp-dot" style={{ background: "var(--lp-neutral-solid)" }} aria-hidden="true" />
           Not scanned
         </li>
       </ul>
       <details>
         <summary>View chart data as a table</summary>
-        <div className="cur-dash-data__scroll" role="region" aria-label="Compliance history table" tabIndex={0}>
+        <div className="lp-dash-data__scroll" role="region" aria-label="Compliance history table" tabIndex={0}>
           <table>
-            <caption className="cur-visually-hidden">Devices per compliance state, by day</caption>
+            <caption className="lp-visually-hidden">Devices per compliance state, by day</caption>
             <thead>
               <tr>
                 <th scope="col">Day</th>

@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/auth"
-	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/deploy"
 )
 
 type deploymentReq struct {

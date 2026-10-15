@@ -18,8 +18,8 @@ CREATE TABLE winget_index (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON winget_index TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON winget_index TO librepatch_app;
     END IF;
 END
 $$;

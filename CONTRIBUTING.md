@@ -1,4 +1,4 @@
-# Contributing to Current
+# Contributing to LibrePatch
 
 Thank you for helping. Bug reports, ideas, documentation fixes and pull requests are all welcome.
 
@@ -22,7 +22,7 @@ relevant part of `agent.log`. Remove host names, addresses and anything private 
 3. Make the change **with a test**. Every behavior change needs one, and so does every bug fix (a test that fails without it).
 4. Run the checks before you push:
    ```bash
-   make dev-db                       # a throwaway PostgreSQL; export the URL it prints as CURRENT_TEST_PG_URL
+   make dev-db                       # a throwaway PostgreSQL; export the URL it prints as LIBREPATCH_TEST_PG_URL
    go vet ./... && go test ./...
    cd web && npx tsc --noEmit && npx vitest run
    scripts/gui-e2e.sh                # the browser test, if you touched the console or the API

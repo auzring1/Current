@@ -21,11 +21,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/agent/config"
-	"github.com/auzring1/current/internal/agent/core"
-	"github.com/auzring1/current/internal/agent/keystore"
-	"github.com/auzring1/current/internal/shared/pkix"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/agent/config"
+	"github.com/auzring1/librepatch/internal/agent/core"
+	"github.com/auzring1/librepatch/internal/agent/keystore"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 // Identity is a simulated device's enrolled identity. The key is a software key held in memory; the

@@ -37,10 +37,10 @@ CREATE UNIQUE INDEX notification_outbox_dedupe ON notification_outbox (org_id, c
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON settings_sections, notification_outbox TO current_app;
-        GRANT USAGE, SELECT ON SEQUENCE notification_outbox_id_seq TO current_app;
-        GRANT SELECT ON goose_db_version TO current_app; -- the About page shows the schema version
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON settings_sections, notification_outbox TO librepatch_app;
+        GRANT USAGE, SELECT ON SEQUENCE notification_outbox_id_seq TO librepatch_app;
+        GRANT SELECT ON goose_db_version TO librepatch_app; -- the About page shows the schema version
     END IF;
 END
 $$;

@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/librepatch/gen/dbq"
 )
 
 // Actor types.
@@ -176,7 +176,7 @@ func chainHash(prev []byte, ts time.Time, org *uuid.UUID, actorType, actorID, ac
 		Details    json.RawMessage `json:"details"`
 	}{ts.UTC().Format(time.RFC3339Nano), orgS, actorType, actorID, actorIP, action, targetType, targets, outcome, details})
 	h := sha256.New()
-	h.Write([]byte("current/audit/v1\x00"))
+	h.Write([]byte("librepatch/audit/v1\x00"))
 	h.Write(prev)
 	h.Write(rec)
 	return h.Sum(nil)

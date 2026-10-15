@@ -75,7 +75,7 @@ export function DeploymentsPage() {
         cell: (d) => (
           <>
             {d.name}
-            <span className="cur-dt__cell-sub">
+            <span className="lp-dt__cell-sub">
               {d.action} · {d.scope}
             </span>
           </>
@@ -90,7 +90,7 @@ export function DeploymentsPage() {
         cell: (d) => (
           <>
             {d.package_name}
-            <span className="cur-dt__cell-sub">{d.version ?? "newest"}</span>
+            <span className="lp-dt__cell-sub">{d.version ?? "newest"}</span>
           </>
         ),
         filter: { type: "text" },
@@ -145,9 +145,9 @@ export function DeploymentsPage() {
         }
       />
       {onlyFailed && (
-        <div className="cur-chips" role="status">
+        <div className="lp-chips" role="status">
           <span>Showing</span>
-          <span className="cur-chip cur-chip--static">Deployments with failed jobs</span>
+          <span className="lp-chip lp-chip--static">Deployments with failed jobs</span>
           <Button size="compact-sm" variant="default" onClick={() => setUrlParams({}, { replace: true })}>
             Show all deployments
           </Button>

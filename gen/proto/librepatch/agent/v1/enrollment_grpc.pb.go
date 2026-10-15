@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             (unknown)
-// source: current/agent/v1/enrollment.proto
+// source: librepatch/agent/v1/enrollment.proto
 
 package agentv1
 
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	EnrollmentService_Enroll_FullMethodName       = "/current.agent.v1.EnrollmentService/Enroll"
-	EnrollmentService_EnrollStatus_FullMethodName = "/current.agent.v1.EnrollmentService/EnrollStatus"
+	EnrollmentService_Enroll_FullMethodName       = "/librepatch.agent.v1.EnrollmentService/Enroll"
+	EnrollmentService_EnrollStatus_FullMethodName = "/librepatch.agent.v1.EnrollmentService/EnrollStatus"
 )
 
 // EnrollmentServiceClient is the client API for EnrollmentService service.
@@ -150,7 +150,7 @@ func _EnrollmentService_EnrollStatus_Handler(srv interface{}, ctx context.Contex
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EnrollmentService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "current.agent.v1.EnrollmentService",
+	ServiceName: "librepatch.agent.v1.EnrollmentService",
 	HandlerType: (*EnrollmentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -163,5 +163,5 @@ var EnrollmentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "current/agent/v1/enrollment.proto",
+	Metadata: "librepatch/agent/v1/enrollment.proto",
 }

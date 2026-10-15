@@ -1,6 +1,6 @@
 # Console design system
 
-Everything visual comes from **semantic tokens** (`var(--cur-*)`), defined per theme in `src/design/themes/*.css` and
+Everything visual comes from **semantic tokens** (`var(--lp-*)`), defined per theme in `src/design/themes/*.css` and
 shared in `src/design/tokens.css`. Components never use raw colors (a test fails if they do).
 
 * **Themes**: one CSS file each (`light`, `dark`, `slate`, `midnight`, `contrast`). Add a file, get a theme. Every pair of

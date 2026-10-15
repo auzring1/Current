@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/groups"
-	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/groups"
+	"github.com/auzring1/librepatch/internal/server/store"
 )
 
 type groupView struct {

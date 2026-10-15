@@ -64,13 +64,13 @@ export function deriveSecondary(color: string, t: ThemeDef): string {
 }
 
 const VARS: Record<keyof DerivedAccent, string> = {
-  accent: "--cur-accent",
-  onAccent: "--cur-on-accent",
-  accentText: "--cur-accent-text",
-  subtle: "--cur-accent-subtle",
-  subtleText: "--cur-accent-subtle-text",
-  border: "--cur-accent-border",
-  selected: "--cur-surface-selected",
+  accent: "--lp-accent",
+  onAccent: "--lp-on-accent",
+  accentText: "--lp-accent-text",
+  subtle: "--lp-accent-subtle",
+  subtleText: "--lp-accent-subtle-text",
+  border: "--lp-accent-border",
+  selected: "--lp-surface-selected",
 };
 
 /** Sets (or clears) the derived colors on `root`. An empty or invalid accent leaves the theme's own defaults. */
@@ -78,5 +78,5 @@ export function applyAccent(root: HTMLElement, t: ThemeDef, accent: string, seco
   const set = (name: string, value: string | null) => (value ? root.style.setProperty(name, value) : root.style.removeProperty(name));
   const d = isHexColor(accent) ? deriveAccent(accent.toLowerCase(), t) : null;
   for (const k of Object.keys(VARS) as (keyof DerivedAccent)[]) set(VARS[k], d ? d[k] : null);
-  set("--cur-secondary", isHexColor(secondary) ? deriveSecondary(secondary.toLowerCase(), t) : null);
+  set("--lp-secondary", isHexColor(secondary) ? deriveSecondary(secondary.toLowerCase(), t) : null);
 }

@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	spkix "github.com/auzring1/current/internal/shared/pkix"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	spkix "github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 // FuzzOpenSigned feeds arbitrary payloads that carry a VALID signature, so the parsing and field

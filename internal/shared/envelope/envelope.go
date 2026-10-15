@@ -15,12 +15,12 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/shared/pkix"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 const (
-	jobDomain = "current/job/v1\x00"
+	jobDomain = "librepatch/job/v1\x00"
 	// MaxLifetime caps expires_at - issued_at so replay ledgers stay bounded.
 	MaxLifetime = 30 * 24 * time.Hour
 	// ClockSkew tolerated on issued_at.

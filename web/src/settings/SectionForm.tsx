@@ -82,8 +82,8 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
     const el = document.querySelector<HTMLElement>(`[data-setting="${CSS.escape(focus)}"]`);
     if (!el) return;
     el.scrollIntoView({ block: "center", behavior: "smooth" });
-    el.classList.add("cur-set-flash");
-    const t = window.setTimeout(() => el.classList.remove("cur-set-flash"), 2200);
+    el.classList.add("lp-set-flash");
+    const t = window.setTimeout(() => el.classList.remove("lp-set-flash"), 2200);
     return () => window.clearTimeout(t);
   }, [focus, q.data]);
 
@@ -116,7 +116,7 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
   if (q.isLoading) {
     return (
       <Card>
-        <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--cur-space-3)" }}>
+        <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--lp-space-3)" }}>
           <Skel w="35%" h={16} />
           <Skel h={36} />
           <Skel h={36} />
@@ -140,7 +140,7 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
   };
   const defaults = Object.fromEntries(section.fields.filter((f) => f.kind !== "secret").map((f) => [f.key, f.default]));
   return (
-    <div className="cur-set-form">
+    <div className="lp-set-form">
       {conflict && (
         <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />} title="Someone else changed these settings">
           <p style={{ margin: 0 }}>Your changes were not saved, because another administrator saved this section after you opened it.</p>
@@ -150,11 +150,11 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
         </Alert>
       )}
       <Card title={section.label} description={section.description}>
-        <div className="cur-set-fields">
+        <div className="lp-set-fields">
           {section.fields
             .filter((f) => visible(f, values))
             .map((f) => (
-              <div key={f.key} className="cur-set-row">
+              <div key={f.key} className="lp-set-row">
                 <FieldInput
                   field={f}
                   path={f.key}
@@ -167,7 +167,7 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
                   itemActions={itemActions ? (item) => itemActions(f, asObject(item)) : undefined}
                 />
                 {f.kind !== "secret" && f.kind !== "list" && JSON.stringify(values[f.key]) !== JSON.stringify(defaults[f.key]) && (
-                  <button type="button" className="cur-set-reset" onClick={() => set(f.key, JSON.parse(JSON.stringify(defaults[f.key] ?? "")))} aria-label={`Reset ${f.label} to its default`}>
+                  <button type="button" className="lp-set-reset" onClick={() => set(f.key, JSON.parse(JSON.stringify(defaults[f.key] ?? "")))} aria-label={`Reset ${f.label} to its default`}>
                     Reset to default
                   </button>
                 )}
@@ -176,11 +176,11 @@ export function SectionForm({ section, focus, after, itemActions }: Props) {
         </div>
       </Card>
       {after}
-      <div className={`cur-unsaved${dirty ? " cur-unsaved--on" : ""}`} role="region" aria-label="Unsaved changes" hidden={!dirty}>
+      <div className={`lp-unsaved${dirty ? " lp-unsaved--on" : ""}`} role="region" aria-label="Unsaved changes" hidden={!dirty}>
         <span>
           <Icons.Warning size={16} aria-hidden /> You have unsaved changes.
         </span>
-        <span className="cur-unsaved__actions">
+        <span className="lp-unsaved__actions">
           <Button variant="default" onClick={() => (setValues(JSON.parse(JSON.stringify(baseline)) as Values), setErrors({}))} disabled={save.isPending}>
             Discard
           </Button>

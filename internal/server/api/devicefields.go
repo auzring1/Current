@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/settings"
-	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/server/store"
 )
 
 // GET /devices/{id}/fields: the values of the organization's custom device fields for one device.

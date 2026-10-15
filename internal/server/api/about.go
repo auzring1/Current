@@ -11,22 +11,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/shared/brand"
-	"github.com/auzring1/current/internal/shared/version"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/version"
 )
 
 var startedAt = time.Now()
 
-// configShown lists the environment settings whose value is safe to put in a support bundle. Every other CURRENT_
+// configShown lists the environment settings whose value is safe to put in a support bundle. Every other LIBREPATCH_
 // variable is reported only as set or not set, because it can hold a key, a token or a password.
 var configShown = map[string]bool{
-	"CURRENT_HTTP_ADDR": true, "CURRENT_GATEWAY_ADDR": true, "CURRENT_GATEWAY_PUBLIC_ADDR": true, "CURRENT_PUBLIC_URL": true,
-	"CURRENT_TRUSTED_PROXIES": true, "CURRENT_LOG_LEVEL": true, "CURRENT_DEV_MODE": true, "CURRENT_HEARTBEAT_INTERVAL": true,
-	"CURRENT_SESSION_IDLE_TIMEOUT": true, "CURRENT_SESSION_ABSOLUTE_TIMEOUT": true, "CURRENT_MIGRATE_ON_START": true,
-	"CURRENT_WINGET_SOURCE": true, "CURRENT_WINGET_INDEX_URL": true, "CURRENT_DEVICE_CERT_LIFETIME": true, "CURRENT_DEVICE_RENEW_GRACE": true,
-	"CURRENT_ENROLL_POLL_INTERVAL": true, "CURRENT_ENROLL_RATE_PER_IP": true, "CURRENT_ENROLL_RATE_PER_TOKEN": true,
-	"CURRENT_GATEWAY_SANS": true, "CURRENT_IGNORE_IP_ALLOWLIST": true,
+	"LIBREPATCH_HTTP_ADDR": true, "LIBREPATCH_GATEWAY_ADDR": true, "LIBREPATCH_GATEWAY_PUBLIC_ADDR": true, "LIBREPATCH_PUBLIC_URL": true,
+	"LIBREPATCH_TRUSTED_PROXIES": true, "LIBREPATCH_LOG_LEVEL": true, "LIBREPATCH_DEV_MODE": true, "LIBREPATCH_HEARTBEAT_INTERVAL": true,
+	"LIBREPATCH_SESSION_IDLE_TIMEOUT": true, "LIBREPATCH_SESSION_ABSOLUTE_TIMEOUT": true, "LIBREPATCH_MIGRATE_ON_START": true,
+	"LIBREPATCH_WINGET_SOURCE": true, "LIBREPATCH_WINGET_INDEX_URL": true, "LIBREPATCH_DEVICE_CERT_LIFETIME": true, "LIBREPATCH_DEVICE_RENEW_GRACE": true,
+	"LIBREPATCH_ENROLL_POLL_INTERVAL": true, "LIBREPATCH_ENROLL_RATE_PER_IP": true, "LIBREPATCH_ENROLL_RATE_PER_TOKEN": true,
+	"LIBREPATCH_GATEWAY_SANS": true, "LIBREPATCH_IGNORE_IP_ALLOWLIST": true,
 }
 
 // redactedConfig reports the server's environment configuration without secrets.
@@ -34,13 +34,13 @@ func redactedConfig() map[string]string {
 	out := map[string]string{}
 	for _, kv := range os.Environ() {
 		k, v, ok := strings.Cut(kv, "=")
-		if !ok || !strings.HasPrefix(k, "CURRENT_") {
+		if !ok || !strings.HasPrefix(k, "LIBREPATCH_") {
 			continue
 		}
 		switch {
 		case configShown[k]:
 			out[k] = v
-		case k == "CURRENT_DATABASE_URL" || k == "CURRENT_MIGRATE_DATABASE_URL":
+		case k == "LIBREPATCH_DATABASE_URL" || k == "LIBREPATCH_MIGRATE_DATABASE_URL":
 			out[k] = redactURL(v)
 		case v == "":
 			out[k] = "(empty)"

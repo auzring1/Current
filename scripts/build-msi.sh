@@ -38,7 +38,7 @@ dotnet wix --acceptEula "$EULA" extension add -g "$UTIL_EXT" >/dev/null 2>&1
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-printf 'MZ' >"$work/current-agent.exe"
+printf 'MZ' >"$work/librepatch-agent.exe"
 
 # The product name comes from internal/shared/brand (the same source as the server and the web console).
 brand_defs=()
@@ -46,7 +46,7 @@ while IFS= read -r kv; do brand_defs+=(-d "$kv"); done < <(go run ./internal/sha
 
 set +e
 out="$(dotnet wix --acceptEula "$EULA" build -arch x64 -ext "${UTIL_EXT%%/*}" \
-  "${brand_defs[@]}" -d LinuxLint=1 -d Version=0.1.0.0 -d "AgentExe=$work/current-agent.exe" \
+  "${brand_defs[@]}" -d LinuxLint=1 -d Version=0.1.0.0 -d "AgentExe=$work/librepatch-agent.exe" \
   -o "$work/lint.msi" installer/windows/Package.wxs 2>&1)"
 rc=$?
 set -e

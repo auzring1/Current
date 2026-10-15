@@ -14,14 +14,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/current/gen/dbq"
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/auth"
-	"github.com/auzring1/current/internal/server/events"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/pkix"
+	"github.com/auzring1/librepatch/gen/dbq"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/events"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 // errRejected is the single generic error enrollment returns; the
@@ -29,7 +29,7 @@ import (
 var errRejected = status.Error(codes.PermissionDenied, "enrollment rejected")
 
 func ticketHash(t string) []byte {
-	h := sha256.Sum256([]byte("current/enroll-ticket/v1\x00" + t))
+	h := sha256.Sum256([]byte("librepatch/enroll-ticket/v1\x00" + t))
 	return h[:]
 }
 

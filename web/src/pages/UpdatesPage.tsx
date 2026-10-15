@@ -91,7 +91,7 @@ export function UpdatesPage() {
             </Anchor>
             <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               {kbOf(u).map((k) => (
-                <span key={k} className="cur-mono cur-muted">
+                <span key={k} className="lp-mono lp-muted">
                   {k}
                 </span>
               ))}
@@ -109,7 +109,7 @@ export function UpdatesPage() {
           </span>
         ),
       },
-      { id: "kb", header: "KB number", defaultHidden: true, width: 130, value: (u) => kbOf(u).join(" "), filter: { type: "text" }, cell: (u) => <span className="cur-mono">{kbOf(u).join(", ") || "—"}</span> },
+      { id: "kb", header: "KB number", defaultHidden: true, width: 130, value: (u) => kbOf(u).join(" "), filter: { type: "text" }, cell: (u) => <span className="lp-mono">{kbOf(u).join(", ") || "—"}</span> },
       {
         id: "classification",
         header: "Classification",
@@ -135,8 +135,8 @@ export function UpdatesPage() {
         csv: (u) => u.release_date ?? "",
         cell: (u) => (u.release_date ? new Date(u.release_date).toLocaleDateString() : "—"),
       },
-      { id: "missing", header: "Missing", align: "right", width: 90, value: (u) => u.devices_missing ?? 0, cell: (u) => <span className="cur-num">{u.devices_missing ?? 0}</span> },
-      { id: "installed", header: "Installed", align: "right", width: 95, defaultHidden: true, value: (u) => u.devices_installed ?? 0, cell: (u) => <span className="cur-num">{u.devices_installed ?? 0}</span> },
+      { id: "missing", header: "Missing", align: "right", width: 90, value: (u) => u.devices_missing ?? 0, cell: (u) => <span className="lp-num">{u.devices_missing ?? 0}</span> },
+      { id: "installed", header: "Installed", align: "right", width: 95, defaultHidden: true, value: (u) => u.devices_installed ?? 0, cell: (u) => <span className="lp-num">{u.devices_installed ?? 0}</span> },
       {
         id: "devices",
         header: "Devices",
@@ -146,10 +146,10 @@ export function UpdatesPage() {
         cell: (u) => (
           <span style={{ display: "grid", gap: 2 }}>
             <span>
-              <b className="cur-num">{u.devices_missing}</b> missing
+              <b className="lp-num">{u.devices_missing}</b> missing
               {(u.devices_pending_reboot ?? 0) > 0 && <>, {u.devices_pending_reboot} need a restart</>}
             </span>
-            <span className="cur-muted">
+            <span className="lp-muted">
               {u.devices_installed} installed
               {(u.devices_failed ?? 0) > 0 && (
                 <>
@@ -190,10 +190,10 @@ export function UpdatesPage() {
         }
       />
       {(urlSeverity || urlQuery) && (
-        <div className="cur-chips" role="status">
+        <div className="lp-chips" role="status">
           <span>Showing</span>
-          {urlSeverity && <span className="cur-chip cur-chip--static">Severity: {urlSeverity}</span>}
-          {urlQuery && <span className="cur-chip cur-chip--static">Search: {urlQuery}</span>}
+          {urlSeverity && <span className="lp-chip lp-chip--static">Severity: {urlSeverity}</span>}
+          {urlQuery && <span className="lp-chip lp-chip--static">Search: {urlQuery}</span>}
           <Button size="compact-sm" variant="default" onClick={() => setUrlParams({}, { replace: true })}>
             Clear filters
           </Button>
@@ -212,7 +212,7 @@ export function UpdatesPage() {
             <StatTile label="Awaiting a decision" value={pending} kind={pending > 0 ? "warning" : "success"} icon={<Icons.Clock size={16} aria-hidden />} hint="Not approved, declined or hidden yet" />
             <StatTile label="Devices missing updates" value={missingDevices} kind={missingDevices > 0 ? "warning" : "success"} icon={<Icons.NavDevices size={16} aria-hidden />} hint="Summed over the updates shown" />
           </StatGrid>
-          <div style={{ display: "grid", gap: "var(--cur-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+          <div style={{ display: "grid", gap: "var(--lp-space-4)", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
             <Card title="By severity" description="The updates in the table below, after your filters.">
               <Donut
                 label="Updates by severity"

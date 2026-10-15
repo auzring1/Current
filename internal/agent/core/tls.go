@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/auzring1/current/internal/shared/pkix"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 // pinnedTLS is used before enrollment: the agent has only the root SPKI pin
@@ -82,7 +82,7 @@ func mutualTLS(server string, root *x509.Certificate, cert, issuing []byte, key 
 }
 
 // PinnedTLS and MutualTLS expose the agent's (unchanged) trust logic to tools that
-// speak the real protocol without the full agent, such as cmd/current-loadsim. They do not relax anything.
+// speak the real protocol without the full agent, such as cmd/librepatch-loadsim. They do not relax anything.
 func PinnedTLS(server, pin string) (*tls.Config, error) { return pinnedTLS(server, pin) }
 
 // MutualTLS is mutualTLS for tools; see PinnedTLS.

@@ -73,7 +73,7 @@ export function ActivityTab({ id, hostname }: { id: string; hostname: string }) 
       { id: "actor", header: "Actor", value: (a) => `${actor(a)}${a.actor_ip ? ` · ${a.actor_ip}` : ""}`, sortable: true, width: 220 },
       { id: "action", header: "Action", value: (a) => auditActionLabel(a.action), sortable: true, required: true, width: 250, csv: (a) => a.action },
       { id: "outcome", header: "Outcome", value: (a) => a.outcome, sortable: true, width: 120, cell: (a) => <Outcome value={a.outcome} />, filter: { type: "select", options: ["success", "denied", "error"].map((v) => ({ value: v, label: v[0]!.toUpperCase() + v.slice(1) })) } },
-      { id: "details", header: "Details", value: (a) => auditDetailsSummary(a.details, 400), width: 380, wrap: true, cell: (a) => auditDetailsSummary(a.details) || <span className="cur-muted">—</span> },
+      { id: "details", header: "Details", value: (a) => auditDetailsSummary(a.details, 400), width: 380, wrap: true, cell: (a) => auditDetailsSummary(a.details) || <span className="lp-muted">—</span> },
     ],
     [],
   );

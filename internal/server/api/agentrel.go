@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/internal/server/agentrel"
-	"github.com/auzring1/current/internal/server/deploy"
+	"github.com/auzring1/librepatch/internal/server/agentrel"
+	"github.com/auzring1/librepatch/internal/server/deploy"
 )
 
 func (s *server) relSvc(w http.ResponseWriter) bool {
@@ -59,7 +59,7 @@ func (s *server) listAgentReleases(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": rels, "rollout": ro, "status": st})
 }
 
-// POST /agent-releases — the agent binary as the raw body, the vendor bundle (.curr) base64-encoded in X-Release-Bundle.
+// POST /agent-releases — the agent binary as the raw body, the vendor bundle (.lprel) base64-encoded in X-Release-Bundle.
 func (s *server) uploadAgentRelease(w http.ResponseWriter, r *http.Request) {
 	if !s.relSvc(w) {
 		return
@@ -70,7 +70,7 @@ func (s *server) uploadAgentRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	bundle, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Release-Bundle"))
 	if err != nil || len(bundle) == 0 {
-		badRequest(w, "X-Release-Bundle must hold the base64-encoded release bundle (.curr).")
+		badRequest(w, "X-Release-Bundle must hold the base64-encoded release bundle (.lprel).")
 		return
 	}
 	rc := http.NewResponseController(w)

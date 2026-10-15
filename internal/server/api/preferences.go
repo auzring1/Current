@@ -10,9 +10,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/branding"
-	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/branding"
+	"github.com/auzring1/librepatch/internal/server/store"
 )
 
 // Limits on what one account may store. The document is small by design: it holds a theme, a density and the

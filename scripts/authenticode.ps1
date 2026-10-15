@@ -9,14 +9,14 @@
                   self-hosted runner). The Azure Artifact Signing (formerly Trusted Signing) provider does not use
                   this: the workflow calls Azure's own action for it.
                   Everything provider-specific is passed in the environment, never in the repository:
-                    CURRENT_SIGNTOOL_ARGS   certificate selection arguments, e.g.
+                    LIBREPATCH_SIGNTOOL_ARGS   certificate selection arguments, e.g.
                                         /csp "<KSP name>" /kc "<key container>" /f "<public cert .cer>"
                                         (a repository variable; it holds names, not secrets)
                     plus whatever the KSP reads from the environment (secrets, set by the workflow step)
   -Action Verify  checks that each file has a valid, timestamped Authenticode signature and that the signer's
                   simple display name (the CN; this is exactly what the agent compares, see
                   internal/agent/jobs/platform_windows.go, CERT_NAME_SIMPLE_DISPLAY_TYPE) equals -Subject.
-                  The same value must be pinned into the vendor release manifest (current-release manifest
+                  The same value must be pinned into the vendor release manifest (librepatch-release manifest
                   --authenticode-subject), otherwise agents will refuse the update.
 
   Not exercised in the authoring sandbox (Linux, no signtool, no certificate). Reviewed against the
@@ -55,10 +55,10 @@ foreach ($f in $Files) {
 
 switch ($Action) {
   'Sign' {
-    if (-not $env:CURRENT_SIGNTOOL_ARGS) { throw 'CURRENT_SIGNTOOL_ARGS is not set (certificate selection arguments for signtool)' }
+    if (-not $env:LIBREPATCH_SIGNTOOL_ARGS) { throw 'LIBREPATCH_SIGNTOOL_ARGS is not set (certificate selection arguments for signtool)' }
     $signtool = Find-SignTool
     # Split the variable like a command line; it contains names and paths, not secrets.
-    $selection = [System.Management.Automation.PSParser]::Tokenize($env:CURRENT_SIGNTOOL_ARGS, [ref]$null) |
+    $selection = [System.Management.Automation.PSParser]::Tokenize($env:LIBREPATCH_SIGNTOOL_ARGS, [ref]$null) |
       Where-Object { $_.Type -in 'CommandArgument', 'String', 'CommandParameter' } | ForEach-Object { $_.Content }
     foreach ($f in $Files) {
       Write-Host "signing $f"

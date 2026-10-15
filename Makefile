@@ -1,9 +1,9 @@
-# Current developer tasks. Tools: Go (see go.mod toolchain), Node 22, Docker.
+# LibrePatch developer tasks. Tools: Go (see go.mod toolchain), Node 22, Docker.
 # Run `make help` for targets.
 SHELL := /bin/bash
 VERSION ?= 0.1.0-dev
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-LDFLAGS := -s -w -X github.com/auzring1/current/internal/shared/version.Version=$(VERSION) -X github.com/auzring1/current/internal/shared/version.Commit=$(COMMIT)
+LDFLAGS := -s -w -X github.com/auzring1/librepatch/internal/shared/version.Version=$(VERSION) -X github.com/auzring1/librepatch/internal/shared/version.Commit=$(COMMIT)
 AGENT_MAX_BYTES := 15728640   # 15 MiB budget (ARCHITECTURE §3.1)
 TEST_PG ?= postgres://postgres:devpostgres@127.0.0.1:55432/postgres?sslmode=disable
 
@@ -40,28 +40,28 @@ web: ## Build the web console into the server's embed directory
 
 .PHONY: build
 build: web ## Build server (linux) and agent (windows + linux test build) into bin/
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/current-server ./cmd/current-server
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/current-agent.exe ./cmd/current-agent
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/current-agent-linux ./cmd/current-agent
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/librepatch-server ./cmd/librepatch-server
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/librepatch-agent.exe ./cmd/librepatch-agent
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/librepatch-agent-linux ./cmd/librepatch-agent
 
 .PHONY: agent
 agent: ## Build only the Windows agent and enforce the size budget
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/current-agent.exe ./cmd/current-agent
-	@size=$$(stat -c %s bin/current-agent.exe); echo "agent size: $$size bytes (budget $(AGENT_MAX_BYTES))"; \
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/librepatch-agent.exe ./cmd/librepatch-agent
+	@size=$$(stat -c %s bin/librepatch-agent.exe); echo "agent size: $$size bytes (budget $(AGENT_MAX_BYTES))"; \
 	  test $$size -le $(AGENT_MAX_BYTES) || { echo "agent binary over budget"; exit 1; }
 
 .PHONY: winres
 winres: ## Regenerate the agent's Windows version resource (needs: go install github.com/tc-hib/go-winres@v0.3.3)
-	go run ./internal/shared/brand/gen -winres cmd/current-agent/winres/winres.json
-	cd cmd/current-agent && go-winres make --in winres/winres.json --out rsrc --arch amd64
+	go run ./internal/shared/brand/gen -winres cmd/librepatch-agent/winres/winres.json
+	cd cmd/librepatch-agent && go-winres make --in winres/winres.json --out rsrc --arch amd64
 
 .PHONY: dev-db
 dev-db: ## Start a throwaway PostgreSQL for tests on 127.0.0.1:55432
-	docker run -d --rm --name current-dev-pg -e POSTGRES_PASSWORD=devpostgres -p 127.0.0.1:55432:5432 postgres:16-alpine
-	@until docker exec current-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export CURRENT_TEST_PG_URL='$(TEST_PG)'"
+	docker run -d --rm --name librepatch-dev-pg -e POSTGRES_PASSWORD=devpostgres -p 127.0.0.1:55432:5432 postgres:16-alpine
+	@until docker exec librepatch-dev-pg pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done; echo "export LIBREPATCH_TEST_PG_URL='$(TEST_PG)'"
 
 .PHONY: test
-test: ## Unit + DB + in-process end-to-end tests (needs CURRENT_TEST_PG_URL, see dev-db)
+test: ## Unit + DB + in-process end-to-end tests (needs LIBREPATCH_TEST_PG_URL, see dev-db)
 	go test -race -count=1 ./...
 	cd web && npm test
 
@@ -71,7 +71,7 @@ test-gui: ## Browser end-to-end test (Playwright + real server + real agent)
 
 .PHONY: image
 image: ## Build the server container image
-	docker build -f deploy/Dockerfile.server --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t current/server:dev .
+	docker build -f deploy/Dockerfile.server --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t librepatch/server:dev .
 
 .PHONY: test-compose
 test-compose: image ## Full docker-compose stack + real agent integration test
@@ -82,10 +82,10 @@ lint: ## go vet, staticcheck, gosec (linux + windows), semgrep, typecheck
 	go vet ./...
 	GOOS=windows go vet ./...
 	staticcheck ./...
-	GOOS=windows staticcheck ./internal/agent/... ./cmd/current-agent/...
+	GOOS=windows staticcheck ./internal/agent/... ./cmd/librepatch-agent/...
 	gosec -quiet -exclude-generated -exclude-dir=test ./...
 	# G103 (unsafe) is inherent to Win32 FFI in the agent; those call sites are reviewed.
-	GOOS=windows gosec -quiet -exclude-generated -exclude=G103 ./internal/agent/... ./cmd/current-agent/...
+	GOOS=windows gosec -quiet -exclude-generated -exclude=G103 ./internal/agent/... ./cmd/librepatch-agent/...
 	docker run --rm -v "$$PWD:/src" -w /src semgrep/semgrep:latest semgrep scan --config .semgrep.yml --error --metrics=off --quiet
 	cd web && npx tsc --noEmit -p .
 
@@ -102,7 +102,7 @@ fuzz: ## Short fuzzing run (20s per target) over every parser that sees untruste
 .PHONY: vuln
 vuln: ## govulncheck + npm audit
 	govulncheck ./...
-	GOOS=windows govulncheck ./cmd/current-agent/...
+	GOOS=windows govulncheck ./cmd/librepatch-agent/...
 	cd web && npm audit --omit=dev --audit-level=high
 
 .PHONY: licenses

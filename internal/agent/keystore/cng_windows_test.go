@@ -16,7 +16,7 @@ import (
 func TestCNGKeyLifecycle(t *testing.T) {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "Current-UnitTest-" + hex.EncodeToString(b)
+	name := "LibrePatch-UnitTest-" + hex.EncodeToString(b)
 	ks := Default("")
 	signer, provider, err := ks.Create(name)
 	if err != nil {

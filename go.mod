@@ -1,4 +1,4 @@
-module github.com/auzring1/current
+module github.com/auzring1/librepatch
 
 go 1.26.0
 

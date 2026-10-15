@@ -19,11 +19,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/kek"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/kek"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -31,12 +31,12 @@ var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 // newEmptyDB creates an empty database (no schema at all) and returns its owner URL.
 func newEmptyDB(t testing.TB) string {
 	t.Helper()
-	base := os.Getenv("CURRENT_TEST_PG_URL")
+	base := os.Getenv("LIBREPATCH_TEST_PG_URL")
 	if base == "" {
-		if os.Getenv("CURRENT_REQUIRE_DB") == "1" {
-			t.Fatal("CURRENT_TEST_PG_URL is required")
+		if os.Getenv("LIBREPATCH_REQUIRE_DB") == "1" {
+			t.Fatal("LIBREPATCH_TEST_PG_URL is required")
 		}
-		t.Skip("CURRENT_TEST_PG_URL not set; skipping database test")
+		t.Skip("LIBREPATCH_TEST_PG_URL not set; skipping database test")
 	}
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, base)
@@ -46,13 +46,13 @@ func newEmptyDB(t testing.TB) string {
 	defer func() { _ = admin.Close(ctx) }()
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "cur_b_" + hex.EncodeToString(b)
+	name := "lp_b_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		t.Fatal(err)
 	}
 	_, _ = admin.Exec(ctx, `DO $$ BEGIN
-		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='current_app') THEN
-			CREATE ROLE current_app LOGIN PASSWORD '`+pgtest.AppPassword+`';
+		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='librepatch_app') THEN
+			CREATE ROLE librepatch_app LOGIN PASSWORD '`+pgtest.AppPassword+`';
 		END IF; END $$`)
 	t.Cleanup(func() {
 		c, err := pgx.Connect(context.Background(), base)

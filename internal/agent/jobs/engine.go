@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 )
 
 // Reporter delivers job updates to the server. The agent core implements it on

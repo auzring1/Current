@@ -67,7 +67,7 @@ export function TokensPage() {
           ],
         },
       },
-      { id: "uses", header: "Uses", value: (t) => t.used_count, sortable: true, align: "right", width: 100, cell: (t) => <span className="cur-num">{t.used_count} / {t.max_uses}</span>, csv: (t) => `${t.used_count} / ${t.max_uses}` },
+      { id: "uses", header: "Uses", value: (t) => t.used_count, sortable: true, align: "right", width: 100, cell: (t) => <span className="lp-num">{t.used_count} / {t.max_uses}</span>, csv: (t) => `${t.used_count} / ${t.max_uses}` },
       {
         id: "approval",
         header: "Approval",

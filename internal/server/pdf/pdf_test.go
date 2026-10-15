@@ -19,7 +19,7 @@ func sample(n int) []byte {
 	for i := range rows {
 		rows[i] = []string{fmt.Sprintf("PC-%04d", i), "compliant", "Windows 11 (build 26100)", "Ünïcode ★ (parens) \\ back"}
 	}
-	d := Doc{OrgName: "Example Clinic", ProductName: "Current", Title: "Patch compliance", Note: "Confidential", Footer: "Example Clinic", Accent: ParseHexColor("#1971c2"), Generated: time.Date(2026, 1, 2, 3, 4, 0, 0, time.UTC)}
+	d := Doc{OrgName: "Example Clinic", ProductName: "LibrePatch", Title: "Patch compliance", Note: "Confidential", Footer: "Example Clinic", Accent: ParseHexColor("#1971c2"), Generated: time.Date(2026, 1, 2, 3, 4, 0, 0, time.UTC)}
 	return d.Table([]Column{{"Device", 12}, {"State", 14}, {"Operating system", 30}, {"Notes", 30}}, rows)
 }
 
@@ -61,7 +61,7 @@ func TestTextIsReadableByARealReader(t *testing.T) {
 		t.Fatalf("pdftotext: %v %s", err, out)
 	}
 	s := string(out)
-	for _, want := range []string{"Example Clinic", "Current", "Patch compliance", "Confidential", "Generated 2026-01-02 03:04 UTC", "PC-0000", "PC-0059", "Page 1 of", "(parens)"} {
+	for _, want := range []string{"Example Clinic", "LibrePatch", "Patch compliance", "Confidential", "Generated 2026-01-02 03:04 UTC", "PC-0000", "PC-0059", "Page 1 of", "(parens)"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("the text lacks %q", want)
 		}
@@ -96,7 +96,7 @@ func TestLogoIsEmbeddedAndHostileImagesAreIgnored(t *testing.T) {
 	if err := stdpng.Encode(&png, img); err != nil {
 		t.Fatal(err)
 	}
-	d := Doc{OrgName: "Example Clinic", ProductName: "Current", Title: "T", LogoPNG: png.Bytes()}
+	d := Doc{OrgName: "Example Clinic", ProductName: "LibrePatch", Title: "T", LogoPNG: png.Bytes()}
 	b := d.Table([]Column{{"A", 5}}, [][]string{{"x"}})
 	if !bytes.Contains(b, []byte("/Subtype /Image")) || !bytes.Contains(b, []byte("/Im1 Do")) {
 		t.Fatal("the logo should be in the PDF")

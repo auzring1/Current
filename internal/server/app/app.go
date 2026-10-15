@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"github.com/google/uuid"
 	"log/slog"
 	"net"
@@ -21,30 +21,30 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/agentrel"
-	"github.com/auzring1/current/internal/server/api"
-	"github.com/auzring1/current/internal/server/auth"
-	"github.com/auzring1/current/internal/server/branding"
-	"github.com/auzring1/current/internal/server/catalog"
-	"github.com/auzring1/current/internal/server/config"
-	"github.com/auzring1/current/internal/server/dashboard"
-	"github.com/auzring1/current/internal/server/deploy"
-	"github.com/auzring1/current/internal/server/events"
-	"github.com/auzring1/current/internal/server/gateway"
-	"github.com/auzring1/current/internal/server/kek"
-	"github.com/auzring1/current/internal/server/maintenance"
-	"github.com/auzring1/current/internal/server/notify"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/server/policies"
-	"github.com/auzring1/current/internal/server/reportsched"
-	"github.com/auzring1/current/internal/server/settings"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/server/updates"
-	"github.com/auzring1/current/internal/server/webui"
-	"github.com/auzring1/current/internal/server/wingetindex"
-	"github.com/auzring1/current/internal/shared/release"
+	"github.com/auzring1/librepatch/gen/dbq"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/agentrel"
+	"github.com/auzring1/librepatch/internal/server/api"
+	"github.com/auzring1/librepatch/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/branding"
+	"github.com/auzring1/librepatch/internal/server/catalog"
+	"github.com/auzring1/librepatch/internal/server/config"
+	"github.com/auzring1/librepatch/internal/server/dashboard"
+	"github.com/auzring1/librepatch/internal/server/deploy"
+	"github.com/auzring1/librepatch/internal/server/events"
+	"github.com/auzring1/librepatch/internal/server/gateway"
+	"github.com/auzring1/librepatch/internal/server/kek"
+	"github.com/auzring1/librepatch/internal/server/maintenance"
+	"github.com/auzring1/librepatch/internal/server/notify"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/server/policies"
+	"github.com/auzring1/librepatch/internal/server/reportsched"
+	"github.com/auzring1/librepatch/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/server/updates"
+	"github.com/auzring1/librepatch/internal/server/webui"
+	"github.com/auzring1/librepatch/internal/server/wingetindex"
+	"github.com/auzring1/librepatch/internal/shared/release"
 )
 
 // App is a running server.
@@ -66,7 +66,7 @@ type App struct {
 	Sched     *reportsched.Service
 	Catalog   *catalog.Service
 	// Winget keeps the winget community index (what installed programs are and their newest versions); nil when
-	// CURRENT_WINGET_SOURCE=off.
+	// LIBREPATCH_WINGET_SOURCE=off.
 	Winget *wingetindex.Service
 	// Branding holds the per-deployment names, colors, login texts and images.
 	Branding *branding.Service

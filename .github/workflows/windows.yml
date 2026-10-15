@@ -30,21 +30,21 @@ jobs:
           $svc = Get-Service -Name "postgresql*" | Select-Object -First 1
           Set-Service -Name $svc.Name -StartupType Manual
           Start-Service -Name $svc.Name
-          "CURRENT_TEST_PG_URL=postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/postgres?sslmode=disable" >> $env:GITHUB_ENV
+          "LIBREPATCH_TEST_PG_URL=postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/postgres?sslmode=disable" >> $env:GITHUB_ENV
 
       - name: Agent unit tests (CNG/TPM key store, Windows hardware collector)
         run: go test -count=1 -v ./internal/agent/...
 
       - name: In-process end-to-end test with real CNG keys
-        env: { CURRENT_REQUIRE_DB: "1" }
+        env: { LIBREPATCH_REQUIRE_DB: "1" }
         run: go test -count=1 ./test/e2e/
 
       - name: Build agent (size budget 15 MiB) and server
         shell: pwsh
         run: |
-          go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent
-          go build -o current-server.exe ./cmd/current-server
-          $size = (Get-Item current-agent.exe).Length
+          go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent
+          go build -o librepatch-server.exe ./cmd/librepatch-server
+          $size = (Get-Item librepatch-agent.exe).Length
           Write-Host "agent size: $size bytes"
           if ($size -gt 15728640) { throw "agent binary over the 15 MiB budget" }
 
@@ -52,16 +52,16 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE current_ci"
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE librepatch_ci"
           $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
-          $env:CURRENT_DEV_MODE = "true"
-          $env:CURRENT_PUBLIC_URL = "http://localhost:18080"
-          $env:CURRENT_HTTP_ADDR = "127.0.0.1:18080"
-          $env:CURRENT_GATEWAY_ADDR = "127.0.0.1:18443"
-          $env:CURRENT_GATEWAY_PUBLIC_ADDR = "localhost:18443"
-          $env:CURRENT_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/current_ci?sslmode=disable"
-          $env:CURRENT_MASTER_KEY = $key
-          $server = Start-Process -FilePath .\current-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $env:LIBREPATCH_DEV_MODE = "true"
+          $env:LIBREPATCH_PUBLIC_URL = "http://localhost:18080"
+          $env:LIBREPATCH_HTTP_ADDR = "127.0.0.1:18080"
+          $env:LIBREPATCH_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:LIBREPATCH_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:LIBREPATCH_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/librepatch_ci?sslmode=disable"
+          $env:LIBREPATCH_MASTER_KEY = $key
+          $server = Start-Process -FilePath .\librepatch-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -73,50 +73,50 @@ jobs:
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
 
-          .\current-agent.exe install --token $enroll.Trim()
-          if ($LASTEXITCODE -ne 0) { Get-Content "$env:ProgramData\Current\logs\agent.log" -ErrorAction SilentlyContinue; throw "install failed" }
-          & "$env:ProgramFiles\Current\Agent\slot-a\current-agent.exe" status
-          $status = Get-Content "$env:ProgramData\Current\status.json" | ConvertFrom-Json
-          if ($status.state -ne "connected") { Get-Content "$env:ProgramData\Current\logs\agent.log"; throw "agent not connected: $($status.state)" }
+          .\librepatch-agent.exe install --token $enroll.Trim()
+          if ($LASTEXITCODE -ne 0) { Get-Content "$env:ProgramData\LibrePatch\logs\agent.log" -ErrorAction SilentlyContinue; throw "install failed" }
+          & "$env:ProgramFiles\LibrePatch\Agent\slot-a\librepatch-agent.exe" status
+          $status = Get-Content "$env:ProgramData\LibrePatch\status.json" | ConvertFrom-Json
+          if ($status.state -ne "connected") { Get-Content "$env:ProgramData\LibrePatch\logs\agent.log"; throw "agent not connected: $($status.state)" }
 
           # Software and user inventory reached the server (real registry, MSI, AppX collectors).
           $psql = "$env:PGBIN\psql.exe"
           $n = 0
           for ($i = 0; $i -lt 40 -and $n -lt 5; $i++) {
             Start-Sleep -Seconds 2
-            $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d current_ci -tAc "SELECT coalesce(max(software_count),0) FROM devices")
+            $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_ci -tAc "SELECT coalesce(max(software_count),0) FROM devices")
           }
           Write-Host "software items reported: $n"
-          & $psql -h 127.0.0.1 -U $env:PGUSER -d current_ci -c "SELECT source, scope, count(*) FROM software_installs GROUP BY 1,2 ORDER BY 1,2"
-          & $psql -h 127.0.0.1 -U $env:PGUSER -d current_ci -c "SELECT username, domain, loaded, is_admin FROM device_users"
-          & $psql -h 127.0.0.1 -U $env:PGUSER -d current_ci -c "SELECT hardware->'disks' AS disks FROM devices"
-          if ($n -lt 5) { Get-Content "$env:ProgramData\Current\logs\agent.log"; throw "software inventory missing ($n items)" }
-          $u = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d current_ci -tAc "SELECT count(*) FROM device_users")
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_ci -c "SELECT source, scope, count(*) FROM software_installs GROUP BY 1,2 ORDER BY 1,2"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_ci -c "SELECT username, domain, loaded, is_admin FROM device_users"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_ci -c "SELECT hardware->'disks' AS disks FROM devices"
+          if ($n -lt 5) { Get-Content "$env:ProgramData\LibrePatch\logs\agent.log"; throw "software inventory missing ($n items)" }
+          $u = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_ci -tAc "SELECT count(*) FROM device_users")
           if ($u -lt 1) { throw "no user profiles reported" }
 
           # Service runs as LocalSystem with a quoted path.
-          $svc = Get-CimInstance Win32_Service -Filter "Name='CurrentAgent'"
+          $svc = Get-CimInstance Win32_Service -Filter "Name='LibrePatchAgent'"
           if ($svc.StartName -ne "LocalSystem") { throw "service account is $($svc.StartName)" }
           if (-not $svc.PathName.StartsWith('"')) { throw "service path is not quoted: $($svc.PathName)" }
           # Data directory: protected DACL, only SYSTEM and Administrators.
-          $acl = Get-Acl "$env:ProgramData\Current"
+          $acl = Get-Acl "$env:ProgramData\LibrePatch"
           if (-not $acl.AreAccessRulesProtected) { throw "data dir inherits ACEs" }
           $who = $acl.Access | ForEach-Object { $_.IdentityReference.Value } | Sort-Object -Unique
           Write-Host "data dir ACL: $($who -join ', ')"
           foreach ($w in $who) { if ($w -notin @('NT AUTHORITY\SYSTEM','BUILTIN\Administrators')) { throw "unexpected ACE for $w" } }
           # The enrollment secret was erased from disk.
-          if (Select-String -Path "$env:ProgramData\Current\config.json" -Pattern enrollment_token -Quiet) { throw "token left on disk" }
+          if (Select-String -Path "$env:ProgramData\LibrePatch\config.json" -Pattern enrollment_token -Quiet) { throw "token left on disk" }
           # No listening sockets owned by the agent.
-          $agentPid = (Get-CimInstance Win32_Service -Filter "Name='CurrentAgent'").ProcessId
+          $agentPid = (Get-CimInstance Win32_Service -Filter "Name='LibrePatchAgent'").ProcessId
           $listen = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object OwningProcess -eq $agentPid
           if ($listen) { throw "agent is listening on a port" }
           # Memory budget (informational until Phase 6 load testing).
           $ws = (Get-Process -Id $agentPid).WorkingSet64
           Write-Host "agent working set: $([math]::Round($ws/1MB,1)) MiB"
 
-          .\current-agent.exe uninstall
-          if (Get-Service CurrentAgent -ErrorAction SilentlyContinue) { throw "service still present" }
-          if (Test-Path "$env:ProgramData\Current") { throw "data dir still present" }
+          .\librepatch-agent.exe uninstall
+          if (Get-Service LibrePatchAgent -ErrorAction SilentlyContinue) { throw "service still present" }
+          if (Test-Path "$env:ProgramData\LibrePatch") { throw "data dir still present" }
           Stop-Process -Id $server.Id
 
   # Software deployment on a real Windows service. Informational until it has been
@@ -159,20 +159,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE current_deploy"
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE librepatch_deploy"
           $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
-          $env:CURRENT_DEV_MODE = "true"
-          $env:CURRENT_PUBLIC_URL = "http://localhost:18080"
-          $env:CURRENT_HTTP_ADDR = "127.0.0.1:18080"
-          $env:CURRENT_GATEWAY_ADDR = "127.0.0.1:18443"
-          $env:CURRENT_GATEWAY_PUBLIC_ADDR = "localhost:18443"
-          $env:CURRENT_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/current_deploy?sslmode=disable"
-          $env:CURRENT_MASTER_KEY = $key
-          $env:CURRENT_CONTENT_DIR = "$env:RUNNER_TEMP\cur-content"
-          go build -o current-server.exe ./cmd/current-server
-          go build -trimpath -o current-agent.exe ./cmd/current-agent
+          $env:LIBREPATCH_DEV_MODE = "true"
+          $env:LIBREPATCH_PUBLIC_URL = "http://localhost:18080"
+          $env:LIBREPATCH_HTTP_ADDR = "127.0.0.1:18080"
+          $env:LIBREPATCH_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:LIBREPATCH_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:LIBREPATCH_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/librepatch_deploy?sslmode=disable"
+          $env:LIBREPATCH_MASTER_KEY = $key
+          $env:LIBREPATCH_CONTENT_DIR = "$env:RUNNER_TEMP\lp-content"
+          go build -o librepatch-server.exe ./cmd/librepatch-server
+          go build -trimpath -o librepatch-agent.exe ./cmd/librepatch-agent
           go build -o deploycheck.exe ./test/tools/deploycheck
-          $server = Start-Process -FilePath .\current-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\librepatch-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -183,15 +183,15 @@ jobs:
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token -totp-out totp.txt
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
-          .\current-agent.exe install --token $enroll.Trim()
+          .\librepatch-agent.exe install --token $enroll.Trim()
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           $failed = @()
           foreach ($s in @("unsigned-pinned", "winget-7zip")) {
             .\deploycheck.exe -url http://localhost:18080 -totp-file totp.txt -scenario $s
             if ($LASTEXITCODE -ne 0) { $failed += $s }
           }
-          Get-Content "$env:ProgramData\Current\logs\agent.log" -Tail 80 -ErrorAction SilentlyContinue
-          .\current-agent.exe uninstall
+          Get-Content "$env:ProgramData\LibrePatch\logs\agent.log" -Tail 80 -ErrorAction SilentlyContinue
+          .\librepatch-agent.exe uninstall
           Stop-Process -Id $server.Id
           if ($failed.Count -gt 0) { Get-Content server.err -Tail 60; throw "scenarios failed: $($failed -join ', ')" }
 
@@ -236,11 +236,11 @@ jobs:
           dotnet --info | Select-Object -First 6
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($v in @("0.1.0", "0.1.1")) {
-            go build -trimpath -ldflags "-s -w -X github.com/auzring1/current/internal/shared/version.Version=$v" -o "dist\current-agent-$v.exe" ./cmd/current-agent
+            go build -trimpath -ldflags "-s -w -X github.com/auzring1/librepatch/internal/shared/version.Version=$v" -o "dist\librepatch-agent-$v.exe" ./cmd/librepatch-agent
             if ($LASTEXITCODE -ne 0) { throw "agent build $v failed" }
-            ./installer/windows/build.ps1 -AgentExe "dist\current-agent-$v.exe" -Version $v -Output "$PWD\dist\current-agent-$v.msi"
+            ./installer/windows/build.ps1 -AgentExe "dist\librepatch-agent-$v.exe" -Version $v -Output "$PWD\dist\librepatch-agent-$v.msi"
           }
-          go build -o current-server.exe ./cmd/current-server
+          go build -o librepatch-server.exe ./cmd/librepatch-server
           if ($LASTEXITCODE -ne 0) { throw "server build failed" }
 
       - name: Install, failure and rollback, upgrade, uninstall with msiexec
@@ -248,16 +248,16 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $psql = "$env:PGBIN\psql.exe"
-          & $psql -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE current_msi"
+          & $psql -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE librepatch_msi"
           $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
-          $env:CURRENT_DEV_MODE = "true"
-          $env:CURRENT_PUBLIC_URL = "http://localhost:18080"
-          $env:CURRENT_HTTP_ADDR = "127.0.0.1:18080"
-          $env:CURRENT_GATEWAY_ADDR = "127.0.0.1:18443"
-          $env:CURRENT_GATEWAY_PUBLIC_ADDR = "localhost:18443"
-          $env:CURRENT_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/current_msi?sslmode=disable"
-          $env:CURRENT_MASTER_KEY = $key
-          $server = Start-Process -FilePath .\current-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $env:LIBREPATCH_DEV_MODE = "true"
+          $env:LIBREPATCH_PUBLIC_URL = "http://localhost:18080"
+          $env:LIBREPATCH_HTTP_ADDR = "127.0.0.1:18080"
+          $env:LIBREPATCH_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:LIBREPATCH_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:LIBREPATCH_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/librepatch_msi?sslmode=disable"
+          $env:LIBREPATCH_MASTER_KEY = $key
+          $server = Start-Process -FilePath .\librepatch-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $setup = $null
           for ($i = 0; $i -lt 60 -and -not $setup; $i++) {
@@ -267,11 +267,11 @@ jobs:
           }
           if (-not $setup) { Get-Content server.err, server.out; throw "no setup token" }
           $enroll = (go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $setup).Trim()
-          if ($LASTEXITCODE -ne 0 -or -not $enroll.StartsWith("CUR1.")) { throw "bootstrap failed" }
+          if ($LASTEXITCODE -ne 0 -or -not $enroll.StartsWith("LP1.")) { throw "bootstrap failed" }
 
-          $v1 = "$PWD\dist\current-agent-0.1.0.msi"
-          $v2 = "$PWD\dist\current-agent-0.1.1.msi"
-          $data = "$env:ProgramData\Current"
+          $v1 = "$PWD\dist\librepatch-agent-0.1.0.msi"
+          $v2 = "$PWD\dist\librepatch-agent-0.1.1.msi"
+          $data = "$env:ProgramData\LibrePatch"
           $pf = $env:ProgramFiles
 
           function Invoke-Msi([string]$Args_) {
@@ -279,9 +279,9 @@ jobs:
             return $p.ExitCode
           }
           function Assert-Clean([string]$When) {
-            for ($i = 0; $i -lt 30 -and (Get-Service CurrentAgent -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
-            if (Get-Service CurrentAgent -ErrorAction SilentlyContinue) { throw "${When}: service still present" }
-            foreach ($d in @($data, "$pf\Current", "$pf\CurrentSetup")) {
+            for ($i = 0; $i -lt 30 -and (Get-Service LibrePatchAgent -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+            if (Get-Service LibrePatchAgent -ErrorAction SilentlyContinue) { throw "${When}: service still present" }
+            foreach ($d in @($data, "$pf\LibrePatch", "$pf\LibrePatchSetup")) {
               if (Test-Path $d) { throw "${When}: $d still present" }
             }
           }
@@ -319,7 +319,7 @@ jobs:
 
           # 1. Failures must exit 1603 and leave nothing behind.
           $bad = @{
-            "malformed token"      = "SERVER=localhost:18443 TOKEN=CUR1.not-a-real-token"
+            "malformed token"      = "SERVER=localhost:18443 TOKEN=LP1.not-a-real-token"
             "missing TOKEN"        = "SERVER=localhost:18443"
             "missing SERVER"       = "TOKEN=$enroll"
             "metacharacter in SERVER" = "SERVER=localhost:18443&calc TOKEN=$enroll"
@@ -337,28 +337,28 @@ jobs:
           # 2. Silent install.
           $rc = Invoke-Msi "/i `"$v1`" /qn SERVER=localhost:18443 TOKEN=$enroll ALLOWEDJOBS=inventory,wu_scan /l*v `"$PWD\msi.log`""
           if ($rc -ne 0) { Get-Content "$data\logs\agent.log" -Tail 40 -ErrorAction SilentlyContinue; throw "install exited $rc" }
-          if ((Get-Service CurrentAgent).Status -ne "Running") { throw "service is not running" }
+          if ((Get-Service LibrePatchAgent).Status -ne "Running") { throw "service is not running" }
           $status = Get-Content "$data\status.json" | ConvertFrom-Json
           if ($status.state -ne "connected") { Get-Content "$data\logs\agent.log" -Tail 40; throw "agent not connected: $($status.state)" }
           $deviceId = $status.device_id
-          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d current_msi -tAc "SELECT count(*) FROM devices")
+          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_msi -tAc "SELECT count(*) FROM devices")
           if ($n -ne 1) { throw "expected 1 device, found $n" }
           $cfg = Get-Content "$data\config.json" -Raw
           if ($cfg -notmatch 'inventory' -or $cfg -notmatch 'wu_scan') { throw "ALLOWEDJOBS did not reach config.json" }
           if ($cfg -match 'enrollment_token') { throw "token left in config.json" }
-          if (-not (Test-Path "$pf\Current\Agent\slot-a\current-agent.exe")) { throw "slot-a binary missing" }
+          if (-not (Test-Path "$pf\LibrePatch\Agent\slot-a\librepatch-agent.exe")) { throw "slot-a binary missing" }
           if (Test-LogLeak "$PWD\msi.log" $enroll) { $leaks += "the enrollment token is in msi.log" }
           elseif (Test-LogLeak "$PWD\msi.log" $enroll.Substring(6, 24)) { $leaks += "part of the enrollment token is in msi.log" }
 
           # 3. Major upgrade of an enrolled machine: no properties, no new token, same device, still running.
           $rc = Invoke-Msi "/i `"$v2`" /qn /l*v `"$PWD\upgrade.log`""
           if ($rc -ne 0) { Get-Content "$data\logs\agent.log" -Tail 40 -ErrorAction SilentlyContinue; throw "upgrade exited $rc" }
-          if ((Get-Service CurrentAgent).Status -ne "Running") { throw "service stopped by the upgrade" }
+          if ((Get-Service LibrePatchAgent).Status -ne "Running") { throw "service stopped by the upgrade" }
           if ((Get-Content "$data\status.json" | ConvertFrom-Json).device_id -ne $deviceId) { throw "device identity changed by the upgrade" }
-          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d current_msi -tAc "SELECT count(*) FROM devices")
+          $n = [int](& $psql -h 127.0.0.1 -U $env:PGUSER -d librepatch_msi -tAc "SELECT count(*) FROM devices")
           if ($n -ne 1) { throw "upgrade re-enrolled: $n devices" }
-          $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "Current Agent"
-          if (@($arp).Count -ne 1) { throw "expected one Current Agent product after the upgrade, found $(@($arp).Count)" }
+          $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object DisplayName -eq "LibrePatch Agent"
+          if (@($arp).Count -ne 1) { throw "expected one LibrePatch Agent product after the upgrade, found $(@($arp).Count)" }
           if (Test-LogLeak "$PWD\upgrade.log" $enroll) { $leaks += "the enrollment token is in upgrade.log" }
 
           # 4. Uninstall removes service, data, program files and the staged copy.
@@ -369,7 +369,7 @@ jobs:
           # 5. /qb (basic UI) works too, then clean up.
           $rc = Invoke-Msi "/i `"$v1`" /qb SERVER=localhost:18443 TOKEN=$enroll"
           if ($rc -ne 0) { throw "/qb install exited $rc" }
-          if ((Get-Service CurrentAgent).Status -ne "Running") { throw "service is not running after /qb install" }
+          if ((Get-Service LibrePatchAgent).Status -ne "Running") { throw "service is not running after /qb install" }
           $rc = Invoke-Msi "/x `"$v1`" /qb"
           if ($rc -ne 0) { throw "/qb uninstall exited $rc" }
           Assert-Clean "after /qb uninstall"
@@ -384,7 +384,7 @@ jobs:
           foreach ($f in "msi.log", "fail.log", "upgrade.log", "uninstall.log", "server.err") {
             if (Test-Path $f) { Copy-Item $f logs\ }
           }
-          if (Test-Path "$env:ProgramData\Current\logs\agent.log") { Copy-Item "$env:ProgramData\Current\logs\agent.log" logs\ }
+          if (Test-Path "$env:ProgramData\LibrePatch\logs\agent.log") { Copy-Item "$env:ProgramData\LibrePatch\logs\agent.log" logs\ }
           Get-ChildItem dist -Filter *.msi | ForEach-Object { Copy-Item $_.FullName logs\ }
 
       # The logs are only uploaded after the token check above has passed or failed; the enrollment
@@ -418,36 +418,36 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE current_selfupdate"
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U $env:PGUSER -c "CREATE DATABASE librepatch_selfupdate"
           # A throw-away release key; the agents are built to trust it and the server is told to accept it.
-          go build -o current-release.exe ./cmd/current-release
-          .\current-release.exe keygen --out release.key | Out-Null
+          go build -o librepatch-release.exe ./cmd/librepatch-release
+          .\librepatch-release.exe keygen --out release.key | Out-Null
           $pub = (Get-Content release.pub -Raw).Trim()
           function Build($v, $pkg, $out) {
-            $f = "-s -w -X github.com/auzring1/current/internal/shared/version.Version=$v -X github.com/auzring1/current/internal/shared/release.PublicKeysHex=$pub"
+            $f = "-s -w -X github.com/auzring1/librepatch/internal/shared/version.Version=$v -X github.com/auzring1/librepatch/internal/shared/release.PublicKeysHex=$pub"
             go build -trimpath -ldflags $f -o $out $pkg
             if ($LASTEXITCODE -ne 0) { throw "build $v failed" }
           }
           New-Item -ItemType Directory -Force rel | Out-Null
-          Build "0.9.0" ./cmd/current-agent current-agent.exe
-          Build "0.9.1" ./cmd/current-agent rel/current-agent-0.9.1.exe
-          Build "0.9.2" ./test/tools/brokenagent rel/current-agent-0.9.2.exe
+          Build "0.9.0" ./cmd/librepatch-agent librepatch-agent.exe
+          Build "0.9.1" ./cmd/librepatch-agent rel/librepatch-agent-0.9.1.exe
+          Build "0.9.2" ./test/tools/brokenagent rel/librepatch-agent-0.9.2.exe
           foreach ($v in "0.9.1", "0.9.2") {
-            .\current-release.exe sign --key release.key --exe "rel/current-agent-$v.exe" --version $v --out "rel/current-agent-$v.curr" | Out-Null
+            .\librepatch-release.exe sign --key release.key --exe "rel/librepatch-agent-$v.exe" --version $v --out "rel/librepatch-agent-$v.lprel" | Out-Null
           }
           $key = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
-          $env:CURRENT_DEV_MODE = "true"
-          $env:CURRENT_PUBLIC_URL = "http://localhost:18080"
-          $env:CURRENT_HTTP_ADDR = "127.0.0.1:18080"
-          $env:CURRENT_GATEWAY_ADDR = "127.0.0.1:18443"
-          $env:CURRENT_GATEWAY_PUBLIC_ADDR = "localhost:18443"
-          $env:CURRENT_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/current_selfupdate?sslmode=disable"
-          $env:CURRENT_MASTER_KEY = $key
-          $env:CURRENT_CONTENT_DIR = "$env:RUNNER_TEMP\cur-content"
-          $env:CURRENT_RELEASE_PUBLIC_KEYS = $pub
-          go build -o current-server.exe ./cmd/current-server
+          $env:LIBREPATCH_DEV_MODE = "true"
+          $env:LIBREPATCH_PUBLIC_URL = "http://localhost:18080"
+          $env:LIBREPATCH_HTTP_ADDR = "127.0.0.1:18080"
+          $env:LIBREPATCH_GATEWAY_ADDR = "127.0.0.1:18443"
+          $env:LIBREPATCH_GATEWAY_PUBLIC_ADDR = "localhost:18443"
+          $env:LIBREPATCH_DATABASE_URL = "postgres://$($env:PGUSER):$($env:PGPASSWORD)@127.0.0.1:5432/librepatch_selfupdate?sslmode=disable"
+          $env:LIBREPATCH_MASTER_KEY = $key
+          $env:LIBREPATCH_CONTENT_DIR = "$env:RUNNER_TEMP\lp-content"
+          $env:LIBREPATCH_RELEASE_PUBLIC_KEYS = $pub
+          go build -o librepatch-server.exe ./cmd/librepatch-server
           go build -o deploycheck.exe ./test/tools/deploycheck
-          $server = Start-Process -FilePath .\current-server.exe -ArgumentList serve -PassThru -NoNewWindow `
+          $server = Start-Process -FilePath .\librepatch-server.exe -ArgumentList serve -PassThru -NoNewWindow `
             -RedirectStandardError server.err -RedirectStandardOutput server.out
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
@@ -458,21 +458,21 @@ jobs:
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
           $enroll = go run ./test/tools/bootstrap -url http://localhost:18080 -setup-token $token -totp-out totp.txt
           if ($LASTEXITCODE -ne 0) { throw "bootstrap failed" }
-          .\current-agent.exe install --token $enroll.Trim()
+          .\librepatch-agent.exe install --token $enroll.Trim()
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           # Shorten the safety net so the rollback case does not take ten minutes.
-          Stop-Service CurrentAgent
-          $cfgPath = "$env:ProgramData\Current\config.json"
+          Stop-Service LibrePatchAgent
+          $cfgPath = "$env:ProgramData\LibrePatch\config.json"
           $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
           $cfg | Add-Member -NotePropertyName update_rollback_minutes -NotePropertyValue 2 -Force
           $cfg | ConvertTo-Json | Set-Content $cfgPath
-          Start-Service CurrentAgent
+          Start-Service LibrePatchAgent
           $failed = $false
           .\deploycheck.exe -url http://localhost:18080 -totp-file totp.txt -scenario agent-update -release-dir rel
           if ($LASTEXITCODE -ne 0) { $failed = $true }
-          Get-Content "$env:ProgramData\Current\logs\agent.log" -Tail 120 -ErrorAction SilentlyContinue
-          Get-Content "$env:ProgramData\Current\logs\rollback-check.log" -ErrorAction SilentlyContinue
-          schtasks /Query /TN "\Current\rollback-check" 2>&1 | Out-Host
-          .\current-agent.exe uninstall
+          Get-Content "$env:ProgramData\LibrePatch\logs\agent.log" -Tail 120 -ErrorAction SilentlyContinue
+          Get-Content "$env:ProgramData\LibrePatch\logs\rollback-check.log" -ErrorAction SilentlyContinue
+          schtasks /Query /TN "\LibrePatch\rollback-check" 2>&1 | Out-Host
+          .\librepatch-agent.exe uninstall
           Stop-Process -Id $server.Id
           if ($failed) { Get-Content server.err -Tail 60; throw "agent-update scenario failed" }

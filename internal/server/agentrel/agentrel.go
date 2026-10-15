@@ -17,7 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"log/slog"
 	"strings"
@@ -28,15 +28,15 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/catalog"
-	"github.com/auzring1/current/internal/server/deploy"
-	"github.com/auzring1/current/internal/server/events"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/release"
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/gen/dbq"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/catalog"
+	"github.com/auzring1/librepatch/internal/server/deploy"
+	"github.com/auzring1/librepatch/internal/server/events"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/release"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Errors the API maps to HTTP statuses.
@@ -138,7 +138,7 @@ const MaxBinary = release.MaxBinaryBytes
 // AddRelease verifies a vendor bundle, stores the binary content-addressed and registers the release.
 func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, binary io.Reader) (Release, error) {
 	if s.Content == nil {
-		return Release{}, invalid("storage is not configured (CURRENT_CONTENT_DIR)")
+		return Release{}, invalid("storage is not configured (LIBREPATCH_CONTENT_DIR)")
 	}
 	b, err := release.DecodeBundle(bundleJSON)
 	if err != nil {
@@ -164,7 +164,7 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	if err != nil {
 		return Release{}, err
 	}
-	name := "current-agent-" + m.Version + ".exe"
+	name := "librepatch-agent-" + m.Version + ".exe"
 	now := s.now()
 	err = store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		if err := q.InsertContentBlob(ctx, dbq.InsertContentBlobParams{OrgID: a.Org, Sha256: sha, Size: size, FileName: name, UploadedBy: &a.User}); err != nil {

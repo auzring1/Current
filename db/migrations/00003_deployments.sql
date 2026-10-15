@@ -168,12 +168,12 @@ CREATE INDEX job_events_job ON job_events (job_id, id);
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             group_members, catalog_packages, catalog_versions, catalog_installers, package_overrides,
             org_settings, content_blobs, deployments, jobs, job_events
-        TO current_app;
-        GRANT USAGE ON SEQUENCE job_events_id_seq TO current_app;
+        TO librepatch_app;
+        GRANT USAGE ON SEQUENCE job_events_id_seq TO librepatch_app;
     END IF;
 END
 $$;

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	sconfig "github.com/auzring1/current/internal/server/config"
+	sconfig "github.com/auzring1/librepatch/internal/server/config"
 )
 
 // manifestSource serves the 7-Zip test manifests as if they came from the winget repository.

@@ -14,7 +14,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 )
 
 //go:embed all:dist

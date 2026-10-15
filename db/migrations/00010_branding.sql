@@ -1,7 +1,7 @@
 -- +goose Up
 -- Per-deployment branding (decision D92): organization name, product name override, colors, login page
 -- texts, report footer and five images. Everything is optional; an empty value means "use the default"
--- (product "Current", no organization name, the default accent color, no logo). Images are stored
+-- (product "LibrePatch", no organization name, the default accent color, no logo). Images are stored
 -- here, already re-encoded to PNG by the server, so there is no file path to attack.
 
 CREATE TABLE branding (
@@ -37,8 +37,8 @@ CREATE TABLE branding_assets (
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON branding, branding_assets TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON branding, branding_assets TO librepatch_app;
     END IF;
 END
 $$;

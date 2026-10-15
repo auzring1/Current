@@ -25,10 +25,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 )
 
 // DefaultAccent is the accent color of an installation that did not choose one. It passes every check in Checks.

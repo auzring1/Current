@@ -7,11 +7,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/auzring1/current/gen/dbq"
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/events"
-	"github.com/auzring1/current/internal/server/inventory"
-	"github.com/auzring1/current/internal/server/updates"
+	"github.com/auzring1/librepatch/gen/dbq"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/events"
+	"github.com/auzring1/librepatch/internal/server/inventory"
+	"github.com/auzring1/librepatch/internal/server/updates"
 )
 
 // maxChunks bounds a full software snapshot: MaxItems at the agent's chunk size

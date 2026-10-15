@@ -5,7 +5,7 @@ import (
 	"math"
 	"strconv"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 )
 
 // validateHardware bounds attacker-controlled inventory (SECURITY T-DEV-2/3).

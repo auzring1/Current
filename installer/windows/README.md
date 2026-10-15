@@ -1,6 +1,6 @@
-# Current Agent MSI
+# LibrePatch Agent MSI
 
-A thin WiX v7 wrapper around `current-agent.exe install` / `uninstall` (docs/DECISIONS.md O6, D67).
+A thin WiX v7 wrapper around `librepatch-agent.exe install` / `uninstall` (docs/DECISIONS.md O6, D67).
 Usage for administrators (properties, GPO, Intune, RMM, exit codes): docs/RUNBOOK.md section 4.
 Security notes and gaps: docs/SECURITY.md section 9d.b.
 
@@ -17,10 +17,10 @@ Security notes and gaps: docs/SECURITY.md section 9d.b.
 ## Build (Windows, PowerShell 7, .NET SDK 8+, Go)
 
 ```powershell
-go build -trimpath -ldflags "-s -w -X github.com/auzring1/current/internal/shared/version.Version=1.0.0" -o current-agent.exe ./cmd/current-agent
+go build -trimpath -ldflags "-s -w -X github.com/auzring1/librepatch/internal/shared/version.Version=1.0.0" -o librepatch-agent.exe ./cmd/librepatch-agent
 # release pipeline: sign the exe BEFORE it goes into the MSI
-#   signtool sign /fd SHA256 /tr <timestamp-url> /td SHA256 <your cert selection options> current-agent.exe
-./installer/windows/build.ps1 -AgentExe .\current-agent.exe -Version 1.0.0
+#   signtool sign /fd SHA256 /tr <timestamp-url> /td SHA256 <your cert selection options> librepatch-agent.exe
+./installer/windows/build.ps1 -AgentExe .\librepatch-agent.exe -Version 1.0.0
 ```
 
 The version comes from `-Version`, else the exact `v*` git tag on HEAD, else the latest tag plus `-dev`, else
@@ -35,8 +35,8 @@ upgrades; bump the patch number for real releases). Limits: 255.255.65535.
 the build and validation, or run `signtool` on the MSI afterwards:
 
 ```powershell
-signtool sign /fd SHA256 /tr http://timestamp.example/ /td SHA256 /sha1 <thumbprint-from-your-HSM-or-store> current-agent-1.0.0-x64.msi
-signtool verify /pa current-agent-1.0.0-x64.msi
+signtool sign /fd SHA256 /tr http://timestamp.example/ /td SHA256 /sha1 <thumbprint-from-your-HSM-or-store> librepatch-agent-1.0.0-x64.msi
+signtool verify /pa librepatch-agent-1.0.0-x64.msi
 ```
 
 The certificate or the HSM/KMS signing service belongs to the protected release environment (T-REL-3), not to this repository.

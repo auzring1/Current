@@ -185,7 +185,7 @@ func (s *Service) fetch(ctx context.Context, etag, lastMod string) (body []byte,
 	if rerr != nil {
 		return nil, "", "", false, rerr
 	}
-	req.Header.Set("User-Agent", "current-winget-index")
+	req.Header.Set("User-Agent", "librepatch-winget-index")
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	} else if lastMod != "" {

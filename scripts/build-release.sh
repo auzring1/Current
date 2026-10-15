@@ -6,10 +6,10 @@
 # From a clean checkout of one commit this produces, byte for byte the same on any machine with the same
 # pinned toolchains (Go from go.mod's `toolchain` line, Node major 22, web/package-lock.json):
 #
-#   current-agent_<v>_windows_amd64.exe      the agent (UNSIGNED: Authenticode is applied later by release.yml)
-#   current-server_<v>_linux_amd64           the server with the web console embedded
-#   current-release_<v>_linux_amd64          vendor tool (manifest / sign / verify)
-#   current-web_<v>.tar.gz                   the web console bundle (what is embedded in the server)
+#   librepatch-agent_<v>_windows_amd64.exe      the agent (UNSIGNED: Authenticode is applied later by release.yml)
+#   librepatch-server_<v>_linux_amd64           the server with the web console embedded
+#   librepatch-release_<v>_linux_amd64          vendor tool (manifest / sign / verify)
+#   librepatch-web_<v>.tar.gz                   the web console bundle (what is embedded in the server)
 #   *.cdx.json                               CycloneDX 1.5 SBOMs, one per binary and one for the web bundle
 #   unsigned-SHA256SUMS                      digests of everything above (this is what a rebuild must match)
 #   BUILD-INFO.txt                           inputs: commit, SOURCE_DATE_EPOCH, toolchains, ldflags
@@ -23,12 +23,12 @@
 #   --version V              release version, 1.2.3 or v1.2.3 or 1.2.3-rc.1 (required; "v" is stripped for embedding)
 #   --commit REV             must resolve to HEAD (default HEAD); the tree must be clean unless --allow-dirty
 #   --out DIR                output directory (default dist-release/<version>; must be empty or absent)
-#   --release-pubkeys LIST   comma-separated vendor release public keys (hex). Default: $CURRENT_RELEASE_PUBKEYS, else the
+#   --release-pubkeys LIST   comma-separated vendor release public keys (hex). Default: $LIBREPATCH_RELEASE_PUBKEYS, else the
 #                            non-comment lines of release/release-public-keys.txt. No key = refuse (see --allow-no-release-key)
 #   --allow-no-release-key   build without any compiled-in release key (agents then refuse all updates; development only)
 #   --require-authenticode B true (default, release) or false: sets release.RequireAuthenticode
 #   --authenticode-subjects L "|"-separated signer CNs compiled into agent and server as the only subjects a release
-#                            may pin (default: $CURRENT_AUTHENTICODE_SUBJECTS). Required when --require-authenticode is true,
+#                            may pin (default: $LIBREPATCH_AUTHENTICODE_SUBJECTS). Required when --require-authenticode is true,
 #                            unless --allow-no-subject-pin: otherwise a stolen release key could pin any certificate (D83)
 #   --allow-no-subject-pin   development/rehearsal builds only
 #   --with-arm64             also build the windows/arm64 agent (builds, but is unsupported and untested; MSI is x64 only)
@@ -46,8 +46,8 @@ AGENT_MAX_BYTES=15728640
 
 die() { echo "build-release: $*" >&2; exit 1; }
 
-version="" commit="HEAD" out="" pubkeys="${CURRENT_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
-subjects="${CURRENT_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
+version="" commit="HEAD" out="" pubkeys="${LIBREPATCH_RELEASE_PUBKEYS:-}" allow_no_key=0 req_auth=true
+subjects="${LIBREPATCH_AUTHENTICODE_SUBJECTS:-}" allow_no_pin=0
 with_arm64=0 skip_web=0 skip_sbom=0 want_image=0 allow_dirty=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -95,13 +95,13 @@ if [ -n "$pubkeys" ]; then
     [[ $k =~ ^[0-9a-f]{64}$ ]] || die "release public key '${k:0:16}...' is not 64 lowercase hex characters"
   done
 elif [ "$allow_no_key" = 0 ]; then
-  die "no vendor release public key: pass --release-pubkeys, set CURRENT_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
+  die "no vendor release public key: pass --release-pubkeys, set LIBREPATCH_RELEASE_PUBKEYS or add one to release/release-public-keys.txt (docs/RUNBOOK.md, release manager)"
 fi
 
 if [ -n "$subjects" ]; then
   case "$subjects" in *\'*|*\"*|*\\*|*$'\n'*) die "--authenticode-subjects must not contain quotes, backslashes or newlines" ;; esac
 elif [ "$req_auth" = true ] && [ "$allow_no_pin" = 0 ]; then
-  die "no compiled-in Authenticode subject: pass --authenticode-subjects \"<signer CN>\" (or CURRENT_AUTHENTICODE_SUBJECTS); see docs/DECISIONS.md D83"
+  die "no compiled-in Authenticode subject: pass --authenticode-subjects \"<signer CN>\" (or LIBREPATCH_AUTHENTICODE_SUBJECTS); see docs/DECISIONS.md D83"
 fi
 
 # --- toolchains ------------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ if [ -n "$(ls -A "$out")" ]; then die "output directory $out is not empty"; fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-pkg=github.com/auzring1/current/internal/shared
+pkg=github.com/auzring1/librepatch/internal/shared
 ldflags="-s -w -buildid= -X $pkg/version.Version=$v -X $pkg/version.Commit=$short"
 ldflags="$ldflags -X $pkg/release.PublicKeysHex=$pubkeys -X $pkg/release.RequireAuthenticode=$req_auth"
 # the subject list may contain spaces: single-quote the whole -X argument for the go tool's ldflags parser
@@ -140,7 +140,7 @@ gobuild() { # goos goarch package output
 }
 
 # --- web bundle (embedded into the server, also shipped on its own) -----------------------------------
-webtar="$out/current-web_$v.tar.gz"
+webtar="$out/librepatch-web_$v.tar.gz"
 if [ "$skip_web" = 0 ]; then
   echo "== web bundle (node $have_node)"
   (cd web && npm ci --ignore-scripts --no-audit --no-fund >/dev/null && npm run build >/dev/null)
@@ -151,28 +151,28 @@ fi
 
 # --- binaries ----------------------------------------------------------------------------------------
 echo "== Go binaries"
-agent="$out/current-agent_${v}_windows_amd64.exe"
-gobuild windows amd64 ./cmd/current-agent "$agent"
+agent="$out/librepatch-agent_${v}_windows_amd64.exe"
+gobuild windows amd64 ./cmd/librepatch-agent "$agent"
 size=$(wc -c <"$agent")
 [ "$size" -le "$AGENT_MAX_BYTES" ] || die "agent is $size bytes, over the $AGENT_MAX_BYTES budget"
 if [ "$with_arm64" = 1 ]; then
-  gobuild windows arm64 ./cmd/current-agent "$out/current-agent_${v}_windows_arm64.exe"
+  gobuild windows arm64 ./cmd/librepatch-agent "$out/librepatch-agent_${v}_windows_arm64.exe"
 fi
-gobuild linux amd64 ./cmd/current-server "$out/current-server_${v}_linux_amd64"
-gobuild linux amd64 ./cmd/current-release "$out/current-release_${v}_linux_amd64"
+gobuild linux amd64 ./cmd/librepatch-server "$out/librepatch-server_${v}_linux_amd64"
+gobuild linux amd64 ./cmd/librepatch-release "$out/librepatch-release_${v}_linux_amd64"
 
 # --- SBOMs -------------------------------------------------------------------------------------------
 if [ "$skip_sbom" = 0 ]; then
   echo "== SBOMs"
-  go build -trimpath -buildvcs=false -o "$work/current-sbom" ./cmd/current-sbom
-  for f in "$out"/current-agent_* "$out"/current-server_* "$out"/current-release_*; do
+  go build -trimpath -buildvcs=false -o "$work/librepatch-sbom" ./cmd/librepatch-sbom
+  for f in "$out"/librepatch-agent_* "$out"/librepatch-server_* "$out"/librepatch-release_*; do
     [ -f "$f" ] || continue
     b=$(basename "$f")
-    # component name: current-agent_1.2.3_windows_amd64.exe -> current-agent
-    "$work/current-sbom" go --binary "$f" --version "$v" --name "${b%%_*}" --epoch "$SOURCE_DATE_EPOCH" --out "$f.cdx.json" >/dev/null
+    # component name: librepatch-agent_1.2.3_windows_amd64.exe -> librepatch-agent
+    "$work/librepatch-sbom" go --binary "$f" --version "$v" --name "${b%%_*}" --epoch "$SOURCE_DATE_EPOCH" --out "$f.cdx.json" >/dev/null
   done
   if [ "$skip_web" = 0 ]; then
-    "$work/current-sbom" npm --lock web/package-lock.json --version "$v" --epoch "$SOURCE_DATE_EPOCH" --out "$out/current-web_$v.cdx.json" >/dev/null
+    "$work/librepatch-sbom" npm --lock web/package-lock.json --version "$v" --epoch "$SOURCE_DATE_EPOCH" --out "$out/librepatch-web_$v.cdx.json" >/dev/null
   fi
 fi
 
@@ -184,9 +184,9 @@ fi
 image_digest=""
 if [ "$want_image" = 1 ]; then
   echo "== container image"
-  CURRENT_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
+  LIBREPATCH_RELEASE_PUBKEYS="$pubkeys" "$ROOT/scripts/build-image.sh" --version "$v" --commit "$short" \
       --source-date-epoch "$SOURCE_DATE_EPOCH" --require-authenticode "$req_auth" --authenticode-subjects "$subjects" --go-version "${want_go#go}" \
-      --oci-out "$out/current-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
+      --oci-out "$out/librepatch-server_${v}_image.oci.tar" --digest-file "$out/image-digest.txt"
   image_digest=$(cat "$out/image-digest.txt")
   rm -f "$out/image-digest.txt"
 fi

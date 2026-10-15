@@ -1,6 +1,6 @@
 # Security policy
 
-Current runs installers as SYSTEM on the computers it manages, so security reports are taken seriously.
+LibrePatch runs installers as SYSTEM on the computers it manages, so security reports are taken seriously.
 
 ## Reporting a vulnerability
 
@@ -12,7 +12,7 @@ If you can, say whether you want to be credited.
 
 ## What to expect
 
-Current is maintained by one person in their own time, so these are goals, not guarantees:
+LibrePatch is maintained by one person in their own time, so these are goals, not guarantees:
 
 - an acknowledgement within about a week;
 - a first assessment within about two weeks;
@@ -28,5 +28,5 @@ Security fixes go into the latest release and the one before it.
 ## Background
 
 The threat model, the controls that exist, the evidence for each, and the known gaps and risks are written down in
-[docs/SECURITY.md](docs/SECURITY.md). Current has not had an independent security audit; if you review the code, findings
+[docs/SECURITY.md](docs/SECURITY.md). LibrePatch has not had an independent security audit; if you review the code, findings
 about the areas listed under "known gaps" are especially useful.

@@ -7,7 +7,7 @@ import * as I from "./icons";
 /** Three bands of a theme's own colors, drawn from its tokens, so the picker previews each theme faithfully. */
 function Swatch({ t }: { t: ThemeDef }) {
   return (
-    <span className="cur-swatch" style={{ background: t.tokens["bg"] }} aria-hidden="true">
+    <span className="lp-swatch" style={{ background: t.tokens["bg"] }} aria-hidden="true">
       <span style={{ background: t.tokens["surface"] }} />
       <span style={{ background: t.tokens["accent"] }} />
     </span>
@@ -28,11 +28,11 @@ export function UserMenu({ name, email, onSignOut }: { name: string; email: stri
   return (
     <Menu position="bottom-end" width={270} shadow="md" withinPortal closeOnItemClick={false}>
       <Menu.Target>
-        <button type="button" className="cur-usermenu" aria-label={`Account menu for ${name}`} data-testid="user-menu">
-          <span className="cur-avatar" aria-hidden="true">
+        <button type="button" className="lp-usermenu" aria-label={`Account menu for ${name}`} data-testid="user-menu">
+          <span className="lp-avatar" aria-hidden="true">
             {initials(name)}
           </span>
-          <span className="cur-topbar__search-wide" style={{ fontWeight: 500 }}>
+          <span className="lp-topbar__search-wide" style={{ fontWeight: 500 }}>
             {name}
           </span>
           <I.ChevronDown size={14} aria-hidden />
@@ -40,8 +40,8 @@ export function UserMenu({ name, email, onSignOut }: { name: string; email: stri
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>
-          <div style={{ color: "var(--cur-text)", fontWeight: 600, fontSize: "var(--cur-text-md)" }}>{name}</div>
-          <div style={{ color: "var(--cur-text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{email}</div>
+          <div style={{ color: "var(--lp-text)", fontWeight: 600, fontSize: "var(--lp-text-md)" }}>{name}</div>
+          <div style={{ color: "var(--lp-text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{email}</div>
         </Menu.Label>
         <Menu.Item component={Link} to="/account" leftSection={<I.User size={16} aria-hidden />}>
           Account and security

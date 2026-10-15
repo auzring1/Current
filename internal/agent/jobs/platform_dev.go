@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/current/internal/agent/inventory"
-	"github.com/auzring1/current/internal/agent/selfupdate"
-	"github.com/auzring1/current/internal/agent/wu"
-	"github.com/auzring1/current/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/agent/inventory"
+	"github.com/auzring1/librepatch/internal/agent/selfupdate"
+	"github.com/auzring1/librepatch/internal/agent/wu"
+	"github.com/auzring1/librepatch/internal/shared/installer"
 )
 
 // devPlatform is the Linux stand-in used only for integration tests and the
@@ -32,9 +32,9 @@ type devPlatform struct {
 }
 
 // NewPlatform returns the development platform rooted at dataDir. The fake
-// "Program Files" is CURRENT_DEV_PROGRAMFILES or <dataDir>/pf.
+// "Program Files" is LIBREPATCH_DEV_PROGRAMFILES or <dataDir>/pf.
 func NewPlatform(dataDir string) Platform {
-	pf := os.Getenv("CURRENT_DEV_PROGRAMFILES")
+	pf := os.Getenv("LIBREPATCH_DEV_PROGRAMFILES")
 	if pf == "" {
 		pf = filepath.Join(dataDir, "pf")
 	}
