@@ -2366,7 +2366,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a vendor-signed agent release (requires releases:write; audited)
-         * @description The agent binary is the raw request body (application/octet-stream). The vendor bundle (.curr, produced by current-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
+         * @description The agent binary is the raw request body (application/octet-stream). The vendor bundle (.lprel, produced by librepatch-release) travels base64-encoded in X-Release-Bundle. The server verifies the signature against the vendor release keys compiled into it and checks the binary against the signed manifest; agents verify again.
          */
         post: {
             parameters: {
@@ -6181,7 +6181,7 @@ export interface components {
         };
         SettingsFile: {
             /** @enum {string} */
-            format: "current-settings";
+            format: "librepatch-settings";
             schema_version: number;
             /** Format: date-time */
             exported_at?: string;
@@ -6254,7 +6254,7 @@ export interface components {
         BrandingAssetKind: "logo_light" | "logo_dark" | "icon" | "favicon" | "report_logo";
         BrandingSettings: {
             org_name?: string;
-            /** @description Empty = Current */
+            /** @description Empty = LibrePatch */
             product_name?: string;
             /** @description #rrggbb; empty = default. Must reach 4.5:1 against white and 3:1 against the dark theme surface. */
             accent_color?: string;

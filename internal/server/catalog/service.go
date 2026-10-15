@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/installer"
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Service imports and manages catalog packages.

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Verifies a downloaded Current release directory (docs/VERIFYING_RELEASES.md explains every check).
+# Verifies a downloaded LibrePatch release directory (docs/VERIFYING_RELEASES.md explains every check).
 #
-#   scripts/verify-release.sh --dir DIR --repo auzring1/current --tag v1.2.3 --pub <hex>[,<hex>]
+#   scripts/verify-release.sh --dir DIR --repo auzring1/librepatch --tag v1.2.3 --pub <hex>[,<hex>]
 #
 # Checks, in this order; any failure makes the exit status 1:
 #   1. SHA256SUMS: every listed file matches (and files that are not listed are reported)
 #   2. cosign: SHA256SUMS.sigstore.json is a keyless signature by this repository's release workflow at the tag
 #   3. cosign: each <artifact>.sbom.sigstore.json is a CycloneDX attestation for that artifact by the same workflow
 #   4. GitHub build provenance (SLSA) of the main artifacts: `gh attestation verify`
-#   5. The vendor release bundle (.curr): Ed25519 signature under the vendor key you supply, and it matches the agent exe
+#   5. The vendor release bundle (.lprel): Ed25519 signature under the vendor key you supply, and it matches the agent exe
 #   6. Every *.cdx.json is a CycloneDX 1.5 document (shape only)
 #   7. Authenticode of the agent and the MSI, when --authenticode-subject is given and Windows tooling is present
 #
@@ -18,7 +18,7 @@
 #   --tag vX.Y.Z                exact tag to expect in the signing identity (default: any v* tag of the repo)
 #   --pub HEX[,HEX]             vendor release public key(s), hex; from your own records, NOT from the release directory
 #   --pub-file FILE             same, from a file (lines starting with # are ignored)
-#   --release-tool PATH         current-release binary to use (default: the one in DIR on linux/amd64)
+#   --release-tool PATH         librepatch-release binary to use (default: the one in DIR on linux/amd64)
 #   --authenticode-subject CN   expected Authenticode signer (the CN pinned in the vendor manifest)
 #   --skip-cosign, --skip-attestations   skip 2-3 / 4 (used by the pipeline before anything is signed)
 #   --skip-curr                  skip 5 (no vendor key at hand)
@@ -109,7 +109,7 @@ elif ! command -v gh >/dev/null; then
   fail "gh (GitHub CLI) is not installed; install it or pass --skip-attestations"
 else
   shopt -s nullglob
-  for f in current-agent_*.exe current-agent_*.msi current-server_*_linux_amd64 current-release_*_linux_amd64 current-web_*.tar.gz; do
+  for f in librepatch-agent_*.exe librepatch-agent_*.msi librepatch-server_*_linux_amd64 librepatch-release_*_linux_amd64 librepatch-web_*.tar.gz; do
     if gh attestation verify "$f" --repo "$repo" --signer-workflow "$repo/.github/workflows/release.yml" >/dev/null 2>&1; then
       ok "provenance: $f was built by the $repo release workflow"
     else
@@ -121,12 +121,12 @@ fi
 
 # ---- 5. vendor release bundle ---------------------------------------------------------------------
 shopt -s nullglob
-rnrs=(current-agent_*.curr)
+rnrs=(librepatch-agent_*.lprel)
 shopt -u nullglob
 if [ "$skip_curr" = 1 ]; then
   warn "vendor bundle check skipped"
 elif [ ${#rnrs[@]} -eq 0 ]; then
-  fail "no current-agent_*.curr vendor release bundle in the directory"
+  fail "no librepatch-agent_*.lprel vendor release bundle in the directory"
 else
   keyfile=$(mktemp)
   trap 'rm -f "$keyfile"' EXIT
@@ -135,14 +135,14 @@ else
     fail "the vendor bundle cannot be verified without the vendor public key (--pub or --pub-file; take it from your own records)"
   else
     if [ -z "$tool" ]; then
-      for t in current-release_*_linux_amd64; do [ -f "$t" ] && tool="$PWD/$t"; done
+      for t in librepatch-release_*_linux_amd64; do [ -f "$t" ] && tool="$PWD/$t"; done
     fi
     if [ -z "$tool" ] || [ ! -f "$tool" ]; then
-      fail "no current-release tool (build it from source with go build ./cmd/current-release, or pass --release-tool)"
+      fail "no librepatch-release tool (build it from source with go build ./cmd/librepatch-release, or pass --release-tool)"
     else
       [ -x "$tool" ] || chmod +x "$tool" 2>/dev/null || true
       for rnr in "${rnrs[@]}"; do
-        exe=${rnr%.curr}.exe
+        exe=${rnr%.lprel}.exe
         if out=$("$tool" verify --bundle "$rnr" --exe "$exe" --pub "$keyfile" 2>&1); then ok "vendor bundle: $out"; else fail "vendor bundle $rnr: $out"; fi
       done
     fi
@@ -163,7 +163,7 @@ shopt -u nullglob
 # ---- 7. Authenticode -------------------------------------------------------------------------------
 if [ -n "$subject" ]; then
   shopt -s nullglob
-  pes=(current-agent_*.exe current-agent_*.msi)
+  pes=(librepatch-agent_*.exe librepatch-agent_*.msi)
   shopt -u nullglob
   here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   if command -v pwsh >/dev/null && [ "$(uname -s | cut -c1-5)" != Linux ]; then

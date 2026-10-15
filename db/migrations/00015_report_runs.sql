@@ -20,8 +20,8 @@ CREATE INDEX report_runs_recent ON report_runs (org_id, started_at DESC);
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON report_runs TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON report_runs TO librepatch_app;
     END IF;
 END
 $$;

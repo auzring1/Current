@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/catalog"
-	"github.com/auzring1/current/internal/server/inventory"
-	"github.com/auzring1/current/internal/server/wingetindex"
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/catalog"
+	"github.com/auzring1/librepatch/internal/server/inventory"
+	"github.com/auzring1/librepatch/internal/server/wingetindex"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // useIndex gives the fixture's service the small synthetic winget index.

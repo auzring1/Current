@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/catalog"
-	"github.com/auzring1/current/internal/server/wingetindex"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/catalog"
+	"github.com/auzring1/librepatch/internal/server/wingetindex"
 )
 
 // maxUpload bounds one uploaded installer.
@@ -384,7 +384,7 @@ func (s *server) uploadContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Catalog.Content == nil {
-		writeError(w, http.StatusServiceUnavailable, "no_storage", "Custom packages are disabled: CURRENT_CONTENT_DIR is not set.")
+		writeError(w, http.StatusServiceUnavailable, "no_storage", "Custom packages are disabled: LIBREPATCH_CONTENT_DIR is not set.")
 		return
 	}
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/octet-stream") {
@@ -500,7 +500,7 @@ func (s *server) wingetIndexStatus(w http.ResponseWriter, r *http.Request) {
 // POST /catalog/index/refresh: download the index now.
 func (s *server) refreshWingetIndex(w http.ResponseWriter, r *http.Request) {
 	if s.Winget == nil {
-		writeError(w, http.StatusConflict, "winget_off", "The winget source is turned off on this server (CURRENT_WINGET_SOURCE).")
+		writeError(w, http.StatusConflict, "winget_off", "The winget source is turned off on this server (LIBREPATCH_WINGET_SOURCE).")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)

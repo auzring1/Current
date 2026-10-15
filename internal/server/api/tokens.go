@@ -14,12 +14,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/auth"
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/shared/bundle"
-	"github.com/auzring1/current/internal/shared/pkix"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/bundle"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 type tokenView struct {
@@ -147,7 +147,7 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"token":             viewToken(created, now),
 		"enrollment_string": enc,
-		"install_command":   `current-agent.exe install --server ` + s.Cfg.GatewayPublicAddr + ` --token ` + enc,
+		"install_command":   `librepatch-agent.exe install --server ` + s.Cfg.GatewayPublicAddr + ` --token ` + enc,
 		"root_ca_pin":       pkix.SPKIPin(a.Root),
 	})
 }

@@ -108,7 +108,7 @@ export function BrandingPage() {
   if (q.isLoading) {
     return (
       <Card>
-        <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--cur-space-3)" }}>
+        <div role="status" aria-label="Loading" style={{ display: "grid", gap: "var(--lp-space-3)" }}>
           <Skel w="30%" h={16} />
           <Skel h={36} />
           <Skel h={36} />
@@ -144,8 +144,8 @@ export function BrandingPage() {
   };
 
   return (
-    <div className="cur-branding">
-      <div className="cur-stack-y">
+    <div className="lp-branding">
+      <div className="lp-stack-y">
         <Text c="dimmed" size="sm">
           Make this deployment look like yours. Everything here is stored on your server and changes are written to the audit log.
         </Text>
@@ -220,7 +220,7 @@ export function BrandingPage() {
           <Textarea label="Footer text" description="Printed at the bottom of exported reports and added to emails." autosize minRows={2} maxRows={6} value={draft.report_footer} onChange={set("report_footer")} maxLength={500} error={err("report_footer")} />
         </Card>
 
-        <div className="cur-actionbar" role="group" aria-label="Save branding">
+        <div className="lp-actionbar" role="group" aria-label="Save branding">
           <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!dirty || blocked} leftSection={<Icons.Save size={16} aria-hidden />}>
             Save changes
           </Button>
@@ -232,12 +232,12 @@ export function BrandingPage() {
               Unsaved changes
             </StatusPill>
           )}
-          <span className="cur-actionbar__spacer" />
+          <span className="lp-actionbar__spacer" />
           <Button variant="outline" color="red" onClick={() => void askReset()} loading={reset.isPending} leftSection={<Icons.Restore size={16} aria-hidden />}>
             Reset to defaults
           </Button>
           {blocked && (
-            <Text size="sm" role="alert" style={{ flexBasis: "100%", color: "var(--cur-danger-fg)", display: "flex", alignItems: "center", gap: 6 }}>
+            <Text size="sm" role="alert" style={{ flexBasis: "100%", color: "var(--lp-danger-fg)", display: "flex", alignItems: "center", gap: 6 }}>
               <Icons.Danger size={16} aria-hidden />
               {problems.accent || problems.secondary ? "These colors cannot be saved until they pass the contrast checks." : "Fix the highlighted fields to save."}
             </Text>
@@ -253,7 +253,7 @@ export function BrandingPage() {
         </Card>
       </div>
 
-      <div className="cur-branding__preview">
+      <div className="lp-branding__preview">
         <Card title="Preview">
           <BrandPreview draft={draft} view={view} />
         </Card>
@@ -265,8 +265,8 @@ export function BrandingPage() {
 function ContrastTable({ rows }: { rows: ReturnType<typeof checks> }) {
   if (rows.length === 0) return null;
   return (
-    <div className="cur-minitable-wrap">
-      <table className="cur-minitable" data-testid="contrast-table" aria-label="Contrast checks">
+    <div className="lp-minitable-wrap">
+      <table className="lp-minitable" data-testid="contrast-table" aria-label="Contrast checks">
         <thead>
           <tr>
             <th scope="col">Where it is used (WCAG AA)</th>
@@ -279,11 +279,11 @@ function ContrastTable({ rows }: { rows: ReturnType<typeof checks> }) {
           {rows.map((c) => (
             <tr key={c.id} data-testid={`contrast-${c.id}`}>
               <td>
-                <span className="cur-swatch-dot" style={{ background: c.id.startsWith("accent_text") ? c.background : c.foreground }} aria-hidden="true" />
+                <span className="lp-swatch-dot" style={{ background: c.id.startsWith("accent_text") ? c.background : c.foreground }} aria-hidden="true" />
                 {c.label}
               </td>
-              <td className="cur-num">{c.ratio.toFixed(2)}:1</td>
-              <td className="cur-num">{c.required.toFixed(1)}:1</td>
+              <td className="lp-num">{c.ratio.toFixed(2)}:1</td>
+              <td className="lp-num">{c.required.toFixed(1)}:1</td>
               <td>
                 <StatusPill kind={c.pass ? "success" : "danger"} size="sm">
                   {c.pass ? "Pass" : "Fail"}
@@ -318,13 +318,13 @@ function ImageSlot({ slot, view, onView }: { slot: (typeof SLOTS)[number]; view:
   // A logo made for light or dark backgrounds is previewed on a fixed light or dark surface in every theme.
   const background = slot.surface === "dark" ? DARK_SURFACE : slot.surface === "light" ? WHITE : undefined;
   return (
-    <div className="cur-slot" data-testid={`slot-${slot.kind}`}>
-      <div className="cur-slot__preview" style={background ? { background } : undefined}>
+    <div className="lp-slot" data-testid={`slot-${slot.kind}`}>
+      <div className="lp-slot__preview" style={background ? { background } : undefined}>
         {info ? <img src={info.url} alt={`${slot.label} (current)`} style={{ maxWidth: 112, maxHeight: 56 }} /> : <span style={background ? { color: slot.surface === "dark" ? WHITE : DARK_SURFACE } : undefined}>None</span>}
       </div>
-      <div className="cur-slot__body">
-        <p className="cur-slot__title">{slot.label}</p>
-        <p className="cur-slot__help">
+      <div className="lp-slot__body">
+        <p className="lp-slot__title">{slot.label}</p>
+        <p className="lp-slot__help">
           {slot.help} {LIMITS[slot.kind].hint}.{info ? ` Current: ${info.width} × ${info.height}, ${(info.size / 1024).toFixed(1)} KB.` : ""}
         </p>
         <Group gap="xs">
@@ -360,7 +360,7 @@ function ImageSlot({ slot, view, onView }: { slot: (typeof SLOTS)[number]; view:
           )}
         </Group>
         {err && (
-          <p className="cur-slot__error" role="alert">
+          <p className="lp-slot__error" role="alert">
             <Icons.Danger size={14} aria-hidden />
             {err}
           </p>

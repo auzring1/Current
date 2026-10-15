@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Runs the software-deployment VM matrix on THIS Windows machine, which must already have
-  the Current agent installed and enrolled against the server named by -Url.
+  the LibrePatch agent installed and enrolled against the server named by -Url.
 
 .DESCRIPTION
   For every package in matrix.json: import it from winget-pkgs, deploy an install, check the
@@ -13,14 +13,14 @@
   and revert between rows. See test/vm-matrix/README.md.
 
 .EXAMPLE
-  .\run.ps1 -Url https://current.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
+  .\run.ps1 -Url https://librepatch.lan -TotpFile C:\temp\totp.txt -Os win11-24h2
 #>
 param(
   [Parameter(Mandatory)] [string] $Url,
   [Parameter(Mandatory)] [string] $TotpFile,
   [Parameter(Mandatory)] [string] $Os,
   [string] $Email = "admin@example.com",
-  [string] $Password = $env:CURRENT_ADMIN_PASSWORD,
+  [string] $Password = $env:LIBREPATCH_ADMIN_PASSWORD,
   [string] $Matrix = "$PSScriptRoot\matrix.json",
   [string] $Results = "$PSScriptRoot\results.json",
   [string] $Only = ""

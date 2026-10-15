@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/shared/vercmp"
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 func newDevice(t *testing.T, pool *pgxpool.Pool) (*Service, uuid.UUID) {

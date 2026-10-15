@@ -17,9 +17,9 @@ type Options struct {
 	Out         io.Writer
 }
 
-// Install is Windows-only; use `current-agent run` on development platforms.
+// Install is Windows-only; use `librepatch-agent run` on development platforms.
 func Install(Options) error {
-	return errors.New("install is only supported on Windows; use `current-agent run` for development")
+	return errors.New("install is only supported on Windows; use `librepatch-agent run` for development")
 }
 
 // Uninstall is Windows-only.

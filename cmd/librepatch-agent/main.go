@@ -1,10 +1,10 @@
-// Command current-agent is the Current endpoint agent.
+// Command librepatch-agent is the LibrePatch endpoint agent.
 //
-//	current-agent install --server HOST:PORT --token CUR1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
-//	current-agent uninstall
-//	current-agent status
-//	current-agent run [--data-dir DIR] [--server HOST:PORT --token CUR1....]   (foreground; development)
-//	current-agent version
+//	librepatch-agent install --server HOST:PORT --token LP1.... [--allowed-jobs inventory,wu_scan] [--if-not-installed]
+//	librepatch-agent uninstall
+//	librepatch-agent status
+//	librepatch-agent run [--data-dir DIR] [--server HOST:PORT --token LP1....]   (foreground; development)
+//	librepatch-agent version
 //
 // When started by the Windows Service Control Manager it runs as a service.
 package main
@@ -14,7 +14,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"io/fs"
 	"os"
@@ -24,18 +24,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auzring1/current/internal/agent/config"
-	"github.com/auzring1/current/internal/agent/core"
-	"github.com/auzring1/current/internal/agent/hardware"
-	"github.com/auzring1/current/internal/agent/install"
-	"github.com/auzring1/current/internal/agent/inventory"
-	"github.com/auzring1/current/internal/agent/jobs"
-	"github.com/auzring1/current/internal/agent/keystore"
-	"github.com/auzring1/current/internal/agent/logging"
-	"github.com/auzring1/current/internal/agent/selfupdate"
-	"github.com/auzring1/current/internal/agent/store"
-	"github.com/auzring1/current/internal/agent/winsvc"
-	"github.com/auzring1/current/internal/shared/version"
+	"github.com/auzring1/librepatch/internal/agent/config"
+	"github.com/auzring1/librepatch/internal/agent/core"
+	"github.com/auzring1/librepatch/internal/agent/hardware"
+	"github.com/auzring1/librepatch/internal/agent/install"
+	"github.com/auzring1/librepatch/internal/agent/inventory"
+	"github.com/auzring1/librepatch/internal/agent/jobs"
+	"github.com/auzring1/librepatch/internal/agent/keystore"
+	"github.com/auzring1/librepatch/internal/agent/logging"
+	"github.com/auzring1/librepatch/internal/agent/selfupdate"
+	"github.com/auzring1/librepatch/internal/agent/store"
+	"github.com/auzring1/librepatch/internal/agent/winsvc"
+	"github.com/auzring1/librepatch/internal/shared/version"
 )
 
 func main() {
@@ -87,18 +87,18 @@ func main() {
 
 func usage() {
 	fmt.Fprint(os.Stderr, `Usage:
-  current-agent install --server HOST:PORT --token CUR1....   Install and enroll (Administrator)
-  current-agent uninstall                                      Remove the agent (Administrator)
-  current-agent status                                         Show enrollment/connection state
-  current-agent run [--data-dir DIR] [--server S --token T]    Run in the foreground (development)
-  current-agent version
+  librepatch-agent install --server HOST:PORT --token LP1....   Install and enroll (Administrator)
+  librepatch-agent uninstall                                      Remove the agent (Administrator)
+  librepatch-agent status                                         Show enrollment/connection state
+  librepatch-agent run [--data-dir DIR] [--server S --token T]    Run in the foreground (development)
+  librepatch-agent version
 `)
 }
 
 func cmdInstall(args []string) error {
 	fl := flag.NewFlagSet("install", flag.ContinueOnError)
 	server := fl.String("server", "", "gateway address host:port (defaults to the address inside the token)")
-	token := fl.String("token", "", "enrollment string from the console (CUR1....)")
+	token := fl.String("token", "", "enrollment string from the console (LP1....)")
 	allowed := fl.String("allowed-jobs", "", "optional local ceiling of allowed job types (comma-separated)")
 	wait := fl.Duration("wait", 90*time.Second, "how long to wait for enrollment to finish")
 	ifNot := fl.Bool("if-not-installed", false, "exit 0 without changes when the agent is already installed and configured (used by the MSI)")
@@ -202,7 +202,7 @@ func runAgent(ctx context.Context, dataDir string, first *config.Config) error {
 	}
 	defer func() { _ = st.Close() }()
 	_ = st.LedgerPrune(time.Now())
-	log.Info("current-agent starting", "version", version.Version, "server", cfg.Server)
+	log.Info("librepatch-agent starting", "version", version.Version, "server", cfg.Server)
 	a := &core.Agent{Cfg: cfg, CfgPath: cfgPath, DataDir: dataDir, Store: st, Keys: keystore.Default(dataDir),
 		HW: hardware.New(), Log: log, Version: version.Version}
 	a.Inv = &inventory.Manager{Collector: inventory.NewCollector(), Store: st, Log: log}

@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"slices"
 	"strings"
 	"testing"

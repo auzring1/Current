@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 func TestRefreshStoresLoadsAndSkipsWhenFresh(t *testing.T) {

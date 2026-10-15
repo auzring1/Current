@@ -16,18 +16,18 @@ interface CardProps {
 /** A surface with an optional header and footer. Headings inside a card are h2 so the page keeps one h1. */
 export function Card({ title, description, actions, footer, flush, children, id, ...rest }: CardProps) {
   return (
-    <section className="cur-card" id={id} aria-label={rest["aria-label"]}>
+    <section className="lp-card" id={id} aria-label={rest["aria-label"]}>
       {(title || actions) && (
-        <header className="cur-card__head">
+        <header className="lp-card__head">
           <div>
-            {title && <h2 className="cur-card__title">{title}</h2>}
-            {description && <p className="cur-card__desc">{description}</p>}
+            {title && <h2 className="lp-card__title">{title}</h2>}
+            {description && <p className="lp-card__desc">{description}</p>}
           </div>
-          {actions && <div style={{ display: "flex", gap: "var(--cur-space-2)", alignItems: "center" }}>{actions}</div>}
+          {actions && <div style={{ display: "flex", gap: "var(--lp-space-2)", alignItems: "center" }}>{actions}</div>}
         </header>
       )}
-      <div className={flush ? "cur-card__body cur-card__body--flush" : "cur-card__body"}>{children}</div>
-      {footer && <footer className="cur-card__foot">{footer}</footer>}
+      <div className={flush ? "lp-card__body lp-card__body--flush" : "lp-card__body"}>{children}</div>
+      {footer && <footer className="lp-card__foot">{footer}</footer>}
     </section>
   );
 }

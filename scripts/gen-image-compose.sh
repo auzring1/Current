@@ -2,7 +2,7 @@
 # Writes deploy/docker-compose.image.yml from deploy/docker-compose.yml.
 #
 # The two files are the same stack. The only difference: the image file PULLS the published server image
-# (ghcr.io/<owner>/current-server) instead of building it from source, so updating is "pull and restart".
+# (ghcr.io/<owner>/librepatch-server) instead of building it from source, so updating is "pull and restart".
 # Do not edit the image file by hand; `make generate` rewrites it and `make check-generated` (CI) fails on drift.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -23,8 +23,8 @@ awk '
   in_anchor && /^  / { next }
   { in_anchor = 0 }
   /^    build: \*server-build$/ { next }
-  /^    image: current\/server:/ {
-    print "    image: ${CURRENT_IMAGE:-ghcr.io/auzring1/current-server}:${CURRENT_VERSION:-latest}"
+  /^    image: librepatch\/server:/ {
+    print "    image: ${LIBREPATCH_IMAGE:-ghcr.io/auzring1/librepatch-server}:${LIBREPATCH_VERSION:-latest}"
     print "    pull_policy: always"
     next
   }

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/auth"
 )
 
 func brandPNG(t testing.TB, w, h int) []byte {
@@ -88,7 +88,7 @@ func TestBrandingDefaultsAndWizard(t *testing.T) {
 	h := newHarness(t)
 	// Before setup the public endpoint already answers with the stock product and no organization.
 	st, b := h.do("GET", "/api/v1/branding", nil, nil)
-	if st != 200 || b["product_name"] != "Current" || b["org_name"] != "" || b["title"] != "Current" || b["accent_color"] != "#1971c2" {
+	if st != 200 || b["product_name"] != "LibrePatch" || b["org_name"] != "" || b["title"] != "LibrePatch" || b["accent_color"] != "#1971c2" {
 		t.Fatalf("stock branding: %d %v", st, b)
 	}
 	if st, _, _ := h.raw("GET", "/api/v1/branding/assets/logo_light", "", nil); st != 404 {
@@ -121,7 +121,7 @@ func TestBrandingDefaultsAndWizard(t *testing.T) {
 	}
 
 	st, b = h.do("GET", "/api/v1/branding", nil, nil)
-	if st != 200 || b["org_name"] != "Example Clinic" || b["product_name"] != "Current" || b["title"] != "Example Clinic · Current" {
+	if st != 200 || b["org_name"] != "Example Clinic" || b["product_name"] != "LibrePatch" || b["title"] != "Example Clinic · LibrePatch" {
 		t.Fatalf("after setup: %d %v", st, b)
 	}
 	assets := b["assets"].(map[string]any)
@@ -131,7 +131,7 @@ func TestBrandingDefaultsAndWizard(t *testing.T) {
 	}
 	// The shell page carries the title and the data for the first paint.
 	_, hdr, body := h.raw("GET", "/", "", nil)
-	if !strings.Contains(string(body), "<title>Example Clinic · Current</title>") || !strings.Contains(string(body), `id="branding-data"`) {
+	if !strings.Contains(string(body), "<title>Example Clinic · LibrePatch</title>") || !strings.Contains(string(body), `id="branding-data"`) {
 		t.Fatalf("index shell: %.300s", body)
 	}
 	if strings.Contains(hdr.Get("Content-Security-Policy"), "unsafe-inline") {
@@ -192,7 +192,7 @@ func TestBrandingAdministration(t *testing.T) {
 	if s0["org_name"] != "Acme" || s0["product_name"] != "" || s0["accent_color"] != "" || len(v["assets"].(map[string]any)) != 0 {
 		t.Fatalf("initial settings: %v", s0)
 	}
-	if v["defaults"].(map[string]any)["product_name"] != "Current" {
+	if v["defaults"].(map[string]any)["product_name"] != "LibrePatch" {
 		t.Fatalf("defaults: %v", v["defaults"])
 	}
 	for _, c := range v["contrast"].([]any) {
@@ -379,7 +379,7 @@ func TestBrandingAdministration(t *testing.T) {
 		t.Fatalf("reset audit must record what was removed: %v", rd)
 	}
 	_, pub = anon.do("GET", "/api/v1/branding", nil, nil)
-	if pub["product_name"] != "Current" || pub["org_name"] != "" || pub["title"] != "Current" {
+	if pub["product_name"] != "LibrePatch" || pub["org_name"] != "" || pub["title"] != "LibrePatch" {
 		t.Fatalf("defaults after reset: %v", pub)
 	}
 	if st, _, _ := anon.raw("GET", url, "", nil); st != 404 {

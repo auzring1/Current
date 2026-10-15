@@ -6,7 +6,7 @@ import { Card, EmptyState, Icons, StatGrid, StatTile, StatusPill, TableSkeleton 
 import { CustomFieldsCard } from "./DeviceCustomFields";
 import { Field } from "./DeviceField";
 
-const small = { fontSize: "var(--cur-text-lg)", overflowWrap: "anywhere" } as const;
+const small = { fontSize: "var(--lp-text-lg)", overflowWrap: "anywhere" } as const;
 
 /** The device at a glance, the full details, and the user profiles on it (formerly the Users tab). */
 export function OverviewTab({ device: d }: { device: Device }) {
@@ -19,7 +19,7 @@ export function OverviewTab({ device: d }: { device: Device }) {
         <StatTile label="Last seen" value={<span style={small}>{d.online ? "Connected now" : ago(d.last_seen_at)}</span>} kind={d.online ? "success" : "neutral"} hint={d.last_seen_at ? dateTime(d.last_seen_at) : undefined} />
         <StatTile label="Logged-on user" value={<span style={small}>{d.logged_on_user || "—"}</span>} kind="neutral" />
         <StatTile label="Uptime" value={<span style={small}>{duration(d.uptime_s)}</span>} kind="neutral" />
-        <StatTile label="Software" value={<span className="cur-num">{d.software_count || "—"}</span>} kind="accent" hint={d.software_updated_at ? `updated ${ago(d.software_updated_at)}` : "not reported yet"} />
+        <StatTile label="Software" value={<span className="lp-num">{d.software_count || "—"}</span>} kind="accent" hint={d.software_updated_at ? `updated ${ago(d.software_updated_at)}` : "not reported yet"} />
       </StatGrid>
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         <Field label="Device ID" value={d.id} />

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -19,8 +19,8 @@ import (
 	"filippo.io/age"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/shared/version"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/shared/version"
 )
 
 // BackupOptions configures Backup.
@@ -167,7 +167,7 @@ func Backup(ctx context.Context, o BackupOptions) (*Manifest, error) {
 	}
 	created := now().UTC().Truncate(time.Second)
 
-	conn, err := connect(ctx, o.DatabaseURL, "current-backup")
+	conn, err := connect(ctx, o.DatabaseURL, "librepatch-backup")
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func Backup(ctx context.Context, o BackupOptions) (*Manifest, error) {
 		Notes: []string{
 			NotMasterKey,
 			"Table data is PostgreSQL COPY text format, loaded with COPY FROM; files/ is the content directory.",
-			"Restore with this or a newer current-server; the schema is rebuilt from the embedded migrations.",
+			"Restore with this or a newer librepatch-server; the schema is rebuilt from the embedded migrations.",
 		},
 		Sequences: seqs,
 	}

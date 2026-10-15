@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package current.agent.v1;
+package librepatch.agent.v1;
 
-option go_package = "github.com/auzring1/current/gen/proto/current/agent/v1;agentv1";
+option go_package = "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1;agentv1";
 
 enum InventorySection {
   INVENTORY_SECTION_UNSPECIFIED = 0;
@@ -177,7 +177,7 @@ message WuUpdate {
 }
 
 // WuPolicyInfo says who is in charge of updates on this machine, so administrators are not
-// surprised when another tool (WSUS, Intune, a GPO) fights Current.
+// surprised when another tool (WSUS, Intune, a GPO) fights LibrePatch.
 message WuPolicyInfo {
   bool wsus_configured = 1;         // UseWUServer = 1
   string wsus_server = 2;

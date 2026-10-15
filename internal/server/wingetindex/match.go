@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Name and publisher normalization, modelled on the one winget uses to build the index's norm_names and norm_publishers

@@ -62,8 +62,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      CURRENT_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/postgres?sslmode=disable
-      CURRENT_REQUIRE_DB: "1"
+      LIBREPATCH_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/postgres?sslmode=disable
+      LIBREPATCH_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -99,7 +99,7 @@ jobs:
       - name: SBOM (image)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          image: current/server:dev
+          image: librepatch/server:dev
           format: spdx-json
           output-file: sbom-server-image.spdx.json
       - name: SBOM (source)

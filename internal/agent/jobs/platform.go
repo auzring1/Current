@@ -12,10 +12,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/auzring1/current/internal/agent/inventory"
-	"github.com/auzring1/current/internal/agent/selfupdate"
-	"github.com/auzring1/current/internal/agent/wu"
-	"github.com/auzring1/current/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/agent/inventory"
+	"github.com/auzring1/librepatch/internal/agent/selfupdate"
+	"github.com/auzring1/librepatch/internal/agent/wu"
+	"github.com/auzring1/librepatch/internal/shared/installer"
 )
 
 // ErrNoSession means the target user has no interactive session right now.

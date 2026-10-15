@@ -11,9 +11,9 @@ export function SiteSwitcher() {
   return (
     <Menu position="bottom-start" width={260} shadow="md" withinPortal>
       <Menu.Target>
-        <button type="button" className="cur-sitebtn" aria-label={`Site: ${label}. Change site`} data-testid="site-switcher">
+        <button type="button" className="lp-sitebtn" aria-label={`Site: ${label}. Change site`} data-testid="site-switcher">
           <I.Building size={16} aria-hidden />
-          <span className="cur-sitebtn__label">{label}</span>
+          <span className="lp-sitebtn__label">{label}</span>
           <I.ChevronDown size={14} aria-hidden />
         </button>
       </Menu.Target>

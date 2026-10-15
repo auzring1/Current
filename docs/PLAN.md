@@ -1,4 +1,4 @@
-# Phase 0 Plan: Current Endpoint Management Platform
+# Phase 0 Plan: LibrePatch Endpoint Management Platform
 
 > Status: **awaiting approval**. Nothing past Phase 0 gets built until this plan is approved.
 > The product is called **Current** (it began as the working codename "Auzring", then "Renovatio"; see RENAME-PLAN.md and DECISIONS D89, D91 and D101). <!-- old-name -->
@@ -21,8 +21,8 @@ This is the entry point for Phase 0. The detailed design is in:
 
 Three deliverables share one Go monorepo:
 
-1. **Agent** (`current-agent.exe`): a Go Windows service running as SYSTEM. It opens one outbound mTLS gRPC stream to the server and never listens on a port. It runs only a fixed set of typed jobs, and each job must be signed by the server's job-signing key and bound to this device. It runs installers itself, using winget manifests only as metadata. User-scope work runs in a short-lived helper process inside the target user's session. The helper talks to the service only over an anonymous pipe that the service hands to it at launch.
-2. **Server** (`current-server`): one Go binary that contains:
+1. **Agent** (`librepatch-agent.exe`): a Go Windows service running as SYSTEM. It opens one outbound mTLS gRPC stream to the server and never listens on a port. It runs only a fixed set of typed jobs, and each job must be signed by the server's job-signing key and bound to this device. It runs installers itself, using winget manifests only as metadata. User-scope work runs in a short-lived helper process inside the target user's session. The helper talks to the service only over an anonymous pipe that the service hands to it at launch.
+2. **Server** (`librepatch-server`): one Go binary that contains:
    - the REST API (OpenAPI-first);
    - the embedded React GUI;
    - the agent gateway, which terminates mTLS itself and is never put behind the reverse proxy;
@@ -131,14 +131,14 @@ I stop for review after each phase.
 ### Phase 5: Automation and polish *(implemented; see docs/ARCHITECTURE.md §0, SECURITY §9d and docs/demos/PHASE5-DEMO.md. Self-update, the MSI and WebAuthn on real hardware are unverified on real Windows)*
 - Auto-update policies, new-device baselines, reports, audit-log UI, finer RBAC with per-site scoping, API tokens with scopes, WebAuthn.
 - Agent self-update: vendor release-key signature plus Authenticode, A/B slots, health-confirmed promotion with automatic rollback.
-- `current-server backup` / `restore`: encrypted with age, version-checked.
+- `librepatch-server backup` / `restore`: encrypted with age, version-checked.
 - Agent MSI with silent-install properties for GPO, Intune or an RMM.
 
 ### Phase 6: Hardening and release *(implemented; see docs/SECURITY.md §9e–§9g, docs/LOADTEST.md and docs/demos/PHASE6-DEMO.md. The release workflow, Authenticode/KMS/Sigstore steps and the Windows-side fixes are unverified)*
 - Security review against SECURITY.md, plus fuzzing of the protocol, manifest and uninstall-string parsers.
-- Load test with 10k simulated agents (`cmd/current-loadsim`), including a reconnect-storm scenario.
-- Release pipeline: reproducible builds, SBOMs, cosign and Authenticode signing. *(Written: `.github/workflows/release.yml`, `scripts/build-release.sh`, `scripts/verify-reproducible.sh`, `cmd/current-sbom`, `docs/VERIFYING_RELEASES.md`, RUNBOOK 9, DECISIONS D79-D84, SECURITY 9e. Local dry run and reproducibility check pass; the GitHub, Azure/AWS, cosign and MSI steps have never run, and nothing can ship until the owner settles O5 and O7.)*
-- ~~Offline-verifiable license keys~~ *(built, then removed when the project became open source, D100; was: `internal/shared/license`, `internal/server/licensing`, `cmd/current-license`, the License page; see DECISIONS D85-D88 and SECURITY §9g. Default policy: 25-device evaluation, 30-day grace, the cap blocks only new enrollments. The business model, O8, is still open.)*
+- Load test with 10k simulated agents (`cmd/librepatch-loadsim`), including a reconnect-storm scenario.
+- Release pipeline: reproducible builds, SBOMs, cosign and Authenticode signing. *(Written: `.github/workflows/release.yml`, `scripts/build-release.sh`, `scripts/verify-reproducible.sh`, `cmd/librepatch-sbom`, `docs/VERIFYING_RELEASES.md`, RUNBOOK 9, DECISIONS D79-D84, SECURITY 9e. Local dry run and reproducibility check pass; the GitHub, Azure/AWS, cosign and MSI steps have never run, and nothing can ship until the owner settles O5 and O7.)*
+- ~~Offline-verifiable license keys~~ *(built, then removed when the project became open source, D100; was: `internal/shared/license`, `internal/server/licensing`, `cmd/librepatch-license`, the License page; see DECISIONS D85-D88 and SECURITY §9g. Default policy: 25-device evaluation, 30-day grace, the cap blocks only new enrollments. The business model, O8, is still open.)*
 - Final documentation pass.
 
 ## 5. Biggest risks I see up front

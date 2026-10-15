@@ -37,10 +37,10 @@ export function AgentUpdatesPage() {
 
   const releaseColumns = useMemo<Column<AgentRelease>[]>(
     () => [
-      { id: "version", header: "Version", required: true, width: 140, value: (r) => r.version, cell: (r) => <span className="cur-mono">{r.version}</span> },
+      { id: "version", header: "Version", required: true, width: 140, value: (r) => r.version, cell: (r) => <span className="lp-mono">{r.version}</span> },
       { id: "platform", header: "Platform", width: 130, value: (r) => `${r.os}/${r.arch}`, filter: { type: "text" } },
       { id: "uploaded", header: "Uploaded", width: 180, value: (r) => new Date(r.created_at).getTime(), csv: (r) => r.created_at, cell: (r) => dateTime(r.created_at) },
-      { id: "devices", header: "Devices on it", align: "right", width: 130, value: (r) => r.devices_on ?? 0, cell: (r) => <span className="cur-num">{r.devices_on}</span> },
+      { id: "devices", header: "Devices on it", align: "right", width: 130, value: (r) => r.devices_on ?? 0, cell: (r) => <span className="lp-num">{r.devices_on}</span> },
       {
         id: "state",
         header: "State",
@@ -81,9 +81,9 @@ export function AgentUpdatesPage() {
 
   const versionColumns = useMemo<Column<Version>[]>(
     () => [
-      { id: "version", header: "Version", required: true, width: 180, value: (v) => v.version, cell: (v) => <span className="cur-mono">{v.version}</span> },
-      { id: "devices", header: "Devices", align: "right", width: 120, value: (v) => v.devices, cell: (v) => <span className="cur-num">{v.devices}</span> },
-      { id: "online", header: "Online", align: "right", width: 120, value: (v) => v.online, cell: (v) => <span className="cur-num">{v.online}</span> },
+      { id: "version", header: "Version", required: true, width: 180, value: (v) => v.version, cell: (v) => <span className="lp-mono">{v.version}</span> },
+      { id: "devices", header: "Devices", align: "right", width: 120, value: (v) => v.devices, cell: (v) => <span className="lp-num">{v.devices}</span> },
+      { id: "online", header: "Online", align: "right", width: 120, value: (v) => v.online, cell: (v) => <span className="lp-num">{v.online}</span> },
     ],
     [],
   );
@@ -94,7 +94,7 @@ export function AgentUpdatesPage() {
         title="Agent updates"
         description={
           <>
-            Agents update themselves to a release published by the vendor. Upload a release (the binary and its signed <code>.curr</code> bundle), choose it as the target, and the agents move over in batches: a pilot group first, then everyone. An agent verifies the vendor signature itself, switches to the new copy and goes back to the old one automatically if the new one does not connect within ten minutes.
+            Agents update themselves to a release published by the vendor. Upload a release (the binary and its signed <code>.lprel</code> bundle), choose it as the target, and the agents move over in batches: a pilot group first, then everyone. An agent verifies the vendor signature itself, switches to the new copy and goes back to the old one automatically if the new one does not connect within ten minutes.
           </>
         }
       />
@@ -208,8 +208,8 @@ function UploadCard({ onDone }: { onDone: () => void }) {
       }
     >
       <Stack gap="sm" maw={560}>
-        <FileInput label="Agent binary" placeholder="current-agent.exe" value={bin} onChange={setBin} />
-        <FileInput label="Signed bundle (.curr)" placeholder="current-agent-1.2.3.curr" value={bundle} onChange={setBundle} accept=".curr,application/json" />
+        <FileInput label="Agent binary" placeholder="librepatch-agent.exe" value={bin} onChange={setBin} />
+        <FileInput label="Signed bundle (.lprel)" placeholder="librepatch-agent-1.2.3.lprel" value={bundle} onChange={setBundle} accept=".lprel,application/json" />
         {error && (
           <Alert color="red" icon={<Icons.Danger size={18} aria-hidden />}>
             {error}
@@ -278,7 +278,7 @@ function RolloutCard({ rollout, status, releases, groups, canWrite, onSaved }: {
           </Alert>
         )}
         {target && (
-          <p style={{ margin: 0, fontSize: "var(--cur-text-sm)" }}>
+          <p style={{ margin: 0, fontSize: "var(--lp-text-sm)" }}>
             Updated {status.updated}, failed {status.failed}, in progress {status.queued}
             {status.pilot_devices > 0 ? `; pilot ${status.pilot_updated}/${status.pilot_devices} updated, ${status.pilot_failed} failed` : ""}.
           </p>

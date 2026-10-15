@@ -7,10 +7,10 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 | Component | Requirement |
 |---|---|
 | Server host | Linux with Docker Engine 24+ and Compose v2. 2 vCPU, 4 GB RAM and 40 GB disk are enough for Phase 1 and ~2k devices. Sizing for 10k devices comes from the Phase 6 load test. |
-| DNS | One name for the server, e.g. `current.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
+| DNS | One name for the server, e.g. `librepatch.example.com`. Browsers use `https://<name>`, agents use `<name>:8443`. |
 | Inbound firewall to the server | 443/tcp (console). 80/tcp only for Let's Encrypt HTTP challenges. 8443/tcp from every managed endpoint (agent gateway). |
 | Outbound from endpoints | 8443/tcp to the server. To install **winget-catalog** packages, also HTTPS to the vendors' download hosts (the URLs inside each manifest). Custom (uploaded) packages need only the server. |
-| Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**, and to `cdn.winget.microsoft.com` once a day for the winget index (3.7 MB; see *Software updates without a catalog*, 5a). Set `CURRENT_WINGET_SOURCE=off` to disable both (custom uploads still work). |
+| Outbound from the server | HTTPS to `raw.githubusercontent.com` and `api.github.com` for **Import from winget**, and to `cdn.winget.microsoft.com` once a day for the winget index (3.7 MB; see *Software updates without a catalog*, 5a). Set `LIBREPATCH_WINGET_SOURCE=off` to disable both (custom uploads still work). |
 | Endpoints | Windows 10 1809+, Windows 11, Server 2019+, x64. |
 
 **TLS-inspecting proxies must exempt the gateway host:port.** Agents use mutual TLS and pin the server's own CA, so interception breaks the connection by design. That is the protection working, not a bug.
@@ -20,7 +20,7 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 ```bash
 git clone <repo> current && cd current
 ./scripts/init-secrets.sh                 # creates deploy/secrets/ (refuses to overwrite)
-cp deploy/.env.example deploy/.env        # then edit CURRENT_HOSTNAME and CURRENT_CADDY_TLS
+cp deploy/.env.example deploy/.env        # then edit LIBREPATCH_HOSTNAME and LIBREPATCH_CADDY_TLS
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
@@ -31,10 +31,10 @@ docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 |---|---|
 | `master_key` | 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret. **Back it up securely and separately from database backups.** Without it, those keys cannot be decrypted. |
 | `postgres_owner_password` | Schema owner. Used only by the one-shot `maintenance` service (migrations, backup, restore); the running server never holds it. |
-| `postgres_app_password` | Least-privilege runtime role `current_app`. It has DML only and is insert-only on `audit_log`. |
+| `postgres_app_password` | Least-privilege runtime role `librepatch_app`. It has DML only and is insert-only on `audit_log`. |
 | `database_url`, `migrate_database_url` | Connection strings the server reads as Docker secrets. |
 
-**Browser TLS modes** (`CURRENT_CADDY_TLS` in `deploy/.env`):
+**Browser TLS modes** (`LIBREPATCH_CADDY_TLS` in `deploy/.env`):
 
 - `internal`: Caddy's own CA, for LAN-only installs. Export the root with `docker compose -f deploy/docker-compose.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt` and distribute it to admin workstations, for example via GPO under Trusted Root Certification Authorities.
 - An email address: a public Let's Encrypt certificate. Ports 80 and 443 must be reachable from the internet.
@@ -44,21 +44,21 @@ These modes only affect the console. The agent channel always uses the server's 
 
 ### 2.1 Behind your own reverse proxy (for example the Synology DSM reverse proxy)
 
-Use this when another proxy already owns ports 80 and 443 and does the browser TLS. The console then goes browser, your proxy (HTTPS), Caddy (plain HTTP, on the same host), the server. **Agents do not use it**: they connect to the NAS on port 8443 directly, because the gateway checks each agent's client certificate itself (mTLS) and an HTTP proxy would break that. Point the agents' name (`SERVER=current.example.org:8443`) at the NAS and allow port 8443 in its firewall.
+Use this when another proxy already owns ports 80 and 443 and does the browser TLS. The console then goes browser, your proxy (HTTPS), Caddy (plain HTTP, on the same host), the server. **Agents do not use it**: they connect to the NAS on port 8443 directly, because the gateway checks each agent's client certificate itself (mTLS) and an HTTP proxy would break that. Point the agents' name (`SERVER=librepatch.example.org:8443`) at the NAS and allow port 8443 in its firewall.
 
 1. In `deploy/.env` (the commented block in `.env.example` has the same lines):
    ```
-   CURRENT_HOSTNAME=current.example.org
-   CURRENT_CADDYFILE=./Caddyfile.behind-proxy
-   CURRENT_HTTP_PORT=127.0.0.1:8080
-   CURRENT_HTTPS_PORT=8444
+   LIBREPATCH_HOSTNAME=librepatch.example.org
+   LIBREPATCH_CADDYFILE=./Caddyfile.behind-proxy
+   LIBREPATCH_HTTP_PORT=127.0.0.1:8080
+   LIBREPATCH_HTTPS_PORT=8444
    ```
-   `CURRENT_HTTP_PORT` with `127.0.0.1:` keeps plain HTTP reachable only from the NAS itself. `CURRENT_HTTPS_PORT` is published but unused in this mode; it only has to differ from the port your proxy uses. Leave `CURRENT_PUBLIC_PORT_SUFFIX` empty when people browse on the normal HTTPS port. `CURRENT_HOSTNAME` must be the name people type, because the console checks the origin of every change request against it.
+   `LIBREPATCH_HTTP_PORT` with `127.0.0.1:` keeps plain HTTP reachable only from the NAS itself. `LIBREPATCH_HTTPS_PORT` is published but unused in this mode; it only has to differ from the port your proxy uses. Leave `LIBREPATCH_PUBLIC_PORT_SUFFIX` empty when people browse on the normal HTTPS port. `LIBREPATCH_HOSTNAME` must be the name people type, because the console checks the origin of every change request against it.
 2. In DSM (Control Panel, Login Portal, Advanced, Reverse Proxy, Create): source HTTPS, your host name, port 443; destination **HTTP**, `localhost`, port 8080. Assign a certificate for that name (Control Panel, Security, Certificate). DSM adds `X-Forwarded-For`; keep any option that forwards the original Host and client address.
 3. Start the stack as in section 2. Then sign in once and open **Audit log**: the entry should show **your workstation's address**. If it shows an address inside `172.31.250.0/24` or the NAS's own address, the server did not believe the forwarded header; see below.
 4. Test an installer upload (**Catalog, Upload custom installer**) and watch the Devices page update by itself. A `413` means DSM's request-size limit is lower than the 2 GiB the console allows; raise it for this proxy rule.
 
-**Which address does the server believe?** Caddy and the server believe `X-Forwarded-For` only from the addresses in `CURRENT_UPSTREAM_PROXIES` (default: the Docker frontend network, `172.31.250.0/24`). With DSM forwarding to `localhost:8080`, Docker presents the connection as coming from that network, so the default is right. If the audit log shows another address (for example when DSM forwards to the NAS's LAN address), add that address: `CURRENT_UPSTREAM_PROXIES=172.31.250.0/24 192.168.1.50/32` (space-separated), then `docker compose ... up -d`. Anyone else's `X-Forwarded-For` is ignored, so a browser cannot choose its own address in the audit log.
+**Which address does the server believe?** Caddy and the server believe `X-Forwarded-For` only from the addresses in `LIBREPATCH_UPSTREAM_PROXIES` (default: the Docker frontend network, `172.31.250.0/24`). With DSM forwarding to `localhost:8080`, Docker presents the connection as coming from that network, so the default is right. If the audit log shows another address (for example when DSM forwards to the NAS's LAN address), add that address: `LIBREPATCH_UPSTREAM_PROXIES=172.31.250.0/24 192.168.1.50/32` (space-separated), then `docker compose ... up -d`. Anyone else's `X-Forwarded-For` is ignored, so a browser cannot choose its own address in the audit log.
 
 **Do not turn on the console IP allow-list (Settings, Security) until step 3 shows the right address.** Until then every request looks like it comes from one address, and the allow-list would admit or lock out everyone together (section 5k lists the way back in).
 
@@ -66,7 +66,7 @@ Not verified on a Synology: the Caddy part was run with the real Caddy binary (a
 
 ### 2.2 Install from the published image (no building, easy updates)
 
-The repository publishes the server image to GitHub's registry: `ghcr.io/auzring1/current-server`. A second compose file,
+The repository publishes the server image to GitHub's registry: `ghcr.io/auzring1/librepatch-server`. A second compose file,
 `deploy/docker-compose.image.yml`, is the same stack but **pulls** that image instead of building it. Use it when you want
 updating to be "pull and restart". It is generated from `docker-compose.yml` (`scripts/gen-image-compose.sh`), so the two
 cannot drift apart, and the build-from-source path in section 2 keeps working.
@@ -74,68 +74,77 @@ cannot drift apart, and the build-from-source path in section 2 keeps working.
 Tags: `1.2.3` (a release you published, see below), `latest` (the newest release), `edge` (the newest `main`, for testing).
 Production should pin a release number.
 
-**Get the install files** (no need to clone the repository). Every release comes with `current-deploy-<version>.zip` on the
+**Get the install files** (no need to clone the repository). Every release comes with `librepatch-deploy-<version>.zip` on the
 GitHub **Releases** page (the release is called `server-<version>`). It holds only the compose file, the Caddy and database setup
 files and the secrets script, and its compose file already defaults to that version's image. On the server:
 
 ```bash
 cd /volume1/docker                       # any folder; on a Synology this is a shared folder
-curl -L -o current-deploy.zip https://github.com/auzring1/Current/releases/download/server-1.2.3/current-deploy-1.2.3.zip
-unzip current-deploy.zip && cd current-deploy-1.2.3
+curl -L -o librepatch-deploy.zip https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/librepatch-deploy-1.2.3.zip
+unzip librepatch-deploy.zip && cd librepatch-deploy-1.2.3
 ./scripts/init-secrets.sh                # creates deploy/secrets; KEEP A COPY of it somewhere safe
 cp deploy/.env.example deploy/.env       # then edit it (host name; for DSM's reverse proxy see 2.1)
 docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
 ```
 
 The same zip's `README.txt` repeats these steps. If you cloned the repository instead, use the same commands from its root
-(add `CURRENT_VERSION=1.2.3` to `deploy/.env`; without it the tag is `latest`).
+(add `LIBREPATCH_VERSION=1.2.3` to `deploy/.env`; without it the tag is `latest`).
 
-**Update:** back up first (section 6), set `CURRENT_VERSION=<new number>` in `deploy/.env` (it overrides the version the zip
+**Update:** back up first (section 6), set `LIBREPATCH_VERSION=<new number>` in `deploy/.env` (it overrides the version the zip
 was made for; or unpack the newer zip over the old folder, keeping `deploy/secrets` and `deploy/.env`), then run
 `docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env pull` and the same `up -d` line again. Migrations run
 by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
 database migration; otherwise restore the backup you took (section 6.5).
 
 On a Synology, run the same commands over SSH (or make a Container Manager project from `docker-compose.image.yml`). Whether
-Container Manager's own "Build"/"Update" buttons re-pull a changed `CURRENT_VERSION` has **not been verified**; the commands above are the safe way.
+Container Manager's own "Build"/"Update" buttons re-pull a changed `LIBREPATCH_VERSION` has **not been verified**; the commands above are the safe way.
 
 **Publishing a release (maintainer):**
 1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the image from the chosen
-   branch, pushes `:1.2.3` and `:latest`, and creates the release `server-1.2.3` with `current-deploy-1.2.3.zip` attached (the job
+   branch, pushes `:1.2.3` and `:latest`, and creates the release `server-1.2.3` with `librepatch-deploy-1.2.3.zip` attached (the job
    summary shows the download command). Every push to `main` also refreshes `:edge` (no release, no zip).
 2. **Check once after the first publish:** the package is linked to the repository by the image's source label and followed the
-   repository's visibility (public). If it ever shows as private, open GitHub, **Packages, current-server, Package settings,
+   repository's visibility (public). If it ever shows as private, open GitHub, **Packages, librepatch-server, Package settings,
    Change visibility, Public**; until then an install must `docker login ghcr.io` with a token that may read packages.
 3. The image carries no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
 
 This workflow is separate from the signed release pipeline in section 9 (`release.yml`, tags `v*`). Nothing in it was run before
 this was written; the first run is the test.
 
-### 2a. Moving from an earlier name (Renovatio or Auzring builds) <!-- old-name -->
+### 2a. Moving from an earlier name (Current, Renovatio or Auzring builds) <!-- old-name -->
 
-The product was renamed to **Current** (DECISIONS D101). Every name that the server and the agents depend on changed: the
-database and its roles, the compose project and volumes, the environment variables, the keys' signing contexts and the
-agent's service and folders. **There is no in-place upgrade.** A stack and its agents are installed fresh. This is quick
-for a small installation:
+<!-- old-names:begin -->
+The product was renamed to **LibrePatch** (DECISIONS D108; before that it was called "Current", D101, and earlier "Renovatio" and "Auzring").
+Every name that the server and the agents depend on changed: the database and its roles, the compose project and volumes, the
+environment variables, the keys' signing contexts, the container image and the agent's service and folders. **There is no
+in-place upgrade.** A stack and its agents are installed fresh. This is quick for a small installation:
 
 1. **Write down what you want to keep.** Your `deploy/.env` values (host name, ports, proxy settings) are the main thing.
-   The database content (users, MFA, settings, imported catalog) is **not** carried over, and **backups made by an
-   earlier-named build cannot be restored into a Current-named stack**. Catalog packages can be imported again, and
-   the settings can be entered again.
-2. **Stop and remove the old stack** (from the old project folder): `docker compose -f deploy/docker-compose.yml down -v`.
-   `-v` deletes its data volumes on purpose. Then delete the old `deploy/secrets/` folder (it holds the old database and role
-   names and the old master key).
-3. **Get the new code** into a new, empty folder, copy your old `deploy/.env` over `deploy/.env.example`'s place, and rename
-   the variables: `sed -i 's/RENOVATIO_/CURRENT_/g' deploy/.env` (the old prefix is `RENOVATIO_`). <!-- old-name -->
-4. **Start fresh** as in section 2 (`./scripts/init-secrets.sh`, then `docker compose ... up -d --build`), and finish the
-   first-run setup (section 3).
-5. **Reinstall each agent.** Remove the old one (docs/FRESH-INSTALL-WINDOWS.md, section 1.1, lists the clean-up for both
+   The database content (users, MFA, settings, imported catalog, update decisions) is **not** carried over, and **backups
+   made by an earlier-named build cannot be restored into a LibrePatch-named stack**. Catalog packages can be imported
+   again, and the settings can be entered again.
+2. **Stop and remove the old stack** (from the old project folder): `docker compose -f deploy/docker-compose.yml down -v`
+   (or `docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env down -v`). `-v` deletes its data volumes
+   on purpose. On a Synology, delete the old project in Container Manager (tick "also delete the containers" and delete its
+   volumes under **Volume**). Then delete the old `deploy/secrets/` folder (it holds the old database and role names and the
+   old master key). Keep the folder's `deploy/.env` until step 3.
+3. **Get the new files** into a new, empty folder (the `librepatch-deploy-<version>.zip` of a release, or the repository), copy
+   your old `deploy/.env` over `deploy/.env.example`'s place, and rename the variables:
+   `sed -i 's/CURRENT_/LIBREPATCH_/g' deploy/.env` (the previous prefix was `CURRENT_`; for the older prefixes see the table
+   in docs/DECISIONS.md D101). <!-- old-name -->
+4. **Start fresh** as in section 2 (`./scripts/init-secrets.sh`, then `docker compose ... up -d`), and finish the first-run
+   setup (section 3). On a Synology, create a new Container Manager project named `librepatch` from the new compose file.
+5. **Reinstall each agent.** Remove the old one (docs/FRESH-INSTALL-WINDOWS.md, section 1.1, lists the clean-up for all
    earlier names) and install the new one with a new enrollment string from **Enrollment**. The MSI has a new upgrade code and
    does not replace an older agent.
 6. **Behind a reverse proxy** (for example Synology DSM): the host name, ports and proxy rules do not change.
+7. **GitHub (maintainers):** the release workflow reads the update key from the repository variable
+   `LIBREPATCH_RELEASE_PUBLIC_KEY` and the secret `LIBREPATCH_RELEASE_SIGNING_KEY` (section 5c). Until you create those, it
+   falls back to the variable and secret of the previous names, so an existing key keeps working.
+<!-- old-names:end -->
 
 ## 3. First-run setup
-1. Open `https://<CURRENT_HOSTNAME>`. You are sent to **Set up Current**.
+1. Open `https://<LIBREPATCH_HOSTNAME>`. You are sent to **Set up LibrePatch**.
 2. Enter the one-time **setup token** from the server log. It changes on every restart until setup completes.
 3. Enter the organization name, your name, and a password: at least 12 characters, and breached or common passwords are rejected.
 4. Enter a **CA root passphrase** (16+ characters). The server never stores it. You will need it for rare CA operations from Phase 5 on (rotating the job-signing key, revoking a signing key). **Store it offline, for example in a safe or a password manager vault that is separate from your password.**
@@ -143,45 +152,45 @@ for a small installation:
 6. Save the 10 recovery codes. Each works once if you lose your authenticator.
 
 ## 4. Enroll devices
-**Get the agent.** Every server release (the GitHub release `server-<version>`, see 2.2) has `current-agent_<version>_windows_amd64.exe`, a
-`.sha256` file, and the Windows installer `current-agent_<version>_windows_x64.msi` (for GPO, Intune or RMM, see "Install with the MSI" below) next to the install zip. Download the exe on a PC (or on a file share), check it
-(`(Get-FileHash .\current-agent_1.2.3_windows_amd64.exe).Hash` must match the `.sha256` file, ignoring case), and run
-`Unblock-File .\current-agent_1.2.3_windows_amd64.exe`. **It is not code-signed**, so SmartScreen or antivirus may warn about it;
-use the same version as your server. You can run it under its long name or rename it to `current-agent.exe`. (Building it yourself
-is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`.)
+**Get the agent.** Every server release (the GitHub release `server-<version>`, see 2.2) has `librepatch-agent_<version>_windows_amd64.exe`, a
+`.sha256` file, and the Windows installer `librepatch-agent_<version>_windows_x64.msi` (for GPO, Intune or RMM, see "Install with the MSI" below) next to the install zip. Download the exe on a PC (or on a file share), check it
+(`(Get-FileHash .\librepatch-agent_1.2.3_windows_amd64.exe).Hash` must match the `.sha256` file, ignoring case), and run
+`Unblock-File .\librepatch-agent_1.2.3_windows_amd64.exe`. **It is not code-signed**, so SmartScreen or antivirus may warn about it;
+use the same version as your server. You can run it under its long name or rename it to `librepatch-agent.exe`. (Building it yourself
+is possible too: `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent`.)
 
 1. In the console, go to **Enrollment**, then **New token**. Give it a name, a maximum number of uses and a lifetime. Optionally turn on **Require administrator approval**.
 2. Copy the install command. It is shown only once. A token that can no longer be used (revoked, expired or used up) can be removed from the list with **Delete** on its row; a token that still works must be **Revoked** first. Devices that enrolled with it are not affected.
 3. On the endpoint, in an **elevated** PowerShell or Command Prompt:
    ```
-   .\current-agent.exe install --server current.example.com:8443 --token CUR1.eyJ...      (use the exe's file name)
+   .\librepatch-agent.exe install --server librepatch.example.com:8443 --token LP1.eyJ...      (use the exe's file name)
    ```
-   - `--server` is optional. It defaults to the address inside the token; set it when agents must use a different name or IP. That name or IP must be in the gateway certificate: add it with `CURRENT_GATEWAY_SANS`.
+   - `--server` is optional. It defaults to the address inside the token; set it when agents must use a different name or IP. That name or IP must be in the gateway certificate: add it with `LIBREPATCH_GATEWAY_SANS`.
    - `--allowed-jobs inventory,wu_scan` is optional. It sets a local ceiling that the server can never raise (enforced from Phase 3, when jobs exist).
-4. The command copies the agent to `C:\Program Files\Current\Agent\slot-a\`, locks down `C:\ProgramData\Current\`, registers and starts the **CurrentAgent** service (LocalSystem, automatic start, restart on failure), and waits for enrollment.
-5. Check the agent at any time with `"C:\Program Files\Current\Agent\slot-a\current-agent.exe" status`.
+4. The command copies the agent to `C:\Program Files\LibrePatch\Agent\slot-a\`, locks down `C:\ProgramData\LibrePatch\`, registers and starts the **LibrePatchAgent** service (LocalSystem, automatic start, restart on failure), and waits for enrollment.
+5. Check the agent at any time with `"C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" status`.
 
-**Large rollouts.** The server limits enrollment attempts to 10 per minute per source address and 60 per minute per token, which protects tokens from guessing. Machines behind one NAT address therefore enroll at about 10 per minute, and a rollout of 1,000 from one site takes about 100 minutes (agents retry on their own). If you roll out many machines at once, raise the limits for the duration with `CURRENT_ENROLL_RATE_PER_IP` and `CURRENT_ENROLL_RATE_PER_TOKEN` (attempts per minute) and restore them afterwards. At most 8 enrollments are processed at the same time; in the load test the server enrolled about 70 devices per second at most (see [LOADTEST.md](LOADTEST.md)). Servers that will hold thousands of connections also need a raised open-file limit; LOADTEST.md lists the settings.
+**Large rollouts.** The server limits enrollment attempts to 10 per minute per source address and 60 per minute per token, which protects tokens from guessing. Machines behind one NAT address therefore enroll at about 10 per minute, and a rollout of 1,000 from one site takes about 100 minutes (agents retry on their own). If you roll out many machines at once, raise the limits for the duration with `LIBREPATCH_ENROLL_RATE_PER_IP` and `LIBREPATCH_ENROLL_RATE_PER_TOKEN` (attempts per minute) and restore them afterwards. At most 8 enrollments are processed at the same time; in the load test the server enrolled about 70 devices per second at most (see [LOADTEST.md](LOADTEST.md)). Servers that will hold thousands of connections also need a raised open-file limit; LOADTEST.md lists the settings.
 
-To **remove** the agent, run `current-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
+To **remove** the agent, run `librepatch-agent.exe uninstall` (if it was installed from the MSI, uninstall the MSI instead; see below). It stops and deletes the service, deletes the device key from CNG, and removes the files. If you run it from the installed copy, the program files are removed at the next reboot. **Also revoke the device in the console.** Phase 1 does not notify the server on uninstall.
 
 ### Install with the MSI (GPO, Intune, RMM)
 
-For fleets, use the MSI instead of copying the exe around. It is a thin wrapper around the commands above (decision O6/D67): it carries `current-agent.exe`, and a SYSTEM-context step runs `current-agent.exe install ...` (service, slot-a, enrollment). Build it with `installer/windows/build.ps1` (see `installer/windows/README.md`); the release pipeline signs it. Per-machine, x64 only, Windows 10 1809+ / Server 2019+, must run elevated (or as SYSTEM, which is what GPO, Intune and RMM agents do).
+For fleets, use the MSI instead of copying the exe around. It is a thin wrapper around the commands above (decision O6/D67): it carries `librepatch-agent.exe`, and a SYSTEM-context step runs `librepatch-agent.exe install ...` (service, slot-a, enrollment). Build it with `installer/windows/build.ps1` (see `installer/windows/README.md`); the release pipeline signs it. Per-machine, x64 only, Windows 10 1809+ / Server 2019+, must run elevated (or as SYSTEM, which is what GPO, Intune and RMM agents do).
 
 **Public properties** (anything else on the command line is ignored by the agent):
 
 | Property | Required | Meaning |
 |---|---|---|
-| `SERVER` | first install | Gateway `host:port`, e.g. `current.example.com:8443`. Letters, digits and `. - _ :` (IPv6 in `[..]`). |
-| `TOKEN` | first install | The enrollment string (`CUR1....`). Letters, digits and `. - _`. Treated as a secret. |
+| `SERVER` | first install | Gateway `host:port`, e.g. `librepatch.example.com:8443`. Letters, digits and `. - _ :` (IPv6 in `[..]`). |
+| `TOKEN` | first install | The enrollment string (`LP1....`). Letters, digits and `. - _`. Treated as a secret. |
 | `ALLOWEDJOBS` | no | Comma list for the local job ceiling, e.g. `inventory,wu_scan`. Lower-case letters, digits, `_`, `,`. |
 
 Values with spaces, quotes or shell characters are refused by the MSI (and again by the agent). Nothing is run through `cmd.exe` or PowerShell.
 
 **Silent install (copy and paste):**
 ```
-msiexec /i current-agent-1.0.0-x64.msi /qn SERVER=current.example.com:8443 TOKEN=CUR1.eyJ... ALLOWEDJOBS=inventory,wu_scan /l*v C:\Windows\Temp\current-msi.log
+msiexec /i librepatch-agent-1.0.0-x64.msi /qn SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ... ALLOWEDJOBS=inventory,wu_scan /l*v C:\Windows\Temp\librepatch-msi.log
 ```
 `/qn` is fully silent, `/qb` shows only the progress bar. The MSI does not request a restart. `TOKEN` is declared a hidden property and the custom action runs the agent exe directly, but **Windows Installer still writes the install command, token included, in clear into a verbose log (`/l*v`)**. Without `/l*v` there is no log. If you do log, treat the log file as secret until the token has expired or been revoked (use a short-lived token), and do not attach it to a bug report. **The token is also on the `msiexec` command line**, so it is visible in the process list to administrators while the install runs and in whatever logs your deployment tool keeps of the command (see the Intune and RMM notes).
 
@@ -190,23 +199,23 @@ msiexec /i current-agent-1.0.0-x64.msi /qn SERVER=current.example.com:8443 TOKEN
 **Group Policy.** GPO software installation (Computer Configuration, Software Settings, Software installation, "Assigned") cannot pass properties. The two workable options:
 1. *Startup script (recommended).* A computer startup script runs as SYSTEM and can use the command above. Keep the MSI on a share that Domain Computers can read. Make the script skip machines that are already enrolled, so it can run on every boot:
    ```
-   if not exist "C:\Program Files\Current\Agent\slot-a\current-agent.exe" msiexec /i "\\fs01\software\current-agent.msi" /qn SERVER=current.example.com:8443 TOKEN=CUR1.eyJ... /l*v "%windir%\Temp\current-msi.log"
+   if not exist "C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" msiexec /i "\\fs01\software\librepatch-agent.msi" /qn SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ... /l*v "%windir%\Temp\librepatch-msi.log"
    ```
 2. *Transform (.mst).* Create a transform that adds `SERVER` and `TOKEN` rows to the `Property` table (Orca, or the Windows SDK transform tools), put it next to the MSI and add it on the Modifications tab of the GPO package. Be aware that the token is then stored in the transform.
 **SYSVOL and script shares are readable by every authenticated domain user, so anyone in the domain can read a token placed in a GPO script or transform.** Use the mitigations below, and prefer a share whose ACL allows only the computer accounts (and administrators) to read.
 
 **Intune (Win32 app).** Wrap the MSI with the Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) and set:
-- Install command: `msiexec /i current-agent-1.0.0-x64.msi /qn SERVER=current.example.com:8443 TOKEN=CUR1.eyJ... /l*v "%ProgramData%\Current-msi-install.log"`
-- Uninstall command: `msiexec /x current-agent-1.0.0-x64.msi /qn` (runs from the content folder; the ProductCode changes with every build, so do not hard-code it).
+- Install command: `msiexec /i librepatch-agent-1.0.0-x64.msi /qn SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ... /l*v "%ProgramData%\LibrePatch-msi-install.log"`
+- Uninstall command: `msiexec /x librepatch-agent-1.0.0-x64.msi /qn` (runs from the content folder; the ProductCode changes with every build, so do not hard-code it).
 - Install behavior: System. Device restart behavior: No specific action.
-- Detection rule: file exists `C:\Program Files\Current\Agent\slot-a\current-agent.exe` (or "Service" via a custom script rule: `Get-Service CurrentAgent`).
+- Detection rule: file exists `C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe` (or "Service" via a custom script rule: `Get-Service LibrePatchAgent`).
 - Return codes: 0 success; 1603 failed (see below); 3010 is not used.
 Intune keeps the install command line in the Intune Management Extension log on the device (`C:\ProgramData\Microsoft\IntuneManagementExtension\Logs`) and in the app definition, so the token is readable there by local administrators and by Intune admins who can read the app. That is the reason for the short-lived multi-use token below.
 
 **Generic RMM / script.** Run as SYSTEM, wait for the exit code, and treat anything other than 0 as failure:
 ```powershell
-$p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/i C:\Temp\current-agent.msi /qn SERVER=current.example.com:8443 TOKEN=CUR1.eyJ... /l*v C:\Windows\Temp\current-msi.log'
-if ($p.ExitCode -ne 0) { Get-Content C:\ProgramData\Current\logs\agent.log -Tail 40 -ErrorAction SilentlyContinue; exit $p.ExitCode }
+$p = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/i C:\Temp\librepatch-agent.msi /qn SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ... /l*v C:\Windows\Temp\librepatch-msi.log'
+if ($p.ExitCode -ne 0) { Get-Content C:\ProgramData\LibrePatch\logs\agent.log -Tail 40 -ErrorAction SilentlyContinue; exit $p.ExitCode }
 ```
 Do not echo the command into your RMM's job output.
 
@@ -215,12 +224,12 @@ Do not echo the command into your RMM's job output.
 | msiexec exit | Meaning | What to do |
 |---|---|---|
 | 0 | Installed (or enrolled and waiting for approval), or nothing to do on an enrolled machine | |
-| 1603 | Fatal error: a launch condition failed (`SERVER is required...`, `TOKEN is not a Current enrollment string...`, `... may only contain...`, unsupported Windows, not elevated), an older MSI than the installed one was run (downgrade), or the install step failed (the agent or the server rejected the token or `ALLOWEDJOBS`, the gateway is unreachable or does not trust the pin). The MSI rolls back: service, data directory and program files are removed. | Repeat with `/l*v msi.log` and search it for `LaunchCondition` and `Return value 3`. (The Windows version check reads the build number from the registry, `CurrentBuildNumber`, because Windows Installer can report Windows 8.1 on Windows 10/11; the first Phase 5 MSI wrongly rejected a Windows 11 machine with "requires Windows 10 version 1809".) The MSI log never contains the agent's command line or output (the token is on it), so for an install-step failure run the release's `current-agent.exe` by hand (the same file the MSI carries) from an elevated prompt: `current-agent.exe install --server ... --token ...` prints the reason, and `current-agent.exe uninstall` cleans up. If enrollment got as far as the service, `C:\ProgramData\Current\logs\agent.log` has the details until the rollback deletes it. |
+| 1603 | Fatal error: a launch condition failed (`SERVER is required...`, `TOKEN is not a LibrePatch enrollment string...`, `... may only contain...`, unsupported Windows, not elevated), an older MSI than the installed one was run (downgrade), or the install step failed (the agent or the server rejected the token or `ALLOWEDJOBS`, the gateway is unreachable or does not trust the pin). The MSI rolls back: service, data directory and program files are removed. | Repeat with `/l*v msi.log` and search it for `LaunchCondition` and `Return value 3`. (The Windows version check reads the build number from the registry, `CurrentBuildNumber`, because Windows Installer can report Windows 8.1 on Windows 10/11; the first Phase 5 MSI wrongly rejected a Windows 11 machine with "requires Windows 10 version 1809".) The MSI log never contains the agent's command line or output (the token is on it), so for an install-step failure run the release's `librepatch-agent.exe` by hand (the same file the MSI carries) from an elevated prompt: `librepatch-agent.exe install --server ... --token ...` prints the reason, and `librepatch-agent.exe uninstall` cleans up. If enrollment got as far as the service, `C:\ProgramData\LibrePatch\logs\agent.log` has the details until the rollback deletes it. |
 | 1618 | Another installation is running | Retry later |
 | 3010 | Not used | |
 | 1605 | `/x` of a product that is not installed | Nothing to remove |
 
-Uninstall: `msiexec /x current-agent-1.0.0-x64.msi /qn` (or `/x {ProductCode}`). It stops and deletes the service, deletes the device key and `C:\ProgramData\Current\`, `C:\Program Files\Current\` and the staged `C:\Program Files\CurrentSetup\`. A failed uninstall step does not block removal of the MSI entry, so check that the service is gone (`Get-Service CurrentAgent`). As always, also revoke the device in the console.
+Uninstall: `msiexec /x librepatch-agent-1.0.0-x64.msi /qn` (or `/x {ProductCode}`). It stops and deletes the service, deletes the device key and `C:\ProgramData\LibrePatch\`, `C:\Program Files\LibrePatch\` and the staged `C:\Program Files\LibrePatchSetup\`. A failed uninstall step does not block removal of the MSI entry, so check that the service is gone (`Get-Service LibrePatchAgent`). As always, also revoke the device in the console.
 
 **Tokens for mass deployment.** A token has a maximum number of uses, an expiry, and optionally requires approval; every successful enrollment consumes one use. A single-use token therefore works for one machine only, and a token that enrolls and is then rolled back is spent. For a rollout:
 - create **one multi-use token per rollout wave** (max uses a little above the number of machines, for example 120 for 100 machines),
@@ -235,14 +244,14 @@ Devices that enroll with a leaked token before it is revoked appear as pending w
 |---|---|
 | Revoke a device | Console, then Devices, then the device, then **Revoke**. The live connection is cut immediately and the certificate can never connect again. To manage the machine again, uninstall and reinstall the agent with a new token. |
 | Approve or reject a pending device | Console, then Devices, filter **Pending**, then **Approve** or **Reject**. A re-enrollment of known hardware always needs approval, and approving it revokes the old identity. |
-| Locked-out admin (lost authenticator, no recovery codes) | `docker compose -f deploy/docker-compose.yml exec server /current-server admin reset-mfa --email you@example.com`. The user enrolls a new authenticator at next sign-in. The action is audited. |
-| Clear a login lockout (10 failures lock for 15 min) | `... exec server /current-server admin unlock --email you@example.com` |
-| Verify audit-log integrity | `... exec server /current-server admin verify-audit` |
+| Locked-out admin (lost authenticator, no recovery codes) | `docker compose -f deploy/docker-compose.yml exec server /librepatch-server admin reset-mfa --email you@example.com`. The user enrolls a new authenticator at next sign-in. The action is audited. |
+| Clear a login lockout (10 failures lock for 15 min) | `... exec server /librepatch-server admin unlock --email you@example.com` |
+| Verify audit-log integrity | `... exec server /librepatch-server admin verify-audit` |
 | Upgrade | Back up first (§6). Then `git pull` and `docker compose ... up -d --build`. Migrations run automatically under an advisory lock and are forward-only. |
 | See what is installed | Console, **Software**: one row per product with device and version counts. Open a product to see which versions exist and which devices have them; **Devices → device → Software** lists one device (with change history). |
 | Find devices by software or hardware | Console, **Groups → New group**. Example: *All of* [Form factor is one of laptop/notebook/portable] [Has software "chrome" with version < 130]. **Preview matches** shows the devices; **Save group** keeps it. Membership is recomputed each time it is opened. |
 | Export | **Export CSV** on the Software and Group pages (needs the `inventory:export` permission: admin and operator roles). Each export is recorded in the audit log as `inventory.export`. Cells starting with `= + - @` are prefixed with `'` so spreadsheets do not run them. |
-| Gateway certificate | Renewed automatically 30 days before expiry, and re-issued when `CURRENT_GATEWAY_SANS` or the hostname changes. Agents trust the CA, not the leaf, so nothing is needed on endpoints. |
+| Gateway certificate | Renewed automatically 30 days before expiry, and re-issued when `LIBREPATCH_GATEWAY_SANS` or the hostname changes. Agents trust the CA, not the leaf, so nothing is needed on endpoints. |
 | Device certificates | 90-day lifetime. Agents renew automatically when 1/3 of the lifetime remains, and up to 180 days after expiry (for laptops that were offline). |
 
 ### 5a. Software deployment (Phase 3)
@@ -255,7 +264,7 @@ Devices that enroll with a leaked token before it is revoked appear as pending w
 | Watch progress | The deployment page updates live. Open a job for its timeline and the installer log tail. **Retry** creates a new attempt for a failed, expired, rejected or cancelled job; **Cancel deployment** stops everything unfinished (a job already running on a device is cancelled when the device is reachable). |
 | Unverified packages | Winget packages that are not verified ask for a confirmation that is recorded in the audit log. Custom uploads do not. |
 | Mark a package verified | After you have tested a package on a few machines, open it in the catalog and choose **Mark as verified** (administrators only). From then on it deploys, and updates, without the confirmation. The mark survives re-imports, shows who set it, when and for which version, and is audited (`catalog.verify`); **Remove the verified mark** puts the confirmation back. |
-| Self-updating apps (Chrome, Edge, Firefox, Zoom, …) | Marked `self-updating`. Update deployments are refused and per-user in-place updates skipped, so Current does not fight the vendor's updater. An administrator can set **Self-updating behaviour: enforce** on the package page. |
+| Self-updating apps (Chrome, Edge, Firefox, Zoom, …) | Marked `self-updating`. Update deployments are refused and per-user in-place updates skipped, so LibrePatch does not fight the vendor's updater. An administrator can set **Self-updating behaviour: enforce** on the package page. |
 | Per-user installs | **Settings** sets the organization default (report only, update in place, convert to machine, remove); a package can override it. The policy applies when a machine-wide deployment finds per-user copies. Per-user changes run in the user's own session, at their next logon if they are signed out ("waiting for user logon"). |
 | Update and remove old versions | An **Update** removes older copies that the new installer does not replace by itself (for example an EXE install followed by an MSI update) **before** installing, as `Remove old …` jobs you can see on the Jobs tab. A removal that fails does not stop the update. |
 | From a device: refresh, update, uninstall | Device page: **↻ Refresh** asks the online device to report hardware, software and users now. The **Software updates** tab lists installed programs that the catalog has a newer version of (**Deploy Updates**); **Updates → Software updates** in the sidebar shows the same across the whole fleet, per package, with a way to update every device that has an older copy. **Software** has checkboxes, **Deploy Updates**, **Uninstall Software** and a ⋮ menu per row. System components are not removable from here. |
@@ -268,11 +277,11 @@ Configuration (all optional, set in the server's environment):
 
 | Variable | Meaning |
 |---|---|
-| `CURRENT_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/current/content`). Empty disables custom packages. |
-| `CURRENT_WINGET_SOURCE` | `github` (default) or `off`. `off` also stops the winget index download. |
-| `CURRENT_WINGET_INDEX_URL` | Where the winget index is downloaded from (https only). Empty = Microsoft's winget CDN. For an internal mirror. |
-| `CURRENT_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
-| `CURRENT_GITHUB_TOKEN` / `CURRENT_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
+| `LIBREPATCH_CONTENT_DIR` | Directory for uploaded installers (compose: the `content` volume at `/var/lib/librepatch/content`). Empty disables custom packages. |
+| `LIBREPATCH_WINGET_SOURCE` | `github` (default) or `off`. `off` also stops the winget index download. |
+| `LIBREPATCH_WINGET_INDEX_URL` | Where the winget index is downloaded from (https only). Empty = Microsoft's winget CDN. For an internal mirror. |
+| `LIBREPATCH_RELEASE_PUBLIC_KEYS` | Extra vendor release public keys (hex, comma-separated) the server accepts agent release uploads for. Only for testing your own builds; agents trust just the keys compiled into them. |
+| `LIBREPATCH_GITHUB_TOKEN` / `LIBREPATCH_GITHUB_TOKEN_FILE` | Optional GitHub token that raises the API rate limit for imports. Use the `_FILE` form with a Docker secret in production. |
 
 **Software updates without a catalog (decision D98).** The server keeps a copy of the winget community index (the file the winget client itself uses; about 15,000 packages with their newest version, the Windows product codes and the normalized names that identify them), downloaded from Microsoft's CDN a few seconds after the server starts and then once a day (**Updates → Software updates** shows its age and has **Refresh now**). Every installed program is checked against it: first by its product code or uninstall-key name, then by normalized name **and** publisher; a program that matches several packages equally well, or only a name with no matching publisher, is not matched. The result:
 
@@ -295,7 +304,7 @@ Configuration (all optional, set in the server's environment):
 | A rollout stopped | **Update policy → Held updates** lists updates that failed a ring's threshold. Look at the failures on the update's device list, then **Release** (continue) or decline the update. |
 | Install now on one device | Device → **Windows updates** → tick updates → **Install selected** (ignores approval and rings; audited). **Restart now…** appears when the device is waiting for a restart (countdown 1–1440 min, visible to signed-in users; 1 minute is the shortest, so nobody is restarted without a warning). |
 | Source (WU / Microsoft Update / drivers) | **Update policy → Update source** (administrators). Devices get it as a scan job and rescan. |
-| Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. Current does not change these policies. |
+| Conflicts | Devices managed by WSUS, update deferral policies or with automatic updates disabled show a banner on the device and appear under **Update policy**. LibrePatch does not change these policies. |
 | Check one PC against Microsoft online (WSUS-managed PCs) | On the device's **Windows updates** tab, the yellow banner has **Check Microsoft online…** (administrators only). The PC checks Windows Update on the internet once, in place of its WSUS or Configuration Manager server; nothing is installed and no policy is touched. The list is marked as an online check, and **Install selected** then downloads from Microsoft's servers after a confirmation (skipping your WSUS approvals; audited as `wu.scan_online` / `wu.install_online`). The PC returns to its usual source at its next scan, or press **Scan now**. If the PC's Group Policy blocks internet access to Windows Update, the check fails and the reason shows on the tab. Needs agent 1.1.3 or later (the console refuses it for older agents); not yet tried on a real PC. |
 | Limit what an endpoint will do | Add `wu_scan,wu_install,wu_hide,reboot` to (or leave them out of) `--allowed-jobs` at install time. |
 
@@ -304,30 +313,30 @@ Configuration (all optional, set in the server's environment):
 **One-time setup for automatic updates with your own key.** Do this BEFORE you enroll PCs: an agent can only update itself if it was built
 with the public key that signs the updates, so agents installed earlier need one reinstall.
 
-1. Run **Actions, image, Run workflow** once (see 2.2). The release `server-<version>` then has `current-release_<version>_windows_amd64.exe`.
-2. On **your own PC**, in PowerShell: `.\current-release_<version>_windows_amd64.exe keygen --out release.key`. It writes `release.key`
+1. Run **Actions, image, Run workflow** once (see 2.2). The release `server-<version>` then has `librepatch-release_<version>_windows_amd64.exe`.
+2. On **your own PC**, in PowerShell: `.\librepatch-release_<version>_windows_amd64.exe keygen --out release.key`. It writes `release.key`
    (the PRIVATE key) and `release.pub` (the public key). Keep `release.key` in your password manager or another safe place and delete the loose copy.
    Whoever has this key can push programs to every PC, so never put it in the repository, an email or a chat.
-3. In GitHub, **Settings, Secrets and variables, Actions**: create the **secret** `CURRENT_RELEASE_SIGNING_KEY` with the contents of
-   `release.key`, and the **variable** `CURRENT_RELEASE_PUBLIC_KEY` with the contents of `release.pub` (one line of 64 characters; several keys can be listed
+3. In GitHub, **Settings, Secrets and variables, Actions**: create the **secret** `LIBREPATCH_RELEASE_SIGNING_KEY` with the contents of
+   `release.key`, and the **variable** `LIBREPATCH_RELEASE_PUBLIC_KEY` with the contents of `release.pub` (one line of 64 characters; several keys can be listed
    separated by commas, which is how a key rotation works: release once trusting both, then drop the old one).
-4. Run the workflow again with a new version. That release has: the agent built with your public key, the signed `current-agent_<version>_windows_amd64.curr`,
-   the MSI, and a deploy zip whose `deploy/.env.example` already has `CURRENT_RELEASE_PUBLIC_KEYS=` filled in. Signing happens only for runs from `main`
+4. Run the workflow again with a new version. That release has: the agent built with your public key, the signed `librepatch-agent_<version>_windows_amd64.lprel`,
+   the MSI, and a deploy zip whose `deploy/.env.example` already has `LIBREPATCH_RELEASE_PUBLIC_KEYS=` filled in. Signing happens only for runs from `main`
    and the workflow checks that your private key matches the public key before it publishes.
-5. On the server, keep that `CURRENT_RELEASE_PUBLIC_KEYS=<your public key>` line in `deploy/.env` and run `up -d`: the server then accepts your signed update files.
-6. Install the PCs from this release (exe or MSI). Later releases: download the new `.curr` and the matching `current-agent_<version>_windows_amd64.exe`, then
+5. On the server, keep that `LIBREPATCH_RELEASE_PUBLIC_KEYS=<your public key>` line in `deploy/.env` and run `up -d`: the server then accepts your signed update files.
+6. Install the PCs from this release (exe or MSI). Later releases: download the new `.lprel` and the matching `librepatch-agent_<version>_windows_amd64.exe`, then
    **Agent updates, Upload a release** (both files) and start a rollout.
 
-Without the secret and the variable the workflow still works; it just builds agents that cannot update themselves and makes no `.curr` file.
+Without the secret and the variable the workflow still works; it just builds agents that cannot update themselves and makes no `.lprel` file.
 
 | Task | How |
 |---|---|
-| One-time: get the agents to trust a release key | See the one-time setup above (your own key, built into the agents by the image workflow). Agents only accept releases signed by a key compiled into them. For throw-away test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `CURRENT_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
-| Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.curr` bundle (made with `current-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
+| One-time: get the agents to trust a release key | See the one-time setup above (your own key, built into the agents by the image workflow). Agents only accept releases signed by a key compiled into them. For throw-away test builds: `scripts/release-demo.sh` builds a throw-away key and agents that trust it, and the server needs `LIBREPATCH_RELEASE_PUBLIC_KEYS=<hex>` (in `deploy/.env`) to accept uploads signed with it. |
+| Publish a release | **Agent updates → Upload a release**: the agent binary and its signed `.lprel` bundle (made with `librepatch-release sign`, or `manifest` + your KMS + `attach`). The server verifies both. |
 | Roll it out | **Agent updates → Rollout**: pick the target release, optional **pilot groups** (they update first), a **soak** time and the success percentage the pilot must reach, and how many devices per minute. Everyone else follows when the pilot has proven itself. |
 | Watch it | The page shows versions in use, how many updated/failed, why devices outside the pilot are waiting, and a banner if the rollout was put on hold. A failing pilot pauses the rollout by itself; look at the failed jobs (device → Jobs), fix or withdraw the release, then un-pause. |
 | Stop or withdraw | Untick/clear the target, tick **Pause the rollout**, or **Withdraw** a release (never offered again; pauses the rollout if it was the target). |
-| What happens on the machine | The agent verifies the release, copies it to the other slot, switches the service and restarts. If the new version has not connected after 10 minutes, a scheduled task (`\Current\rollback-check`) puts the old version back and the job shows *failed: did not become healthy*. Logs: `C:\ProgramData\Current\logs\agent.log` and `rollback-check.log`. |
+| What happens on the machine | The agent verifies the release, copies it to the other slot, switches the service and restarts. If the new version has not connected after 10 minutes, a scheduled task (`\LibrePatch\rollback-check`) puts the old version back and the job shows *failed: did not become healthy*. Logs: `C:\ProgramData\LibrePatch\logs\agent.log` and `rollback-check.log`. |
 | Agents from before Phase 5 | They cannot update themselves; reinstall them once (uninstall, install with a new token, or the MSI). |
 | Limit what an endpoint will do | Leave `agent_update` out of `--allowed-jobs` to forbid self-update on that machine. |
 
@@ -339,7 +348,7 @@ Without the secret and the variable the workflow still works; it just builds age
 | Give someone only one site | Create the site under **Sites**, make enrollment tokens for it (**Enrollment → New token → Site**), and give the person a role **on that site**. They see and manage that site's devices from the device pages; fleet-wide pages and organization settings stay hidden. |
 | Change or remove access | **Users → ⋮ → Roles…**, **Disable**, **Delete**, **Set a temporary password**, **Reset second factor** (the person sets up a new one at the next sign-in). The last active administrator cannot be disabled, deleted or demoted. |
 | Security keys | **Account security (click your name) → Add security key**. Works at `https://` addresses and `localhost`; changing the public hostname invalidates keys. |
-| API tokens | **Account security → API tokens**: choose scopes (only what you can do yourself) and a lifetime (1–365 days); copy the token once. Use `Authorization: Bearer cur_…` on `/api/v1/…` (spec: `api/openapi.yaml`). Administrators see and revoke every token under **Users → API tokens**. A token stops working when it expires, is revoked or its owner is disabled. |
+| API tokens | **Account security → API tokens**: choose scopes (only what you can do yourself) and a lifetime (1–365 days); copy the token once. Use `Authorization: Bearer lp_…` on `/api/v1/…` (spec: `api/openapi.yaml`). Administrators see and revoke every token under **Users → API tokens**. A token stops working when it expires, is revoked or its owner is disabled. |
 
 ### 5e. Policies, reports and the audit log (Phase 5)
 
@@ -354,14 +363,14 @@ Without the secret and the variable the workflow still works; it just builds age
 
 ### 5g. Branding (Phase 7)
 
-Settings > Branding (administrators only) makes the console yours: organization name (top bar, sign-in page, page titles, report headers), an optional product name (white-label; empty means "Current"), logos for light and dark backgrounds, a square icon, a favicon, an accent and an optional secondary color, the sign-in headline, welcome message, footer or legal text and support contact (email, phone, https link), and a report logo and footer. The preview pane shows the top bar and sign-in page in the light and the dark theme while you type.
+Settings > Branding (administrators only) makes the console yours: organization name (top bar, sign-in page, page titles, report headers), an optional product name (white-label; empty means "LibrePatch"), logos for light and dark backgrounds, a square icon, a favicon, an accent and an optional secondary color, the sign-in headline, welcome message, footer or legal text and support contact (email, phone, https link), and a report logo and footer. The preview pane shows the top bar and sign-in page in the light and the dark theme while you type.
 
 - **Colors are checked live against WCAG AA.** White text on the accent needs 4.5:1, the accent on the dark theme 3:1, and a secondary color 3:1 on both. A failing color shows "Fail" in the table and cannot be saved (the server refuses it too).
 - **Images** are PNG or JPEG up to 512 KB (logos up to 1200 x 400, icon square 64-512, favicon square 16-256). They apply as soon as uploaded. They are re-encoded on the server (metadata removed); **SVG is not accepted**. Without a dark-background logo the light logo is shown on a light chip in the dark theme.
 - **Reset to defaults** clears all of it, images included (confirmation required). The old values remain in the audit log (`branding.update`, `branding.asset_set`, `branding.asset_delete`, `branding.reset`, each with before/after).
-- **First run:** the wizard asks for the organization name and an optional logo. An installation that existed before this feature shows "Current" with no organization name until you set one.
+- **First run:** the wizard asks for the organization name and an optional logo. An installation that existed before this feature shows "LibrePatch" with no organization name until you set one.
 - **Reports:** Reports > "Printable patch compliance report" opens a standalone page with the report logo (else the light logo), organization name and footer; use the browser's print dialog for PDF. The product has no email sender yet; the report footer is stored for when it has one.
-- **Roll back:** `current-server migrate --down-to 9` removes the branding tables (and their data). Take a backup first.
+- **Roll back:** `librepatch-server migrate --down-to 9` removes the branding tables (and their data). Take a backup first.
 
 ### 5h. Themes, density and saved views (Phase 8)
 
@@ -373,15 +382,15 @@ Administrators can set the **default theme** and limit **which themes people may
 
 ## 6. Backup and restore
 
-`current-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `current-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.
+`librepatch-server backup` writes one encrypted file with **the whole database and the content directory** (uploaded installers). `librepatch-server restore` loads it into an empty database. Both need the schema-owner connection, which the running server deliberately does **not** have (SECURITY.md T-SRV-4). They run in the one-shot `maintenance` service of the compose file, which is the only container that holds the owner credential and which also applies migrations at every `up`. Use `docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance <command>`.
 
 ### 6.1 What is and is not in a backup
 
 | In the backup | Not in the backup |
 |---|---|
 | Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the rest of `deploy/secrets/`.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
-| The content directory (`CURRENT_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
-| A manifest: format version, `current-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
+| The content directory (`LIBREPATCH_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
+| A manifest: format version, `librepatch-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
 | | Database roles and passwords (the roles come from `deploy/postgres/init` and the secrets) |
 
 **You must back up `deploy/secrets/` separately** (for example `tar czf - -C deploy secrets | age -r <key> > secrets.tgz.age`, stored somewhere other than the database backups). Keep copies of the two in different places: someone who has both can read everything.
@@ -390,25 +399,25 @@ The file is encrypted with [age](https://age-encryption.org). Anyone who knows t
 
 ### 6.2 One-time setup: the backup key
 
-Do this on an **offline or at least separate** machine, not on the Current host:
+Do this on an **offline or at least separate** machine, not on the LibrePatch host:
 
 ```bash
-age-keygen -o current-backup.key         # prints the public key (age1...); keep the .key file offline
+age-keygen -o librepatch-backup.key         # prints the public key (age1...); keep the .key file offline
 ```
 
-- The file `current-backup.key` is the **age secret key**. Print it or put it in your password manager and on offline media. Whoever has it can read every backup; without it nobody can, including you.
-- Put only the **public key** (`age1...`) on the Current host. You can give several `--recipient` options (for example two administrators, or a spare key kept in a safe); any one of the matching secret keys can restore.
+- The file `librepatch-backup.key` is the **age secret key**. Print it or put it in your password manager and on offline media. Whoever has it can read every backup; without it nobody can, including you.
+- Put only the **public key** (`age1...`) on the LibrePatch host. You can give several `--recipient` options (for example two administrators, or a spare key kept in a safe); any one of the matching secret keys can restore.
 - Alternative: a **passphrase** (`--passphrase-file`, scrypt, at least 12 characters, `openssl rand -base64 24`). Passphrase files must be readable by the backup job, so prefer public keys for unattended backups. The two modes cannot be mixed in one backup.
 
 ### 6.3 Taking a backup
 
 ```bash
-cd /srv/current        # the checkout with deploy/
+cd /srv/librepatch        # the checkout with deploy/
 umask 077
 set -o pipefail
 docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
   backup --out - --recipient age1xxxxxxxx... \
-  > /var/backups/current/current-$(date +%F-%H%M).age
+  > /var/backups/librepatch/librepatch-$(date +%F-%H%M).age
 ```
 
 - `--out -` writes the encrypted archive to standard output **and nothing else** (logs go to standard error); the container's root filesystem is read-only, so this is the way to get the file out. `--out /path` writes a temp file, fsyncs, and renames it into place with mode 0600 (use it where the path is writable, for example `docker compose run -v`).
@@ -420,39 +429,39 @@ docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
 **Verify every backup** without touching a database (decrypts, checks every part against the manifest, prints a summary):
 
 ```bash
-current-server backup --verify /var/backups/current/current-2026-10-07-0300.age --identity-file current-backup.key
-# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/current-backup.key:/k:ro maintenance backup --verify - --identity-file /k < file.age
+librepatch-server backup --verify /var/backups/librepatch/librepatch-2026-10-07-0300.age --identity-file librepatch-backup.key
+# or from the container:  docker compose ... run --rm -T --no-deps -v $PWD/librepatch-backup.key:/k:ro maintenance backup --verify - --identity-file /k < file.age
 ```
 
 A routine verification needs the secret key; if you do not want it on the backup host, verify during the restore drill (6.6) instead, and on the host only check that the file is non-trivially sized and recent.
 
 ### 6.4 Scheduling
 
-cron (`/etc/cron.d/current-backup`), nightly at 02:30 as the user that owns `/srv/current` and may run Docker:
+cron (`/etc/cron.d/librepatch-backup`), nightly at 02:30 as the user that owns `/srv/librepatch` and may run Docker:
 
 ```cron
-30 2 * * * current /usr/local/bin/current-backup.sh
+30 2 * * * current /usr/local/bin/librepatch-backup.sh
 ```
 
-`/usr/local/bin/current-backup.sh`:
+`/usr/local/bin/librepatch-backup.sh`:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 umask 077
-dest=/var/backups/current
-f="$dest/current-$(date +%F-%H%M).age"
-cd /srv/current
+dest=/var/backups/librepatch
+f="$dest/librepatch-$(date +%F-%H%M).age"
+cd /srv/librepatch
 docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance \
-  backup --out - --recipient-file /etc/current/backup-recipients.txt > "$f.partial"
+  backup --out - --recipient-file /etc/librepatch/backup-recipients.txt > "$f.partial"
 test "$(stat -c %s "$f.partial")" -gt 10000       # an empty or tiny file is a failure
 mv "$f.partial" "$f"
 find "$dest" -name 'current-*.age' -mtime +30 -delete     # retention, see 6.7
 # copy off the host (a different machine or bucket); example:
-# rclone copy "$f" remote:current-backups/
+# rclone copy "$f" remote:librepatch-backups/
 ```
 
-Or as a systemd timer: `current-backup.service` (`Type=oneshot`, `ExecStart=/usr/local/bin/current-backup.sh`, `User=current`) plus `current-backup.timer` (`OnCalendar=*-*-* 02:30:00`, `Persistent=true`, `RandomizedDelaySec=10m`), enabled with `systemctl enable --now current-backup.timer`. Make a failing run visible: `OnFailure=` an alert unit, or send the script's exit status to your monitoring. A backup nobody notices failing is not a backup.
+Or as a systemd timer: `librepatch-backup.service` (`Type=oneshot`, `ExecStart=/usr/local/bin/librepatch-backup.sh`, `User=current`) plus `librepatch-backup.timer` (`OnCalendar=*-*-* 02:30:00`, `Persistent=true`, `RandomizedDelaySec=10m`), enabled with `systemctl enable --now librepatch-backup.timer`. Make a failing run visible: `OnFailure=` an alert unit, or send the script's exit status to your monitoring. A backup nobody notices failing is not a backup.
 
 `--recipient-file` takes the same format as age: one public key per line, `#` comments allowed.
 
@@ -466,13 +475,13 @@ You need: the backup file, the **age secret key** (or passphrase), the **`deploy
 
    ```bash
    docker compose -f deploy/docker-compose.yml run --rm -T --no-deps \
-     -v "$PWD/current-backup.key:/restore.key:ro" \
-     maintenance restore --in - --identity-file /restore.key < /var/backups/current/current-2026-10-07-0230.age
+     -v "$PWD/librepatch-backup.key:/restore.key:ro" \
+     maintenance restore --in - --identity-file /restore.key < /var/backups/librepatch/librepatch-2026-10-07-0230.age
    ```
 
-   (`--passphrase-file` works the same way with a mounted file or `CURRENT_BACKUP_PASSPHRASE_FILE`.) With `--in <file>` instead of `-` the archive is verified completely **before** the database is touched; with standard input it cannot be read twice, so the load is done in one transaction and rolled back if any part fails to verify.
-4. What the restore does, in order: decrypts and reads the header; **refuses** a backup made by a newer `current-server` than this binary or with an unknown format version; refuses a database that already holds data; runs the embedded migrations *up to the backup's schema version*; in **one transaction** loads every table (foreign-key order, user triggers off, so the audit log arrives byte for byte), resets sequences, checks `CURRENT_MASTER_KEY` against the sealed CA keys, writes the content files, checks every part's SHA-256 against the manifest, and only then commits; runs the remaining migrations forward; and **verifies the audit hash chain**, finishing with an `admin.restore` entry. A bad archive therefore leaves no rows behind.
-5. **Start everything:** `docker compose -f deploy/docker-compose.yml up -d`. Confirm: you can sign in (your TOTP still works because the KEK is the same), `docker compose ... exec server /current-server admin verify-audit` reports an intact chain, **Devices** shows the fleet (devices appear offline until they reconnect), and the **Packages** you uploaded can be opened.
+   (`--passphrase-file` works the same way with a mounted file or `LIBREPATCH_BACKUP_PASSPHRASE_FILE`.) With `--in <file>` instead of `-` the archive is verified completely **before** the database is touched; with standard input it cannot be read twice, so the load is done in one transaction and rolled back if any part fails to verify.
+4. What the restore does, in order: decrypts and reads the header; **refuses** a backup made by a newer `librepatch-server` than this binary or with an unknown format version; refuses a database that already holds data; runs the embedded migrations *up to the backup's schema version*; in **one transaction** loads every table (foreign-key order, user triggers off, so the audit log arrives byte for byte), resets sequences, checks `LIBREPATCH_MASTER_KEY` against the sealed CA keys, writes the content files, checks every part's SHA-256 against the manifest, and only then commits; runs the remaining migrations forward; and **verifies the audit hash chain**, finishing with an `admin.restore` entry. A bad archive therefore leaves no rows behind.
+5. **Start everything:** `docker compose -f deploy/docker-compose.yml up -d`. Confirm: you can sign in (your TOTP still works because the KEK is the same), `docker compose ... exec server /librepatch-server admin verify-audit` reports an intact chain, **Devices** shows the fleet (devices appear offline until they reconnect), and the **Packages** you uploaded can be opened.
 6. **After the restore:** agents reconnect on their own and resend their full inventory (their revisions no longer match). Anything that happened after the backup is gone: devices enrolled since then are unknown to the server and will be refused (re-enroll them), jobs and approvals created since are lost, and the audit log ends at the backup time. Revoke any enrollment token or device you revoked after the backup was taken, again.
 
 Refusals you may meet, and what they mean:
@@ -483,7 +492,7 @@ Refusals you may meet, and what they mean:
 | `the (empty) database is already at schema version N, newer than the backup's` | The server was started once and migrated. Recreate the database, or add `--wipe` to rebuild the schema (it is empty, so nothing is lost). |
 | `backup is newer than this server` | The backup was made by a newer release. Restore with that release or later; migrations only go forward. |
 | `unsupported backup format` | The file is from a format version this binary does not know. Use the release that made it. |
-| `the master key ... cannot open the ... key stored in this backup` | `CURRENT_MASTER_KEY_FILE` is not the key in use when the backup was made. Restore the original `deploy/secrets/master_key`. `--skip-kek-check` overrides, but the server would not be able to use the CA. |
+| `the master key ... cannot open the ... key stored in this backup` | `LIBREPATCH_MASTER_KEY_FILE` is not the key in use when the backup was made. Restore the original `deploy/secrets/master_key`. `--skip-kek-check` overrides, but the server would not be able to use the CA. |
 | `... does not match this backup` / `integrity check failed` | Wrong key or passphrase / the file is damaged or was altered. Try another copy. |
 | `audit chain is broken` | The restore committed, but the backup's audit log does not verify (it was already damaged or tampered with when the backup was taken). Do not trust this data; restore an earlier backup. |
 | `lock tables (is the server still running?)` | Something is using the database. Stop the server. |
@@ -494,26 +503,26 @@ Refusals you may meet, and what they mean:
 
 An untested backup is a hope. **Do a restore drill at least once a quarter, and after every upgrade that changes the database schema** (any release with a new migration), on a scratch machine:
 
-1. Copy the latest backup, `current-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
-2. Follow 6.5 with a different `CURRENT_HOSTNAME` (agents must not be able to reach this copy: leave 8443 closed or use an isolated network).
+1. Copy the latest backup, `librepatch-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
+2. Follow 6.5 with a different `LIBREPATCH_HOSTNAME` (agents must not be able to reach this copy: leave 8443 closed or use an isolated network).
 3. Sign in, run `admin verify-audit`, open a device and a custom package, and compare the device and audit counts with production (`backup --verify` prints the row counts too).
 4. Record the date and the time it took. If the drill failed, fix that first; the production backup job is not trustworthy until then.
 
 ### 6.7 Retention and storage
 
 - Keep **daily backups for 30 days, weekly for 3 months, monthly for a year**, adjusted to how much change you can afford to lose (the recovery point is the age of the newest good backup) and to your retention rules for audit data.
-- Keep at least one copy **off the host and off the same account/provider**, and one that cannot be deleted by the Current host (object lock, or pull from the backup server).
+- Keep at least one copy **off the host and off the same account/provider**, and one that cannot be deleted by the LibrePatch host (object lock, or pull from the backup server).
 - Keep the age secret key and the secrets backup in a place that survives the loss of the site. Losing the master key or the age key makes every backup useless.
 - Delete old backups with the same care as the audit log: they contain it.
 
 ### 6.8 Moving to another host
 
-Take a backup, copy `deploy/secrets/` and the backup to the new host, then follow 6.5. Update `CURRENT_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
+Take a backup, copy `deploy/secrets/` and the backup to the new host, then follow 6.5. Update `LIBREPATCH_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
 
 ### 5k. Locked out by the console IP allow-list
 
 Settings > Security refuses an allow-list that does not contain the address of the person saving it, but an address can
-change later (a new VPN range, a proxy). Start the server once with `CURRENT_IGNORE_IP_ALLOWLIST=true` (in the
+change later (a new VPN range, a proxy). Start the server once with `LIBREPATCH_IGNORE_IP_ALLOWLIST=true` (in the
 environment or `.env`), sign in, correct the list under Settings > Security, and restart without the variable. The list
 only concerns the console and its API; agents are not affected. The same list can be exported and re-imported
 (Settings > Export settings); see [SETTINGS.md](SETTINGS.md).
@@ -534,7 +543,7 @@ only concerns the console and its API; agents are not affected. The same list ca
 |---|---|
 | `install` reports "server rejected the enrollment token" | The token expired, was revoked or is used up. Create a new one. |
 | Agent status `error`: "chain does not match the pinned root" | The agent reached something that is not your server (wrong DNS, or a TLS-inspecting proxy). Exempt the gateway from inspection. |
-| Agent stuck in `connecting` | Firewall to port 8443. Check that the name the agent dials is in the gateway certificate (`CURRENT_GATEWAY_SANS`). |
+| Agent stuck in `connecting` | Firewall to port 8443. Check that the name the agent dials is in the gateway certificate (`LIBREPATCH_GATEWAY_SANS`). |
 | Agent `pending_approval` | Approve the device in the console. The agent checks every ~60 s. |
 | Device shows no software, or "not reported yet" | The agent reports shortly after connecting (the first scan is a full snapshot). Check `agent.log` for `full software inventory sent`. If the server log shows `invalid_inventory` in the audit log (`gateway.protocol_violation`), the agent sent data the server rejects; the agent version and details are in the audit entry. |
 | Software list looks stale or has "inventory truncated" | Changes are detected within ~30 s of an install/uninstall. A truncated notice means the device reported more than 25,000 items. After restoring a database backup, agents resend their full inventory automatically on reconnect (their revisions no longer match). |
@@ -542,7 +551,7 @@ only concerns the console and its API; agents are not affected. The same list ca
 | Agent `rejected` | The device was revoked or rejected. Uninstall, then reinstall with a new token. |
 | A restart or other action takes minutes to start on the PC | Compare the server's clock with the PC's. An agent holds a job until its own clock reaches the job's start time, so a server that runs minutes ahead delays every "now" action by that long (the server allows 5 minutes of difference since this was fixed, but keep both clocks right). On a Synology: Control Panel, Regional Options, Time, synchronize with your domain controller or an NTP server. Check `agent.log` for the job's `accepted` and `restart countdown started` lines. |
 | A PC takes a few minutes to show as online after it restarts | The agent starts before Windows has its network up and retries; in agents built after this change it retries at least every 15 seconds for the first 10 minutes after the service starts (older agents wait up to 5 minutes between tries). Roll out the current agent under **Agent updates**. The server notices a PC that went away without a goodbye after its keepalive timeout (about 90 seconds). |
-| Logs | Agent: `C:\ProgramData\Current\logs\agent.log` (JSON, rotated at 5 MB × 3). Server: `docker compose ... logs server` (JSON; never contains request bodies, cookies or tokens). |
+| Logs | Agent: `C:\ProgramData\LibrePatch\logs\agent.log` (JSON, rotated at 5 MB × 3). Server: `docker compose ... logs server` (JSON; never contains request bodies, cookies or tokens). |
 | A job stays `sent` and never starts | The device is offline, or its agent is older than Phase 3 (reinstall the agent). Jobs are re-offered every time the device connects until it acknowledges. |
 | A job shows `rejected` | The agent refused it: a verification failure (see the audit log for a `security event`) or the local `--allowed-jobs` ceiling does not include the job type. |
 | A job `failed` with "signature does not match the pinned signer" or "invalid digital signature" | The installer's Authenticode signature is absent, broken or from a different publisher than pinned. Do not deploy it until you have confirmed why; fix or remove the signer pin only if you trust the file. |
@@ -550,16 +559,16 @@ only concerns the console and its API; agents are not affected. The same list ca
 | A job `failed_detection` | The installer exited successfully but the detection rule does not see the program. Add or correct a detection rule under the package's Overrides. |
 | A per-user job says "waiting for user logon" | The target user has no session. It runs at their next logon until the deployment expires. |
 | Upload fails with 413 or a connection reset | Uploads are limited to 2 GiB. Behind your own proxy, raise its body limit for `/api/v1/catalog/content`. |
-| "Custom packages are disabled" | `CURRENT_CONTENT_DIR` is not set on the server. |
-| Console says "Cross-origin request rejected" | `CURRENT_PUBLIC_URL` (derived from `CURRENT_HOSTNAME` and `CURRENT_PUBLIC_PORT_SUFFIX`) must match exactly the URL in the browser's address bar. |
+| "Custom packages are disabled" | `LIBREPATCH_CONTENT_DIR` is not set on the server. |
+| Console says "Cross-origin request rejected" | `LIBREPATCH_PUBLIC_URL` (derived from `LIBREPATCH_HOSTNAME` and `LIBREPATCH_PUBLIC_PORT_SUFFIX`) must match exactly the URL in the browser's address bar. |
 
 ### Hardening an older database (installed before Phase 6)
 
-Fresh installs create `current_owner` as a non-superuser and keep the bootstrap superuser (`current_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `current_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), run `./scripts/init-secrets.sh` (adds `postgres_admin_password`), `docker compose down -v` **after** copying `deploy/secrets/` and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
+Fresh installs create `librepatch_owner` as a non-superuser and keep the bootstrap superuser (`librepatch_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `librepatch_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), run `./scripts/init-secrets.sh` (adds `postgres_admin_password`), `docker compose down -v` **after** copying `deploy/secrets/` and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
 
 ## 9. Release manager (vendor side)
 
-This section is for the people who ship Current, not for operators of an installation. Customers verify releases with `docs/VERIFYING_RELEASES.md`. The design is `docs/DECISIONS.md` D79-D84. **Owner decisions O5 (code-signing certificate) and O7 (release-key custody) are still open**; this section describes the options and what the pipeline expects of whichever is chosen. Nothing below has run against real GitHub, Azure, AWS or a certificate yet: do the dry runs first and expect to fix small things.
+This section is for the people who ship LibrePatch, not for operators of an installation. Customers verify releases with `docs/VERIFYING_RELEASES.md`. The design is `docs/DECISIONS.md` D79-D84. **Owner decisions O5 (code-signing certificate) and O7 (release-key custody) are still open**; this section describes the options and what the pipeline expects of whichever is chosen. Nothing below has run against real GitHub, Azure, AWS or a certificate yet: do the dry runs first and expect to fix small things.
 
 ### 9.1 What the pipeline does
 
@@ -572,7 +581,7 @@ This section is for the people who ship Current, not for operators of an install
 | build | `scripts/build-release.sh`: Go binaries, web bundle, SBOMs, `unsigned-SHA256SUMS` | real public keys | throw-away key |
 | rebuild | The same build again on another runner in another directory; digests must match | runs | runs |
 | sign-windows | Authenticode-signs the agent, **then** builds the MSI (WiX) around it, then signs the MSI; verifies the signer name | real | skipped, unsigned MSI is still built |
-| sign-manifest | `current-release manifest` → `tosign` → KMS signs → `attach` → `verify` (the vendor bundle, D68) | KMS via OIDC | throw-away key |
+| sign-manifest | `librepatch-release manifest` → `tosign` → KMS signs → `attach` → `verify` (the vendor bundle, D68) | KMS via OIDC | throw-away key |
 | image | Builds `deploy/Dockerfile.server`, pushes to `ghcr.io`, cosign-signs the digest, attaches the SBOM, build provenance; checks the binary inside equals the released binary | runs | OCI archive only |
 | publish | `SHA256SUMS`, cosign signature, GitHub build provenance, SBOM attestations, verification, **draft** GitHub release | runs | workflow artifact only |
 
@@ -586,20 +595,20 @@ A person publishes the draft release after checking it. The signing jobs sit beh
 
 | Variable | Meaning |
 |---|---|
-| `CURRENT_AUTHENTICODE_PROVIDER` | `azure-artifact-signing` or `signtool` (9.5) |
-| `CURRENT_AUTHENTICODE_SUBJECT` | The signer name (certificate CN) agents will see. It is pinned into every vendor manifest |
-| `CURRENT_AUTHENTICODE_SUBJECTS` | Optional, separated by a vertical bar. The only signer names compiled into agent and server (D83). Default: the variable above. While rotating the certificate, list old and new |
-| `CURRENT_AZURE_CLIENT_ID`, `CURRENT_AZURE_TENANT_ID`, `CURRENT_AZURE_SUBSCRIPTION_ID` | Azure OIDC federation (Authenticode or Key Vault) |
-| `CURRENT_ARTIFACT_SIGNING_ENDPOINT`, `CURRENT_ARTIFACT_SIGNING_ACCOUNT`, `CURRENT_ARTIFACT_SIGNING_PROFILE` | Azure Artifact Signing account |
-| `CURRENT_SIGNTOOL_ARGS` | The `signtool` provider: how to select the certificate (for example `/csp "<KSP>" /kc "<container>" /f cert.cer`) |
-| `CURRENT_KMS_PROVIDER` | `aws` or `azure` (9.4) |
-| `CURRENT_AWS_ROLE_ARN`, `CURRENT_AWS_REGION`, `CURRENT_RELEASE_KMS_KEY_ID` | AWS KMS release key |
-| `CURRENT_AKV_VAULT`, `CURRENT_AKV_KEY`, `CURRENT_AKV_KEY_VERSION` | Azure Key Vault release key (see the caveat in `scripts/release-kms.sh`) |
-| `CURRENT_RELEASE_MIN_VERSION` | Optional `min_version` for the manifest |
+| `LIBREPATCH_AUTHENTICODE_PROVIDER` | `azure-artifact-signing` or `signtool` (9.5) |
+| `LIBREPATCH_AUTHENTICODE_SUBJECT` | The signer name (certificate CN) agents will see. It is pinned into every vendor manifest |
+| `LIBREPATCH_AUTHENTICODE_SUBJECTS` | Optional, separated by a vertical bar. The only signer names compiled into agent and server (D83). Default: the variable above. While rotating the certificate, list old and new |
+| `LIBREPATCH_AZURE_CLIENT_ID`, `LIBREPATCH_AZURE_TENANT_ID`, `LIBREPATCH_AZURE_SUBSCRIPTION_ID` | Azure OIDC federation (Authenticode or Key Vault) |
+| `LIBREPATCH_ARTIFACT_SIGNING_ENDPOINT`, `LIBREPATCH_ARTIFACT_SIGNING_ACCOUNT`, `LIBREPATCH_ARTIFACT_SIGNING_PROFILE` | Azure Artifact Signing account |
+| `LIBREPATCH_SIGNTOOL_ARGS` | The `signtool` provider: how to select the certificate (for example `/csp "<KSP>" /kc "<container>" /f cert.cer`) |
+| `LIBREPATCH_KMS_PROVIDER` | `aws` or `azure` (9.4) |
+| `LIBREPATCH_AWS_ROLE_ARN`, `LIBREPATCH_AWS_REGION`, `LIBREPATCH_RELEASE_KMS_KEY_ID` | AWS KMS release key |
+| `LIBREPATCH_AKV_VAULT`, `LIBREPATCH_AKV_KEY`, `LIBREPATCH_AKV_KEY_VERSION` | Azure Key Vault release key (see the caveat in `scripts/release-kms.sh`) |
+| `LIBREPATCH_RELEASE_MIN_VERSION` | Optional `min_version` for the manifest |
 
-   The only secret the pipeline can read is `CURRENT_SIGNTOOL_SECRET` (a KSP credential for the `signtool` provider). With OIDC no cloud credential is stored in GitHub.
-4. **OIDC trust.** In Azure/AWS, trust the GitHub OIDC issuer for the subject `repo:auzring1/current:environment:release` only (not the repository as a whole, not the dry-run environment). The AWS role may do `kms:Sign` and `kms:GetPublicKey` on the one key and nothing else. The Azure identity gets the signing role on the one Artifact Signing certificate profile and nothing else.
-5. **Pinned versions.** Every third-party action is pinned to a commit SHA (`scripts/check-actions-pinned.sh`, run in CI). To bump one: list the tags with `git ls-remote --tags https://github.com/OWNER/REPO`, review the changes between releases, and replace the SHA and the version comment together. BuildKit itself is not yet pinned by digest: set `CURRENT_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...` for the image job when you have chosen one.
+   The only secret the pipeline can read is `LIBREPATCH_SIGNTOOL_SECRET` (a KSP credential for the `signtool` provider). With OIDC no cloud credential is stored in GitHub.
+4. **OIDC trust.** In Azure/AWS, trust the GitHub OIDC issuer for the subject `repo:auzring1/librepatch:environment:release` only (not the repository as a whole, not the dry-run environment). The AWS role may do `kms:Sign` and `kms:GetPublicKey` on the one key and nothing else. The Azure identity gets the signing role on the one Artifact Signing certificate profile and nothing else.
+5. **Pinned versions.** Every third-party action is pinned to a commit SHA (`scripts/check-actions-pinned.sh`, run in CI). To bump one: list the tags with `git ls-remote --tags https://github.com/OWNER/REPO`, review the changes between releases, and replace the SHA and the version comment together. BuildKit itself is not yet pinned by digest: set `LIBREPATCH_BUILDKIT_IMAGE=moby/buildkit:vX.Y.Z@sha256:...` for the image job when you have chosen one.
 
 ### 9.3 Cutting a release
 
@@ -608,7 +617,7 @@ A person publishes the draft release after checking it. The signing jobs sit beh
 3. **Rehearse in CI**: run the workflow with `dry_run` on. Check the notices ("DRY RUN ...") and that every job is green, including `rebuild` (the reproducibility proof).
 4. Create a signed tag `vX.Y.Z` on the reviewed commit and push it. The `release` environment waits for the reviewers. **Reviewers check**: the tag is the commit they reviewed, `release/release-public-keys.txt` and the variables are unchanged since the last release, the `rebuild` job passed.
 5. When the run finishes there is a **draft** release. Download it and run `scripts/verify-release.sh` (VERIFYING_RELEASES.md) from a machine that is not the CI. Then publish the draft.
-6. Roll it out to your own fleet first: **Agent updates → Upload a release** (the signed exe and its `.curr`), pilot group, soak (section 5c).
+6. Roll it out to your own fleet first: **Agent updates → Upload a release** (the signed exe and its `.lprel`), pilot group, soak (section 5c).
 7. Announce the version, the commit, the vendor key fingerprint and the Authenticode signer name through a channel other than the release page.
 
 If something is wrong after step 5: delete the draft, leave the tag (do not move it), fix forward with the next patch version. If it was already published or uploaded to servers, **withdraw** the release on the Agent updates page (customers) and publish a corrected one.
@@ -627,7 +636,7 @@ The vendor release key is an **Ed25519** key (the agents verify Ed25519 and noth
 
 1. Two people and a witness, with a written log. Decide the key's name, account/region and the people who may change its policy (not the people who can push tags).
 2. Create the key in the KMS with: no export, deletion protection or a long deletion window, and a key policy that lets only (a) the pipeline role `kms:Sign`/`kms:GetPublicKey` under the OIDC subject condition of 9.2 and (b) a break-glass administrator role manage it. Turn on CloudTrail (or Azure diagnostic logs) for the key and alert on any `Sign` outside a release run.
-3. Read the public key: `CURRENT_RELEASE_KMS_KEY_ID=... scripts/release-kms.sh aws pubkey` (64 hex digits). Record it and its short key id (the first 8 bytes of its SHA-256, printed by `current-release keygen` and `verify`) in the log; both witnesses read them back from the KMS console.
+3. Read the public key: `LIBREPATCH_RELEASE_KMS_KEY_ID=... scripts/release-kms.sh aws pubkey` (64 hex digits). Record it and its short key id (the first 8 bytes of its SHA-256, printed by `librepatch-release keygen` and `verify`) in the log; both witnesses read them back from the KMS console.
 4. Add the public key to `release/release-public-keys.txt` by pull request (two reviewers). Never commit anything else there. The first build with this file non-empty produces agents that trust the key.
 5. **Make a standby key now, not later.** KMS keys cannot be backed up in a usable form: if the only key is lost or its account is closed, no agent can ever be updated again (only reinstalled). So create a second key in a different account/region/provider with a different custodian, put **both** public keys into the file from the first release, and keep the standby's access closed. This is the backup.
 6. Prove sign, `attach --pub` and `verify` work with the real key before the first release: run `scripts/release-kms.sh` by hand from a shell that has assumed the role, on a test manifest.
@@ -635,7 +644,7 @@ The vendor release key is an **Ed25519** key (the agents verify Ed25519 and noth
 **Rotation (planned, yearly or on staff change).** Agents learn about a new key only through an update that an already-trusted key signed, so the order matters:
 
 1. Release N: `release-public-keys.txt` contains old and new; signed with the old key. Roll it out until the whole fleet reports version N or later (Agent updates page).
-2. Release N+1: signed with the new key (point `CURRENT_RELEASE_KMS_KEY_ID` at it).
+2. Release N+1: signed with the new key (point `LIBREPATCH_RELEASE_KMS_KEY_ID` at it).
 3. Release N+2, only after N+1 has reached the fleet: the file drops the old key. Disable the old KMS key after that.
 
 An agent that is offline for a whole rotation may need a reinstall.
@@ -645,15 +654,15 @@ An agent that is offline for a whole rotation may need a reinstall.
 - *The key is unusable the moment you disable it in the KMS or detach the pipeline role.* A KMS key cannot be exfiltrated, so "theft" really means someone could ask the KMS to sign. Cut off the role first, then read the key's audit log for signatures you did not expect.
 - A signature alone does not get a binary onto an endpoint. An attacker also needs (a) to deliver the update job through a customer's server, whose job-signing key they do not have, and (b) a binary Authenticode-signed by one of the signer names compiled into the agent (D83), that is, our certificate. Losing the release key is serious but not by itself a fleet compromise.
 - Recovery is a rotation in a hurry: ship a release signed by the **standby** key that no longer trusts the compromised one, and ask customers to roll it out first. Agents that still trust the compromised key remain exposed to a forged update until they take that release; customers can stop `agent_update` jobs (leave it out of `--allowed-jobs`) and **withdraw** releases on the Agent updates page.
-- Compromise of the Authenticode certificate is handled at the CA (revoke) plus a new certificate with a new CN added to `CURRENT_AUTHENTICODE_SUBJECTS` in a release signed under the old one. If both the release key and the certificate are lost at once, the only safe fleet recovery is a manual reinstall.
+- Compromise of the Authenticode certificate is handled at the CA (revoke) plus a new certificate with a new CN added to `LIBREPATCH_AUTHENTICODE_SUBJECTS` in a release signed under the old one. If both the release key and the certificate are lost at once, the only safe fleet recovery is a manual reinstall.
 
 ### 9.5 Code-signing certificate (decision O5): options
 
-The agent exe and the MSI are Authenticode-signed with a timestamp. The CN of the certificate is pinned into every manifest and, since D83, compiled into the agent. Two supported ways (`CURRENT_AUTHENTICODE_PROVIDER`):
+The agent exe and the MSI are Authenticode-signed with a timestamp. The CN of the certificate is pinned into every manifest and, since D83, compiled into the agent. Two supported ways (`LIBREPATCH_AUTHENTICODE_PROVIDER`):
 
 | | `azure-artifact-signing` (formerly Trusted Signing) | `signtool` with a certificate in a cloud HSM |
 |---|---|---|
-| Key handling | Microsoft holds the key; short-lived certificates are issued per signature; the GitHub job uses OIDC and no secret | The CA or HSM vendor holds the key; the job reaches it through a CSP/KSP (`CURRENT_SIGNTOOL_ARGS` selects it) and usually a secret (`CURRENT_SIGNTOOL_SECRET`) |
+| Key handling | Microsoft holds the key; short-lived certificates are issued per signature; the GitHub job uses OIDC and no secret | The CA or HSM vendor holds the key; the job reaches it through a CSP/KSP (`LIBREPATCH_SIGNTOOL_ARGS` selects it) and usually a secret (`LIBREPATCH_SIGNTOOL_SECRET`) |
 | Fit | Simplest and best for CI. The signer name is the validated legal entity | Independent of Azure; works with any CA that sells HSM-backed OV/EV certificates |
 | Costs/limits | Needs an Azure subscription and identity validation of the organization. Check current eligibility rules and regions before relying on it | Annual certificate fee; CAs require the key to be on certified hardware, so a PFX file in CI is not an option; the KSP plumbing is the work |
 | Status here | Wired to Microsoft's official action (pinned), **never run** | Wired through `scripts/authenticode.ps1`, **never run** |
@@ -666,10 +675,10 @@ Either way: sign the agent **before** the MSI is built; always apply the timesta
 |---|---|
 | `prepare`: "a real release runs only from a v* tag" | A manual run with `dry_run` off from a branch. Real releases come from tags only |
 | `build`: "release/release-public-keys.txt has no key" | The key ceremony (9.4) is not finished |
-| `build`: "set CURRENT_AUTHENTICODE_SUBJECT" | The repository variable is missing |
+| `build`: "set LIBREPATCH_AUTHENTICODE_SUBJECT" | The repository variable is missing |
 | `rebuild` differs from `build` | A real reproducibility bug: run `scripts/verify-reproducible.sh` locally on the tag and compare; do not release until understood |
 | `sign-windows`: "a repository variable for ... is not set" | A variable from 9.2 is missing |
-| `sign-windows`: signer is 'X', expected 'Y' | `CURRENT_AUTHENTICODE_SUBJECT` does not equal the certificate's CN |
+| `sign-windows`: signer is 'X', expected 'Y' | `LIBREPATCH_AUTHENTICODE_SUBJECT` does not equal the certificate's CN |
 | `sign-manifest`: "not among the compiled-in release keys" | The KMS key is not the one in `release/release-public-keys.txt` |
 | `sign-manifest`: Key Vault refuses EdDSA | Azure Key Vault has no Ed25519 here; use AWS KMS (9.4) |
 | `image`: "image binary differs from the released binary" | The pinned base image's Go release differs from the pipeline's, or the web bundle differs. Update the golang digest in `deploy/Dockerfile.server` together with `GO_VERSION` |

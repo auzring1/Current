@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 )
 
 func TestDevClientScansInstallsAndHides(t *testing.T) {

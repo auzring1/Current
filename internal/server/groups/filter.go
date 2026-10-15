@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Limits keep a filter cheap to evaluate and to reason about.

@@ -23,4 +23,4 @@ labels: bug
 
 ## Logs
 
-<!-- The relevant lines of the server log or C:\ProgramData\Current\logs\agent.log. Remove host names, addresses and secrets. -->
+<!-- The relevant lines of the server log or C:\ProgramData\LibrePatch\logs\agent.log. Remove host names, addresses and secrets. -->

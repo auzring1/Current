@@ -155,7 +155,7 @@ const updatePill = (u: AvailableUpdate | undefined) =>
       </span>
     </Tooltip>
   ) : (
-    <span className="cur-muted">—</span>
+    <span className="lp-muted">—</span>
   );
 
 export function SoftwareTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
@@ -207,7 +207,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
   const columns = useMemo<Column<DeviceSoftware>[]>(
     () => [
       { id: "name", header: "Name", value: (s) => s.name, required: true, width: 260 },
-      { id: "version", header: "Version", value: (s) => s.version ?? "", width: 130, cell: (s) => <span className="cur-mono">{s.version || "—"}</span> },
+      { id: "version", header: "Version", value: (s) => s.version ?? "", width: 130, cell: (s) => <span className="lp-mono">{s.version || "—"}</span> },
       { id: "publisher", header: "Publisher", value: (s) => s.publisher ?? "", width: 190 },
       { id: "for", header: "Installed for", value: (s) => who(s.user_sid ?? ""), width: 150 },
       { id: "type", header: "Type", value: (s) => s.source, width: 110, cell: (s) => <StatusPill kind="neutral" size="sm" icon={null}>{s.source}</StatusPill>, filter: { type: "text" } },
@@ -303,7 +303,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
                       </StatusPill>
                     </Table.Td>
                     <Table.Td>{h.name}</Table.Td>
-                    <Table.Td className="cur-mono">{h.change === "version" ? `${h.old_version} → ${h.new_version}` : h.change === "added" ? h.new_version : h.old_version}</Table.Td>
+                    <Table.Td className="lp-mono">{h.change === "version" ? `${h.old_version} → ${h.new_version}` : h.change === "added" ? h.new_version : h.old_version}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -339,8 +339,8 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
   const columns = useMemo<Column<AvailableUpdate>[]>(
     () => [
       { id: "name", header: "Name", value: (u) => u.name, required: true, width: 240 },
-      { id: "installed", header: "Installed version", value: (u) => u.installed_version, width: 150, cell: (u) => <span className="cur-mono">{u.installed_version}</span> },
-      { id: "latest", header: "Latest version", value: (u) => u.latest_version, width: 150, cell: (u) => <span className="cur-mono">{u.latest_version}</span> },
+      { id: "installed", header: "Installed version", value: (u) => u.installed_version, width: 150, cell: (u) => <span className="lp-mono">{u.installed_version}</span> },
+      { id: "latest", header: "Latest version", value: (u) => u.latest_version, width: 150, cell: (u) => <span className="lp-mono">{u.latest_version}</span> },
       {
         id: "package",
         header: "Package",
@@ -350,7 +350,7 @@ export function MissingUpdatesTab({ id, hostname, active }: { id: string; hostna
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             {u.in_catalog === false ? (
               <Tooltip label={`${u.winget_id}: from the winget repository, added to your catalog when you deploy it${u.matched_by ? ` (recognised by ${u.matched_by === "product_code" ? "its product code" : "its name and publisher"})` : ""}`}>
-                <span style={{ fontSize: "var(--cur-text-sm)" }}>{u.package_name}</span>
+                <span style={{ fontSize: "var(--lp-text-sm)" }}>{u.package_name}</span>
               </Tooltip>
             ) : (
               <Anchor component={Link} to={`/catalog/${u.package_id}`} size="sm">

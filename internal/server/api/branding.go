@@ -6,8 +6,8 @@ import (
 	"mime"
 	"net/http"
 
-	"github.com/auzring1/current/internal/server/branding"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/server/branding"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 )
 
 func (s *server) brandingSvc(w http.ResponseWriter) bool {

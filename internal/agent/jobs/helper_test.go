@@ -12,10 +12,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/shared/envelope"
-	"github.com/auzring1/current/internal/shared/pkix"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/shared/envelope"
+	"github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 type helperRig struct {
@@ -48,9 +48,9 @@ func newHelperRig(t *testing.T, mut func(*agentv1.JobEnvelope)) *helperRig {
 	}
 	raw, _ := proto.Marshal(se)
 	r.task = HelperTask{Signed: raw, Root: h.Root.Cert.Raw, SigningDER: [][]byte{h.JobSigning.Cert.Raw}, DeviceID: "d", OrgID: "o", Now: r.now.Unix(),
-		SID: hsid, StageDir: `C:\ProgramData\CurrentStage\` + hsid + `\j`, File: `C:\ProgramData\CurrentStage\` + hsid + `\j\a.exe`,
-		Exe: `C:\ProgramData\CurrentStage\` + hsid + `\j\a.exe`, Args: []string{"/VERYSILENT"}, Dir: `C:\ProgramData\CurrentStage\` + hsid + `\j`, TimeoutS: 60}
-	r.env = HelperEnv{CurrentSID: hsid, StageRoot: `C:\ProgramData\CurrentStage\` + hsid,
+		SID: hsid, StageDir: `C:\ProgramData\LibrePatchStage\` + hsid + `\j`, File: `C:\ProgramData\LibrePatchStage\` + hsid + `\j\a.exe`,
+		Exe: `C:\ProgramData\LibrePatchStage\` + hsid + `\j\a.exe`, Args: []string{"/VERYSILENT"}, Dir: `C:\ProgramData\LibrePatchStage\` + hsid + `\j`, TimeoutS: 60}
+	r.env = HelperEnv{CurrentSID: hsid, StageRoot: `C:\ProgramData\LibrePatchStage\` + hsid,
 		Run: func(_ context.Context, s RunSpec) (RunResult, error) {
 			r.ran = append(r.ran, s)
 			return RunResult{ExitCode: 0, LogTail: "ok"}, nil
@@ -100,7 +100,7 @@ func TestHelperRefusals(t *testing.T) {
 		"exe outside stage":  func(r *helperRig) { r.task.Exe = `C:\Windows\System32\cmd.exe` },
 		"traversal":          func(r *helperRig) { r.task.Exe = r.task.StageDir + `\..\..\evil.exe` },
 		"other users stage": func(r *helperRig) {
-			o := `C:\ProgramData\CurrentStage\S-1-5-21-1-2-3-1002\j`
+			o := `C:\ProgramData\LibrePatchStage\S-1-5-21-1-2-3-1002\j`
 			r.task.StageDir, r.task.File, r.task.Exe = o, o+`\a.exe`, o+`\a.exe`
 		},
 		"hash mismatch": func(r *helperRig) {
@@ -154,8 +154,8 @@ func TestHelperUninstallTask(t *testing.T) {
 }
 
 func TestHelperPathContainment(t *testing.T) {
-	root := `C:\ProgramData\CurrentStage\S-1`
-	for p, want := range map[string]bool{root: true, root + `\j\a.exe`: true, strings.ToLower(root) + `\J`: true, root + `x\a`: false, `C:\ProgramData\CurrentStage`: false,
+	root := `C:\ProgramData\LibrePatchStage\S-1`
+	for p, want := range map[string]bool{root: true, root + `\j\a.exe`: true, strings.ToLower(root) + `\J`: true, root + `x\a`: false, `C:\ProgramData\LibrePatchStage`: false,
 		root + `\..\S-2\a`: false, root + `\j\..`: false, ``: false} {
 		if underPath(p, root) != want {
 			t.Errorf("underPath(%q) != %v", p, want)

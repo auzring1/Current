@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auzring1/current/internal/shared/bundle"
+	"github.com/auzring1/librepatch/internal/shared/bundle"
 )
 
 // Config is persisted as JSON.

@@ -18,7 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"sort"
 	"time"
 )
@@ -96,7 +96,7 @@ type ExternalRef struct {
 	URL  string `json:"url"`
 }
 
-// Property is a free-form name/value pair (namespaced "current:" here).
+// Property is a free-form name/value pair (namespaced "librepatch:" here).
 type Property struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
@@ -121,7 +121,7 @@ func newBOM(epoch int64, root Component) *BOM {
 			Timestamp:  time.Unix(epoch, 0).UTC().Format(time.RFC3339),
 			Lifecycles: []Lifecycle{{Phase: "build"}},
 			Tools: &Tools{Components: []Component{{
-				Type: "application", Name: "current-sbom", Version: ToolVersion,
+				Type: "application", Name: "librepatch-sbom", Version: ToolVersion,
 				Description: brand.Name + " release pipeline SBOM generator (cmd/" + brand.Slug + "-sbom)",
 			}}},
 			Component: &root,

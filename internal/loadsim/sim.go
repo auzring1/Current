@@ -80,7 +80,7 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 
 	actx, stopAgents := context.WithCancel(ctx)
 	var agentsWG sync.WaitGroup
-	rep := &Report{Tool: "current-loadsim", Scenario: cfg.Scenario, StartedAt: started, Agents: cfg.Agents, RampS: -1,
+	rep := &Report{Tool: "librepatch-loadsim", Scenario: cfg.Scenario, StartedAt: started, Agents: cfg.Agents, RampS: -1,
 		Params: params(&cfg)}
 
 	// Ramp: start agents at the requested rate.

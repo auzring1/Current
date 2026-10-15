@@ -1,50 +1,50 @@
 /* Theme "High contrast" (dark). One file is one theme: add a file like this one and it appears in the picker.
    Every pair below is checked against WCAG AA by src/design/themes.test.ts. */
 :root[data-theme="contrast"] {
-  --cur-theme-name: "High contrast";
-  --cur-scheme: dark;
-  --cur-theme-order: 50;
+  --lp-theme-name: "High contrast";
+  --lp-scheme: dark;
+  --lp-theme-order: 50;
 
   /* Surfaces */
-  --cur-bg: #000000;
-  --cur-surface: #000000;
-  --cur-surface-raised: #0a0a0a;
-  --cur-surface-sunken: #000000;
-  --cur-surface-hover: #1a1a1a;
-  --cur-surface-selected: #00306b;
+  --lp-bg: #000000;
+  --lp-surface: #000000;
+  --lp-surface-raised: #0a0a0a;
+  --lp-surface-sunken: #000000;
+  --lp-surface-hover: #1a1a1a;
+  --lp-surface-selected: #00306b;
 
   /* Text */
-  --cur-text: #ffffff;
-  --cur-text-muted: #e6e6e6;
+  --lp-text: #ffffff;
+  --lp-text-muted: #e6e6e6;
 
   /* Borders and focus */
-  --cur-border: #ffffff;
-  --cur-border-strong: #ffffff;
-  --cur-focus: #ffe14d;
+  --lp-border: #ffffff;
+  --lp-border-strong: #ffffff;
+  --lp-focus: #ffe14d;
 
   /* Accent (defaults; the branding accent is layered on top at runtime, see accent.ts) */
-  --cur-accent: #5aa3f0;
-  --cur-on-accent: #000000;
-  --cur-accent-text: #9ccfff;
-  --cur-accent-subtle: #00306b;
-  --cur-accent-subtle-text: #ffffff;
-  --cur-accent-border: #9ccfff;
+  --lp-accent: #5aa3f0;
+  --lp-on-accent: #000000;
+  --lp-accent-text: #9ccfff;
+  --lp-accent-subtle: #00306b;
+  --lp-accent-subtle-text: #ffffff;
+  --lp-accent-border: #9ccfff;
 
   /* Fill text and shadow */
-  --cur-on-solid: #000000;
-  --cur-shadow-rgb: 0 0 0;
+  --lp-on-solid: #000000;
+  --lp-shadow-rgb: 0 0 0;
 
   /* Status and severity: fg = text/icon, bg = pill tint, border, solid = fill for bars and dots */
-  --cur-success-fg: #7dff9f; --cur-success-bg: #000000; --cur-success-border: #7dff9f; --cur-success-solid: #6dff95;
-  --cur-warning-fg: #ffd966; --cur-warning-bg: #000000; --cur-warning-border: #ffd966; --cur-warning-solid: #ffd24d;
-  --cur-danger-fg: #ff9ea3; --cur-danger-bg: #000000; --cur-danger-border: #ff9ea3; --cur-danger-solid: #ff7d84;
-  --cur-info-fg: #9ccfff; --cur-info-bg: #000000; --cur-info-border: #9ccfff; --cur-info-solid: #6db3ff;
-  --cur-neutral-fg: #ffffff; --cur-neutral-bg: #000000; --cur-neutral-border: #ffffff; --cur-neutral-solid: #d0d0d0;
-  --cur-critical-fg: #ff9ea3; --cur-critical-bg: #000000; --cur-critical-border: #ff9ea3; --cur-critical-solid: #ff7d84;
-  --cur-important-fg: #ffb783; --cur-important-bg: #000000; --cur-important-border: #ffb783; --cur-important-solid: #ff9a4d;
-  --cur-moderate-fg: #fff176; --cur-moderate-bg: #000000; --cur-moderate-border: #fff176; --cur-moderate-solid: #fff176;
-  --cur-low-fg: #b5d3ff; --cur-low-bg: #000000; --cur-low-border: #b5d3ff; --cur-low-solid: #8dbbff;
+  --lp-success-fg: #7dff9f; --lp-success-bg: #000000; --lp-success-border: #7dff9f; --lp-success-solid: #6dff95;
+  --lp-warning-fg: #ffd966; --lp-warning-bg: #000000; --lp-warning-border: #ffd966; --lp-warning-solid: #ffd24d;
+  --lp-danger-fg: #ff9ea3; --lp-danger-bg: #000000; --lp-danger-border: #ff9ea3; --lp-danger-solid: #ff7d84;
+  --lp-info-fg: #9ccfff; --lp-info-bg: #000000; --lp-info-border: #9ccfff; --lp-info-solid: #6db3ff;
+  --lp-neutral-fg: #ffffff; --lp-neutral-bg: #000000; --lp-neutral-border: #ffffff; --lp-neutral-solid: #d0d0d0;
+  --lp-critical-fg: #ff9ea3; --lp-critical-bg: #000000; --lp-critical-border: #ff9ea3; --lp-critical-solid: #ff7d84;
+  --lp-important-fg: #ffb783; --lp-important-bg: #000000; --lp-important-border: #ffb783; --lp-important-solid: #ff9a4d;
+  --lp-moderate-fg: #fff176; --lp-moderate-bg: #000000; --lp-moderate-border: #fff176; --lp-moderate-solid: #fff176;
+  --lp-low-fg: #b5d3ff; --lp-low-bg: #000000; --lp-low-border: #b5d3ff; --lp-low-solid: #8dbbff;
 
   /* Chart series */
-  --cur-chart-1: #6db3ff; --cur-chart-2: #ff9a4d; --cur-chart-3: #6dff95; --cur-chart-4: #c4a6ff; --cur-chart-5: #5fe3f5; --cur-chart-6: #ff7fd1;
+  --lp-chart-1: #6db3ff; --lp-chart-2: #ff9a4d; --lp-chart-3: #6dff95; --lp-chart-4: #c4a6ff; --lp-chart-5: #5fe3f5; --lp-chart-6: #ff7fd1;
 }

@@ -18,8 +18,8 @@ export interface SavedView {
   state: Record<string, unknown>;
 }
 
-const THEME_KEY = "cur-theme";
-const DENSITY_KEY = "cur-density";
+const THEME_KEY = "lp-theme";
+const DENSITY_KEY = "lp-density";
 const read = (k: string) => {
   try {
     return window.localStorage.getItem(k) ?? "";

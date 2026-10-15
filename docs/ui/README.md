@@ -20,4 +20,4 @@ The style guide in each of the five themes (every one passes the WCAG AA contras
 |---|---|---|---|---|
 | [light](styleguide-light.png) | [slate](styleguide-slate.png) | [dark](styleguide-dark.png) | [midnight](styleguide-midnight.png) | [contrast](styleguide-contrast.png) |
 
-Regenerate the "after" images with `CURRENT_SCREENSHOTS=<dir> scripts/gui-e2e.sh` (the files are `04-devices`, `16-updates-catalog`, `17-update-policy`, `27-branding` and `29-styleguide-<theme>`).
+Regenerate the "after" images with `LIBREPATCH_SCREENSHOTS=<dir> scripts/gui-e2e.sh` (the files are `04-devices`, `16-updates-catalog`, `17-update-policy`, `27-branding` and `29-styleguide-<theme>`).

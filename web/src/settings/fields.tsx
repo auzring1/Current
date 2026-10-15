@@ -42,7 +42,7 @@ export function Help({ field }: { field: SettingsField }) {
   return (
     <>
       {field.help}
-      {note && <span className="cur-set-note"> {note}</span>}
+      {note && <span className="lp-set-note"> {note}</span>}
     </>
   );
 }
@@ -56,7 +56,7 @@ export function FieldInput(p: InputProps) {
   switch (f.kind) {
     case "bool":
       return (
-        <div className="cur-set-field" data-setting={f.key}>
+        <div className="lp-set-field" data-setting={f.key}>
           <Switch id={id} label={f.label} description={<Help field={f} />} checked={value === true} onChange={(e) => onChange(e.currentTarget.checked)} disabled={disabled} error={error} />
         </div>
       );
@@ -70,7 +70,7 @@ export function FieldInput(p: InputProps) {
           max={f.max}
           allowDecimal={false}
           clampBehavior="none"
-          rightSection={f.unit ? <span className="cur-set-unit">{f.unit}</span> : undefined}
+          rightSection={f.unit ? <span className="lp-set-unit">{f.unit}</span> : undefined}
           rightSectionWidth={f.unit ? 84 : undefined}
           rightSectionPointerEvents="none"
         />
@@ -91,7 +91,7 @@ export function FieldInput(p: InputProps) {
       const cur = asArray(value).map(String);
       return (
         <Checkbox.Group id={id} label={f.label} description={<Help field={f} />} error={error} value={cur} onChange={(v) => onChange(v)} data-setting={f.key}>
-          <div className="cur-set-checks">
+          <div className="lp-set-checks">
             {(f.options ?? []).map((o) => (
               <Checkbox key={o.value} value={o.value} label={o.label} disabled={disabled} />
             ))}
@@ -107,7 +107,7 @@ export function FieldInput(p: InputProps) {
       const set = !!p.secretsSet?.[path];
       const clearKey = "__clear_" + f.key;
       return (
-        <div className="cur-set-field" data-setting={f.key}>
+        <div className="lp-set-field" data-setting={f.key}>
           <PasswordInput {...common} value={String(value ?? "")} onChange={(e) => onChange(e.currentTarget.value)} placeholder={set ? "Saved. Type to replace it." : ""} autoComplete="new-password" maxLength={f.max} />
           {set && !path.includes("[") && (
             <Checkbox mt={6} size="xs" label="Remove the saved value" checked={p.siblings[clearKey] === true} onChange={(e) => p.setSibling(clearKey, e.currentTarget.checked)} disabled={disabled} />
@@ -140,10 +140,10 @@ export function ListEditor(p: InputProps) {
   const subs = f.fields ?? [];
   const hidden = useMemo(() => new Set(["id", ...(f.fixed && f.item_key ? [f.item_key] : [])]), [f.fixed, f.item_key]);
   return (
-    <div className="cur-set-list" role="group" aria-labelledby={idOf(path) + "-label"} data-setting={f.key}>
-      <div className="cur-set-list__head">
+    <div className="lp-set-list" role="group" aria-labelledby={idOf(path) + "-label"} data-setting={f.key}>
+      <div className="lp-set-list__head">
         <div>
-          <div className="cur-set-list__label" id={idOf(path) + "-label"}>
+          <div className="lp-set-list__label" id={idOf(path) + "-label"}>
             {f.label}
           </div>
           <Text size="sm" c="dimmed">
@@ -161,13 +161,13 @@ export function ListEditor(p: InputProps) {
           {errors[path]}
         </Text>
       )}
-      {items.length === 0 && !f.fixed && <div className="cur-set-list__empty">Nothing added yet.</div>}
+      {items.length === 0 && !f.fixed && <div className="lp-set-list__empty">Nothing added yet.</div>}
       {items.map((item, i) => {
         const ip = `${path}[${i}]`;
         return (
-          <fieldset className="cur-set-item" key={String(item["id"] || item[f.item_key ?? ""] || i) + ":" + i} aria-label={itemTitle(f, item, i)}>
+          <fieldset className="lp-set-item" key={String(item["id"] || item[f.item_key ?? ""] || i) + ":" + i} aria-label={itemTitle(f, item, i)}>
             <legend>{itemTitle(f, item, i)}</legend>
-            <div className="cur-set-grid">
+            <div className="lp-set-grid">
               {subs
                 .filter((s) => !hidden.has(s.key) && visible(s, item))
                 .map((s) => (
@@ -185,7 +185,7 @@ export function ListEditor(p: InputProps) {
                   />
                 ))}
             </div>
-            <div className="cur-set-item__actions">
+            <div className="lp-set-item__actions">
               {p.itemActions?.(item, i)}
               {!f.fixed && (
                 <Button size="compact-sm" variant="subtle" color="red" leftSection={<Icons.Trash size={14} aria-hidden />} disabled={disabled} onClick={() => set(items.filter((_, j) => j !== i))} aria-label={`Remove ${itemTitle(f, item, i)}`}>

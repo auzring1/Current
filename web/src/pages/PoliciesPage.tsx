@@ -61,8 +61,8 @@ export function PoliciesPage() {
       { id: "package", header: "Package", value: (p) => p.package_name, width: 200 },
       // The group names resolve once the groups have loaded, so the value follows `groups.data`.
       { id: "groups", header: "Groups", value: (p) => p.group_ids.map(groupName).join(", "), width: 220, wrap: true },
-      { id: "delay", header: "Delay", value: (p) => p.delay_days, align: "right", width: 90, cell: (p) => <span className="cur-num">{p.delay_days} d</span>, csv: (p) => String(p.delay_days) },
-      { id: "handled", header: "Devices handled", value: (p) => p.devices_attempted, align: "right", width: 140, cell: (p) => <span className="cur-num">{p.devices_attempted}</span> },
+      { id: "delay", header: "Delay", value: (p) => p.delay_days, align: "right", width: 90, cell: (p) => <span className="lp-num">{p.delay_days} d</span>, csv: (p) => String(p.delay_days) },
+      { id: "handled", header: "Devices handled", value: (p) => p.devices_attempted, align: "right", width: 140, cell: (p) => <span className="lp-num">{p.devices_attempted}</span> },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [groups.data],

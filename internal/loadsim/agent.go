@@ -17,10 +17,10 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/agent/core"
-	"github.com/auzring1/current/internal/agent/inventory"
-	"github.com/auzring1/current/internal/shared/envelope"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/agent/core"
+	"github.com/auzring1/librepatch/internal/agent/inventory"
+	"github.com/auzring1/librepatch/internal/shared/envelope"
 )
 
 const (

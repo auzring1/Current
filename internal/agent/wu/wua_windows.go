@@ -5,7 +5,7 @@ package wu
 import (
 	"context"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"runtime"
 	"strings"
 	"sync"
@@ -14,7 +14,7 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 )
 
 // Windows Update Agent over COM (https://learn.microsoft.com/windows/win32/wua_sdk/). COM objects

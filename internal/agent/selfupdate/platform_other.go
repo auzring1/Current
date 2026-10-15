@@ -5,7 +5,7 @@ package selfupdate
 import (
 	"encoding/json"
 	"errors"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"

@@ -1,6 +1,6 @@
 -- +goose Up
 -- Phase 1 foundations. See docs/DATA_MODEL.md.
--- Runs as the schema owner (current_owner). Runtime uses current_app (DML only).
+-- Runs as the schema owner (librepatch_owner). Runtime uses librepatch_app (DML only).
 
 CREATE EXTENSION IF NOT EXISTS citext;
 
@@ -206,14 +206,14 @@ CREATE TRIGGER audit_log_no_truncate
 -- +goose StatementBegin
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'current_app') THEN
-        GRANT USAGE ON SCHEMA public TO current_app;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'librepatch_app') THEN
+        GRANT USAGE ON SCHEMA public TO librepatch_app;
         GRANT SELECT, INSERT, UPDATE, DELETE ON
             organizations, sites, users, user_identities, mfa_totp, mfa_recovery_codes,
             role_bindings, sessions, setup_state, pki_material, enrollment_tokens,
             devices, device_certs
-        TO current_app;
-        GRANT SELECT, INSERT ON audit_log TO current_app;
+        TO librepatch_app;
+        GRANT SELECT, INSERT ON audit_log TO librepatch_app;
     END IF;
 END
 $$;

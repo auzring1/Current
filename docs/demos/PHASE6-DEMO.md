@@ -2,7 +2,7 @@
 
 Goal: see what Phase 6 changed. The database-credential split and a backup through the new `maintenance` service, the install-directory protection and the MSI retest on a real Windows machine, a load test with thousands of simulated agents, a dry run of the release pipeline, and the fuzzers. Allow about 2.5 hours; Parts A to D are the core.
 
-You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): a running server stack on Docker, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine **that you can revert**. The examples use the server name `current.lab`. Parts E and F run on any Linux or macOS machine with Go 1.27.1 and Docker (the repository's dev setup); they do not need Windows.
+You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): a running server stack on Docker, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine **that you can revert**. The examples use the server name `librepatch.lab`. Parts E and F run on any Linux or macOS machine with Go 1.27.1 and Docker (the repository's dev setup); they do not need Windows.
 
 **Be honest about what is new:** the install-directory check and the MSI fix are Windows-only code that has been compiled and vetted but never run on Windows. The release workflow (`release.yml`) has never run on GitHub, and nothing that needs Authenticode, a cloud KMS or Sigstore has been exercised. The load-test numbers come from a 4-CPU sandbox where server, load generator and database share one machine.
 
@@ -10,11 +10,11 @@ You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): 
 
 ## Before you start: this build is a fresh install
 
-This script describes a build where **everything is called Current**: the service (`CurrentAgent`), the folders (`C:\Program Files\Current`, `C:\ProgramData\Current`), the environment variables (`CURRENT_...`), the database and its roles, the enrollment strings (`CUR1.`) and API tokens (`cur_`), and the signing contexts. Nothing from an earlier build carries over, so start clean:
+This script describes a build where **everything is called LibrePatch**: the service (`LibrePatchAgent`), the folders (`C:\Program Files\LibrePatch`, `C:\ProgramData\LibrePatch`), the environment variables (`LIBREPATCH_...`), the database and its roles, the enrollment strings (`LP1.`) and API tokens (`lp_`), and the signing contexts. Nothing from an earlier build carries over, so start clean:
 
 1. **Remove the old server stack** (from the old checkout, so the old compose project is found): `docker compose -f deploy/docker-compose.yml down -v`, then delete `deploy/secrets/` and `deploy/.env`. The secrets contain the old database and role names.
 2. **Remove the old agent** on the test machine and the VM, with the *old* executable: `& "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall`, then delete `C:\Program Files\Auzring`, `C:\Program Files\AuzringSetup`, `C:\ProgramData\Auzring` and `C:\ProgramData\AuzringStage` if they are still there. Revoke or delete the old devices if you keep the server. <!-- old-name -->
-3. Check out the branch, run `./scripts/init-secrets.sh`, copy `deploy/.env.example` to `deploy/.env` (set `CURRENT_HOSTNAME`), and bring the stack up as in [PHASE1-DEMO.md](PHASE1-DEMO.md). Enroll the machines again.
+3. Check out the branch, run `./scripts/init-secrets.sh`, copy `deploy/.env.example` to `deploy/.env` (set `LIBREPATCH_HOSTNAME`), and bring the stack up as in [PHASE1-DEMO.md](PHASE1-DEMO.md). Enroll the machines again.
 
 ## Part A: Upgrade the stack (about 15 minutes)
 
@@ -46,10 +46,10 @@ Phase 6 changes how the database credentials are handed out. **Read the second p
    ```bash
    umask 077; openssl rand -base64 24 > backup-pass
    docker compose -f deploy/docker-compose.yml run --rm --no-deps -T -v $PWD/backup-pass:/pass:ro maintenance \
-     backup --out - --passphrase-file /pass > current.age
-   ls -l current.age
+     backup --out - --passphrase-file /pass > librepatch.age
+   ls -l librepatch.age
    docker compose -f deploy/docker-compose.yml run --rm --no-deps -T -v $PWD/backup-pass:/pass:ro maintenance \
-     backup --verify - --passphrase-file /pass < current.age
+     backup --verify - --passphrase-file /pass < librepatch.age
    ```
    ✅ A non-trivial file, and `--verify` prints row counts. The restore drill from [PHASE5-DEMO.md](PHASE5-DEMO.md) Part F works the same way with `maintenance restore`.
 
@@ -62,15 +62,15 @@ This part demonstrated license keys and the device cap. Both were removed when t
 10. **MSI retest.** The first MSI build refused to install on Windows 11 (it believed it was Windows 8.1). Rebuild it from this branch (see `installer/windows/README.md`) and repeat step 24 of [PHASE5-DEMO.md](PHASE5-DEMO.md):
     ```powershell
     (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber    # 17763 or higher
-    msiexec /i current-agent-0.9.1-x64.msi /qn SERVER=current.lab:8443 TOKEN=CUR1..... /l*v C:\Windows\Temp\current-msi.log
+    msiexec /i librepatch-agent-0.9.1-x64.msi /qn SERVER=librepatch.lab:8443 TOKEN=LP1..... /l*v C:\Windows\Temp\librepatch-msi.log
     ```
-    ✅ Exit code 0, service running, device online. If it fails again, `current-msi.log` and `C:\ProgramData\Current\logs\agent.log` are what I need.
+    ✅ Exit code 0, service running, device online. If it fails again, `librepatch-msi.log` and `C:\ProgramData\LibrePatch\logs\agent.log` are what I need.
 
-11. **Folder squatting.** Before installing, as a **standard (non-admin) user** create the data folder: `mkdir C:\ProgramData\Current`. Then, as Administrator, run `current-agent.exe install …`.
-    ✅ It refuses: "`C:\ProgramData\Current` already exists and is owned by <user>, not SYSTEM or Administrators; inspect it, remove it and run install again". Remove the folder as Administrator and install again: ✅ it works, and `icacls C:\ProgramData\Current` shows only SYSTEM and Administrators.
-    (Also try a junction: `mklink /J C:\ProgramData\Current C:\Temp`. ✅ Refused as "not a plain directory".)
+11. **Folder squatting.** Before installing, as a **standard (non-admin) user** create the data folder: `mkdir C:\ProgramData\LibrePatch`. Then, as Administrator, run `librepatch-agent.exe install …`.
+    ✅ It refuses: "`C:\ProgramData\LibrePatch` already exists and is owned by <user>, not SYSTEM or Administrators; inspect it, remove it and run install again". Remove the folder as Administrator and install again: ✅ it works, and `icacls C:\ProgramData\LibrePatch` shows only SYSTEM and Administrators.
+    (Also try a junction: `mklink /J C:\ProgramData\LibrePatch C:\Temp`. ✅ Refused as "not a plain directory".)
 
-12. **Account lockout counts MFA mistakes.** In a private window, sign in with the right password and give 10 wrong authenticator codes in a row (you will be sent back to the sign-in page after each fifth). ✅ The account locks for 15 minutes ("locked"), and the audit log has `auth.lockout`. To continue before the 15 minutes are up, run `docker compose -f deploy/docker-compose.yml exec server /current-server admin unlock --email you@example.com`. (Before Phase 6 this took about 50 wrong codes.)
+12. **Account lockout counts MFA mistakes.** In a private window, sign in with the right password and give 10 wrong authenticator codes in a row (you will be sent back to the sign-in page after each fifth). ✅ The account locks for 15 minutes ("locked"), and the audit log has `auth.lockout`. To continue before the 15 minutes are up, run `docker compose -f deploy/docker-compose.yml exec server /librepatch-server admin unlock --email you@example.com`. (Before Phase 6 this took about 50 wrong codes.)
 
 13. **API tokens die with the password.** Create an API token (Account security → API tokens). As an administrator reset that user's password (**Users → ⋮ → Set a temporary password**). ✅ The token no longer works (`401`).
 
@@ -78,7 +78,7 @@ This part demonstrated license keys and the device cap. Both were removed when t
 
 14. Start a local database that the script may create databases on, then run a small and a larger test:
     ```bash
-    make dev-db        # prints: export CURRENT_TEST_PG_URL=...   (copy the line it prints and run it)
+    make dev-db        # prints: export LIBREPATCH_TEST_PG_URL=...   (copy the line it prints and run it)
     scripts/loadtest.sh --agents 1000 --scenarios "steady storm" --duration 2m
     ```
     ✅ The script builds everything, starts a server, enrolls 1,000 simulated agents (real enrollment, mTLS, inventory, heartbeats and jobs) and writes `loadtest-results/<time>/summary.md`. A "storm" drops every connection at once and measures the time to recover. Our sandbox numbers are in [../LOADTEST.md](../LOADTEST.md), section 7; compare yours.
@@ -98,15 +98,15 @@ This part demonstrated license keys and the device cap. Both were removed when t
 
 ## Part G: The names you see (about 20 minutes, Windows)
 
-The product is **Current** (DECISIONS D101).
+The product is **LibrePatch** (DECISIONS D101).
 
-18. **Names you can see.** Install the agent from this branch (step 3 of [PHASE5-DEMO.md](PHASE5-DEMO.md), with `current-agent.exe`). ✅ `services.msc` shows **Current Agent** with the service name `CurrentAgent` (`Get-Service CurrentAgent`); the program is in `C:\Program Files\Current\Agent\slot-a\current-agent.exe` and the data in `C:\ProgramData\Current`. Right-click the exe → Properties → Details: product name *Current*, description *Current Agent*, company *The Current contributors* (the version fields say 0.0.0.0 for now; the release pipeline does not stamp the real version into them yet). The console title, sign-in page and the authenticator entry say Current.
+18. **Names you can see.** Install the agent from this branch (step 3 of [PHASE5-DEMO.md](PHASE5-DEMO.md), with `librepatch-agent.exe`). ✅ `services.msc` shows **LibrePatch Agent** with the service name `LibrePatchAgent` (`Get-Service LibrePatchAgent`); the program is in `C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe` and the data in `C:\ProgramData\LibrePatch`. Right-click the exe → Properties → Details: product name *LibrePatch*, description *LibrePatch Agent*, company *The LibrePatch contributors* (the version fields say 0.0.0.0 for now; the release pipeline does not stamp the real version into them yet). The console title, sign-in page and the authenticator entry say LibrePatch.
 
 19. **Nothing of the old name is left on the machine.** ✅ `Get-ChildItem 'C:\Program Files','C:\ProgramData' | Where-Object Name -like '*Auzring*'` returns nothing, and `Get-Service | Where-Object Name -like '*Auzring*'` returns nothing (after step 2 of "Before you start"). <!-- old-name -->
 
-20. **Self-update still works under the new names.** Roll out the "good" release from [PHASE5-DEMO.md](PHASE5-DEMO.md) Part B, built with `scripts/release-demo.sh` from this branch. ✅ Both slot folders appear under `C:\Program Files\Current\Agent`, the service restarts once, and the job succeeds; the scheduled task `\Current\rollback-check` exists only while an update is being confirmed.
+20. **Self-update still works under the new names.** Roll out the "good" release from [PHASE5-DEMO.md](PHASE5-DEMO.md) Part B, built with `scripts/release-demo.sh` from this branch. ✅ Both slot folders appear under `C:\Program Files\LibrePatch\Agent`, the service restarts once, and the job succeeds; the scheduled task `\LibrePatch\rollback-check` exists only while an update is being confirmed.
 
-21. **MSI.** Build the MSI from this branch and install it on a clean machine (step 24 of [PHASE5-DEMO.md](PHASE5-DEMO.md)). ✅ One entry **Current Agent** (the vendor, The Current contributors, as publisher) in Apps & features; `msiexec /x` removes the service and both folders. (The MSI has a new upgrade code and new service and folder names, so it does not replace an agent from an earlier build: uninstall that one first.)
+21. **MSI.** Build the MSI from this branch and install it on a clean machine (step 24 of [PHASE5-DEMO.md](PHASE5-DEMO.md)). ✅ One entry **LibrePatch Agent** (the vendor, The LibrePatch contributors, as publisher) in Apps & features; `msiexec /x` removes the service and both folders. (The MSI has a new upgrade code and new service and folder names, so it does not replace an agent from an earlier build: uninstall that one first.)
 
 ## What to send back
 

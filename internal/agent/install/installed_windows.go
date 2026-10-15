@@ -4,7 +4,7 @@ package install
 
 import "golang.org/x/sys/windows/svc/mgr"
 
-// serviceRegistered reports whether the CurrentAgent service exists (running or not).
+// serviceRegistered reports whether the LibrePatchAgent service exists (running or not).
 func serviceRegistered() bool {
 	m, err := mgr.Connect()
 	if err != nil {

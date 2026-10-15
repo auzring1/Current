@@ -11,7 +11,7 @@ export interface Crumb {
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="cur-crumbs">
+      <ol className="lp-crumbs">
         {items.map((c, i) => {
           const last = i === items.length - 1;
           return (
@@ -44,12 +44,12 @@ export function PageHeader({ title, description, breadcrumbs, crumb, actions }: 
   return (
     <div>
       {items.length > 1 && <Breadcrumbs items={items} />}
-      <div className="cur-pagehead">
+      <div className="lp-pagehead">
         <div>
-          <h1 className="cur-pagehead__title">{title}</h1>
-          {description && <p className="cur-pagehead__desc">{description}</p>}
+          <h1 className="lp-pagehead__title">{title}</h1>
+          {description && <p className="lp-pagehead__desc">{description}</p>}
         </div>
-        {actions && <div className="cur-pagehead__actions">{actions}</div>}
+        {actions && <div className="lp-pagehead__actions">{actions}</div>}
       </div>
     </div>
   );
@@ -57,5 +57,5 @@ export function PageHeader({ title, description, breadcrumbs, crumb, actions }: 
 
 /** The page column: consistent width and vertical rhythm. */
 export function Page({ children }: { children: ReactNode }) {
-  return <div className="cur-page">{children}</div>;
+  return <div className="lp-page">{children}</div>;
 }

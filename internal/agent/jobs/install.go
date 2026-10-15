@@ -5,14 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/shared/installer"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/shared/installer"
 )
 
 const logTailMax = 16 << 10
@@ -225,7 +225,7 @@ func (e *Engine) install(ctx context.Context, r *Record, env *agentv1.JobEnvelop
 }
 
 // installPortable copies a single portable executable into the machine-wide
-// legacy "Current" portable directory (the folder name is kept, see RENAME-PLAN.md B2).
+// legacy "LibrePatch" portable directory (the folder name is kept, see RENAME-PLAN.md B2).
 func (e *Engine) installPortable(b *agentv1.InstallBody, file string) (string, error) {
 	root := e.P.Env(installer.Machine, "", "PROGRAMFILES")
 	if root == "" {

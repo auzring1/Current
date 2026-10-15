@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/internal/server/store"
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 func tableExists(t *testing.T, c *pgx.Conn, name string) bool {
@@ -96,7 +96,7 @@ func TestBrandingMigrationIsReversible(t *testing.T) {
 	}
 	// The runtime role can use the re-created tables.
 	var ok bool
-	if err := c.QueryRow(ctx, `SELECT has_table_privilege('current_app', 'branding', 'INSERT,UPDATE,DELETE') AND has_table_privilege('current_app', 'branding_assets', 'SELECT,INSERT,UPDATE,DELETE')`).Scan(&ok); err != nil || !ok {
-		t.Fatalf("current_app privileges: %v %v", ok, err)
+	if err := c.QueryRow(ctx, `SELECT has_table_privilege('librepatch_app', 'branding', 'INSERT,UPDATE,DELETE') AND has_table_privilege('librepatch_app', 'branding_assets', 'SELECT,INSERT,UPDATE,DELETE')`).Scan(&ok); err != nil || !ok {
+		t.Fatalf("librepatch_app privileges: %v %v", ok, err)
 	}
 }

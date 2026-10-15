@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package current.agent.v1;
+package librepatch.agent.v1;
 
-option go_package = "github.com/auzring1/current/gen/proto/current/agent/v1;agentv1";
+option go_package = "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1;agentv1";
 
 // Enrollment is served on the gateway listener WITHOUT a client certificate.
 // See docs/PROTOCOL.md §4.1.

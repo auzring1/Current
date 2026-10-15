@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package current.agent.v1;
+package librepatch.agent.v1;
 
-option go_package = "github.com/auzring1/current/gen/proto/current/agent/v1;agentv1";
+option go_package = "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1;agentv1";
 
 // SignedEnvelope carries a job. The signature covers exactly `payload`
 // (a serialized JobEnvelope) prefixed with the domain separator
-// "current/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
+// "librepatch/job/v1\x00". Agents verify before parsing. See docs/PROTOCOL.md §5.
 message SignedEnvelope {
   bytes payload = 1;
   bytes signature = 2;
@@ -266,7 +266,7 @@ message UninstallBody {
 // under a vendor release key compiled into the agent (docs/PROTOCOL.md §5.4).
 message AgentUpdateBody {
   bytes manifest = 1;     // the exact bytes the vendor signed (JSON, see internal/shared/release)
-  bytes signature = 2;    // Ed25519 over "current/release/v1\0" || manifest
+  bytes signature = 2;    // Ed25519 over "librepatch/release/v1\0" || manifest
   bytes key_id = 3;       // first 8 bytes of SHA-256 of the vendor public key
   uint32 timeout_s = 4;
 }

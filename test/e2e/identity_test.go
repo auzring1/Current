@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/server/auth"
 )
 
 // otherClient is a second, independent browser session against the same server.
@@ -217,7 +217,7 @@ func TestSitesUsersAndSiteScopedAccess(t *testing.T) {
 	h.do("PUT", "/api/v1/users/"+techID, map[string]any{"display_name": "Tess Tech", "status": "active"}, nil)
 	// A token the technician made earlier must not survive a password reset (SECURITY.md T-WEB-7).
 	if _, err := h.db.Pool.Exec(t.Context(), `INSERT INTO api_tokens (id, org_id, user_id, name, prefix, token_hash, scopes, expires_at)
-		SELECT gen_random_uuid(), org_id, id, 'old', 'cur_old0', decode(repeat('ab', 32), 'hex'), ARRAY['devices:read'], now() + interval '30 days' FROM users WHERE id = $1`, techID); err != nil {
+		SELECT gen_random_uuid(), org_id, id, 'old', 'lp_old0', decode(repeat('ab', 32), 'hex'), ARRAY['devices:read'], now() + interval '30 days' FROM users WHERE id = $1`, techID); err != nil {
 		t.Fatal(err)
 	}
 	st, rp := h.do("POST", "/api/v1/users/"+techID+"/reset-password", map[string]any{}, nil)
@@ -269,7 +269,7 @@ func TestAPITokens(t *testing.T) {
 		t.Fatalf("unknown scope: %d", st)
 	}
 	st, tok := h.do("POST", "/api/v1/me/api-tokens", map[string]any{"name": "inventory sync", "scopes": []string{"devices:read", "groups:read"}, "expires_in_days": 30}, nil)
-	if st != 201 || !strings.HasPrefix(tok["token"].(string), "cur_") {
+	if st != 201 || !strings.HasPrefix(tok["token"].(string), "lp_") {
 		t.Fatalf("create: %d %v", st, tok)
 	}
 	secret := tok["token"].(string)
@@ -294,7 +294,7 @@ func TestAPITokens(t *testing.T) {
 	if st, _ := h.bearer(secret+"x", "GET", "/api/v1/devices", nil); st != 401 {
 		t.Fatalf("a wrong token: %d", st)
 	}
-	if st, _ := h.bearer("cur_"+strings.Repeat("A", 43), "GET", "/api/v1/devices", nil); st != 401 {
+	if st, _ := h.bearer("lp_"+strings.Repeat("A", 43), "GET", "/api/v1/devices", nil); st != 401 {
 		t.Fatalf("an unknown token: %d", st)
 	}
 	// The secret is stored only as a hash, and the listing shows no secret.

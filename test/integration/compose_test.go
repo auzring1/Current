@@ -27,12 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auzring1/current/internal/agent/core"
-	"github.com/auzring1/current/internal/server/auth"
+	"github.com/auzring1/librepatch/internal/agent/core"
+	"github.com/auzring1/librepatch/internal/server/auth"
 )
 
 const (
-	project   = "current-it"
+	project   = "librepatch-it"
 	httpsPort = "28443"
 	gwPort    = "28444"
 	origin    = "https://localhost:" + httpsPort
@@ -91,9 +91,9 @@ func up(t *testing.T) *stack {
 	run(t, dir, "bash", "scripts/init-secrets.sh")
 	run(t, dir, "mv", "deploy/secrets", "secrets")
 	env := strings.Join([]string{
-		"CURRENT_HOSTNAME=localhost", "CURRENT_CADDY_TLS=internal", "CURRENT_HTTP_PORT=28080", "CURRENT_HTTPS_PORT=" + httpsPort,
-		"CURRENT_PUBLIC_PORT_SUFFIX=:" + httpsPort, "CURRENT_GATEWAY_PORT=" + gwPort, "CURRENT_FRONTEND_SUBNET=172.31.251.0/24",
-		"CURRENT_CADDY_IP=172.31.251.10",
+		"LIBREPATCH_HOSTNAME=localhost", "LIBREPATCH_CADDY_TLS=internal", "LIBREPATCH_HTTP_PORT=28080", "LIBREPATCH_HTTPS_PORT=" + httpsPort,
+		"LIBREPATCH_PUBLIC_PORT_SUFFIX=:" + httpsPort, "LIBREPATCH_GATEWAY_PORT=" + gwPort, "LIBREPATCH_FRONTEND_SUBNET=172.31.251.0/24",
+		"LIBREPATCH_CADDY_IP=172.31.251.10",
 	}, "\n") + "\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o644); err != nil {
 		t.Fatal(err)
@@ -265,8 +265,8 @@ func TestComposeStack(t *testing.T) {
 	enrollment := b["enrollment_string"].(string)
 
 	// --- A real agent process enrolls through the published gateway port ---
-	agentBin := filepath.Join(s.dir, "current-agent")
-	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/current-agent")
+	agentBin := filepath.Join(s.dir, "librepatch-agent")
+	run(t, repoRoot(), "go", "build", "-o", agentBin, "./cmd/librepatch-agent")
 	agentDir := filepath.Join(s.dir, "agent")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -351,7 +351,7 @@ func TestComposeStack(t *testing.T) {
 	}
 
 	// --- Audit chain verifies with the admin CLI inside the container ---
-	out := s.compose("exec", "-T", "server", "/current-server", "admin", "verify-audit")
+	out := s.compose("exec", "-T", "server", "/librepatch-server", "admin", "verify-audit")
 	if !strings.Contains(out, "audit chain intact") {
 		t.Fatalf("verify-audit: %s", out)
 	}

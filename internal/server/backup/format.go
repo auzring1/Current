@@ -1,4 +1,4 @@
-// Package backup implements `current-server backup` and `current-server restore`.
+// Package backup implements `librepatch-server backup` and `librepatch-server restore`.
 //
 // An archive is a tar stream inside an age stream (filippo.io/age). The tar
 // members, in order, are:
@@ -106,7 +106,7 @@ type Manifest struct {
 }
 
 // NotMasterKey is recorded in every archive so nobody has to guess.
-const NotMasterKey = "The master key (CURRENT_MASTER_KEY_FILE) and the rest of deploy/secrets are NOT part of this backup; " +
+const NotMasterKey = "The master key (LIBREPATCH_MASTER_KEY_FILE) and the rest of deploy/secrets are NOT part of this backup; " +
 	"the database only holds keys sealed with them. Back up the secrets directory separately."
 
 // ErrUnknownFormat is returned for an archive whose format version this binary does not understand.

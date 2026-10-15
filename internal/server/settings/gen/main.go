@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/auzring1/current/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/server/settings"
 )
 
 func main() { fmt.Print(settings.Markdown()) }

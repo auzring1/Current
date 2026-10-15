@@ -1,10 +1,10 @@
 # Phase 4 demo script: Windows and driver updates
 
-Goal: see what Windows Update offers a real Windows machine from the console, approve updates by hand and by rule, roll them out through rings, watch an install, use the three restart policies (including the visible countdown), hide an update, and see how Current reports a machine whose updates are controlled by WSUS or Windows Update for Business. Allow about 90 minutes plus the time Windows needs to install updates; Parts A to F are the core.
+Goal: see what Windows Update offers a real Windows machine from the console, approve updates by hand and by rule, roll them out through rings, watch an install, use the three restart policies (including the visible countdown), hide an update, and see how LibrePatch reports a machine whose updates are controlled by WSUS or Windows Update for Business. Allow about 90 minutes plus the time Windows needs to install updates; Parts A to F are the core.
 
-You need the Phase 1 to 3 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE3-DEMO.md](PHASE3-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine. **Use a VM you can revert, and prefer one that is a few months behind on patches** (an old snapshot, or a freshly installed ISO that has never run Windows Update). A fully patched machine has nothing to install, and you will only see the empty state. The examples assume the server name `current.lab`. For Part G you want a second enrolled machine (optional but it is the only way to see a ring wait for another ring).
+You need the Phase 1 to 3 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE3-DEMO.md](PHASE3-DEMO.md)): a running server stack, a console login with your authenticator, and a Windows 10/11 or Server 2019+ test machine. **Use a VM you can revert, and prefer one that is a few months behind on patches** (an old snapshot, or a freshly installed ISO that has never run Windows Update). A fully patched machine has nothing to install, and you will only see the empty state. The examples assume the server name `librepatch.lab`. For Part G you want a second enrolled machine (optional but it is the only way to see a ring wait for another ring).
 
-**Be honest about what is new:** this is the first time the Windows Update Agent (WUA, driven through COM) and the restart countdown run on a real machine. They have only been compiled for Windows, covered by tests against a scripted stand-in, and run read-only on a CI runner. If a scan or an install fails here, that is useful information: keep `C:\ProgramData\Current\logs\agent.log` and the job's log tail from the console.
+**Be honest about what is new:** this is the first time the Windows Update Agent (WUA, driven through COM) and the restart countdown run on a real machine. They have only been compiled for Windows, covered by tests against a scripted stand-in, and run read-only on a CI runner. If a scan or an install fails here, that is useful information: keep `C:\ProgramData\LibrePatch\logs\agent.log` and the job's log tail from the console.
 
 The Windows machine needs internet access to Windows Update (or to your WSUS server if it uses one; see Part H).
 
@@ -22,16 +22,16 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
 
 2. **Build the Phase 4 agent** and copy it to the Windows machine (`C:\Temp`):
    ```bash
-   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent
+   GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent
    ```
    Older agents cannot run Windows Update jobs and there is no agent self-update until Phase 5, so reinstall: in PowerShell as Administrator
    ```powershell
    cd C:\Temp
-   & "C:\Program Files\Current\Agent\slot-a\current-agent.exe" uninstall      # skip if never installed
+   & "C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" uninstall      # skip if never installed
    ```
    then **Enrollment → New token** in the console and
    ```powershell
-   .\current-agent.exe install --server current.lab:8443 --token CUR1.....
+   .\librepatch-agent.exe install --server librepatch.lab:8443 --token LP1.....
    ```
    Approve the device if asked. ✅ It is **online**.
 
@@ -40,7 +40,7 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
 3. Open the device and click the **Windows updates** tab. Within a minute or two of enrolling, the agent scans on its own; to ask right away click **Scan now** (it can take several minutes the first time, and the button shows a spinner).
    ✅ "Last scan <time>", and a table of updates with state (*missing*, *downloaded*, *hidden*, *needs restart*, *failed*), classification, severity and an approval column that says **pending** for everything.
    ✅ No yellow policy banner on a plain test VM. If you see one, read Part H first.
-   🔍 *Check on the machine:* `Get-Content C:\ProgramData\Current\logs\agent.log -Tail 40` shows the scan; `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` should be close to the number in the console (drivers are excluded by default).
+   🔍 *Check on the machine:* `Get-Content C:\ProgramData\LibrePatch\logs\agent.log -Tail 40` shows the scan; `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` should be close to the number in the console (drivers are excluded by default).
 
 4. Open **Windows updates** (left menu). ✅ The same updates appear fleet-wide with "1 missing". Click one: the detail shows which device misses it.
 
@@ -94,17 +94,17 @@ The Windows machine needs internet access to Windows Update (or to your WSUS ser
     Set-ItemProperty "$k\AU" UseWUServer 1 -Type DWord
     ```
     Click **Scan now**. ✅ The device tab shows a yellow banner **"Windows updates on this device are managed by another policy"**, effective source *wsus*, with the server name, and the machine appears under **Update policy → Devices managed by another update policy**. The scan itself will likely report an error (the fake server does not exist): ✅ it appears as **The last scan failed** with the cause.
-    Remove the test policy: `Remove-Item -Recurse "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"`. ✅ After the next scan the banner is gone. **Current never writes these policies**; the check proves that.
+    Remove the test policy: `Remove-Item -Recurse "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"`. ✅ After the next scan the banner is gone. **LibrePatch never writes these policies**; the check proves that.
 
 ## Part I: Checks that matter for trust (about 15 minutes)
 
 19. **Local ceiling.** Reinstall the agent with `--allowed-jobs inventory,software_install` (no `wu_*`). Click **Scan now**. ✅ The job ends `rejected` with the ceiling as the reason; the server cannot override it.
 
-20. **Audit.** **Audit log** shows `wu.decision`, `wu.auto_approve`, `wu.install`, `wu.hide`, `wu.scan`, `wu.ring_create`, `wu.rule_create`, `wu.hold`, `wu.hold_release` and `device.reboot` with who did what. 🔒 Verify the chain still checks: `docker compose -f deploy/docker-compose.yml exec server current-server admin verify-audit`.
+20. **Audit.** **Audit log** shows `wu.decision`, `wu.auto_approve`, `wu.install`, `wu.hide`, `wu.scan`, `wu.ring_create`, `wu.rule_create`, `wu.hold`, `wu.hold_release` and `device.reboot` with who did what. 🔒 Verify the chain still checks: `docker compose -f deploy/docker-compose.yml exec server librepatch-server admin verify-audit`.
 
 ## What to send back
 
-- Pass or fail for each ✅ above, with the agent log (`C:\ProgramData\Current\logs\agent.log`) and the job log for anything that failed.
+- Pass or fail for each ✅ above, with the agent log (`C:\ProgramData\LibrePatch\logs\agent.log`) and the job log for anything that failed.
 - Especially: did the first scan (step 3) and the first install (step 6) work on a real machine, did the restart countdown appear (step 12), and did the policy banner appear (step 18)? Those are the parts that could not be tested without a real Windows installation.
 
 ## Known gaps to keep in mind

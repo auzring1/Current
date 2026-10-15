@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 )
 
 // Unix is a best-effort collector used by the development/test agent build.

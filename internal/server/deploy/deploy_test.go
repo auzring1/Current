@@ -14,12 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/auzring1/current/gen/dbq"
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/server/pki"
-	"github.com/auzring1/current/internal/shared/envelope"
-	"github.com/auzring1/current/internal/shared/vercmp"
-	"github.com/auzring1/current/internal/testutil/pgtest"
+	"github.com/auzring1/librepatch/gen/dbq"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/shared/envelope"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
+	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
 
 type recorder struct {
@@ -706,7 +706,7 @@ func TestDeviceUpdatesListsOlderInstallsWithAvailableVersion(t *testing.T) {
 func TestFleetUpdatesGroupsOlderInstallsByPackage(t *testing.T) {
 	f := newFixture(t)
 	f.catalog(false) // Acme Tool 2.0
-	a, b, cur := f.device("a-pc", "amd64"), f.device("b-pc", "amd64"), f.device("cur-pc", "amd64")
+	a, b, cur := f.device("a-pc", "amd64"), f.device("b-pc", "amd64"), f.device("lp-pc", "amd64")
 	f.install(a, "machine", "", "reg64", "AcmeTool", "1.0")
 	f.install(b, "machine", "", "reg64", "AcmeTool", "1.5")
 	f.install(cur, "machine", "", "reg64", "AcmeTool", "2.0")

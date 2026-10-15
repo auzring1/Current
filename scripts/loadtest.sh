@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Runs the Current load scenarios (docs/LOADTEST.md) with cmd/current-loadsim.
+# Runs the LibrePatch load scenarios (docs/LOADTEST.md) with cmd/librepatch-loadsim.
 #
 # Local mode (default): builds the server, the load generator and the bootstrap tool, creates a
-# fresh database on the PostgreSQL named by CURRENT_TEST_PG_URL (a superuser URL), starts the server
+# fresh database on the PostgreSQL named by LIBREPATCH_TEST_PG_URL (a superuser URL), starts the server
 # binary, completes first-run setup through the REST API, runs the scenarios and writes
 #   <out>/<scenario>.json, <out>/<scenario>.md, <out>/summary.md, <out>/server.log
 # Nothing from <out> is ever committed (loadtest-results/ is git-ignored); it holds device
@@ -10,12 +10,12 @@
 #
 # External mode (--external): points at a server you already run (for example docker compose
 # on another host). Needs
-#   LOADTEST_API=https://current.example.com   REST base URL
+#   LOADTEST_API=https://librepatch.example.com   REST base URL
 #   LOADTEST_API_TOKEN=...                     API token with enrollment:write, devices:read,
 #                                              devices:write, updates:write, reports:read
 #   LOADTEST_GATEWAY=agents.example.com:8443   gateway address as in its certificate
-# The enrollment rate limits of that server must allow the fleet (CURRENT_ENROLL_RATE_PER_IP and
-# CURRENT_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes.
+# The enrollment rate limits of that server must allow the fleet (LIBREPATCH_ENROLL_RATE_PER_IP and
+# LIBREPATCH_ENROLL_RATE_PER_TOKEN), or enrollment takes about agents/10 minutes.
 #
 # Usage: scripts/loadtest.sh [--agents N] [--scenarios "steady storm churn"] [--duration 2m]
 #          [--ramp-per-sec N] [--storm-mode client|server-restart] [--jobs-fraction F]
@@ -73,23 +73,23 @@ if [ "$have" != "unlimited" ] && [ "$have" -lt $((AGENTS + 500)) ]; then
 fi
 
 echo "== building"
-CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/current-loadsim" ./cmd/current-loadsim
+CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/librepatch-loadsim" ./cmd/librepatch-loadsim
 server_pid=""
 cleanup() {
   [ -n "${server_pid:-}" ] && kill "$server_pid" 2>/dev/null || true
-  [ -n "${dbname:-}" ] && [ -n "${CURRENT_TEST_PG_URL:-}" ] && psql "$CURRENT_TEST_PG_URL" -qc "DROP DATABASE IF EXISTS $dbname WITH (FORCE)" >/dev/null 2>&1 || true
+  [ -n "${dbname:-}" ] && [ -n "${LIBREPATCH_TEST_PG_URL:-}" ] && psql "$LIBREPATCH_TEST_PG_URL" -qc "DROP DATABASE IF EXISTS $dbname WITH (FORCE)" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 start_server() {
   (
-    export CURRENT_DEV_MODE=true CURRENT_PUBLIC_URL="http://localhost:$HTTP_PORT" CURRENT_HTTP_ADDR="127.0.0.1:$HTTP_PORT"
-    export CURRENT_GATEWAY_ADDR="127.0.0.1:$GW_PORT" CURRENT_GATEWAY_PUBLIC_ADDR="localhost:$GW_PORT" CURRENT_GATEWAY_SANS=127.0.0.1
-    export CURRENT_CONTENT_DIR="$OUT/content" CURRENT_DATABASE_URL="$dburl" CURRENT_MASTER_KEY="$(cat "$OUT/master_key")"
-    export CURRENT_WINGET_SOURCE=off CURRENT_LOG_LEVEL="$LOG_LEVEL"
+    export LIBREPATCH_DEV_MODE=true LIBREPATCH_PUBLIC_URL="http://localhost:$HTTP_PORT" LIBREPATCH_HTTP_ADDR="127.0.0.1:$HTTP_PORT"
+    export LIBREPATCH_GATEWAY_ADDR="127.0.0.1:$GW_PORT" LIBREPATCH_GATEWAY_PUBLIC_ADDR="localhost:$GW_PORT" LIBREPATCH_GATEWAY_SANS=127.0.0.1
+    export LIBREPATCH_CONTENT_DIR="$OUT/content" LIBREPATCH_DATABASE_URL="$dburl" LIBREPATCH_MASTER_KEY="$(cat "$OUT/master_key")"
+    export LIBREPATCH_WINGET_SOURCE=off LIBREPATCH_LOG_LEVEL="$LOG_LEVEL"
     # Enrollment limits are raised for the test: one machine enrolls the whole fleet from one address.
-    export CURRENT_ENROLL_RATE_PER_IP=1000000 CURRENT_ENROLL_RATE_PER_TOKEN=1000000
-    exec "$OUT/bin/current-server" serve >>"$OUT/server.log" 2>&1
+    export LIBREPATCH_ENROLL_RATE_PER_IP=1000000 LIBREPATCH_ENROLL_RATE_PER_TOKEN=1000000
+    exec "$OUT/bin/librepatch-server" serve >>"$OUT/server.log" 2>&1
   ) &
   server_pid=$!
 }
@@ -97,16 +97,16 @@ start_server() {
 if [ "$EXTERNAL" = 1 ]; then
   : "${LOADTEST_API:?set LOADTEST_API}" "${LOADTEST_API_TOKEN:?set LOADTEST_API_TOKEN}" "${LOADTEST_GATEWAY:?set LOADTEST_GATEWAY}"
   api=$LOADTEST_API; gateway=$LOADTEST_GATEWAY
-  export CURRENT_LOADSIM_API_TOKEN=$LOADTEST_API_TOKEN
+  export LIBREPATCH_LOADSIM_API_TOKEN=$LOADTEST_API_TOKEN
   [ "$STORM_MODE" = client ] || { echo "server-restart storms need local mode" >&2; exit 2; }
   pgflag=(); pidflag=()
 else
-  : "${CURRENT_TEST_PG_URL:?set CURRENT_TEST_PG_URL to a PostgreSQL superuser URL}"
-  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/current-server" ./cmd/current-server
+  : "${LIBREPATCH_TEST_PG_URL:?set LIBREPATCH_TEST_PG_URL to a PostgreSQL superuser URL}"
+  CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/librepatch-server" ./cmd/librepatch-server
   CGO_ENABLED=0 go build -trimpath -o "$OUT/bin/bootstrap" ./test/tools/bootstrap
-  dbname="cur_load_$(date +%s)"
-  psql "$CURRENT_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
-  dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$CURRENT_TEST_PG_URL" "$dbname")
+  dbname="lp_load_$(date +%s)"
+  psql "$LIBREPATCH_TEST_PG_URL" -qc "CREATE DATABASE $dbname"
+  dburl=$(python3 -c "import sys,urllib.parse as u;p=u.urlsplit(sys.argv[1]);print(u.urlunsplit(p._replace(path='/'+sys.argv[2])))" "$LIBREPATCH_TEST_PG_URL" "$dbname")
   (umask 077; openssl rand -hex 32 >"$OUT/master_key")
   echo "== starting the server (database $dbname, http :$HTTP_PORT, gateway :$GW_PORT)"
   start_server
@@ -117,7 +117,7 @@ else
     -api-token-out "$OUT/api_token" >"$OUT/enrollment_string" 2>"$OUT/bootstrap.log" || { cat "$OUT/bootstrap.log"; exit 1; }
   chmod 600 "$OUT/api_token" "$OUT/enrollment_string"
   api="http://localhost:$HTTP_PORT"; gateway="127.0.0.1:$GW_PORT"
-  CURRENT_LOADSIM_API_TOKEN=$(cat "$OUT/api_token"); export CURRENT_LOADSIM_API_TOKEN
+  LIBREPATCH_LOADSIM_API_TOKEN=$(cat "$OUT/api_token"); export LIBREPATCH_LOADSIM_API_TOKEN
   pgflag=(--pg-url "$dburl")
   pidflag=(--server-pid "$server_pid")
   [ "$STORM_MODE" = server-restart ] && pidflag=()
@@ -166,7 +166,7 @@ for sc in $SCENARIOS; do
   args+=(${pgflag[@]+"${pgflag[@]}"} ${pidflag[@]+"${pidflag[@]}"})
   if [ "$sc" = storm ] && [ "$STORM_MODE" = server-restart ]; then
     args+=(--storm-mode external)
-    "$OUT/bin/current-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" &
+    "$OUT/bin/librepatch-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" &
     sim=$!
     for _ in $(seq 1 3600); do grep -q "STORM: waiting" "$OUT/$sc.err" 2>/dev/null && break; kill -0 "$sim" 2>/dev/null || break; sleep 0.1; done
     if kill -0 "$sim" 2>/dev/null; then
@@ -177,7 +177,7 @@ for sc in $SCENARIOS; do
     wait "$sim" || status=1
   else
     [ "$sc" = storm ] && args+=(--storm-mode client)
-    "$OUT/bin/current-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" || status=1
+    "$OUT/bin/librepatch-loadsim" "${args[@]}" >"$OUT/$sc.out" 2>"$OUT/$sc.err" || status=1
   fi
   netsnap >"$OUT/$sc.net.after"
   {

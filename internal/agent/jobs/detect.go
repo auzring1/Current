@@ -3,10 +3,10 @@ package jobs
 import (
 	"strings"
 
-	agentv1 "github.com/auzring1/current/gen/proto/current/agent/v1"
-	"github.com/auzring1/current/internal/agent/inventory"
-	"github.com/auzring1/current/internal/shared/installer"
-	"github.com/auzring1/current/internal/shared/vercmp"
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/agent/inventory"
+	"github.com/auzring1/librepatch/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
 // Detection is the result of evaluating rules for one (scope, SID).

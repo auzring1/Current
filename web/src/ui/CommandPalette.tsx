@@ -65,10 +65,10 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 export function SearchButton() {
   const { open } = useCommandPalette();
   return (
-    <button type="button" className="cur-search__field cur-search__trigger" onClick={open} aria-haspopup="dialog" aria-keyshortcuts="Control+K" data-testid="open-search">
+    <button type="button" className="lp-search__field lp-search__trigger" onClick={open} aria-haspopup="dialog" aria-keyshortcuts="Control+K" data-testid="open-search">
       <I.Search size={16} aria-hidden />
-      <span className="cur-search__placeholder">Search pages, devices and updates</span>
-      <kbd className="cur-kbd" aria-hidden="true">
+      <span className="lp-search__placeholder">Search pages, devices and updates</span>
+      <kbd className="lp-kbd" aria-hidden="true">
         Ctrl K
       </kbd>
     </button>
@@ -156,12 +156,12 @@ function Palette({ opened, onClose }: { opened: boolean; onClose: () => void }) 
   const busy = devices.isFetching || updates.isFetching || (q.trim().length >= 2 && dq !== q.trim());
   let last = "";
   return (
-    <Modal opened={opened} onClose={onClose} withCloseButton={false} padding={0} size={560} yOffset="12vh" title="Search" trapFocus returnFocus classNames={{ content: "cur-palette", header: "cur-visually-hidden" }}>
-      <div className="cur-palette__field">
+    <Modal opened={opened} onClose={onClose} withCloseButton={false} padding={0} size={560} yOffset="12vh" title="Search" trapFocus returnFocus classNames={{ content: "lp-palette", header: "lp-visually-hidden" }}>
+      <div className="lp-palette__field">
         <I.Search size={18} aria-hidden />
         <input
           ref={input}
-          className="cur-search__input"
+          className="lp-search__input"
           type="text"
           role="combobox"
           aria-label="Search pages, devices and updates"
@@ -176,43 +176,43 @@ function Palette({ opened, onClose }: { opened: boolean; onClose: () => void }) 
           onKeyDown={onKeyDown}
           data-autofocus
         />
-        <kbd className="cur-kbd" aria-hidden="true">
+        <kbd className="lp-kbd" aria-hidden="true">
           Esc
         </kbd>
       </div>
-      <div className="cur-palette__list" id={listId} role="listbox" aria-label="Results">
+      <div className="lp-palette__list" id={listId} role="listbox" aria-label="Results">
         {results.length === 0 && (
-          <div className="cur-search__none" role="presentation">
+          <div className="lp-search__none" role="presentation">
             {busy ? "Searching…" : "No matches"}
           </div>
         )}
         {results.map((r, i) => {
           const head = r.group !== last ? ((last = r.group), (
-            <div className="cur-search__group" role="presentation">
+            <div className="lp-search__group" role="presentation">
               {r.group}
             </div>
           )) : null;
           return (
             <div key={r.key} role="presentation">
               {head}
-              <button type="button" id={`${listId}-${i}`} role="option" aria-selected={i === active} className="cur-search__item" tabIndex={-1} onMouseMove={() => active !== i && setActive(i)} onClick={() => go(r)}>
+              <button type="button" id={`${listId}-${i}`} role="option" aria-selected={i === active} className="lp-search__item" tabIndex={-1} onMouseMove={() => active !== i && setActive(i)} onClick={() => go(r)}>
                 {r.icon}
-                <span className="cur-search__label">{r.label}</span>
+                <span className="lp-search__label">{r.label}</span>
                 {r.hint && <small>{r.hint}</small>}
               </button>
             </div>
           );
         })}
       </div>
-      <div className="cur-palette__foot" aria-hidden="true">
+      <div className="lp-palette__foot" aria-hidden="true">
         <span>
-          <kbd className="cur-kbd">↑</kbd> <kbd className="cur-kbd">↓</kbd> to move
+          <kbd className="lp-kbd">↑</kbd> <kbd className="lp-kbd">↓</kbd> to move
         </span>
         <span>
-          <kbd className="cur-kbd">Enter</kbd> to open
+          <kbd className="lp-kbd">Enter</kbd> to open
         </span>
       </div>
-      <div className="cur-visually-hidden" role="status" aria-live="polite">
+      <div className="lp-visually-hidden" role="status" aria-live="polite">
         {results.length} result{results.length === 1 ? "" : "s"}
       </div>
     </Modal>

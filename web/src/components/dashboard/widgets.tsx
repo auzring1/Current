@@ -48,14 +48,14 @@ export function ComplianceWidget({ d }: Props) {
   ];
   const total = slices.reduce((s, x) => s + x.value, 0);
   return (
-    <Card title="Patch compliance over time" description="Devices per compliance state, one snapshot per day" footer={<Link to="/reports" className="cur-dash-foot">Open reports</Link>}>
-      <div className="cur-dash-compliance">
+    <Card title="Patch compliance over time" description="Devices per compliance state, one snapshot per day" footer={<Link to="/reports" className="lp-dash-foot">Open reports</Link>}>
+      <div className="lp-dash-compliance">
         <div>
           {days.length >= 2 ? (
             <ComplianceChart days={days} />
           ) : (
             <>
-              <p className="cur-dash-empty" style={{ padding: 0 }}>
+              <p className="lp-dash-empty" style={{ padding: 0 }}>
                 {days.length === 0 ? "No history yet. " : `Only one day recorded (${historySummary(days).replace(/^Compliance on /, "")}). `}
                 History builds up as the server takes hourly snapshots.
               </p>
@@ -64,11 +64,11 @@ export function ComplianceWidget({ d }: Props) {
         </div>
         <div>
           <Donut label="Compliance now" center={total} sub="devices" size={120} slices={slices.map(({ label, value, token }) => ({ label, value, token }))} />
-          <ul className="cur-dash-states" aria-label="Show devices by compliance">
+          <ul className="lp-dash-states" aria-label="Show devices by compliance">
             {slices.map((s) => (
               <li key={s.state}>
                 <Link to={`/reports?state=${s.state}`}>
-                  <span className="cur-dot" style={{ background: `var(--cur-${s.token}-solid)` }} aria-hidden="true" />
+                  <span className="lp-dot" style={{ background: `var(--lp-${s.token}-solid)` }} aria-hidden="true" />
                   {s.label}
                   <b>{s.value}</b>
                 </Link>
@@ -84,21 +84,21 @@ export function ComplianceWidget({ d }: Props) {
 export function TopMissingWidget({ d }: Props) {
   const rows = d.top_missing ?? [];
   return (
-    <Card title="Top missing updates" description="Updates missing on the most devices" flush footer={<Link to="/updates" className="cur-dash-foot">View all updates</Link>}>
+    <Card title="Top missing updates" description="Updates missing on the most devices" flush footer={<Link to="/updates" className="lp-dash-foot">View all updates</Link>}>
       {rows.length === 0 ? (
-        <p className="cur-dash-empty">No updates are missing on any device.</p>
+        <p className="lp-dash-empty">No updates are missing on any device.</p>
       ) : (
-        <ul className="cur-dash-list">
+        <ul className="lp-dash-list">
           {rows.map((u, i) => (
             <li key={u.update_id ?? i}>
-              <Link className="cur-dash-row" to={missingUpdateLink(u)}>
-                <span className="cur-dash-row__main">
-                  <span className="cur-dash-row__title">{u.title || "Untitled update"}</span>
-                  {(u.kb ?? []).length > 0 && <span className="cur-dash-row__meta">{(u.kb ?? []).map(kbLabel).join(", ")}</span>}
+              <Link className="lp-dash-row" to={missingUpdateLink(u)}>
+                <span className="lp-dash-row__main">
+                  <span className="lp-dash-row__title">{u.title || "Untitled update"}</span>
+                  {(u.kb ?? []).length > 0 && <span className="lp-dash-row__meta">{(u.kb ?? []).map(kbLabel).join(", ")}</span>}
                 </span>
-                <span className="cur-dash-row__side">
+                <span className="lp-dash-row__side">
                   <SeverityBadge severity={u.severity} size="sm" />
-                  <span className="cur-dash-count">{u.devices ?? 0} {(u.devices ?? 0) === 1 ? "device" : "devices"}</span>
+                  <span className="lp-dash-count">{u.devices ?? 0} {(u.devices ?? 0) === 1 ? "device" : "devices"}</span>
                 </span>
               </Link>
             </li>
@@ -119,18 +119,18 @@ const REASON_PILL: Record<Reason, { kind: PillKind; icon: typeof Icons.Offline }
 export function AttentionWidget({ d }: Props) {
   const rows = d.attention ?? [];
   return (
-    <Card title="Devices needing attention" description="Worst first" flush footer={<Link to="/devices" className="cur-dash-foot">View all devices</Link>}>
+    <Card title="Devices needing attention" description="Worst first" flush footer={<Link to="/devices" className="lp-dash-foot">View all devices</Link>}>
       {rows.length === 0 ? (
-        <p className="cur-dash-empty">No device needs attention right now.</p>
+        <p className="lp-dash-empty">No device needs attention right now.</p>
       ) : (
-        <ul className="cur-dash-list">
+        <ul className="lp-dash-list">
           {rows.map((r, i) => (
             <li key={r.device_id ?? i}>
-              <Link className="cur-dash-row" to={`/devices/${r.device_id}`}>
-                <span className="cur-dash-row__main">
-                  <span className="cur-dash-row__title">{r.hostname || "Unnamed device"}</span>
+              <Link className="lp-dash-row" to={`/devices/${r.device_id}`}>
+                <span className="lp-dash-row__main">
+                  <span className="lp-dash-row__title">{r.hostname || "Unnamed device"}</span>
                 </span>
-                <span className="cur-dash-row__side">
+                <span className="lp-dash-row__side">
                   {(r.reasons ?? []).map((reason) => {
                     const p = REASON_PILL[reason] ?? { kind: "neutral" as PillKind, icon: Icons.Unknown };
                     return (
@@ -152,21 +152,21 @@ export function AttentionWidget({ d }: Props) {
 export function ActivityWidget({ d, now }: Props & { now?: number }) {
   const rows = d.activity ?? [];
   return (
-    <Card title="Recent activity" description="Latest entries in the audit log" flush footer={<Link to="/audit" className="cur-dash-foot">View audit log</Link>}>
-      <ul className="cur-dash-list">
+    <Card title="Recent activity" description="Latest entries in the audit log" flush footer={<Link to="/audit" className="lp-dash-foot">View audit log</Link>}>
+      <ul className="lp-dash-list">
         {rows.map((a) => (
           <li key={a.id}>
-            <div className="cur-dash-row">
-              <span className="cur-dash-row__main">
-                <span className="cur-dash-row__title">{humanAction(a.action)}</span>
-                <span className="cur-dash-row__meta">
+            <div className="lp-dash-row">
+              <span className="lp-dash-row__main">
+                <span className="lp-dash-row__title">{humanAction(a.action)}</span>
+                <span className="lp-dash-row__meta">
                   {a.actor_name || a.actor_type}
                   {" · "}
                   <time dateTime={a.ts}>{ago(a.ts, now)}</time>
                 </span>
               </span>
               {a.outcome !== "success" && (
-                <span className="cur-dash-row__side">
+                <span className="lp-dash-row__side">
                   {a.outcome === "denied" ? (
                     <StatusPill kind="warning" size="sm" icon={Icons.Lock}>
                       Denied
@@ -192,17 +192,17 @@ export function AgentsWidget({ d }: Props) {
   return (
     <Card title="Agent versions" description="Devices per agent version">
       {rows.length === 0 ? (
-        <p className="cur-dash-empty" style={{ padding: 0 }}>No agent has reported a version yet.</p>
+        <p className="lp-dash-empty" style={{ padding: 0 }}>No agent has reported a version yet.</p>
       ) : (
-        <ul className="cur-dash-bars">
+        <ul className="lp-dash-bars">
           {rows.map((r) => (
             <li key={r.version}>
               <Link to={`/devices?agent=${encodeURIComponent(r.version ?? "")}`} aria-label={`${r.devices ?? 0} devices on version ${r.version || "unknown"}`}>
                 <code>{r.version || "unknown"}</code>
-                <span className="cur-dash-bars__track" aria-hidden="true">
-                  <span className="cur-dash-bars__fill" style={{ width: `${(100 * (r.devices ?? 0)) / max}%`, display: "block" }} />
+                <span className="lp-dash-bars__track" aria-hidden="true">
+                  <span className="lp-dash-bars__fill" style={{ width: `${(100 * (r.devices ?? 0)) / max}%`, display: "block" }} />
                 </span>
-                <span className="cur-dash-count">{r.devices ?? 0}</span>
+                <span className="lp-dash-count">{r.devices ?? 0}</span>
               </Link>
             </li>
           ))}

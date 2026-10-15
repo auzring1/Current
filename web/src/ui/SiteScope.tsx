@@ -11,7 +11,7 @@ interface Scope {
   setSiteId: (id: string) => void;
 }
 
-const KEY = "cur-site";
+const KEY = "lp-site";
 const Ctx = createContext<Scope>({ sites: [], siteId: "", setSiteId: () => undefined });
 export const useSiteScope = () => useContext(Ctx);
 

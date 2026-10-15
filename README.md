@@ -1,4 +1,4 @@
-# Current
+# LibrePatch
 
 Free, self-hosted patch and software management for Windows endpoints. A small Go agent runs on each PC, a Go server with a
 REST API and web console runs in Docker on your own hardware, and nothing leaves your network: there is no cloud service,
@@ -23,12 +23,12 @@ new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a 
 ## Quick start (production-style, one host)
 ```bash
 ./scripts/init-secrets.sh                       # Docker secrets in deploy/secrets/ (back them up!)
-cp deploy/.env.example deploy/.env              # set CURRENT_HOSTNAME (and CURRENT_CADDY_TLS)
+cp deploy/.env.example deploy/.env              # set LIBREPATCH_HOSTNAME (and LIBREPATCH_CADDY_TLS)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
-Then open `https://<CURRENT_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
-`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o current-agent.exe ./cmd/current-agent`
+Then open `https://<LIBREPATCH_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
+`GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent`
 and install it on an endpoint with the command the console shows under **Enrollment**.
 
 - Full operations guide: [docs/RUNBOOK.md](docs/RUNBOOK.md)
@@ -40,7 +40,7 @@ and install it on an endpoint with the command the console shows under **Enrollm
 Requirements: Go 1.27 (the toolchain is pinned in `go.mod`), Node 22, Docker.
 ```bash
 make tools                 # pinned generators and linters
-make dev-db                # throwaway Postgres; prints CURRENT_TEST_PG_URL to export
+make dev-db                # throwaway Postgres; prints LIBREPATCH_TEST_PG_URL to export
 make web build             # console bundle, server, agent (windows + linux test build)
 make test                  # unit, database and in-process end-to-end tests (race detector)
 make test-gui              # Playwright: setup → MFA login → enroll a real agent → deploy a package → revoke, CSP-strict
@@ -48,13 +48,13 @@ make fuzz                  # 20 s per fuzz target over the untrusted-input parse
 make test-compose          # full docker-compose stack + real agent process
 make lint vuln licenses    # vet, staticcheck, gosec, semgrep; govulncheck, npm audit; license allow-list
 ```
-Run the web console against a local server: start the server with `CURRENT_DEV_MODE=true CURRENT_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
+Run the web console against a local server: start the server with `LIBREPATCH_DEV_MODE=true LIBREPATCH_PUBLIC_URL=http://localhost:5173 ...`, then run `cd web && npm run dev`.
 
 ## Repository layout
 | Path | |
 |---|---|
-| `cmd/current-server`, `cmd/current-agent`, `cmd/current-release` | Binaries (`current-release` is the release-signing tool: it signs the agent releases the server hands out) |
-| `cmd/current-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
+| `cmd/librepatch-server`, `cmd/librepatch-agent`, `cmd/librepatch-release` | Binaries (`librepatch-release` is the release-signing tool: it signs the agent releases the server hands out) |
+| `cmd/librepatch-loadsim` | Load generator that simulates thousands of agents against a server (see [docs/LOADTEST.md](docs/LOADTEST.md)); a test tool, not shipped |
 | `internal/server/*` | API, auth/MFA, gateway, PKI, audit, store, web UI embedding |
 | `internal/agent/*` | Agent core, CNG key store, hardware collector, Windows service, installer |
 | `internal/shared/*` | Protocol helpers shared by both: envelopes, enrollment bundle, PKIX conventions |
@@ -85,8 +85,8 @@ Run the web console against a local server: start the server with `CURRENT_DEV_M
 ## Contributing, security and license
 - **Contributing:** bug reports, ideas and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Security problems:** please report them privately; see [SECURITY.md](SECURITY.md).
-- **License:** Copyright © 2026 the Current contributors. Current is free software under the
+- **License:** Copyright © 2026 the LibrePatch contributors. LibrePatch is free software under the
   [GNU Affero General Public License v3.0 or later](LICENSE). You may use it, including at work, and change it. If you run a
   modified version for other people, or distribute a modified agent, you must make your changes available under the same
-  license. The name "Current" is not part of that license: see [TRADEMARKS.md](TRADEMARKS.md).
+  license. The name "LibrePatch" is not part of that license: see [TRADEMARKS.md](TRADEMARKS.md).
 - Third-party components and their licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

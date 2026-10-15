@@ -12,13 +12,13 @@ package brand
 
 const (
 	// Name is the product name shown to people.
-	Name = "Current"
+	Name = "LibrePatch"
 	// AgentName is the name of the endpoint agent as shown on a machine (service display name, MSI, file properties).
 	AgentName = Name + " Agent"
 	// Company is the vendor (the manufacturer in the MSI and in the file properties, the copyright holder).
-	Company = "The Current contributors"
-	// Slug is the lower-case stem of command and file names (current-server, current-agent.exe, ...).
-	Slug = "current"
+	Company = "The LibrePatch contributors"
+	// Slug is the lower-case stem of command and file names (librepatch-server, librepatch-agent.exe, ...).
+	Slug = "librepatch"
 )
 
 // Names of what the agent leaves on a machine. They are derived from Name so that they cannot drift apart.

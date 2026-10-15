@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/auzring1/current/gen/dbq"
+	"github.com/auzring1/librepatch/gen/dbq"
 )
 
 // StaleAfter is how old a device's last Windows Update scan may be before its compliance is "unknown".

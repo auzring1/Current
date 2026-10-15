@@ -90,7 +90,7 @@ function DeviceRow({ node, onChange }: { node: Filter; onChange: (n: Filter) => 
       input = <TextInput value={String(v ?? "")} onChange={(e) => onChange({ ...node, value: e.currentTarget.value })} maxLength={200} w={240} aria-label="Value" />;
   }
   return (
-    <div className="cur-filter__cond">
+    <div className="lp-filter__cond">
       <Select data={Object.entries(all).map(([value, m]) => ({ value, label: m.label }))} value={node.field} onChange={(x) => x && setField(x)} w={210} aria-label="Field" allowDeselect={false} />
       <Select data={options(meta.cmps)} value={node.cmp} onChange={(x) => x && onChange({ ...node, cmp: x })} w={130} aria-label="Comparison" allowDeselect={false} disabled={meta.cmps.length === 1} />
       {input}
@@ -102,13 +102,13 @@ function SoftwareRow({ node, onChange }: { node: Filter; onChange: (n: Filter) =
   const ver = node.version;
   return (
     <div>
-      <div className="cur-filter__cond">
-        <span className="cur-filter__label">Has software</span>
+      <div className="lp-filter__cond">
+        <span className="lp-filter__label">Has software</span>
         <TextInput placeholder="Product name, e.g. chrome" value={node.title ?? ""} onChange={(e) => onChange({ ...node, title: e.currentTarget.value })} maxLength={200} w={240} aria-label="Product name" />
         <Select data={[{ value: "contains", label: "name contains" }, { value: "exact", label: "name is exactly" }, { value: "prefix", label: "name starts with" }]} value={node.match ?? "contains"} onChange={(x) => onChange({ ...node, match: (x ?? "contains") as Filter["match"] })} w={160} aria-label="Name match" allowDeselect={false} />
         <TextInput placeholder="Publisher (optional)" value={node.publisher ?? ""} onChange={(e) => onChange({ ...node, publisher: e.currentTarget.value || undefined })} maxLength={200} w={190} aria-label="Publisher" />
       </div>
-      <div className="cur-filter__cond">
+      <div className="lp-filter__cond">
         <Select
           data={[{ value: "", label: "any version" }, ...VERSION_CMPS.map((c) => ({ value: c, label: `version ${CMP_LABEL[c]}` }))]}
           value={ver?.cmp ?? ""}
@@ -137,9 +137,9 @@ function Row({ node, onChange, onRemove, depth }: RowProps) {
   const inner = negated ? node.children![0]! : node;
   const setInner = (n: Filter) => onChange(negated ? { op: "not", children: [n] } : n);
   return (
-    <div className="cur-filter__row">
+    <div className="lp-filter__row">
       <Checkbox label="NOT" checked={negated} onChange={(e) => onChange(e.currentTarget.checked ? { op: "not", children: [inner] } : inner)} mt={6} aria-label="Negate this condition" />
-      <div className="cur-filter__body">
+      <div className="lp-filter__body">
         {inner.op === "device" && <DeviceRow node={inner} onChange={setInner} />}
         {inner.op === "software" && <SoftwareRow node={inner} onChange={setInner} />}
         {(inner.op === "and" || inner.op === "or") && <FilterEditor node={inner} onChange={setInner} depth={depth + 1} />}
@@ -157,15 +157,15 @@ export function FilterEditor({ node, onChange, depth = 0 }: { node: Filter; onCh
   const setChild = (i: number, c: Filter) => onChange({ ...node, children: children.map((x, j) => (j === i ? c : x)) });
   const remove = (i: number) => onChange({ ...node, children: children.filter((_, j) => j !== i) });
   return (
-    <div className={depth === 0 ? "cur-filter cur-filter--root" : "cur-filter"}>
-      <div className="cur-row">
+    <div className={depth === 0 ? "lp-filter lp-filter--root" : "lp-filter"}>
+      <div className="lp-row">
         <SegmentedControl size="xs" value={node.op} onChange={(v) => onChange({ ...node, op: v as "and" | "or" })} data={[{ value: "and", label: "All of" }, { value: "or", label: "Any of" }]} aria-label="Combine conditions" />
-        <span className="cur-hint">these conditions match</span>
+        <span className="lp-hint">these conditions match</span>
       </div>
       {children.map((c, i) => (
         <Row key={i} node={c} depth={depth} onChange={(n) => setChild(i, n)} onRemove={children.length > 1 || depth > 0 ? () => remove(i) : undefined} />
       ))}
-      <div className="cur-row">
+      <div className="lp-row">
         <Button size="xs" variant="light" leftSection={<Icons.Plus size={14} aria-hidden />} onClick={() => onChange({ ...node, children: [...children, newDeviceCondition()] })}>
           Device condition
         </Button>

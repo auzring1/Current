@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/settings"
-	"github.com/auzring1/current/internal/server/store"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/server/store"
 )
 
 func (s *server) setSvc(w http.ResponseWriter) bool {
@@ -155,7 +155,7 @@ func (s *server) exportSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.auditSimple(r, "settings.export", "settings", []string{"all"}, map[string]any{"sections": len(doc.Sections)})
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", `attachment; filename="current-settings-`+s.now().UTC().Format("2006-01-02")+`.json"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="librepatch-settings-`+s.now().UTC().Format("2006-01-02")+`.json"`)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

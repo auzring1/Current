@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/internal/server/kek"
-	spkix "github.com/auzring1/current/internal/shared/pkix"
+	"github.com/auzring1/librepatch/internal/server/kek"
+	spkix "github.com/auzring1/librepatch/internal/shared/pkix"
 )
 
 func newAuthority(t *testing.T) (*Hierarchy, *Authority) {

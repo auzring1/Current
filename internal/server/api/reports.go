@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/csv"
-	"github.com/auzring1/current/internal/shared/brand"
+	"github.com/auzring1/librepatch/internal/shared/brand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/auzring1/current/gen/dbq"
-	"github.com/auzring1/current/internal/server/audit"
-	"github.com/auzring1/current/internal/server/groups"
+	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/audit"
+	"github.com/auzring1/librepatch/internal/server/groups"
 )
 
 // maxExportRows bounds one CSV download.
