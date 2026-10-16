@@ -67,12 +67,12 @@ func (s *server) deviceUpdates(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := s.Deploy.DeviceUpdates(r.Context(), principalFrom(r).OrgID, d.ID)
+	items, checks, err := s.Deploy.DeviceUpdateReport(r.Context(), principalFrom(r).OrgID, d.ID)
 	if err != nil {
 		s.deviceActionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "checks": checks})
 }
 
 // fleetSoftwareUpdates: GET /software/updates. The catalog packages that are out of date on at least one active

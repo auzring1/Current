@@ -1730,7 +1730,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Installed programs for which the catalog holds a newer version (requires deployments:read) */
+        /** Installed programs for which the catalog or the winget index holds a newer version, and why the others have none (requires deployments:read) */
         get: {
             parameters: {
                 query?: never;
@@ -1750,6 +1750,8 @@ export interface paths {
                     content: {
                         "application/json": {
                             items: components["schemas"]["AvailableUpdate"][];
+                            /** @description One entry per other installed program: what the update check concluded */
+                            checks: components["schemas"]["UpdateCheck"][];
                         };
                     };
                 };
@@ -6536,6 +6538,20 @@ export interface components {
             winget_id?: string;
             /** @enum {string} */
             matched_by?: "product_code" | "name";
+        };
+        UpdateCheck: {
+            source: string;
+            /** @enum {string} */
+            scope: "machine" | "user";
+            user_sid?: string;
+            item_key: string;
+            /**
+             * @description current: recognised and nothing newer; unrecognised: could not be tied to a package; skipped: not checked on purpose (store apps, portable programs, exclusions)
+             * @enum {string}
+             */
+            status: "current" | "unrecognised" | "skipped";
+            /** @description A plain-words explanation */
+            message: string;
         };
         WingetIndexStatus: {
             enabled: boolean;

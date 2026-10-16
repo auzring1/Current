@@ -102,3 +102,63 @@ func TestSearchRanksExactAndPrefixFirst(t *testing.T) {
 		t.Fatal("package lookup is case-insensitive")
 	}
 }
+
+func TestRecogniseExplainsWhyNot(t *testing.T) {
+	m := matcher(t)
+	for _, c := range []struct {
+		name string
+		in   Installed
+		code string
+		ids  []string
+	}{
+		{"store app", Installed{Name: "Google Chrome", Publisher: "Google LLC", Source: "appx"}, "store_app", nil},
+		{"portable", Installed{Name: "MicroSIP", Publisher: "MicroSIP", Source: "portable"}, "portable", nil},
+		{"name in the index, no publisher listed", Installed{Name: "MicroSIP", ItemKey: "MicroSIP", Source: "reg32"}, "no_publisher", []string{"MicroSIP.MicroSIP"}},
+		{"name in the index, other publisher", Installed{Name: "MicroSIP", Publisher: "Contoso Health", ItemKey: "MicroSIP", Source: "reg32"}, "publisher_differs", []string{"MicroSIP.MicroSIP"}},
+		{"two packages share the key", Installed{Name: "Citrix Workspace 2607", Publisher: "Citrix Systems, Inc.", ItemKey: "CitrixOnlinePluginPackWeb", Source: "reg32"}, "ambiguous", []string{"Citrix.Workspace", "Citrix.Workspace.LTSR"}},
+		{"nothing fits", Installed{Name: "Hospital Scheduling Client", Publisher: "Contoso Health", ItemKey: "HSC", Source: "reg64"}, "unknown", nil},
+	} {
+		_, why := m.Recognise(c.in, nil)
+		if why == nil || why.Code != c.code {
+			t.Errorf("%s: reason %+v, want %s", c.name, why, c.code)
+			continue
+		}
+		if len(why.IDs) != len(c.ids) {
+			t.Errorf("%s: ids %v, want %v", c.name, why.IDs, c.ids)
+			continue
+		}
+		for i := range c.ids {
+			if why.IDs[i] != c.ids[i] {
+				t.Errorf("%s: ids %v, want %v", c.name, why.IDs, c.ids)
+			}
+		}
+	}
+	if mt, why := m.Recognise(Installed{Name: "MicroSIP", Publisher: "MicroSIP", ItemKey: "MicroSIP", Source: "reg32"}, nil); why != nil || mt.ID != "MicroSIP.MicroSIP" {
+		t.Fatalf("name and publisher agree: %+v %+v", mt, why)
+	}
+}
+
+func TestRecognisePrefersThePackageAlreadyInTheCatalog(t *testing.T) {
+	m := matcher(t)
+	citrix := Installed{Name: "Citrix Workspace 2607", Publisher: "Citrix Systems, Inc.", ItemKey: "CitrixOnlinePluginPackWeb", Source: "reg32"}
+	only := func(id string) func(string) bool { return func(x string) bool { return x == id } }
+	if mt, why := m.Recognise(citrix, only("Citrix.Workspace.LTSR")); why != nil || mt.ID != "Citrix.Workspace.LTSR" || mt.By != "product_code" {
+		t.Fatalf("the imported edition should win: %+v %+v", mt, why)
+	}
+	both := func(id string) bool { return id == "Citrix.Workspace" || id == "Citrix.Workspace.LTSR" }
+	if _, why := m.Recognise(citrix, both); why == nil || why.Code != "ambiguous" {
+		t.Fatalf("both imported: still ambiguous, got %+v", why)
+	}
+	if _, why := m.Recognise(citrix, only("Google.Chrome")); why == nil {
+		t.Fatal("an unrelated catalog package decides nothing")
+	}
+	// A shared key with a publisher that does not agree is never settled by preference alone.
+	other := Installed{Name: "Citrix Workspace 2607", Publisher: "Contoso Health", ItemKey: "CitrixOnlinePluginPackWeb", Source: "reg32"}
+	if _, why := m.Recognise(other, only("Citrix.Workspace.LTSR")); why == nil {
+		t.Fatal("publisher must still agree")
+	}
+	// Name and publisher path: the same preference applies.
+	if mt, why := m.Recognise(Installed{Name: "Citrix Workspace", Publisher: "Citrix Systems, Inc.", ItemKey: "x", Source: "reg64"}, only("Citrix.Workspace")); why != nil || mt.ID != "Citrix.Workspace" || mt.By != "name" {
+		t.Fatalf("name path: %+v %+v", mt, why)
+	}
+}

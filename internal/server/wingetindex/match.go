@@ -228,11 +228,64 @@ func uniq(in []int) []int {
 	return out
 }
 
+// Reason says why an installed program was not recognised, so the console can tell the administrator instead of leaving
+// "no update" unexplained.
+type Reason struct {
+	// Code is one of: store_app, portable, no_publisher (the name is in the index but the program lists no publisher),
+	// publisher_differs (the name is in the index under another publisher), ambiguous (several packages fit equally
+	// well) or unknown (nothing in the index fits).
+	Code string
+	// IDs are the packages involved (at most maxReasonIDs).
+	IDs []string
+}
+
+const maxReasonIDs = 4
+
+func (m *Matcher) ids(idx []int) []string {
+	var out []string
+	for _, i := range idx {
+		if len(out) == maxReasonIDs {
+			break
+		}
+		out = append(out, m.pkgs[i].ID)
+	}
+	return out
+}
+
+// preferOne narrows several equally good candidates to the one the caller prefers (the package the administrator
+// already imported); it changes nothing unless exactly one of them is preferred.
+func (m *Matcher) preferOne(pool []int, prefer func(id string) bool) []int {
+	if prefer == nil || len(pool) < 2 {
+		return pool
+	}
+	var p []int
+	for _, i := range pool {
+		if prefer(m.pkgs[i].ID) {
+			p = append(p, i)
+		}
+	}
+	if len(p) == 1 {
+		return p
+	}
+	return pool
+}
+
 // Find recognises an installed program. It is deliberately cautious: a program that matches several packages equally
 // well, or only by name without a matching publisher, is not matched (a wrong match could install the wrong software).
 func (m *Matcher) Find(in Installed) (Match, bool) {
-	if in.Source == "appx" || in.Source == "portable" {
-		return Match{}, false
+	mt, why := m.Recognise(in, nil)
+	return mt, why == nil
+}
+
+// Recognise is Find with two additions: it says why a program was not recognised, and when several packages fit
+// equally well it takes the one prefer reports as already known (for example, imported into the catalog). prefer may
+// be nil.
+func (m *Matcher) Recognise(in Installed, prefer func(id string) bool) (Match, *Reason) {
+	switch in.Source {
+	case "appx":
+		return Match{}, &Reason{Code: "store_app"}
+	case "portable":
+		return Match{}, &Reason{Code: "portable"}
 	}
 	norm, arch := NormalizeName(in.Name)
 	pub := NormalizePublisher(in.Publisher)
@@ -264,35 +317,43 @@ func (m *Matcher) Find(in Installed) (Match, bool) {
 	byCode = uniq(byCode)
 	switch {
 	case len(byCode) == 1:
-		return m.result(byCode[0], "product_code"), true
+		return m.result(byCode[0], "product_code"), nil
 	case len(byCode) > 1: // e.g. Firefox and Firefox ESR share a key: the name decides
-		var ok []int
+		var pool []int
 		for _, i := range byCode {
 			if nameOK(i) {
-				ok = append(ok, i)
+				pool = append(pool, i)
 			}
 		}
-		if len(ok) == 1 {
-			return m.result(ok[0], "product_code"), true
+		if len(pool) == 0 { // the name says nothing: the publisher must at least agree
+			for _, i := range byCode {
+				if publishersAgree(pub, m.pkgs[i].NormPublishers) {
+					pool = append(pool, i)
+				}
+			}
 		}
-		return Match{}, false
+		if pool = m.preferOne(pool, prefer); len(pool) == 1 {
+			return m.result(pool[0], "product_code"), nil
+		}
+		return Match{}, &Reason{Code: "ambiguous", IDs: m.ids(byCode)}
 	}
 
 	// 2. Name and publisher.
-	if pub == "" {
-		return Match{}, false
-	}
-	var cand []int
+	var named, cand []int
 	for _, n := range names {
 		for _, i := range m.byName[n] {
+			named = append(named, i)
 			if publishersAgree(pub, m.pkgs[i].NormPublishers) {
 				cand = append(cand, i)
 			}
 		}
 	}
-	cand = uniq(cand)
-	if len(cand) == 1 {
-		return m.result(cand[0], "name"), true
+	named, cand = uniq(named), uniq(cand)
+	if pub == "" {
+		if len(named) > 0 {
+			return Match{}, &Reason{Code: "no_publisher", IDs: m.ids(named)}
+		}
+		return Match{}, &Reason{Code: "unknown"}
 	}
 	if len(cand) > 1 { // prefer the one that also lists the exact architecture-qualified name
 		var exact []int
@@ -302,10 +363,19 @@ func (m *Matcher) Find(in Installed) (Match, bool) {
 			}
 		}
 		if len(exact) == 1 {
-			return m.result(exact[0], "name"), true
+			cand = exact
 		}
+		cand = m.preferOne(cand, prefer)
 	}
-	return Match{}, false
+	switch {
+	case len(cand) == 1:
+		return m.result(cand[0], "name"), nil
+	case len(cand) > 1:
+		return Match{}, &Reason{Code: "ambiguous", IDs: m.ids(cand)}
+	case len(named) > 0:
+		return Match{}, &Reason{Code: "publisher_differs", IDs: m.ids(named)}
+	}
+	return Match{}, &Reason{Code: "unknown"}
 }
 
 // Newer reports whether the package's latest version is newer than the installed version key.

@@ -776,7 +776,7 @@ paths:
   /devices/{id}/updates:
     get:
       tags: [deployments]
-      summary: Installed programs for which the catalog holds a newer version (requires deployments:read)
+      summary: Installed programs for which the catalog or the winget index holds a newer version, and why the others have none (requires deployments:read)
       parameters: [{ $ref: "#/components/parameters/ID" }]
       responses:
         "200":
@@ -785,9 +785,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [items, checks]
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/AvailableUpdate" } }
+                  checks: { type: array, items: { $ref: "#/components/schemas/UpdateCheck" }, description: "One entry per other installed program: what the update check concluded" }
         "404": { $ref: "#/components/responses/Error" }
   /devices/{id}/software/uninstall:
     post:
@@ -2992,6 +2993,16 @@ components:
         in_catalog: { type: boolean, description: "false when the update comes from the winget index only (package_id is then the nil UUID and winget_id names the package)" }
         winget_id: { type: string }
         matched_by: { type: string, enum: [product_code, name] }
+    UpdateCheck:
+      type: object
+      required: [source, scope, item_key, status, message]
+      properties:
+        source: { type: string }
+        scope: { type: string, enum: [machine, user] }
+        user_sid: { type: string }
+        item_key: { type: string }
+        status: { type: string, enum: [current, unrecognised, skipped], description: "current: recognised and nothing newer; unrecognised: could not be tied to a package; skipped: not checked on purpose (store apps, portable programs, exclusions)" }
+        message: { type: string, description: A plain-words explanation }
     WingetIndexStatus:
       type: object
       required: [enabled, url, package_count]

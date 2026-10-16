@@ -6,6 +6,7 @@ import {
   api,
   errorMessage,
   type AvailableUpdate,
+  type UpdateCheck,
   type DeploymentPlan,
   type DeviceSoftware,
   type DeviceUser,
@@ -24,7 +25,7 @@ function useUpdates(id: string) {
   const { can } = useSession();
   return useQuery({
     queryKey: ["device", id, "updates"],
-    queryFn: () => api<{ items: AvailableUpdate[] }>("GET", `/devices/${id}/updates`),
+    queryFn: () => api<{ items: AvailableUpdate[]; checks: UpdateCheck[] }>("GET", `/devices/${id}/updates`),
     enabled: can("deployments:read"),
   });
 }
@@ -158,6 +159,27 @@ const updatePill = (u: AvailableUpdate | undefined) =>
     <span className="lp-muted">—</span>
   );
 
+/** What the update check concluded for a program that has no update: up to date, or why it could not be checked. */
+const checkPill = (c: UpdateCheck | undefined) => {
+  if (!c) return <span className="lp-muted">—</span>;
+  const label = c.status === "current" ? "Up to date" : c.status === "unrecognised" ? "Not recognised" : "Not checked";
+  return (
+    <Tooltip label={c.message} multiline maw={360}>
+      {c.status === "unrecognised" ? (
+        <span>
+          <StatusPill kind="neutral" size="sm" icon={Icons.Info}>
+            {label}
+          </StatusPill>
+        </span>
+      ) : (
+        <span className="lp-muted">{label}</span>
+      )}
+    </Tooltip>
+  );
+};
+
+const checkText = (c: UpdateCheck | undefined) => (c ? (c.status === "current" ? "up to date" : c.status === "unrecognised" ? "not recognised" : "not checked") : "");
+
 export function SoftwareTab({ id, hostname, active }: { id: string; hostname: string; active: boolean }) {
   const { can, canOrg } = useSession();
   const canAddToCatalog = canOrg("catalog:write"); // an update found in the winget index adds its package to the catalog first
@@ -183,6 +205,7 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
   const users = useQuery({ queryKey: ["device", id, "users"], queryFn: () => api<{ items: DeviceUser[] }>("GET", `/devices/${id}/users`) });
   const updates = useUpdates(id);
   const updateByRow = useMemo(() => new Map((updates.data?.items ?? []).map((u) => [rowKey(u), u])), [updates.data]);
+  const checkByRow = useMemo(() => new Map((updates.data?.checks ?? []).map((c) => [rowKey(c), c])), [updates.data]);
   const deploy = useDeployUpdates(id, hostname);
   const uninstall = useMutation({
     mutationFn: (rows: DeviceSoftware[]) =>
@@ -214,15 +237,24 @@ export function SoftwareTab({ id, hostname, active }: { id: string; hostname: st
       {
         id: "update",
         header: "Update status",
-        value: (s) => (updateByRow.get(rowKey(s))?.deployable ? "update available" : updateByRow.has(rowKey(s)) ? "vendor updates" : ""),
+        value: (s) => (updateByRow.get(rowKey(s))?.deployable ? "update available" : updateByRow.has(rowKey(s)) ? "vendor updates" : checkText(checkByRow.get(rowKey(s)))),
         width: 190,
-        cell: (s) => updatePill(updateByRow.get(rowKey(s))),
-        filter: { type: "select", options: [{ value: "update available", label: "Update available" }, { value: "vendor updates", label: "Vendor updates" }] },
+        cell: (s) => (updateByRow.has(rowKey(s)) ? updatePill(updateByRow.get(rowKey(s))) : checkPill(checkByRow.get(rowKey(s)))),
+        filter: {
+          type: "select",
+          options: [
+            { value: "update available", label: "Update available" },
+            { value: "vendor updates", label: "Vendor updates" },
+            { value: "up to date", label: "Up to date" },
+            { value: "not recognised", label: "Not recognised" },
+            { value: "not checked", label: "Not checked" },
+          ],
+        },
       },
       { id: "installed", header: "Installed", value: (s) => s.install_date || s.first_seen_at || "", width: 150, cell: (s) => s.install_date || dateTime(s.first_seen_at) },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [updateByRow, users.data],
+    [updateByRow, checkByRow, users.data],
   );
 
   return (
