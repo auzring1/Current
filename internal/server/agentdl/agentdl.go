@@ -251,7 +251,7 @@ func (s *Service) ensure(ctx context.Context, k Kind) (Item, error) {
 	sumPath := path + ".sha256"
 	// Already fetched earlier (also after a restart): trust it only if it still matches the hash recorded when it was fetched.
 	if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() {
-		if want, rerr := os.ReadFile(sumPath); rerr == nil {
+		if want, rerr := os.ReadFile(sumPath); rerr == nil { // #nosec G304 -- a file this service wrote, under its own folder
 			got, size, herr := hashFile(path)
 			fields := strings.Fields(string(want))
 			if herr == nil && len(fields) >= 1 && strings.EqualFold(fields[0], got) {
@@ -301,9 +301,6 @@ func (s *Service) fetch(ctx context.Context, k Kind, name, path, sumPath string)
 		return Item{}, fmt.Errorf("fetch the published SHA-256: %w", serr)
 	}
 
-	if err := os.Chmod(tmp.Name(), 0o640); err != nil {
-		return Item{}, err
-	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
 		return Item{}, err
 	}
@@ -311,7 +308,7 @@ func (s *Service) fetch(ctx context.Context, k Kind, name, path, sumPath string)
 	if verified {
 		rec += " verified"
 	}
-	if err := os.WriteFile(sumPath, []byte(rec+"\n"), 0o640); err != nil {
+	if err := os.WriteFile(sumPath, []byte(rec+"\n"), 0o600); err != nil {
 		return Item{}, err
 	}
 	s.log().Info("agent installer fetched", "file", name, "bytes", size, "verified", verified)

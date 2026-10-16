@@ -153,7 +153,7 @@ func TestStoredFilesAreNotFetchedAgainUnlessDamaged(t *testing.T) {
 		t.Fatalf("after a restart the exe was downloaded %d times", n)
 	}
 	// Damage one file on disk: it is fetched again.
-	if err := os.WriteFile(filepath.Join(s.versionDir(), FileName(EXE, ver)), []byte("tampered"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(s.versionDir(), FileName(EXE, ver)), []byte("tampered"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := s2.Refresh(context.Background()); err != nil {
