@@ -34,6 +34,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/events"
 	"github.com/auzring1/librepatch/internal/server/gateway"
 	"github.com/auzring1/librepatch/internal/server/kek"
+	"github.com/auzring1/librepatch/internal/server/keyack"
 	"github.com/auzring1/librepatch/internal/server/maintenance"
 	"github.com/auzring1/librepatch/internal/server/notify"
 	"github.com/auzring1/librepatch/internal/server/pki"
@@ -53,6 +54,7 @@ type App struct {
 	Log       *slog.Logger
 	Pool      *pgxpool.Pool
 	Sealer    *kek.Sealer
+	KeyAck    *keyack.State
 	Events    *events.Broker
 	Hub       *gateway.Hub
 	Deploy    *deploy.Service
@@ -105,7 +107,15 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		pool.Close()
 		return nil, err
 	}
-	a := &App{Cfg: cfg, Log: log, Pool: pool, Sealer: sealer, Events: events.NewBroker(), Hub: gateway.NewHub(),
+	keyAck, err := keyack.Load(ctx, pool, cfg.MasterKey)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("read the master key state: %w", err)
+	}
+	if keyAck.Pending() {
+		log.Warn("the master key has not been saved yet: the console asks the first administrator to save it before anything else works")
+	}
+	a := &App{Cfg: cfg, Log: log, Pool: pool, Sealer: sealer, KeyAck: keyAck, Events: events.NewBroker(), Hub: gateway.NewHub(),
 		GatewayReady: make(chan struct{})}
 	a.Deploy = &deploy.Service{Pool: pool, Authority: a.Authority, Dispatcher: a.Hub, Events: a.Events, Log: log.With("component", "deploy")}
 	a.Updates = &updates.Service{Pool: pool, Deploy: a.Deploy, Events: a.Events, Log: log.With("component", "updates")}
@@ -255,7 +265,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched, KeyAck: a.KeyAck,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))

@@ -371,6 +371,14 @@ type JobEvent struct {
 	Data    []byte
 }
 
+type MasterKeyAck struct {
+	ID             int32
+	KeyID          string
+	GeneratedAt    time.Time
+	AcknowledgedAt *time.Time
+	AcknowledgedBy *uuid.UUID
+}
+
 type MfaRecoveryCode struct {
 	ID       uuid.UUID
 	UserID   uuid.UUID

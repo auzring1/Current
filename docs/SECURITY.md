@@ -22,7 +22,7 @@ Status: threat model updated after Phase 1. It's updated every phase, and the Ph
 | A5 | Device private keys | Impersonate a device: feed false inventory, receive its jobs |
 | A6 | Installer and agent binaries in transit and staging | Tampering means code runs as SYSTEM |
 | A7 | Database | Inventory (usernames, hostnames, software = recon gold), audit log, encrypted keys |
-| A8 | Server KEK (Docker secret) | Decrypts A1, A3 and the TOTP secrets at rest |
+| A8 | Server KEK (master key, a file on a Docker volume the server reads but cannot write) | Decrypts A1, A3 and the TOTP secrets at rest |
 | A9 | Vendor release-signing key (ours, not the customer's) | Authorizes agent self-updates for *every customer* |
 | A10 | Backups | Contain A7 and the encrypted key material |
 
@@ -112,7 +112,7 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 |---|---|---|---|
 | T-SRV-1 | Database exposed to the network | Postgres on an internal compose network only, no published port, scram-sha-256, least-privilege roles | 1 ✅ |
 | T-SRV-2 | Container escape or lateral movement | distroless non-root, `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mount, tmpfs `/tmp` (resource limits are not set; configure them to your host, see RUNBOOK) | 1 ✅ |
-| T-SRV-3 | Theft of key material from a volume or backup | Signing and issuing keys encrypted with the KEK (from a Docker secret, never stored in the DB or image). Root key encrypted with an owner passphrase that is never stored. Backups encrypted with age. | 1, 5 ✅ |
+| T-SRV-3 | Theft of key material from a volume or backup | Signing and issuing keys encrypted with the KEK (from a file on a Docker volume, never stored in the DB or image). Root key encrypted with an owner passphrase that is never stored. Backups encrypted with age. | 1, 5 ✅ |
 | T-SRV-4 | Audit tampering | Insert-only database role plus a trigger; hash chain, verified on demand (console button, `admin verify-audit`). **Not implemented:** scheduled verification and SIEM streaming. From Phase 6 the running server holds only the DML-only role; the schema owner is a non-superuser held only by the one-shot `maintenance` service | 1 ✅ |
 | T-SRV-5 | Default credentials | None exist. First-run setup needs a one-time setup token printed to the server log/stdout, then creates the admin with MFA. | 1 ✅ |
 
@@ -178,7 +178,7 @@ Other accepted residual risks: falsified results from a compromised device (T-DE
 | Audit log append-only for the runtime role, hash-chained, tamper detected | `internal/server/audit/audit_test.go`, `admin verify-audit` in `test/integration` |
 | Containers non-root (server), read-only rootfs, `cap_drop: ALL`, no-new-privileges; Postgres not published | `test/integration` asserts all of these via `docker inspect` |
 | X-Forwarded-For trusted only from Caddy's fixed IP; spoofed header ignored | `test/integration` |
-| Least-privilege DB role, KEK and DB credentials as Docker secrets, no default credentials (one-time setup token) | compose + `test/integration` |
+| Least-privilege DB role, KEK and DB credentials in separate Docker volumes, no default credentials (one-time setup token) | compose + `test/integration` |
 | Supply chain: digest-pinned images, SHA-pinned actions, govulncheck, npm audit, gosec, staticcheck, license allow-list, gitleaks, SPDX SBOMs, a check that every action is SHA-pinned | `.github/workflows/ci.yml`, `scripts/check-actions-pinned.sh` |
 
 **Known gaps and residual risks after Phase 1** (planned phase in brackets):
@@ -331,7 +331,7 @@ Scope: the Windows MSI that wraps `librepatch-agent.exe install` / `uninstall` f
 | Control | Evidence |
 |---|---|
 | **No plaintext backups.** A backup needs at least one age recipient (X25519 or hybrid public key) or a scrypt passphrase; with none, nothing is written. Recipients and passphrase cannot be mixed. Passphrases come only from a file (`--passphrase-file` / `LIBREPATCH_BACKUP_PASSPHRASE_FILE`), never from argv or a plain environment variable, and must be ≥ 12 characters. A secret key pasted as a recipient is rejected without echoing it | `TestBackupRefusesWithoutRecipient`, `TestCLIRefusesUnencryptedAndBadInput`, `TestRecipientParsingNeverEchoesSecrets` |
-| **The master key and `deploy/secrets/` are never in the archive** (stated in every manifest). A backup alone cannot open the CA keys or TOTP secrets, which are sealed with the KEK; the KEK must be backed up separately | `NotMasterKey` in the manifest notes; RUNBOOK §6.1 |
+| **The master key and the database passwords are never in the archive** (stated in every manifest). A backup alone cannot open the CA keys or TOTP secrets, which are sealed with the KEK; the KEK must be backed up separately | `NotMasterKey` in the manifest notes; RUNBOOK §6.1 |
 | **Confidentiality and integrity of the stream:** age (X25519/ChaCha20-Poly1305 chunks, final-chunk marker), so tampering, truncation and appended data are detected; the restore reads the encrypted stream to its authenticated end before it commits | `TestWrongKeyAndTamperedCiphertext` (flipped bytes, truncation at several points, trailing garbage, plaintext) |
 | **Every part is bound to the manifest.** The last archive member lists the SHA-256 and size of each other member and the row count of each table; header and manifest must agree; order and numbering of parts are enforced; nothing may follow the manifest. A restore fails before COMMIT if anything differs, so a rewritten member (valid encryption, wrong hash), a dropped, added or reordered part leaves **no rows behind**. When the input is a file the whole archive is also verified before the database is touched | `TestTamperedMemberWithValidEncryption` |
 | **Hostile archives are treated as untrusted data** (anyone who knows the public key can produce a decryptable file): member names must be one of the fixed forms; content paths must be clean, relative, forward-slash, without `..`, hidden components, control characters, backslashes or drive colons; only regular files (no symlinks, hard links, directories, devices, sparse files); duplicates refused; files are written through `os.Root` into a staging directory under the content directory, so nothing can land outside it, and are renamed into place only after verification; table and column names from the header are checked against the live schema and always quoted | `TestUnsafeMemberNamesAndTypesAreRefused`, `TestTraversalWritesNothingOutside`, `TestHeaderValidation` |
@@ -415,6 +415,18 @@ Themes, preferences and the redesigned console (decision D93). New attack surfac
 | **Fonts or icons fetched from a third party** | Inter and the icons are bundled; there are no runtime network requests (CSP `font-src 'self'`, `connect-src 'self'`) | build output, CSP |
 
 **Known gaps:** a person's own theme is cached in the browser's local storage until they sign out (cleared on sign-out); saved views are opaque to the server beyond their size and shape.
+
+## 9j. Secrets that create themselves (D109)
+
+The stack makes its own database passwords and master key on first start, so there is no setup script. What this changes for
+the threat model, and the evidence:
+
+| Control | Evidence |
+|---|---|
+| **Each service sees only its own secrets.** Separate volumes: `secrets_pg` (database passwords: the database container only), `secrets_app` (runtime login: server and maintenance, read-only), `secrets_owner` (schema owner: maintenance only, read-only), `secrets_key` (master key: written by maintenance, read-only for the server). The server never holds the schema-owner credential (T-SRV-4) and the database container never sees the master key | `test/integration/compose_test.go` (inspects the mounts of the running containers; runs on GitHub, not in the development sandbox) |
+| **A master key is never replaced by accident.** It is created only by `maintenance migrate` with `LIBREPATCH_MASTER_KEY_AUTOGEN=true`, with an exclusive create (mode 0400), and only if the database holds no sealed data (CA material, setup state, TOTP secrets). A missing key file next to an existing database is an error that says how to restore the key, never a reason to make a new one. Passwords are likewise never invented for a database that already exists | `masterkey_test.go` (`TestProvision...`), `test/deployscripts` |
+| **The key is shown to the first administrator, once, and must be confirmed.** `GET /security/master-key` needs `settings:write` and MFA, is `no-store`, and answers 404 after the acknowledgement; `POST /security/master-key/acknowledge` needs the last six characters of the key. Until then every other API call answers 403 `master_key_unconfirmed` (only the session, logout, the two key calls and preferences work). Viewing and acknowledging are audited with the key *id* (the first four bytes of its SHA-256), never the key. The in-memory copy used for display is cleared after the acknowledgement | `test/e2e/masterkey_test.go`, `web/e2e/console.spec.ts` |
+| **Residual risk.** Until it is acknowledged, the key sits in server memory and is visible to the signed-in administrator; the key file stays on the Docker volume readable by the server container (as the file under `deploy/secrets` was before), so root on the Docker host can read it. The screen is a prompt to keep a copy elsewhere; it cannot check that the copy really exists | stated here |
 
 ## 10. Vulnerability disclosure
 Reports go through GitHub private vulnerability reporting (Security tab, "Report a vulnerability"); the full policy is in the

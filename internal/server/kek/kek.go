@@ -8,6 +8,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -48,6 +49,10 @@ func New(key []byte) (*Sealer, error) {
 	copy(s.keyID[:], sum[:4])
 	return s, nil
 }
+
+// KeyID is a short fingerprint of the key (8 hex digits). It is safe to show: it lets a person check that the key they hold
+// is the one a server generated, without revealing anything about the key.
+func (s *Sealer) KeyID() string { return hex.EncodeToString(s.keyID[:]) }
 
 // Seal encrypts plaintext for the given purpose.
 // Layout: version(1) || keyID(4) || nonce(12) || ciphertext+tag.

@@ -22,12 +22,12 @@ new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a 
 
 ## Quick start (production-style, one host)
 ```bash
-./scripts/init-secrets.sh                       # Docker secrets in deploy/secrets/ (back them up!)
 cp deploy/.env.example deploy/.env              # set LIBREPATCH_HOSTNAME (and LIBREPATCH_CADDY_TLS)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
-Then open `https://<LIBREPATCH_HOSTNAME>` and follow the setup wizard. Build the Windows agent with
+Passwords and the encryption key are created for you on the first start. Open `https://<LIBREPATCH_HOSTNAME>`, follow the
+setup wizard, and when you first sign in the console shows the **master key**: save it somewhere other than the server. Build the Windows agent with
 `GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o librepatch-agent.exe ./cmd/librepatch-agent`
 and install it on an endpoint with the command the console shows under **Enrollment**.
 

@@ -24,7 +24,7 @@ rm -f "$tmpc"
 root="librepatch-deploy-$version"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
-mkdir -p "$stage/$root/deploy/postgres/init" "$stage/$root/scripts"
+mkdir -p "$stage/$root/deploy/postgres/init"
 
 # The default tag becomes this version; LIBREPATCH_VERSION in deploy/.env still overrides it.
 sed "s/\${LIBREPATCH_VERSION:-latest}/\${LIBREPATCH_VERSION:-$version}/" deploy/docker-compose.image.yml > "$stage/$root/deploy/docker-compose.image.yml"
@@ -38,8 +38,8 @@ if [ -n "$pubkeys" ]; then
   sed -i "s/^#LIBREPATCH_RELEASE_PUBLIC_KEYS=\$/LIBREPATCH_RELEASE_PUBLIC_KEYS=$pubkeys/" "$stage/$root/deploy/.env.example"
 fi
 cp deploy/postgres/init/* "$stage/$root/deploy/postgres/init/"
-cp scripts/init-secrets.sh "$stage/$root/scripts/"
-chmod 755 "$stage/$root/scripts/init-secrets.sh" "$stage/$root/deploy/postgres/init/"*.sh
+cp deploy/postgres/entrypoint.sh "$stage/$root/deploy/postgres/"
+chmod 755 "$stage/$root/deploy/postgres/entrypoint.sh" "$stage/$root/deploy/postgres/init/"*.sh
 
 cat > "$stage/$root/README.txt" <<README
 LibrePatch server $version: install files
@@ -47,16 +47,16 @@ LibrePatch server $version: install files
 This folder holds the files the server image needs next to it. The server itself is the image
 ghcr.io/auzring1/librepatch-server:$version, which Docker downloads when you start the stack.
 
-1. Create the secrets (once). KEEP A COPY of deploy/secrets somewhere safe: without master_key the
-   database cannot be read again.
-       ./scripts/init-secrets.sh          (or: bash scripts/init-secrets.sh)
-2. Create your settings file and edit it (host name, and for a Synology reverse proxy the lines
+1. Create your settings file and edit it (host name, and for a Synology reverse proxy the lines
    in the commented block):
        cp deploy/.env.example deploy/.env
-3. Start it (add sudo on a Synology):
+2. Start it (add sudo on a Synology):
        docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
-4. First-run setup token:
+   The database passwords and the master key are created for you on this first start.
+3. First-run setup token:
        docker compose -f deploy/docker-compose.image.yml logs server | grep -A2 "setup token"
+4. After you sign in for the first time the console shows the MASTER KEY. Save it somewhere other than this server
+   (a password manager): without it a restored database cannot be read again.
 
 Agent updates: if deploy/.env.example already contains a LIBREPATCH_RELEASE_PUBLIC_KEYS= line with a long value, that is
 the public key your agents trust (keep it in deploy/.env). The signed update file (.lprel) from the same release goes under

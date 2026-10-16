@@ -24,6 +24,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/deploy"
 	"github.com/auzring1/librepatch/internal/server/events"
 	"github.com/auzring1/librepatch/internal/server/kek"
+	"github.com/auzring1/librepatch/internal/server/keyack"
 	"github.com/auzring1/librepatch/internal/server/maintenance"
 	"github.com/auzring1/librepatch/internal/server/notify"
 	"github.com/auzring1/librepatch/internal/server/pki"
@@ -70,6 +71,7 @@ type Deps struct {
 	Notify    *notify.Service
 	Maint     *maintenance.Service
 	Sched     *reportsched.Service
+	KeyAck    *keyack.State // nil when the key was supplied by hand: nothing to confirm
 	Log       *slog.Logger
 	Now       func() time.Time
 }
@@ -237,6 +239,8 @@ func (s *server) routes(r chi.Router) {
 
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens", s.createToken)
+	r.With(s.require(auth.PermSettingsWrite)).Get("/security/master-key", s.getMasterKey)
+	r.With(s.require(auth.PermSettingsWrite)).Post("/security/master-key/acknowledge", s.acknowledgeMasterKey)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens/{id}/revoke", s.revokeToken)
 	r.With(s.require(auth.PermEnrollmentWrite)).Delete("/enrollment-tokens/{id}", s.deleteToken)
 

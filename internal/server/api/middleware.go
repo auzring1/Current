@@ -325,8 +325,21 @@ func (s *server) withPrincipal(r *http.Request, p *Principal) *http.Request {
 
 const apiTokenPrefix = "lp_"
 
-// principal resolves the caller: a fully MFA-verified session, or an API token.
+// principal resolves the caller: a fully MFA-verified session, or an API token. While the master key that the stack
+// generated for itself has not been saved (decision D109), nothing but the screen that shows it works.
 func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {
+	p, ok := s.resolvePrincipal(w, r)
+	if !ok {
+		return nil, false
+	}
+	if s.keyPending() && !keyPendingAllowed(r.URL.Path) {
+		writeError(w, http.StatusForbidden, "master_key_unconfirmed", "Save the master key first: sign in to the console and follow the instructions on the screen.")
+		return nil, false
+	}
+	return p, true
+}
+
+func (s *server) resolvePrincipal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {
 	if p := principalFrom(r); p != nil {
 		return p, true
 	}

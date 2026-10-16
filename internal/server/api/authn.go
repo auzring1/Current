@@ -378,6 +378,8 @@ func (s *server) session(w http.ResponseWriter, r *http.Request) {
 		"scoped_permissions": p.Access.ScopedPermissions(),
 		"site_permissions":   p.Access.SitePermissions(),
 		"csrf_token":         sess.CSRFToken,
+		// True until the administrator has saved the master key the stack generated for itself (decision D109).
+		"master_key_pending": s.keyPending(),
 	})
 }
 

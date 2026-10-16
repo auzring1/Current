@@ -12,20 +12,16 @@ You need the Phase 1 to 5 setup ([PHASE5-DEMO.md](PHASE5-DEMO.md) and earlier): 
 
 This script describes a build where **everything is called LibrePatch**: the service (`LibrePatchAgent`), the folders (`C:\Program Files\LibrePatch`, `C:\ProgramData\LibrePatch`), the environment variables (`LIBREPATCH_...`), the database and its roles, the enrollment strings (`LP1.`) and API tokens (`lp_`), and the signing contexts. Nothing from an earlier build carries over, so start clean:
 
-1. **Remove the old server stack** (from the old checkout, so the old compose project is found): `docker compose -f deploy/docker-compose.yml down -v`, then delete `deploy/secrets/` and `deploy/.env`. The secrets contain the old database and role names.
+1. **Remove the old server stack** (from the old checkout, so the old compose project is found): `docker compose -f deploy/docker-compose.yml down -v`, then delete `deploy/secrets/` (if it exists) and `deploy/.env`. The old secrets contain the old database and role names.
 2. **Remove the old agent** on the test machine and the VM, with the *old* executable: `& "C:\Program Files\Auzring\Agent\slot-a\auzring-agent.exe" uninstall`, then delete `C:\Program Files\Auzring`, `C:\Program Files\AuzringSetup`, `C:\ProgramData\Auzring` and `C:\ProgramData\AuzringStage` if they are still there. Revoke or delete the old devices if you keep the server. <!-- old-name -->
-3. Check out the branch, run `./scripts/init-secrets.sh`, copy `deploy/.env.example` to `deploy/.env` (set `LIBREPATCH_HOSTNAME`), and bring the stack up as in [PHASE1-DEMO.md](PHASE1-DEMO.md). Enroll the machines again.
+3. Check out the branch, copy `deploy/.env.example` to `deploy/.env` (set `LIBREPATCH_HOSTNAME`), and bring the stack up as in [PHASE1-DEMO.md](PHASE1-DEMO.md). Enroll the machines again.
 
 ## Part A: Upgrade the stack (about 15 minutes)
 
 Phase 6 changes how the database credentials are handed out. **Read the second paragraph before you restart.**
 
-1. **Get the code and add the one new secret.**
-   ```bash
-   git fetch origin && git checkout phase-6
-   ./scripts/init-secrets.sh        # on an existing install: adds deploy/secrets/postgres_admin_password only
-   ```
-   ✅ It says "Added … postgres_admin_password (new in Phase 6). Existing secrets were left untouched."
+1. **Get the code.** `git fetch origin && git checkout phase-6`. (This upgrade path belongs to the older script-based secrets;
+   current builds create their secrets automatically and cannot be upgraded in place, see RUNBOOK 2a and decision D109.)
 
 2. **Restart.** `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build`. Migrations run in the new one-shot **`maintenance`** service before the server starts.
    ```bash

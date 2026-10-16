@@ -19,20 +19,25 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 
 ```bash
 git clone <repo> current && cd current
-./scripts/init-secrets.sh                 # creates deploy/secrets/ (refuses to overwrite)
 cp deploy/.env.example deploy/.env        # then edit LIBREPATCH_HOSTNAME and LIBREPATCH_CADDY_TLS
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
 
-**What `init-secrets.sh` creates** (all random). The directory is 0700:
+**Secrets create themselves (decision D109).** There is no script to run. On the very first start the stack makes everything it needs and keeps it in Docker volumes (`<project>_secrets_pg`, `_secrets_app`, `_secrets_owner`, `_secrets_key`). Each service only sees the volumes it needs:
 
-| Secret | Purpose |
-|---|---|
-| `master_key` | 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret. **Back it up securely and separately from database backups.** Without it, those keys cannot be decrypted. |
-| `postgres_owner_password` | Schema owner. Used only by the one-shot `maintenance` service (migrations, backup, restore); the running server never holds it. |
-| `postgres_app_password` | Least-privilege runtime role `librepatch_app`. It has DML only and is insert-only on `audit_log`. |
-| `database_url`, `migrate_database_url` | Connection strings the server reads as Docker secrets. |
+| Secret | Created by | Who can read it |
+|---|---|---|
+| `postgres_admin_password`, `postgres_owner_password`, `postgres_app_password` | the database container, on its first start | the database container only |
+| `database_url` (runtime role `librepatch_app`: data only, insert-only on `audit_log`) | the database container | server and `maintenance` |
+| `migrate_database_url` (schema owner `librepatch_owner`) | the database container | `maintenance` only. The running server never holds it. |
+| `master_key`: 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret | the one-shot `maintenance` service, on its first run, and only if the database holds no sealed data yet | written by `maintenance`, read-only for the server. The database container never sees it. |
+
+**Save the master key.** The first administrator who signs in (after MFA) sees a **Save your master key** screen and cannot use
+the console until they confirm they saved it (they type its last six characters). Keep it in a password manager, not on this
+server: without it a restored database cannot be read again. It can be shown only once; afterwards the page answers 404. You can
+still print it later from the server itself: `docker compose -f deploy/docker-compose.yml exec server /librepatch-server show-master-key`.
+If the key was already supplied by hand (`LIBREPATCH_MASTER_KEY_FILE` pointing at your own file), the screen does not appear.
 
 **Browser TLS modes** (`LIBREPATCH_CADDY_TLS` in `deploy/.env`):
 
@@ -76,13 +81,12 @@ Production should pin a release number.
 
 **Get the install files** (no need to clone the repository). Every release comes with `librepatch-deploy-<version>.zip` on the
 GitHub **Releases** page (the release is called `server-<version>`). It holds only the compose file, the Caddy and database setup
-files and the secrets script, and its compose file already defaults to that version's image. On the server:
+files and the database start-up script, and its compose file already defaults to that version's image. On the server:
 
 ```bash
 cd /volume1/docker                       # any folder; on a Synology this is a shared folder
 curl -L -o librepatch-deploy.zip https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/librepatch-deploy-1.2.3.zip
 unzip librepatch-deploy.zip && cd librepatch-deploy-1.2.3
-./scripts/init-secrets.sh                # creates deploy/secrets; KEEP A COPY of it somewhere safe
 cp deploy/.env.example deploy/.env       # then edit it (host name; for DSM's reverse proxy see 2.1)
 docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
 ```
@@ -91,7 +95,7 @@ The same zip's `README.txt` repeats these steps. If you cloned the repository in
 (add `LIBREPATCH_VERSION=1.2.3` to `deploy/.env`; without it the tag is `latest`).
 
 **Update:** back up first (section 6), set `LIBREPATCH_VERSION=<new number>` in `deploy/.env` (it overrides the version the zip
-was made for; or unpack the newer zip over the old folder, keeping `deploy/secrets` and `deploy/.env`), then run
+was made for; or unpack the newer zip over the old folder, keeping `deploy/.env`; the secrets live in Docker volumes and are not touched), then run
 `docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env pull` and the same `up -d` line again. Migrations run
 by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
 database migration; otherwise restore the backup you took (section 6.5).
@@ -126,13 +130,13 @@ in-place upgrade.** A stack and its agents are installed fresh. This is quick fo
 2. **Stop and remove the old stack** (from the old project folder): `docker compose -f deploy/docker-compose.yml down -v`
    (or `docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env down -v`). `-v` deletes its data volumes
    on purpose. On a Synology, delete the old project in Container Manager (tick "also delete the containers" and delete its
-   volumes under **Volume**). Then delete the old `deploy/secrets/` folder (it holds the old database and role names and the
-   old master key). Keep the folder's `deploy/.env` until step 3.
+   volumes under **Volume**; the `secrets_*` volumes go too). If the old stack still had a `deploy/secrets/` folder, delete it
+   (it holds the old database and role names and the old master key). Keep the folder's `deploy/.env` until step 3.
 3. **Get the new files** into a new, empty folder (the `librepatch-deploy-<version>.zip` of a release, or the repository), copy
    your old `deploy/.env` over `deploy/.env.example`'s place, and rename the variables:
    `sed -i 's/CURRENT_/LIBREPATCH_/g' deploy/.env` (the previous prefix was `CURRENT_`; for the older prefixes see the table
    in docs/DECISIONS.md D101). <!-- old-name -->
-4. **Start fresh** as in section 2 (`./scripts/init-secrets.sh`, then `docker compose ... up -d`), and finish the first-run
+4. **Start fresh** as in section 2 (`docker compose ... up -d`; the passwords and a new master key are created for you), and finish the first-run
    setup (section 3). On a Synology, create a new Container Manager project named `librepatch` from the new compose file.
 5. **Reinstall each agent.** Remove the old one (docs/FRESH-INSTALL-WINDOWS.md, section 1.1, lists the clean-up for all
    earlier names) and install the new one with a new enrollment string from **Enrollment**. The MSI has a new upgrade code and
@@ -388,12 +392,12 @@ Administrators can set the **default theme** and limit **which themes people may
 
 | In the backup | Not in the backup |
 |---|---|
-| Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the rest of `deploy/secrets/`.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
+| Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the database passwords.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
 | The content directory (`LIBREPATCH_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
 | A manifest: format version, `librepatch-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
 | | Database roles and passwords (the roles come from `deploy/postgres/init` and the secrets) |
 
-**You must back up `deploy/secrets/` separately** (for example `tar czf - -C deploy secrets | age -r <key> > secrets.tgz.age`, stored somewhere other than the database backups). Keep copies of the two in different places: someone who has both can read everything.
+**You must keep the master key separately.** It is the text the console showed at first sign-in (or print it again with `docker compose -f deploy/docker-compose.yml exec server /librepatch-server show-master-key`). Store it in a password manager or another place that is not the database backups. Keep the two in different places: someone who has both can read everything. The database passwords do not need a backup: a restore creates new ones.
 
 The file is encrypted with [age](https://age-encryption.org). Anyone who knows the *public* key can create a file that decrypts, so keep the backup store write-protected (see "Authenticity" in SECURITY.md §9d.a).
 
@@ -467,10 +471,14 @@ Or as a systemd timer: `librepatch-backup.service` (`Type=oneshot`, `ExecStart=/
 
 ### 6.5 Restoring (disaster recovery)
 
-You need: the backup file, the **age secret key** (or passphrase), the **`deploy/secrets/` directory from the same installation** (above all `master_key`), and a Docker host with this repository checked out at the same or a **newer** release.
+You need: the backup file, the **age secret key** (or passphrase), the **master key** of the same installation (the text you saved at first sign-in), and a Docker host with this repository checked out at the same or a **newer** release.
 
-1. **Restore the secrets** into `deploy/secrets/` (mode 0700) and recreate `deploy/.env`. Do not run `init-secrets.sh`: it would create new passwords and a new master key. (If you have lost the database *volume* but kept the secrets, the Postgres passwords in the secrets are applied when the empty database is first initialized.)
-2. **Start only the database**, empty: `docker compose -f deploy/docker-compose.yml up -d postgres` and wait until it is healthy. Do **not** start the `server` or run `up` for the whole stack yet: the `maintenance` migration would bring the empty database to the newest schema first, and the server would take the first-run setup token.
+1. **Recreate `deploy/.env`** and start only the database, empty: `docker compose -f deploy/docker-compose.yml up -d postgres`. It creates new passwords for the new, empty database. Wait until it is healthy.
+2. **Put your saved master key in place** (the stack would otherwise create a *new* one, which cannot open the backup). Save the key to a file, then:
+   ```bash
+   docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance set-master-key < saved-master-key.txt
+   ```
+   It accepts the key with or without dashes. Do **not** start the `server` or run `up` for the whole stack yet: the `maintenance` migration would bring the empty database to the newest schema first, and the server would take the first-run setup token.
 3. **Restore.** The secret key and the backup are handed in as read-only mounts/stdin:
 
    ```bash
@@ -492,7 +500,7 @@ Refusals you may meet, and what they mean:
 | `the (empty) database is already at schema version N, newer than the backup's` | The server was started once and migrated. Recreate the database, or add `--wipe` to rebuild the schema (it is empty, so nothing is lost). |
 | `backup is newer than this server` | The backup was made by a newer release. Restore with that release or later; migrations only go forward. |
 | `unsupported backup format` | The file is from a format version this binary does not know. Use the release that made it. |
-| `the master key ... cannot open the ... key stored in this backup` | `LIBREPATCH_MASTER_KEY_FILE` is not the key in use when the backup was made. Restore the original `deploy/secrets/master_key`. `--skip-kek-check` overrides, but the server would not be able to use the CA. |
+| `the master key ... cannot open the ... key stored in this backup` | `LIBREPATCH_MASTER_KEY_FILE` is not the key in use when the backup was made. Store the original with `maintenance set-master-key` (add `--force` only if a wrong key is already stored). `--skip-kek-check` overrides, but the server would not be able to use the CA. |
 | `... does not match this backup` / `integrity check failed` | Wrong key or passphrase / the file is damaged or was altered. Try another copy. |
 | `audit chain is broken` | The restore committed, but the backup's audit log does not verify (it was already damaged or tampered with when the backup was taken). Do not trust this data; restore an earlier backup. |
 | `lock tables (is the server still running?)` | Something is using the database. Stop the server. |
@@ -503,7 +511,7 @@ Refusals you may meet, and what they mean:
 
 An untested backup is a hope. **Do a restore drill at least once a quarter, and after every upgrade that changes the database schema** (any release with a new migration), on a scratch machine:
 
-1. Copy the latest backup, `librepatch-backup.key` and a copy of `deploy/secrets/` to the scratch host; check out the release you run in production.
+1. Copy the latest backup, `librepatch-backup.key` and the saved master key to the scratch host; check out the release you run in production.
 2. Follow 6.5 with a different `LIBREPATCH_HOSTNAME` (agents must not be able to reach this copy: leave 8443 closed or use an isolated network).
 3. Sign in, run `admin verify-audit`, open a device and a custom package, and compare the device and audit counts with production (`backup --verify` prints the row counts too).
 4. Record the date and the time it took. If the drill failed, fix that first; the production backup job is not trustworthy until then.
@@ -517,7 +525,7 @@ An untested backup is a hope. **Do a restore drill at least once a quarter, and 
 
 ### 6.8 Moving to another host
 
-Take a backup, copy `deploy/secrets/` and the backup to the new host, then follow 6.5. Update `LIBREPATCH_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
+Take a backup, copy the backup and your saved master key to the new host, then follow 6.5. Update `LIBREPATCH_HOSTNAME`; agents find the server by the name baked into their enrollment, so keep the old DNS name pointing at the new host or the agents cannot reconnect.
 
 ### 5k. Locked out by the console IP allow-list
 
@@ -564,7 +572,7 @@ only concerns the console and its API; agents are not affected. The same list ca
 
 ### Hardening an older database (installed before Phase 6)
 
-Fresh installs create `librepatch_owner` as a non-superuser and keep the bootstrap superuser (`librepatch_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `librepatch_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), run `./scripts/init-secrets.sh` (adds `postgres_admin_password`), `docker compose down -v` **after** copying `deploy/secrets/` and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
+Fresh installs create `librepatch_owner` as a non-superuser and keep the bootstrap superuser (`librepatch_admin`) out of every service except PostgreSQL's init script. A database created by Phase 1–5 has `librepatch_owner` as its bootstrap **superuser** (PostgreSQL does not allow demoting that role). It is still isolated from the running server (only `maintenance` holds its password), but to get the non-superuser owner: take a backup (section 6.3), `docker compose down -v` **after** copying your master key and the backup elsewhere, `docker compose up -d postgres`, and restore (6.5). Upgrading without doing this works; the server's startup check already warns when the runtime user owns the schema.
 
 ## 9. Release manager (vendor side)
 

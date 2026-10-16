@@ -1,6 +1,9 @@
 package config
 
 import (
+	"encoding/hex"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -61,5 +64,43 @@ func TestTrustedProxiesAcceptCommasAndSpaces(t *testing.T) {
 	env["LIBREPATCH_TRUSTED_PROXIES"] = "172.31.250.10/32 not-a-cidr"
 	if _, err := load(env); err == nil || !strings.Contains(err.Error(), "LIBREPATCH_TRUSTED_PROXIES") {
 		t.Fatalf("a bad entry must be refused, got %v", err)
+	}
+}
+
+func TestMasterKeyAutogen(t *testing.T) {
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "master_key")
+	dbFile := filepath.Join(dir, "database_url")
+	if err := os.WriteFile(dbFile, []byte("postgres://u:p@h/d"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"LIBREPATCH_PUBLIC_URL": "https://lp.example.com", "LIBREPATCH_DATABASE_URL_FILE": dbFile, "LIBREPATCH_MASTER_KEY_FILE": keyFile}
+	lookup := func(k string) (string, bool) { v, ok := env[k]; return v, ok }
+
+	// Without the switch a missing key file is an error, as before.
+	if _, err := LoadFrom(lookup); err == nil {
+		t.Fatal("a missing key file must fail without LIBREPATCH_MASTER_KEY_AUTOGEN")
+	}
+	// With it, the maintenance service gets a fresh key in memory that only its migrate step writes out.
+	env["LIBREPATCH_MASTER_KEY_AUTOGEN"] = "true"
+	c, err := LoadFrom(lookup)
+	if err != nil || !c.MasterKeyGenerated || len(c.MasterKey) != 32 || c.MasterKeyFile != keyFile {
+		t.Fatalf("autogen: %+v %v", c, err)
+	}
+	if _, serr := os.Stat(keyFile); serr == nil {
+		t.Fatal("loading the configuration must not write the key")
+	}
+	// Once the file exists the stored key is used and nothing is generated.
+	stored := strings.Repeat("ab", 32)
+	if err := os.WriteFile(keyFile, []byte(stored+"\n"), 0o400); err != nil {
+		t.Fatal(err)
+	}
+	c, err = LoadFrom(lookup)
+	if err != nil || c.MasterKeyGenerated || hex.EncodeToString(c.MasterKey) != stored {
+		t.Fatalf("stored key: %+v %v", c, err)
+	}
+	env["LIBREPATCH_MASTER_KEY_AUTOGEN"] = "maybe"
+	if _, err := LoadFrom(lookup); err == nil {
+		t.Fatal("a malformed switch must be refused")
 	}
 }
