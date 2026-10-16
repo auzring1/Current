@@ -31,7 +31,7 @@ docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 | `postgres_admin_password`, `postgres_owner_password`, `postgres_app_password` | the database container, on its first start | the database container only |
 | `database_url` (runtime role `librepatch_app`: data only, insert-only on `audit_log`) | the database container | server and `maintenance` |
 | `migrate_database_url` (schema owner `librepatch_owner`) | the database container | `maintenance` only. The running server never holds it. |
-| `master_key`: 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret | the one-shot `maintenance` service, on its first run, and only if the database holds no sealed data yet | written by `maintenance`, read-only for the server. The database container never sees it. |
+| `master_key`: 32-byte key-encryption key (KEK). It encrypts the issuing-CA key, the job-signing key, the gateway key and every TOTP secret | the `maintenance` service, on its first run, and only if the database holds no sealed data yet | written by `maintenance`, read-only for the server. The database container never sees it. |
 
 **Save the master key.** The first administrator who signs in (after MFA) sees a **Save your master key** screen and cannot use
 the console until they confirm they saved it (they type its last six characters). Keep it in a password manager, not on this
@@ -81,7 +81,7 @@ path in section 2 keeps working.
 Tags: `1.2.3` (a release you published, see below), `latest` (the newest release), `edge` (the newest `main`, for testing).
 Production should pin a release number.
 
-**Get the compose file.** Every release (GitHub **Releases** page, called `server-<version>`) has `librepatch-compose-<version>.yml`:
+**Get the compose file.** Every release (GitHub **Releases** page, called `server-<version>`) has `docker-compose.yml`:
 the whole stack in one file, already defaulting to that version's images and to your agents' update key. At the top is a block
 called **YOUR SETTINGS**: replace `change-me.example.com` with the DNS name of this server (the server refuses to start while
 that placeholder is still there). The other lines in the block (browser TLS, ports, running behind a reverse proxy, the gateway
@@ -89,15 +89,16 @@ port) have working defaults; section 2.1 says which to change behind a Synology 
 
 **On a Synology (Container Manager).** Container Manager, Project, Create: name `librepatch`; choose a folder (for example
 `/volume1/docker/librepatch`); source **Create docker-compose.yml**, paste the edited file, and build. Nothing else needs to be
-downloaded or copied onto the NAS. The `maintenance` container stops after it has created the passwords and the master key and
-migrated the database; that is expected. Get the setup token from the project's `server` container log (search "setup token"),
+downloaded or copied onto the NAS. The `maintenance` container first creates the master key and migrates the database, then
+stays running and idle (decision D111), so the project shows every container as running. Get the setup token from the `server`
+container's Log tab (search "setup token"),
 open the console, finish setup, and **save the master key** the console then shows. *Not verified on a real Synology: the paste
 flow, and whether Container Manager keeps the settings block through later edits.*
 
 **With the command line** (any Docker host, also a Synology over SSH; add `sudo` on a Synology):
 
 ```bash
-curl -L -o docker-compose.yml https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/librepatch-compose-1.2.3.yml
+curl -L -o docker-compose.yml https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/docker-compose.yml
 nano docker-compose.yml                  # replace change-me.example.com (and any other setting you need)
 docker compose up -d
 docker compose logs server | grep -A2 "setup token"
@@ -115,18 +116,22 @@ Action, Build again). Migrations run
 by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
 database migration; otherwise restore the backup you took (section 6.5).
 
+**Log size.** The compose file does not limit the size of container logs, so that the Log tab works in Synology Container Manager
+(confirmed; Docker Desktop's log window is expected to as well, not verified; decision D111). On a plain Linux host, limit them once for all containers in `/etc/docker/daemon.json`:
+`{"log-driver": "json-file", "log-opts": {"max-size": "20m", "max-file": "5"}}`, then restart Docker.
+
 On a Synology, run the same commands over SSH (or make a Container Manager project from `docker-compose.image.yml`). Whether
 Container Manager's own "Build"/"Update" buttons re-pull a changed `LIBREPATCH_VERSION` has **not been verified**; the commands above are the safe way.
 
 **Publishing a release (maintainer):**
 1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the three images from the chosen
-   branch, pushes `:1.2.3` and `:latest` for each, and creates the release `server-1.2.3` with `librepatch-compose-1.2.3.yml` and
+   branch, pushes `:1.2.3` and `:latest` for each, and creates the release `server-1.2.3` with `docker-compose.yml` and
    `librepatch-deploy-1.2.3.zip` attached (the job summary shows the download links). Every push to `main` also refreshes `:edge` (no release, no zip).
 2. **Check once after the first publish:** each of the three packages is linked to the repository by the image's source label and
-   should follow the repository's visibility (public). The two new ones (`librepatch-caddy`, `librepatch-postgres`) are created
-   private on their first publish: open GitHub, **Packages, librepatch-caddy** (and **librepatch-postgres**, and
-   **librepatch-server** if it shows private), **Package settings, Change visibility, Public**. Until all three are public an install
-   must `docker login ghcr.io` with a token that may read packages, and a paste-only install on a NAS fails to pull.
+   should follow the repository's visibility (public); on the project's own repository all three came out public. If one ever shows
+   as private (for example in a fork), open GitHub, **Packages, <the package>, Package settings, Change visibility, Public**. Until
+   all three are public an install must `docker login ghcr.io` with a token that may read packages, and a paste-only install on a
+   NAS fails to pull.
 3. The images carry no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
 
 This workflow is separate from the signed release pipeline in section 9 (`release.yml`, tags `v*`). Nothing in it was run before

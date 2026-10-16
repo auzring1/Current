@@ -21,7 +21,7 @@ handling) have had little real-world testing. It runs installers as SYSTEM on yo
 new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a few machines first, and keep backups.
 
 ## Quick start (production-style, one host)
-The simplest install is **one file**: download `librepatch-compose-<version>.yml` from the latest
+The simplest install is **one file**: download `docker-compose.yml` from the latest
 [release](https://github.com/auzring1/LibrePatch/releases), set your host name in the block at its top, and start it
 (`docker compose up -d`, or paste it into a new project in Synology Container Manager). Everything else is inside the container
 images. Details: [docs/RUNBOOK.md](docs/RUNBOOK.md), section 2.2. To build from a checkout instead:

@@ -168,6 +168,10 @@ func TestComposeStack(t *testing.T) {
 			t.Errorf("%s lacks no-new-privileges", svc)
 		}
 	}
+	// Decision D111: maintenance stays running (idle) after its work, so container managers show every container as up.
+	if run := inspect("maintenance", "{{.State.Running}} {{.State.Health.Status}}"); run != "true healthy" {
+		t.Errorf("maintenance should be running and healthy after the first start, got %q", run)
+	}
 	// Decision D110: the stack needs no files next to the compose file, so no service may mount one from the host.
 	for _, svc := range []string{"server", "postgres", "caddy"} {
 		if m := inspect(svc, "{{json .Mounts}}"); strings.Contains(m, `"Type":"bind"`) {

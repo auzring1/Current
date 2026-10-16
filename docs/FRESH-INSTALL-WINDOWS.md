@@ -184,7 +184,7 @@ docker compose -f deploy/docker-compose.yml ps -a
 
 The first build downloads images and compiles the server and the web console; it takes several minutes.
 
-✅ `server`, `caddy` and `postgres` show `running`/`healthy`, and `maintenance` shows `Exited (0)` (it runs the database migrations once; that is normal).
+✅ `server`, `caddy`, `postgres` and `maintenance` show `running`/`healthy` (`maintenance` runs the database migrations, then stays idle).
 
 ### 3.5 Read the setup token and trust the lab certificate
 
