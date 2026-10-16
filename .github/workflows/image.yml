@@ -3,7 +3,7 @@
 #
 #   Push to main            -> :edge and :edge-<commit>   (the newest main; for testing, not for production)
 #   Run workflow by hand    -> :<version> and :latest     (a release; type the version, for example 1.0.0)
-#                              and a GitHub release "server-<version>" with librepatch-compose-<version>.yml (the whole stack
+#                              and a GitHub release "server-<version>" with docker-compose.yml (the whole stack
 #                              in one file, to paste into Synology Container Manager) and librepatch-deploy-<version>.zip
 #                              (the same file plus .env.example and a README),
 #                              and librepatch-agent_<version>_windows_amd64.exe (the agent, UNSIGNED) with its .sha256,
@@ -168,7 +168,8 @@ jobs:
         env:
           VERSION: ${{ steps.tags.outputs.version }}
         run: |
-          LIBREPATCH_COMPOSE_OUT="$RUNNER_TEMP/librepatch-compose-$VERSION.yml" LIBREPATCH_RELEASE_PUBKEYS="$RELEASE_PUBKEYS" \
+          mkdir -p "$RUNNER_TEMP/compose"   # the release asset is named after the file: docker-compose.yml
+          LIBREPATCH_COMPOSE_OUT="$RUNNER_TEMP/compose/docker-compose.yml" LIBREPATCH_RELEASE_PUBKEYS="$RELEASE_PUBKEYS" \
             scripts/make-deploy-bundle.sh "$VERSION" "$RUNNER_TEMP/librepatch-deploy-$VERSION.zip"
       - name: Publish the deploy zip as a GitHub release (release runs only)
         if: github.event_name == 'workflow_dispatch'
@@ -180,7 +181,7 @@ jobs:
           exe="$RUNNER_TEMP/librepatch-agent_${VERSION}_windows_amd64.exe"
           tool="$RUNNER_TEMP/librepatch-release_${VERSION}_windows_amd64.exe"
           curr="$RUNNER_TEMP/librepatch-agent_${VERSION}_windows_amd64.lprel"
-          compose="$RUNNER_TEMP/librepatch-compose-$VERSION.yml"
+          compose="$RUNNER_TEMP/compose/docker-compose.yml"
           assets=("$zip" "$compose" "$exe" "$exe.sha256" "$tool")
           [ -f "$curr" ] && assets+=("$curr")
           tag="server-$VERSION"   # not "v*": that pattern starts the signed release pipeline (release.yml)
@@ -190,10 +191,10 @@ jobs:
           else
             gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "Server $VERSION" \
-              --notes "Server images \`ghcr.io/${GITHUB_REPOSITORY,,}-server\`, \`-caddy\` and \`-postgres\`, tag $VERSION. librepatch-compose yml: the whole server stack in one file (paste it into Synology Container Manager, docs/RUNBOOK.md section 2.2). librepatch-deploy zip: the same file plus .env.example and a README. librepatch-agent exe and msi: for the PCs (section 4); not code-signed, so Windows may warn: check the .sha256 and run Unblock-File. .lprel: the signed update file for Agent updates in the console (section 5c), present only when an update signing key is configured. librepatch-release exe: the tool that makes the signing key (section 5c)."
+              --notes "Server images \`ghcr.io/${GITHUB_REPOSITORY,,}-server\`, \`-caddy\` and \`-postgres\`, tag $VERSION. docker-compose.yml: the whole server stack in one file (paste it into Synology Container Manager, docs/RUNBOOK.md section 2.2). librepatch-deploy zip: the same file plus .env.example and a README. librepatch-agent exe and msi: for the PCs (section 4); not code-signed, so Windows may warn: check the .sha256 and run Unblock-File. .lprel: the signed update file for Agent updates in the console (section 5c), present only when an update signing key is configured. librepatch-release exe: the tool that makes the signing key (section 5c)."
           fi
           {
-            echo "- compose file (the whole stack): https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/librepatch-compose-$VERSION.yml"
+            echo "- compose file (the whole stack): https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/docker-compose.yml"
             echo "- deploy zip: $url"
             echo "- agent exe: https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/librepatch-agent_${VERSION}_windows_amd64.exe"
             if [ -f "$curr" ]; then echo "- signed update file: librepatch-agent_${VERSION}_windows_amd64.lprel (upload it under Agent updates)"; else echo "- no signed update file (no signing key configured)"; fi
@@ -234,6 +235,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          gh release upload "server-${env:VERSION}" "dist\librepatch-agent_${env:VERSION}_windows_x64.msi" --clobber --repo $env:GITHUB_REPOSITORY
+          $msi = "dist\librepatch-agent_${env:VERSION}_windows_x64.msi"
+          # The published SHA-256 (same format as the exe's): the server checks the MSI it fetches against it (decision D112).
+          $hash = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLower()
+          [System.IO.File]::WriteAllText("$PWD\$msi.sha256", "$hash  $(Split-Path $msi -Leaf)`n")
+          gh release upload "server-${env:VERSION}" $msi "$msi.sha256" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { throw "could not attach the MSI" }
           Add-Content $env:GITHUB_STEP_SUMMARY "- MSI: librepatch-agent_${env:VERSION}_windows_x64.msi (attached to the release)"

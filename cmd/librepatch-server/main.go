@@ -2,6 +2,7 @@
 //
 //	librepatch-server [serve]            run the server (default)
 //	librepatch-server migrate [--down-to N]  apply database migrations and exit (or roll back to version N)
+//	librepatch-server maintenance        like migrate, then stay running idle (the compose "maintenance" service)
 //	librepatch-server backup --out F|-   write an age-encrypted backup (database + content files)
 //	librepatch-server backup --verify F  check a backup without touching any database
 //	librepatch-server restore --in F|-   restore a backup into an empty database
@@ -55,6 +56,8 @@ func main() {
 		err = backup.CommandBackup(os.Args[2:], config.Load)
 	case "restore":
 		err = backup.CommandRestore(os.Args[2:], config.Load)
+	case "maintenance":
+		err = maintenance(os.Args[2:])
 	case "show-master-key":
 		err = showMasterKey()
 	case "set-master-key":
@@ -66,7 +69,7 @@ func main() {
 	case "version", "--version", "-v":
 		fmt.Printf("librepatch-server %s (%s)\n", version.Version, version.Commit)
 	default:
-		err = fmt.Errorf("unknown command %q (serve|migrate|backup|restore|show-master-key|set-master-key|healthcheck|admin|version)", cmd)
+		err = fmt.Errorf("unknown command %q (serve|migrate|maintenance|backup|restore|show-master-key|set-master-key|healthcheck|admin|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -137,6 +140,32 @@ func migrate(args []string) error {
 	return nil
 }
 
+// maintenance is the command of the compose "maintenance" service (decision D111): it does what "migrate" does, then
+// stays running and idle, so that container managers (Synology Container Manager, Docker Desktop) show every container as
+// up instead of one that "exited". It reports readiness through LIBREPATCH_HEALTH_FILE, which the container's health check
+// reads; the server waits for that to be healthy. Backup and restore still run as separate one-off containers.
+func maintenance(args []string) error {
+	if err := migrate(args); err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return idleUntilStopped(ctx, os.Getenv("LIBREPATCH_HEALTH_FILE"))
+}
+
+// idleUntilStopped marks the service ready by creating readyFile (if given), then waits until ctx is done. The file is
+// removed again on the way out.
+func idleUntilStopped(ctx context.Context, readyFile string) error {
+	if readyFile != "" {
+		if err := os.WriteFile(readyFile, []byte("ready\n"), 0o600); err != nil {
+			return fmt.Errorf("write ready file: %w", err)
+		}
+		defer func() { _ = os.Remove(readyFile) }()
+	}
+	<-ctx.Done()
+	return nil
+}
+
 // showMasterKey prints the master key for someone who has access to the server's files.
 func showMasterKey() error {
 	cfg, err := config.Load()
@@ -190,6 +219,13 @@ func setMasterKey(args []string) error {
 }
 
 func healthcheck() error {
+	// The maintenance service has no HTTP listener: it is healthy once its ready file exists.
+	if f := os.Getenv("LIBREPATCH_HEALTH_FILE"); f != "" {
+		if _, err := os.Stat(f); err != nil {
+			return fmt.Errorf("not ready: %w", err)
+		}
+		return nil
+	}
 	addr := os.Getenv("LIBREPATCH_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"

@@ -12,10 +12,11 @@ src=deploy/docker-compose.yml
 out=${1:-deploy/docker-compose.image.yml}
 
 awk '
-  NR == 1 { print "# GENERATED from docker-compose.yml by scripts/gen-image-compose.sh. Do not edit by hand."
-            print "# The whole LibrePatch stack in ONE file: the three images are PULLED from the registry, nothing else is needed."
-            print "# Set your host name in the settings block below, then start it (docs/RUNBOOK.md, \"Install from the published image\"):"
-            print "#   docker compose -f docker-compose.image.yml up -d          (in Synology Container Manager: paste this file into a new project)"
+  NR == 1 { print "# The whole LibrePatch stack in ONE file: the three images are PULLED from the registry, nothing else is needed."
+            print "# TO INSTALL: edit ONLY the \"YOUR SETTINGS\" block below (at least the host name), then start it:"
+            print "#   docker compose up -d          (in Synology Container Manager: paste this file into a new project)"
+            print "# More: docs/RUNBOOK.md, \"Install from the published images\"."
+            print "# (For maintainers: this file is generated from deploy/docker-compose.yml by scripts/gen-image-compose.sh; change the source.)"
             skip_header = 1 }
   skip_header && /^#/ { next }
   { skip_header = 0 }

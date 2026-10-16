@@ -13,6 +13,7 @@ no account and no telemetry.
 - **Agent self-update** with a pilot group and automatic rollback.
 - **Security first:** mutual TLS, jobs signed by the server and verified on the PC, mandatory two-factor sign-in with
   security-key support, role-based access (optionally per site), scoped API tokens and a hash-chained audit log.
+- **Agents without GitHub:** the server hands out the Windows agent (MSI and exe) itself, and the console prints the install commands for both.
 - **Your branding**, five accessible themes, encrypted backups, and an MSI for deployment through GPO, Intune or an RMM.
 
 **Status: early software.** It comes with a large automated test suite (unit, database, end-to-end and browser tests), but it has
@@ -21,7 +22,7 @@ handling) have had little real-world testing. It runs installers as SYSTEM on yo
 new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a few machines first, and keep backups.
 
 ## Quick start (production-style, one host)
-The simplest install is **one file**: download `librepatch-compose-<version>.yml` from the latest
+The simplest install is **one file**: download `docker-compose.yml` from the latest
 [release](https://github.com/auzring1/LibrePatch/releases), set your host name in the block at its top, and start it
 (`docker compose up -d`, or paste it into a new project in Synology Container Manager). Everything else is inside the container
 images. Details: [docs/RUNBOOK.md](docs/RUNBOOK.md), section 2.2. To build from a checkout instead:

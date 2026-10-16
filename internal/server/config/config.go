@@ -83,6 +83,11 @@ type Config struct {
 	GitHubToken string
 	// WingetSource is "github" (default) or "off". "off" also turns off the winget index download.
 	WingetSource string
+	// AgentDownloads is "github" (default: the server fetches the agent installers from the release that matches its
+	// version and offers them in the console) or "off".
+	AgentDownloads string
+	// AgentDownloadBaseURL overrides where the installers are fetched from (a mirror); "" = the project's releases; https only.
+	AgentDownloadBaseURL string
 	// WingetIndexURL overrides where the winget index is downloaded from ("" = Microsoft's winget CDN); https only.
 	WingetIndexURL string
 	// ReleasePublicKeys are extra vendor release public keys (hex, comma-separated) the server accepts
@@ -141,6 +146,15 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	if c.WingetIndexURL = strings.TrimSpace(get("LIBREPATCH_WINGET_INDEX_URL", "")); c.WingetIndexURL != "" {
 		if u, perr := url.Parse(c.WingetIndexURL); perr != nil || u.Scheme != "https" || u.Host == "" {
 			errs = append(errs, errors.New("LIBREPATCH_WINGET_INDEX_URL must be an https URL"))
+		}
+	}
+	c.AgentDownloads = get("LIBREPATCH_AGENT_DOWNLOADS", "github")
+	if c.AgentDownloads != "github" && c.AgentDownloads != "off" {
+		errs = append(errs, errors.New("LIBREPATCH_AGENT_DOWNLOADS must be github or off"))
+	}
+	if c.AgentDownloadBaseURL = strings.TrimRight(get("LIBREPATCH_AGENT_DOWNLOAD_BASE_URL", ""), "/"); c.AgentDownloadBaseURL != "" {
+		if u, perr := url.Parse(c.AgentDownloadBaseURL); perr != nil || u.Host == "" || (u.Scheme != "https" && !(c.DevMode && u.Scheme == "http")) {
+			errs = append(errs, errors.New("LIBREPATCH_AGENT_DOWNLOAD_BASE_URL must be an https URL"))
 		}
 	}
 	c.ReleasePublicKeys = get("LIBREPATCH_RELEASE_PUBLIC_KEYS", "")

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/server/agentdl"
 	"github.com/auzring1/librepatch/internal/server/agentrel"
 	"github.com/auzring1/librepatch/internal/server/auth"
 	"github.com/auzring1/librepatch/internal/server/branding"
@@ -63,6 +64,7 @@ type Deps struct {
 	Deploy    *deploy.Service
 	Catalog   *catalog.Service
 	Winget    *wingetindex.Service
+	AgentDL   *agentdl.Service // nil: the agent installers are not offered
 	Updates   *updates.Service
 	Releases  *agentrel.Service
 	Policies  *policies.Service
@@ -120,6 +122,10 @@ func NewHandler(d Deps, gui http.Handler) http.Handler {
 	r.Use(s.recoverer, s.realIP, securityHeaders(d.Cfg))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	r.Get("/readyz", s.readyz)
+	// The agent installers are public by design (the same files are on the project's release page, and nothing in them is
+	// secret: the enrollment token and the CA pin come with the install command), so an endpoint can fetch them with
+	// curl. They are rate limited per address but not covered by the console's IP allow-list.
+	r.With(s.rateLimit).Get("/download/{name}", s.downloadAgent)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(apiHeaders, s.ipAllow, s.rateLimit, s.requestLog, s.originCheck, s.loadSession, s.csrfCheck)
 		s.routes(r)
@@ -237,6 +243,7 @@ func (s *server) routes(r chi.Router) {
 	r.With(s.requireAny(auth.PermDeploymentsWrite)).Post("/jobs/{id}/retry", s.retryJob)
 	r.With(s.require(auth.PermGroupsWrite)).Post("/groups/{id}/members", s.changeGroupMembers)
 
+	r.With(s.require(auth.PermEnrollmentRead)).Get("/agent-downloads", s.agentDownloads)
 	r.With(s.require(auth.PermEnrollmentRead)).Get("/enrollment-tokens", s.listTokens)
 	r.With(s.require(auth.PermEnrollmentWrite)).Post("/enrollment-tokens", s.createToken)
 	r.With(s.require(auth.PermSettingsWrite)).Get("/security/master-key", s.getMasterKey)

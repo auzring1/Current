@@ -660,6 +660,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent-downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The agent installers (MSI and exe) this server offers for download (requires enrollment:read)
+         * @description The server fetches the installers from the release that matches its version and serves them, without sign-in, at /download/librepatch-agent.msi and /download/librepatch-agent.exe (rate limited per address).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            enabled: boolean;
+                            version: string;
+                            /** @description Why the downloads are not available (when enabled is false) */
+                            reason?: string;
+                            /** @description The last problem fetching the files */
+                            error?: string;
+                            /** Format: date-time */
+                            checked_at?: string | null;
+                            items: {
+                                /** @enum {string} */
+                                kind: "msi" | "exe";
+                                file_name: string;
+                                /** Format: int64 */
+                                size: number;
+                                sha256: string;
+                                /** @description The SHA-256 matched the one published beside the file */
+                                verified: boolean;
+                                url: string;
+                                available: boolean;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enrollment-tokens": {
         parameters: {
             query?: never;
@@ -724,7 +784,13 @@ export interface paths {
                         "application/json": {
                             token: components["schemas"]["EnrollmentToken"];
                             enrollment_string: string;
+                            /** @description The exe install command (kept for older callers; see install.exe.command) */
                             install_command: string;
+                            /** @description Ready-made commands for an elevated prompt. A download line is empty while that installer is not on the server. */
+                            install: {
+                                msi: components["schemas"]["InstallCommands"];
+                                exe: components["schemas"]["InstallCommands"];
+                            };
                             root_ca_pin: string;
                         };
                     };
@@ -7400,6 +7466,12 @@ export interface components {
             pending_reboot_reasons?: string[];
             timezone?: string;
             boot_time?: string;
+        };
+        InstallCommands: {
+            /** @description curl.exe line that downloads the installer from this server (empty when it is not available) */
+            download: string;
+            /** @description The install command (contains the enrollment token) */
+            command: string;
         };
         EnrollmentToken: {
             /** Format: uuid */

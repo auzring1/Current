@@ -1,7 +1,8 @@
-# GENERATED from docker-compose.yml by scripts/gen-image-compose.sh. Do not edit by hand.
 # The whole LibrePatch stack in ONE file: the three images are PULLED from the registry, nothing else is needed.
-# Set your host name in the settings block below, then start it (docs/RUNBOOK.md, "Install from the published image"):
-#   docker compose -f docker-compose.image.yml up -d          (in Synology Container Manager: paste this file into a new project)
+# TO INSTALL: edit ONLY the "YOUR SETTINGS" block below (at least the host name), then start it:
+#   docker compose up -d          (in Synology Container Manager: paste this file into a new project)
+# More: docs/RUNBOOK.md, "Install from the published images".
+# (For maintainers: this file is generated from deploy/docker-compose.yml by scripts/gen-image-compose.sh; change the source.)
 name: librepatch
 
 # ====================================== YOUR SETTINGS ======================================
@@ -35,9 +36,9 @@ x-hardening: &hardening
   security_opt:
     - no-new-privileges:true
   restart: unless-stopped
-  logging:
-    driver: json-file
-    options: { max-size: "20m", max-file: "5" }
+  # No "logging:" block on purpose: the Docker host's own default applies, which is what Synology Container Manager
+  # needs to show a container's log in its window. On a plain Linux host, limit log size once in
+  # /etc/docker/daemon.json (docs/RUNBOOK.md, "Log size").
 
 
 services:
@@ -74,9 +75,9 @@ services:
     pull_policy: always
     depends_on:
       postgres: { condition: service_healthy }
-      # Migrations run in the one-shot "maintenance" service, which alone holds the schema-owner
-      # credential (SECURITY.md T-SRV-4): the long-running server only gets the DML-only app role.
-      maintenance: { condition: service_completed_successfully }
+      # Migrations run in the "maintenance" service, which alone holds the schema-owner credential (SECURITY.md T-SRV-4):
+      # the server only gets the DML-only app role. The server starts once maintenance reports healthy (migrations done).
+      maintenance: { condition: service_healthy }
     ports:
       # Agent gateway: mTLS terminated by the server itself (never proxied).
       - target: 8443
@@ -100,6 +101,10 @@ services:
       LIBREPATCH_WINGET_SOURCE: ${LIBREPATCH_WINGET_SOURCE:-github}
       LIBREPATCH_WINGET_INDEX_URL: ${LIBREPATCH_WINGET_INDEX_URL:-}
       LIBREPATCH_RELEASE_PUBLIC_KEYS: *release_public_keys
+      # The server fetches the agent installers from the release that matches its version and offers them in the console
+      # (decision D112). "off" turns that off; the base URL names a mirror of the release downloads (https).
+      LIBREPATCH_AGENT_DOWNLOADS: ${LIBREPATCH_AGENT_DOWNLOADS:-github}
+      LIBREPATCH_AGENT_DOWNLOAD_BASE_URL: ${LIBREPATCH_AGENT_DOWNLOAD_BASE_URL:-}
     volumes:
       - content:/var/lib/librepatch/content
       # Secrets are created by the stack itself (docs/RUNBOOK.md, "Secrets"): the server may read its own database login
@@ -118,16 +123,23 @@ services:
       retries: 12
       start_period: 20s
 
-  # One-shot job: applies database migrations, then exits. It is also the way to run the commands that
-  # need the schema-owner connection (backup, restore), which the running server cannot do:
+  # Applies database migrations (and creates the master key on the first start), then stays running and idle, so that
+  # container managers show every container as up (decision D111). It is also the way to run the commands that
+  # need the schema-owner connection (backup, restore), which the running server cannot do; those run in a separate
+  # one-off container that replaces this command:
   #   docker compose -f deploy/docker-compose.yml run --rm --no-deps -T maintenance backup --out - --recipient age1...
   maintenance:
-    security_opt:
-      - no-new-privileges:true
-    restart: "no"
+    <<: *hardening
     image: ${LIBREPATCH_REGISTRY:-ghcr.io/auzring1}/librepatch-server:${LIBREPATCH_VERSION:-latest}
     pull_policy: always
-    command: ["migrate"]
+    command: ["maintenance"]
+    healthcheck:
+      # Healthy once the migrations are done (the command creates this file); the server waits for that.
+      test: ["CMD", "/librepatch-server", "healthcheck"]
+      interval: 3s
+      timeout: 3s
+      retries: 100
+      start_period: 5s
     depends_on:
       postgres: { condition: service_healthy }
     environment:
@@ -144,6 +156,7 @@ services:
       LIBREPATCH_MASTER_KEY_AUTOGEN: "true"
       LIBREPATCH_LOG_LEVEL: ${LIBREPATCH_LOG_LEVEL:-info}
       LIBREPATCH_CONTENT_DIR: /var/lib/librepatch/content
+      LIBREPATCH_HEALTH_FILE: /tmp/maintenance-ready
     volumes:
       - content:/var/lib/librepatch/content
       - secrets_app:/run/librepatch/app:ro

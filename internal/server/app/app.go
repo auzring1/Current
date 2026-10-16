@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/auzring1/librepatch/gen/dbq"
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/server/agentdl"
 	"github.com/auzring1/librepatch/internal/server/agentrel"
 	"github.com/auzring1/librepatch/internal/server/api"
 	"github.com/auzring1/librepatch/internal/server/auth"
@@ -46,6 +48,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/webui"
 	"github.com/auzring1/librepatch/internal/server/wingetindex"
 	"github.com/auzring1/librepatch/internal/shared/release"
+	"github.com/auzring1/librepatch/internal/shared/version"
 )
 
 // App is a running server.
@@ -67,6 +70,8 @@ type App struct {
 	Maint     *maintenance.Service
 	Sched     *reportsched.Service
 	Catalog   *catalog.Service
+	// AgentDL fetches and serves the agent installers (decision D112).
+	AgentDL *agentdl.Service
 	// Winget keeps the winget community index (what installed programs are and their newest versions); nil when
 	// LIBREPATCH_WINGET_SOURCE=off.
 	Winget *wingetindex.Service
@@ -123,6 +128,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	if cfg.WingetSource == "github" {
 		a.Winget = &wingetindex.Service{Pool: pool, URL: cfg.WingetIndexURL, Log: log.With("component", "winget-index")}
 		a.Deploy.Winget = a.Winget
+	}
+	a.AgentDL = &agentdl.Service{Version: version.Version, BaseURL: cfg.AgentDownloadBaseURL, Off: cfg.AgentDownloads == "off", AllowHTTP: cfg.DevMode,
+		Log: log.With("component", "agentdl")}
+	if cfg.ContentDir != "" {
+		// A dot-folder: backups skip it (the files are fetched again from the release, nothing to back up).
+		a.AgentDL.Dir = filepath.Join(cfg.ContentDir, ".agent-downloads")
 	}
 	a.Deploy.Overlay = a.Catalog.Overlay
 	a.Releases = &agentrel.Service{Pool: pool, Deploy: a.Deploy, Content: a.Catalog.Content, Events: a.Events, Log: log.With("component", "agentrel")}
@@ -267,7 +278,7 @@ func (a *App) Handler() http.Handler {
 	}
 	deps := api.Deps{
 		Cfg: a.Cfg, Pool: a.Pool, Sealer: a.Sealer, Sessions: sessions, Events: a.Events,
-		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched, KeyAck: a.KeyAck,
+		Setup: setupCtl{a}, Devices: a.Hub, Authority: a.Authority, Log: a.Log, Deploy: a.Deploy, Catalog: a.Catalog, Winget: a.Winget, AgentDL: a.AgentDL, Updates: a.Updates, Releases: a.Releases, Policies: a.Policies, Branding: a.Branding, Settings: a.Settings, Notify: a.Notify, Maint: a.Maint, Sched: a.Sched, KeyAck: a.KeyAck,
 	}
 	sessions.Timeouts = api.SessionLimits(deps)
 	return api.NewHandler(deps, webui.Handler(a.pageHead))
@@ -301,6 +312,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 	go a.housekeeping(ctx)
+	go a.AgentDL.Run(ctx)
 	if a.Winget != nil {
 		go a.Winget.Run(ctx)
 	}

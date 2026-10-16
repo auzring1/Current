@@ -307,6 +307,40 @@ paths:
         "204": { description: Saved }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /agent-downloads:
+    get:
+      tags: [enrollment]
+      summary: The agent installers (MSI and exe) this server offers for download (requires enrollment:read)
+      description: >
+        The server fetches the installers from the release that matches its version and serves them, without sign-in,
+        at /download/librepatch-agent.msi and /download/librepatch-agent.exe (rate limited per address).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, version, items]
+                properties:
+                  enabled: { type: boolean }
+                  version: { type: string }
+                  reason: { type: string, description: Why the downloads are not available (when enabled is false) }
+                  error: { type: string, description: The last problem fetching the files }
+                  checked_at: { type: string, format: date-time, nullable: true }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [kind, file_name, size, sha256, verified, url, available]
+                      properties:
+                        kind: { type: string, enum: [msi, exe] }
+                        file_name: { type: string }
+                        size: { type: integer, format: int64 }
+                        sha256: { type: string }
+                        verified: { type: boolean, description: The SHA-256 matched the one published beside the file }
+                        url: { type: string }
+                        available: { type: boolean }
   /enrollment-tokens:
     get:
       tags: [enrollment]
@@ -345,11 +379,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [token, enrollment_string, install_command, root_ca_pin]
+                required: [token, enrollment_string, install_command, install, root_ca_pin]
                 properties:
                   token: { $ref: "#/components/schemas/EnrollmentToken" }
                   enrollment_string: { type: string }
-                  install_command: { type: string }
+                  install_command: { type: string, description: The exe install command (kept for older callers; see install.exe.command) }
+                  install:
+                    type: object
+                    description: Ready-made commands for an elevated prompt. A download line is empty while that installer is not on the server.
+                    required: [msi, exe]
+                    properties:
+                      msi: { $ref: "#/components/schemas/InstallCommands" }
+                      exe: { $ref: "#/components/schemas/InstallCommands" }
                   root_ca_pin: { type: string }
         "400": { $ref: "#/components/responses/Error" }
   /enrollment-tokens/{id}/revoke:
@@ -3827,6 +3868,12 @@ components:
         pending_reboot_reasons: { type: array, items: { type: string } }
         timezone: { type: string }
         boot_time: { type: string }
+    InstallCommands:
+      type: object
+      required: [download, command]
+      properties:
+        download: { type: string, description: "curl.exe line that downloads the installer from this server (empty when it is not available)" }
+        command: { type: string, description: The install command (contains the enrollment token) }
     EnrollmentToken:
       type: object
       required: [id, name, max_uses, used_count, expires_at, require_approval, created_at, state]
