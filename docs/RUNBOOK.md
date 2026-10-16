@@ -19,7 +19,7 @@ Status: covers Phase 1 (server, web console, agent enrollment and connectivity);
 
 ```bash
 git clone <repo> current && cd current
-cp deploy/.env.example deploy/.env        # then edit LIBREPATCH_HOSTNAME and LIBREPATCH_CADDY_TLS
+cp deploy/.env.example deploy/.env        # then edit LIBREPATCH_HOSTNAME and LIBREPATCH_CADDY_TLS (or edit the "YOUR SETTINGS" block in deploy/docker-compose.yml instead)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml logs server | grep -A2 "setup token"
 ```
@@ -43,7 +43,7 @@ If the key was already supplied by hand (`LIBREPATCH_MASTER_KEY_FILE` pointing a
 
 - `internal`: Caddy's own CA, for LAN-only installs. Export the root with `docker compose -f deploy/docker-compose.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt` and distribute it to admin workstations, for example via GPO under Trusted Root Certification Authorities.
 - An email address: a public Let's Encrypt certificate. Ports 80 and 443 must be reachable from the internet.
-- Your own certificate: mount it into the Caddy container and replace the `tls` line in `deploy/Caddyfile` with `tls /path/cert.pem /path/key.pem`.
+- Your own certificate: mount it into the Caddy container (add a volume to the `caddy` service) and replace the `tls` line in `deploy/caddy/Caddyfile` with `tls /path/cert.pem /path/key.pem`, then rebuild the proxy image (`docker compose build caddy`).
 
 These modes only affect the console. The agent channel always uses the server's internal CA, which agents pin.
 
@@ -51,14 +51,14 @@ These modes only affect the console. The agent channel always uses the server's 
 
 Use this when another proxy already owns ports 80 and 443 and does the browser TLS. The console then goes browser, your proxy (HTTPS), Caddy (plain HTTP, on the same host), the server. **Agents do not use it**: they connect to the NAS on port 8443 directly, because the gateway checks each agent's client certificate itself (mTLS) and an HTTP proxy would break that. Point the agents' name (`SERVER=librepatch.example.org:8443`) at the NAS and allow port 8443 in its firewall.
 
-1. In `deploy/.env` (the commented block in `.env.example` has the same lines):
+1. In the "YOUR SETTINGS" block at the top of the compose file, or as lines in `deploy/.env` (the commented block in `.env.example` has the same names):
    ```
    LIBREPATCH_HOSTNAME=librepatch.example.org
-   LIBREPATCH_CADDYFILE=./Caddyfile.behind-proxy
+   LIBREPATCH_BEHIND_PROXY=true
    LIBREPATCH_HTTP_PORT=127.0.0.1:8080
    LIBREPATCH_HTTPS_PORT=8444
    ```
-   `LIBREPATCH_HTTP_PORT` with `127.0.0.1:` keeps plain HTTP reachable only from the NAS itself. `LIBREPATCH_HTTPS_PORT` is published but unused in this mode; it only has to differ from the port your proxy uses. Leave `LIBREPATCH_PUBLIC_PORT_SUFFIX` empty when people browse on the normal HTTPS port. `LIBREPATCH_HOSTNAME` must be the name people type, because the console checks the origin of every change request against it.
+   In the compose file these are the text after `:-` on the lines `hostname`, `behind_proxy`, `http_publish` (`127.0.0.1:8080` replaces `80`) and `https_publish`. `LIBREPATCH_HTTP_PORT` with `127.0.0.1:` keeps plain HTTP reachable only from the NAS itself. `LIBREPATCH_HTTPS_PORT` is published but unused in this mode; it only has to differ from the port your proxy uses. Leave `LIBREPATCH_PUBLIC_PORT_SUFFIX` empty when people browse on the normal HTTPS port. `LIBREPATCH_HOSTNAME` must be the name people type, because the console checks the origin of every change request against it.
 2. In DSM (Control Panel, Login Portal, Advanced, Reverse Proxy, Create): source HTTPS, your host name, port 443; destination **HTTP**, `localhost`, port 8080. Assign a certificate for that name (Control Panel, Security, Certificate). DSM adds `X-Forwarded-For`; keep any option that forwards the original Host and client address.
 3. Start the stack as in section 2. Then sign in once and open **Audit log**: the entry should show **your workstation's address**. If it shows an address inside `172.31.250.0/24` or the NAS's own address, the server did not believe the forwarded header; see below.
 4. Test an installer upload (**Catalog, Upload custom installer**) and watch the Devices page update by itself. A `413` means DSM's request-size limit is lower than the 2 GiB the console allows; raise it for this proxy rule.
@@ -69,34 +69,49 @@ Use this when another proxy already owns ports 80 and 443 and does the browser T
 
 Not verified on a Synology: the Caddy part was run with the real Caddy binary (a trusted caller's header is kept and extended, an untrusted caller's header is replaced); DSM itself and Docker on DSM were not available.
 
-### 2.2 Install from the published image (no building, easy updates)
+### 2.2 Install from the published images (no building, one file, easy updates)
 
-The repository publishes the server image to GitHub's registry: `ghcr.io/auzring1/librepatch-server`. A second compose file,
-`deploy/docker-compose.image.yml`, is the same stack but **pulls** that image instead of building it. Use it when you want
-updating to be "pull and restart". It is generated from `docker-compose.yml` (`scripts/gen-image-compose.sh`), so the two
-cannot drift apart, and the build-from-source path in section 2 keeps working.
+The repository publishes three images to GitHub's registry: `ghcr.io/auzring1/librepatch-server`, `-caddy` (the web proxy, with
+both Caddy configurations built in) and `-postgres` (the database, with its role setup and password wrapper built in). A second
+compose file, `deploy/docker-compose.image.yml`, is the same stack but **pulls** them instead of building. Because everything the
+stack needs is inside the images, **that one file is the whole install**: nothing has to sit next to it (decision D110). It is
+generated from `docker-compose.yml` (`scripts/gen-image-compose.sh`), so the two cannot drift apart, and the build-from-source
+path in section 2 keeps working.
 
 Tags: `1.2.3` (a release you published, see below), `latest` (the newest release), `edge` (the newest `main`, for testing).
 Production should pin a release number.
 
-**Get the install files** (no need to clone the repository). Every release comes with `librepatch-deploy-<version>.zip` on the
-GitHub **Releases** page (the release is called `server-<version>`). It holds only the compose file, the Caddy and database setup
-files and the database start-up script, and its compose file already defaults to that version's image. On the server:
+**Get the compose file.** Every release (GitHub **Releases** page, called `server-<version>`) has `librepatch-compose-<version>.yml`:
+the whole stack in one file, already defaulting to that version's images and to your agents' update key. At the top is a block
+called **YOUR SETTINGS**: replace `change-me.example.com` with the DNS name of this server (the server refuses to start while
+that placeholder is still there). The other lines in the block (browser TLS, ports, running behind a reverse proxy, the gateway
+port) have working defaults; section 2.1 says which to change behind a Synology reverse proxy.
+
+**On a Synology (Container Manager).** Container Manager, Project, Create: name `librepatch`; choose a folder (for example
+`/volume1/docker/librepatch`); source **Create docker-compose.yml**, paste the edited file, and build. Nothing else needs to be
+downloaded or copied onto the NAS. The `maintenance` container stops after it has created the passwords and the master key and
+migrated the database; that is expected. Get the setup token from the project's `server` container log (search "setup token"),
+open the console, finish setup, and **save the master key** the console then shows. *Not verified on a real Synology: the paste
+flow, and whether Container Manager keeps the settings block through later edits.*
+
+**With the command line** (any Docker host, also a Synology over SSH; add `sudo` on a Synology):
 
 ```bash
-cd /volume1/docker                       # any folder; on a Synology this is a shared folder
-curl -L -o librepatch-deploy.zip https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/librepatch-deploy-1.2.3.zip
-unzip librepatch-deploy.zip && cd librepatch-deploy-1.2.3
-cp deploy/.env.example deploy/.env       # then edit it (host name; for DSM's reverse proxy see 2.1)
-docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
+curl -L -o docker-compose.yml https://github.com/auzring1/LibrePatch/releases/download/server-1.2.3/librepatch-compose-1.2.3.yml
+nano docker-compose.yml                  # replace change-me.example.com (and any other setting you need)
+docker compose up -d
+docker compose logs server | grep -A2 "setup token"
 ```
 
-The same zip's `README.txt` repeats these steps. If you cloned the repository instead, use the same commands from its root
-(add `LIBREPATCH_VERSION=1.2.3` to `deploy/.env`; without it the tag is `latest`).
+The release also has `librepatch-deploy-<version>.zip` (the same file plus `.env.example` and a README) for those who prefer keeping
+their settings in a `deploy/.env` file apart from the compose file (`--env-file deploy/.env`); a value in `.env` wins over the
+settings block. If you cloned the repository instead, use `deploy/docker-compose.image.yml` the same way (add `LIBREPATCH_VERSION=1.2.3`
+to `deploy/.env`; without it the tag is `latest`).
 
-**Update:** back up first (section 6), set `LIBREPATCH_VERSION=<new number>` in `deploy/.env` (it overrides the version the zip
-was made for; or unpack the newer zip over the old folder, keeping `deploy/.env`; the secrets live in Docker volumes and are not touched), then run
-`docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env pull` and the same `up -d` line again. Migrations run
+**Update:** back up first (section 6). Either change the version in the compose file's image tags (or set `LIBREPATCH_VERSION=<new number>`
+in a `deploy/.env`, which overrides it), or paste the newer release's compose file and copy your settings into it; the secrets live
+in Docker volumes and are not touched. Then run `docker compose pull` and `docker compose up -d` again (in Container Manager: Project,
+Action, Build again). Migrations run
 by themselves, forward only. **Roll back:** put the old number back and run `up -d`, but only if the new version did not apply a
 database migration; otherwise restore the backup you took (section 6.5).
 
@@ -104,13 +119,15 @@ On a Synology, run the same commands over SSH (or make a Container Manager proje
 Container Manager's own "Build"/"Update" buttons re-pull a changed `LIBREPATCH_VERSION` has **not been verified**; the commands above are the safe way.
 
 **Publishing a release (maintainer):**
-1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the image from the chosen
-   branch, pushes `:1.2.3` and `:latest`, and creates the release `server-1.2.3` with `librepatch-deploy-1.2.3.zip` attached (the job
-   summary shows the download command). Every push to `main` also refreshes `:edge` (no release, no zip).
-2. **Check once after the first publish:** the package is linked to the repository by the image's source label and followed the
-   repository's visibility (public). If it ever shows as private, open GitHub, **Packages, librepatch-server, Package settings,
-   Change visibility, Public**; until then an install must `docker login ghcr.io` with a token that may read packages.
-3. The image carries no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
+1. On GitHub: **Actions, image, Run workflow**, type the version (for example `1.2.3`), run. It builds the three images from the chosen
+   branch, pushes `:1.2.3` and `:latest` for each, and creates the release `server-1.2.3` with `librepatch-compose-1.2.3.yml` and
+   `librepatch-deploy-1.2.3.zip` attached (the job summary shows the download links). Every push to `main` also refreshes `:edge` (no release, no zip).
+2. **Check once after the first publish:** each of the three packages is linked to the repository by the image's source label and
+   should follow the repository's visibility (public). The two new ones (`librepatch-caddy`, `librepatch-postgres`) are created
+   private on their first publish: open GitHub, **Packages, librepatch-caddy** (and **librepatch-postgres**, and
+   **librepatch-server** if it shows private), **Package settings, Change visibility, Public**. Until all three are public an install
+   must `docker login ghcr.io` with a token that may read packages, and a paste-only install on a NAS fails to pull.
+3. The images carry no agent signing key. Upload your own signed agent releases in the console as usual (section 5c).
 
 This workflow is separate from the signed release pipeline in section 9 (`release.yml`, tags `v*`). Nothing in it was run before
 this was written; the first run is the test.
@@ -395,7 +412,7 @@ Administrators can set the **default theme** and limit **which themes people may
 | Every table in the `public` schema (found from the catalog, so new tables are included automatically), including the audit log with its hash chain, and sequence positions | **The master key (KEK) and the database passwords.** The database only holds keys *sealed* with the KEK (issuing CA, job signing, gateway, TOTP secrets), so a backup without the KEK cannot restore a working server |
 | The content directory (`LIBREPATCH_CONTENT_DIR`): uploaded installers, byte for byte, with SHA-256 checked | The root CA passphrase (you hold it; the root key in the database is sealed with it) |
 | A manifest: format version, `librepatch-server` version, schema version, creation time, row counts, SHA-256 of every part | `deploy/.env`, Caddy's certificates (`caddy_data`), logs, agents' local state |
-| | Database roles and passwords (the roles come from `deploy/postgres/init` and the secrets) |
+| | Database roles and passwords (the roles are created by the database image's setup script) |
 
 **You must keep the master key separately.** It is the text the console showed at first sign-in (or print it again with `docker compose -f deploy/docker-compose.yml exec server /librepatch-server show-master-key`). Store it in a password manager or another place that is not the database backups. Keep the two in different places: someone who has both can read everything. The database passwords do not need a backup: a restore creates new ones.
 

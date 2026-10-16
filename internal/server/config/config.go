@@ -90,6 +90,10 @@ type Config struct {
 	ReleasePublicKeys string
 }
 
+// PlaceholderHostname is the host name the compose files ship with until the installer replaces it. It is a reserved
+// example domain, so a real installation never uses it, and the server refuses to start with it.
+const PlaceholderHostname = "change-me.example.com"
+
 // Load reads configuration from the process environment.
 func Load() (*Config, error) { return LoadFrom(os.LookupEnv) }
 
@@ -147,9 +151,18 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		errs = append(errs, errors.New("LIBREPATCH_WINGET_SOURCE must be github or off"))
 	}
 
+	// The compose files only hand over the host name (and optional port settings); the full addresses are derived here, so
+	// that one block of settings at the top of the compose file is all an install has to edit.
+	hostname := get("LIBREPATCH_HOSTNAME", "")
+	if hostname == PlaceholderHostname {
+		errs = append(errs, errors.New("LIBREPATCH_HOSTNAME is still the placeholder "+PlaceholderHostname+": put the DNS name of this server in the settings block at the top of the compose file (or in deploy/.env)"))
+	}
 	pub := get("LIBREPATCH_PUBLIC_URL", "")
+	if pub == "" && hostname != "" {
+		pub = "https://" + hostname + get("LIBREPATCH_PUBLIC_PORT_SUFFIX", "")
+	}
 	if pub == "" {
-		errs = append(errs, errors.New("LIBREPATCH_PUBLIC_URL is required (e.g. https://librepatch.example.com)"))
+		errs = append(errs, errors.New("LIBREPATCH_PUBLIC_URL (or LIBREPATCH_HOSTNAME) is required (e.g. https://librepatch.example.com)"))
 	} else if u, perr := url.Parse(pub); perr != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		errs = append(errs, fmt.Errorf("LIBREPATCH_PUBLIC_URL %q is not a valid http(s) origin", pub))
 	} else {
@@ -161,6 +174,9 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	}
 
 	c.GatewayPublicAddr = get("LIBREPATCH_GATEWAY_PUBLIC_ADDR", "")
+	if c.GatewayPublicAddr == "" && hostname != "" {
+		c.GatewayPublicAddr = net.JoinHostPort(get("LIBREPATCH_GATEWAY_HOSTNAME", hostname), get("LIBREPATCH_GATEWAY_PORT", "8443"))
+	}
 	if c.GatewayPublicAddr == "" && c.PublicURL != nil {
 		c.GatewayPublicAddr = net.JoinHostPort(c.PublicURL.Hostname(), "8443")
 	}
@@ -179,7 +195,9 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	}
 
 	// Commas or spaces separate the entries: the same list is handed to Caddy, which wants spaces.
-	for _, s := range strings.FieldsFunc(get("LIBREPATCH_TRUSTED_PROXIES", ""), func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
+	// LIBREPATCH_UPSTREAM_PROXIES (your own reverse proxy, as Caddy sees it) is trusted in addition to Caddy itself.
+	trusted := get("LIBREPATCH_TRUSTED_PROXIES", "") + " " + get("LIBREPATCH_UPSTREAM_PROXIES", "")
+	for _, s := range strings.FieldsFunc(trusted, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
 		p, perr := netip.ParsePrefix(s)
 		if perr != nil {
 			errs = append(errs, fmt.Errorf("LIBREPATCH_TRUSTED_PROXIES: %w", perr))

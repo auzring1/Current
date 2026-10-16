@@ -1,11 +1,11 @@
-# Publishes the server container image to GitHub's registry (ghcr.io) so installs can PULL it instead of
-# building from source. See docs/DECISIONS.md D102 and docs/RUNBOOK.md, "Install from the published image".
+# Publishes the three container images (server, web proxy "caddy", database "postgres") to GitHub's registry (ghcr.io)
+# so installs can PULL them instead of building from source, and the one compose file that starts them (decision D110). See docs/DECISIONS.md D102 and docs/RUNBOOK.md, "Install from the published image".
 #
 #   Push to main            -> :edge and :edge-<commit>   (the newest main; for testing, not for production)
 #   Run workflow by hand    -> :<version> and :latest     (a release; type the version, for example 1.0.0)
-#                              and a GitHub release "server-<version>" with librepatch-deploy-<version>.zip: the few files
-#                              (compose file, Caddy and database setup files, secrets script) an install needs next to
-#                              the image, so a NAS can download one file instead of cloning the repository,
+#                              and a GitHub release "server-<version>" with librepatch-compose-<version>.yml (the whole stack
+#                              in one file, to paste into Synology Container Manager) and librepatch-deploy-<version>.zip
+#                              (the same file plus .env.example and a README),
 #                              and librepatch-agent_<version>_windows_amd64.exe (the agent, UNSIGNED) with its .sha256,
 #                              librepatch-agent_<version>_windows_x64.msi (built by the "msi" job below),
 #                              librepatch-release_<version>_windows_amd64.exe (the tool that makes the update signing key),
@@ -20,8 +20,9 @@
 # This is deliberately separate from release.yml (signed releases with Authenticode and a KMS key, tags "v*").
 # It uses no secret: the built-in GITHUB_TOKEN may push to the repository's own package.
 #
-# The first publish creates the package as PRIVATE. Make it public once: GitHub > your profile/organization >
-# Packages > librepatch-server > Package settings > Change visibility > Public (docs/RUNBOOK.md).
+# The first publish creates each package as PRIVATE. Make all three public once: GitHub > your profile/organization >
+# Packages > librepatch-server, librepatch-caddy, librepatch-postgres > Package settings > Change visibility > Public
+# (docs/RUNBOOK.md).
 #
 # NOT YET RUN: written without a GitHub runner. The first run is the test.
 name: image
@@ -47,7 +48,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write   # create the "server-<version>" release that carries the deploy zip (release runs only)
-      packages: write   # push to ghcr.io/<owner>/librepatch-server
+      packages: write   # push to ghcr.io/<owner>/librepatch-server, -caddy and -postgres
     env:
       INPUT_VERSION: ${{ inputs.version }}
       GH_ACTOR: ${{ github.actor }}
@@ -88,6 +89,18 @@ jobs:
             echo "- \`$image:$EXTRA_TAG\`"
             echo "- digest \`$digest\`"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build and push the web proxy and database images
+        env:
+          MAIN_TAG: ${{ steps.tags.outputs.main }}
+          EXTRA_TAG: ${{ steps.tags.outputs.extra }}
+        run: |
+          set -euo pipefail
+          # Plain builds: both are a pinned base image plus a few small files, so there is nothing to reproduce.
+          for part in caddy postgres; do
+            image="ghcr.io/${GITHUB_REPOSITORY,,}-$part"
+            docker buildx build --push --provenance=false --tag "$image:$MAIN_TAG" --tag "$image:$EXTRA_TAG" "deploy/$part"
+            { echo "- \`$image:$MAIN_TAG\`"; echo "- \`$image:$EXTRA_TAG\`"; } >> "$GITHUB_STEP_SUMMARY"
+          done
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version-file: go.mod }
       - name: Build the Windows agent and the release tool
@@ -154,7 +167,9 @@ jobs:
       - name: Build the deploy zip
         env:
           VERSION: ${{ steps.tags.outputs.version }}
-        run: LIBREPATCH_RELEASE_PUBKEYS="$RELEASE_PUBKEYS" scripts/make-deploy-bundle.sh "$VERSION" "$RUNNER_TEMP/librepatch-deploy-$VERSION.zip"
+        run: |
+          LIBREPATCH_COMPOSE_OUT="$RUNNER_TEMP/librepatch-compose-$VERSION.yml" LIBREPATCH_RELEASE_PUBKEYS="$RELEASE_PUBKEYS" \
+            scripts/make-deploy-bundle.sh "$VERSION" "$RUNNER_TEMP/librepatch-deploy-$VERSION.zip"
       - name: Publish the deploy zip as a GitHub release (release runs only)
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -165,7 +180,8 @@ jobs:
           exe="$RUNNER_TEMP/librepatch-agent_${VERSION}_windows_amd64.exe"
           tool="$RUNNER_TEMP/librepatch-release_${VERSION}_windows_amd64.exe"
           curr="$RUNNER_TEMP/librepatch-agent_${VERSION}_windows_amd64.lprel"
-          assets=("$zip" "$exe" "$exe.sha256" "$tool")
+          compose="$RUNNER_TEMP/librepatch-compose-$VERSION.yml"
+          assets=("$zip" "$compose" "$exe" "$exe.sha256" "$tool")
           [ -f "$curr" ] && assets+=("$curr")
           tag="server-$VERSION"   # not "v*": that pattern starts the signed release pipeline (release.yml)
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/librepatch-deploy-$VERSION.zip"
@@ -174,9 +190,10 @@ jobs:
           else
             gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "Server $VERSION" \
-              --notes "Server image \`ghcr.io/${GITHUB_REPOSITORY,,}-server:$VERSION\`. librepatch-deploy zip: the server install files (README.txt inside, docs/RUNBOOK.md section 2.2). librepatch-agent exe and msi: for the PCs (section 4); not code-signed, so Windows may warn: check the .sha256 and run Unblock-File. .lprel: the signed update file for Agent updates in the console (section 5c), present only when an update signing key is configured. librepatch-release exe: the tool that makes the signing key (section 5c)."
+              --notes "Server images \`ghcr.io/${GITHUB_REPOSITORY,,}-server\`, \`-caddy\` and \`-postgres\`, tag $VERSION. librepatch-compose yml: the whole server stack in one file (paste it into Synology Container Manager, docs/RUNBOOK.md section 2.2). librepatch-deploy zip: the same file plus .env.example and a README. librepatch-agent exe and msi: for the PCs (section 4); not code-signed, so Windows may warn: check the .sha256 and run Unblock-File. .lprel: the signed update file for Agent updates in the console (section 5c), present only when an update signing key is configured. librepatch-release exe: the tool that makes the signing key (section 5c)."
           fi
           {
+            echo "- compose file (the whole stack): https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/librepatch-compose-$VERSION.yml"
             echo "- deploy zip: $url"
             echo "- agent exe: https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/librepatch-agent_${VERSION}_windows_amd64.exe"
             if [ -f "$curr" ]; then echo "- signed update file: librepatch-agent_${VERSION}_windows_amd64.lprel (upload it under Agent updates)"; else echo "- no signed update file (no signing key configured)"; fi
