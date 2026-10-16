@@ -235,6 +235,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          gh release upload "server-${env:VERSION}" "dist\librepatch-agent_${env:VERSION}_windows_x64.msi" --clobber --repo $env:GITHUB_REPOSITORY
+          $msi = "dist\librepatch-agent_${env:VERSION}_windows_x64.msi"
+          # The published SHA-256 (same format as the exe's): the server checks the MSI it fetches against it (decision D112).
+          $hash = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLower()
+          [System.IO.File]::WriteAllText("$PWD\$msi.sha256", "$hash  $(Split-Path $msi -Leaf)`n")
+          gh release upload "server-${env:VERSION}" $msi "$msi.sha256" --clobber --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { throw "could not attach the MSI" }
           Add-Content $env:GITHUB_STEP_SUMMARY "- MSI: librepatch-agent_${env:VERSION}_windows_x64.msi (attached to the release)"

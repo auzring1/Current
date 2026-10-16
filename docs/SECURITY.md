@@ -429,6 +429,20 @@ the threat model, and the evidence:
 | **The `maintenance` service now stays running (D111).** It used to be a one-shot container that exited after migrating. It now idles afterwards so that container managers show every container as up. It still holds the only copy of the schema-owner login (mounted read-only from `secrets_owner`) and the writable `secrets_key` volume, but for the whole lifetime of the stack instead of a few seconds; it sits on the internal backend network, publishes no ports, runs as a non-root user on a read-only filesystem with all capabilities dropped, and opens no database connection after the migrations. The server still never holds the owner login | `test/integration/compose_test.go` (maintenance running and healthy), `cmd/librepatch-server/main_test.go` |
 | **Residual risk.** Until it is acknowledged, the key sits in server memory and is visible to the signed-in administrator; the key file stays on the Docker volume readable by the server container (as the file under `deploy/secrets` was before), so root on the Docker host can read it. The screen is a prompt to keep a copy elsewhere; it cannot check that the copy really exists | stated here |
 
+## 9k. Agent downloads from the server (D112)
+
+The server fetches the Windows agent (exe and MSI) from the project's GitHub release that matches its own version and serves them at
+`/download/librepatch-agent.msi` and `/download/librepatch-agent.exe`, so that PCs never need to reach GitHub.
+
+| Control | Evidence |
+|---|---|
+| **What is fetched, and from where.** Only the two files of the release `server-<own version>`, over HTTPS (redirects must stay on HTTPS, at most 5), each at most 256 MB, written to a temporary file and moved into place only after the check. Development and edge builds (no release) fetch nothing. A mirror can replace GitHub (`LIBREPATCH_AGENT_DOWNLOAD_BASE_URL`, https; plain http only with `LIBREPATCH_DEV_MODE`) | `internal/server/agentdl/agentdl_test.go` |
+| **Integrity check.** The SHA-256 published beside each file must match; a mismatch discards the download and nothing is offered. A file with no published hash (releases made before the MSI hash was published) is kept and shown as "computed by this server", not "verified". A stored file is re-hashed at every start and fetched again if it no longer matches | `TestAWrongHashIsRefused...`, `TestStoredFilesAreNotFetchedAgainUnlessDamaged` |
+| **What this does not give.** The hash and the file come from the same release page, so it catches a damaged download, not a compromised release or account; the files are not Authenticode-signed (as before). Someone who can change the server's content volume could replace the stored file (the re-hash uses a hash kept in the same folder). Closing the first gap (checking the exe against the signed `.lprel`, or a hash baked into the server image) is possible later | stated here |
+| **The download addresses are public.** No sign-in, because a PC has none; the files are public on GitHub anyway and contain no secret (the enrollment token and the CA pin are in the command, not in the file). They are rate limited per address (the API limiter) and sit outside the console IP allow-list on purpose. Serving a stored file costs the server nothing but bandwidth; nothing a request carries is used to fetch anything | `test/e2e/agentdl_test.go` |
+| **The list needs a session.** `GET /api/v1/agent-downloads` needs `enrollment:read` | `TestAgentDownloadsListNeedsASession` |
+| **Where it is kept.** A dot-folder (`.agent-downloads`) on the content volume: backups skip dot-folders, so backups do not grow by about 30 MB; after a restore the server fetches the files again | `internal/server/backup` (skips dot entries) |
+
 ## 10. Vulnerability disclosure
 Reports go through GitHub private vulnerability reporting (Security tab, "Report a vulnerability"); the full policy is in the
 repository's [SECURITY.md](../SECURITY.md). LibrePatch has a single maintainer, so response times there are goals, not guarantees.

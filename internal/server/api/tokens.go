@@ -148,6 +148,7 @@ func (s *server) createToken(w http.ResponseWriter, r *http.Request) {
 		"token":             viewToken(created, now),
 		"enrollment_string": enc,
 		"install_command":   `librepatch-agent.exe install --server ` + s.Cfg.GatewayPublicAddr + ` --token ` + enc,
+		"install":           s.installCommands(enc),
 		"root_ca_pin":       pkix.SPKIPin(a.Root),
 	})
 }

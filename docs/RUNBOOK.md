@@ -178,7 +178,29 @@ in-place upgrade.** A stack and its agents are installed fresh. This is quick fo
 6. Save the 10 recovery codes. Each works once if you lose your authenticator.
 
 ## 4. Enroll devices
-**Get the agent.** Every server release (the GitHub release `server-<version>`, see 2.2) has `librepatch-agent_<version>_windows_amd64.exe`, a
+**The easy way: from the console (decision D112).** A server built from a release fetches the Windows agent (the MSI and the exe)
+from the matching release once, checks the exe and MSI against the SHA-256 files published beside them, and keeps them on its content
+volume. **Enrollment** in the console then shows an **Agent downloads** card (download buttons, size, SHA-256), and **New token** prints
+ready-made commands for an elevated prompt on the PC, which download from your server and install:
+
+```
+curl.exe -L -o librepatch-agent.msi https://librepatch.example.com/download/librepatch-agent.msi
+msiexec /i librepatch-agent.msi /qn /norestart SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ...
+```
+
+or, with the exe, `curl.exe -L -o librepatch-agent.exe https://.../download/librepatch-agent.exe` followed by
+`librepatch-agent.exe install --server ... --token ...`. Use `curl.exe` (not `curl`, which is an alias of another command in
+PowerShell); it ships with Windows 10 1803 and later. The download address is the console's own address, so the PC must trust that
+server certificate (a certificate from DSM or Let's Encrypt works out of the box; Caddy's internal CA must first be installed on the
+PCs, for example by GPO). `msiexec` returns before the install has finished: look for the device on the **Devices** page or run
+`"C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" status`. The two download addresses need no sign-in
+(a PC has no console login; nothing in the files is secret, the token and the CA pin are in the command), are limited per address, and are not
+covered by the console IP allow-list. If the server cannot fetch the files (no internet access from the server, a development
+build, or `LIBREPATCH_AGENT_DOWNLOADS=off`) the card says why, the token dialog leaves out the download lines, and the manual way below applies.
+A mirror of the release downloads can be named with `LIBREPATCH_AGENT_DOWNLOAD_BASE_URL` (https). What this does and does not protect
+against is in SECURITY.md, 9k.
+
+**Get the agent by hand.** Every server release (the GitHub release `server-<version>`, see 2.2) has `librepatch-agent_<version>_windows_amd64.exe`, a
 `.sha256` file, and the Windows installer `librepatch-agent_<version>_windows_x64.msi` (for GPO, Intune or RMM, see "Install with the MSI" below) next to the install zip. Download the exe on a PC (or on a file share), check it
 (`(Get-FileHash .\librepatch-agent_1.2.3_windows_amd64.exe).Hash` must match the `.sha256` file, ignoring case), and run
 `Unblock-File .\librepatch-agent_1.2.3_windows_amd64.exe`. **It is not code-signed**, so SmartScreen or antivirus may warn about it;

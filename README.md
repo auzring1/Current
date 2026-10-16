@@ -13,6 +13,7 @@ no account and no telemetry.
 - **Agent self-update** with a pilot group and automatic rollback.
 - **Security first:** mutual TLS, jobs signed by the server and verified on the PC, mandatory two-factor sign-in with
   security-key support, role-based access (optionally per site), scoped API tokens and a hash-chained audit log.
+- **Agents without GitHub:** the server hands out the Windows agent (MSI and exe) itself, and the console prints the install commands for both.
 - **Your branding**, five accessible themes, encrypted backups, and an MSI for deployment through GPO, Intune or an RMM.
 
 **Status: early software.** It comes with a large automated test suite (unit, database, end-to-end and browser tests), but it has

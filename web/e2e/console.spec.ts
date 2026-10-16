@@ -142,7 +142,11 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "New token" }).click();
   await page.getByLabel(/^Name/).fill("GUI test");
   await page.getByRole("button", { name: "Create" }).click();
-  const cmd = (await page.locator("pre").first().innerText()).trim();
+  // The dialog shows the MSI commands and the exe commands (D112); a development build has no agent files to hand out, so
+  // there are no download lines here.
+  const msiCmd = (await page.locator("pre", { hasText: "msiexec /i librepatch-agent.msi" }).innerText()).trim();
+  expect(msiCmd).toMatch(/msiexec \/i librepatch-agent\.msi \/qn \/norestart SERVER=\S+ TOKEN=LP1\./);
+  const cmd = (await page.locator("pre", { hasText: "librepatch-agent.exe install" }).innerText()).trim();
   expect(cmd).toContain("librepatch-agent.exe install --server");
   await shot(page, "03-token");
   const enrollment = cmd.split("--token ")[1]!.trim();

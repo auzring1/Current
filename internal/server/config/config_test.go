@@ -154,3 +154,25 @@ func TestUpstreamProxiesAreTrustedToo(t *testing.T) {
 		t.Fatalf("trusted proxies = %v", c.TrustedProxies)
 	}
 }
+
+func TestAgentDownloadSettings(t *testing.T) {
+	c, err := load(baseEnv())
+	if err != nil || c.AgentDownloads != "github" || c.AgentDownloadBaseURL != "" {
+		t.Fatalf("defaults: %+v %v", c, err)
+	}
+	env := baseEnv()
+	env["LIBREPATCH_AGENT_DOWNLOADS"] = "off"
+	env["LIBREPATCH_AGENT_DOWNLOAD_BASE_URL"] = "https://mirror.contoso.test/releases/"
+	if c, err = load(env); err != nil || c.AgentDownloads != "off" || c.AgentDownloadBaseURL != "https://mirror.contoso.test/releases" {
+		t.Fatalf("explicit: %+v %v", c, err)
+	}
+	for k, v := range map[string]string{"LIBREPATCH_AGENT_DOWNLOADS": "maybe", "LIBREPATCH_AGENT_DOWNLOAD_BASE_URL": "http://mirror.contoso.test"} {
+		env := baseEnv()
+		env["LIBREPATCH_DEV_MODE"] = "false" // plain http is only for development
+		env["LIBREPATCH_DATABASE_URL_FILE"] = ""
+		env[k] = v
+		if _, err := load(env); err == nil || !strings.Contains(err.Error(), k) {
+			t.Errorf("%s=%q accepted (err=%v)", k, v, err)
+		}
+	}
+}

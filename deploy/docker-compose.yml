@@ -109,6 +109,10 @@ services:
       LIBREPATCH_WINGET_SOURCE: ${LIBREPATCH_WINGET_SOURCE:-github}
       LIBREPATCH_WINGET_INDEX_URL: ${LIBREPATCH_WINGET_INDEX_URL:-}
       LIBREPATCH_RELEASE_PUBLIC_KEYS: *release_public_keys
+      # The server fetches the agent installers from the release that matches its version and offers them in the console
+      # (decision D112). "off" turns that off; the base URL names a mirror of the release downloads (https).
+      LIBREPATCH_AGENT_DOWNLOADS: ${LIBREPATCH_AGENT_DOWNLOADS:-github}
+      LIBREPATCH_AGENT_DOWNLOAD_BASE_URL: ${LIBREPATCH_AGENT_DOWNLOAD_BASE_URL:-}
     volumes:
       - content:/var/lib/librepatch/content
       # Secrets are created by the stack itself (docs/RUNBOOK.md, "Secrets"): the server may read its own database login
