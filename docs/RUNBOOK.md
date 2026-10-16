@@ -181,22 +181,29 @@ in-place upgrade.** A stack and its agents are installed fresh. This is quick fo
 **The easy way: from the console (decision D112).** A server built from a release fetches the Windows agent (the MSI and the exe)
 from the matching release once, checks the exe and MSI against the SHA-256 files published beside them, and keeps them on its content
 volume. **Enrollment** in the console then shows an **Agent downloads** card (download buttons, size, SHA-256), and **New token** prints
-ready-made commands for an elevated prompt on the PC, which download from your server and install:
+a ready-made **one-line** command for an elevated prompt on the PC, which downloads from your server, installs, waits until the
+install has finished and deletes the downloaded file. Paste it into **Command Prompt or PowerShell** (the same line works in both)
+and press Enter once:
 
 ```
-curl.exe -L -o librepatch-agent.msi https://librepatch.example.com/download/librepatch-agent.msi
-msiexec /i librepatch-agent.msi /qn /norestart SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ...
+cmd /s /c "curl.exe -fL -o %SystemRoot%\Temp\librepatch-agent.msi https://librepatch.example.com/download/librepatch-agent.msi && start /wait msiexec /i %SystemRoot%\Temp\librepatch-agent.msi /qn /norestart SERVER=librepatch.example.com:8443 TOKEN=LP1.eyJ... & del /q %SystemRoot%\Temp\librepatch-agent.msi 2>nul"
 ```
 
-or, with the exe, `curl.exe -L -o librepatch-agent.exe https://.../download/librepatch-agent.exe` followed by
-`librepatch-agent.exe install --server ... --token ...`. Use `curl.exe` (not `curl`, which is an alias of another command in
-PowerShell); it ships with Windows 10 1803 and later. The download address is the console's own address, so the PC must trust that
-server certificate (a certificate from DSM or Let's Encrypt works out of the box; Caddy's internal CA must first be installed on the
-PCs, for example by GPO). `msiexec` returns before the install has finished: look for the device on the **Devices** page or run
-`"C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" status`. The two download addresses need no sign-in
-(a PC has no console login; nothing in the files is secret, the token and the CA pin are in the command), are limited per address, and are not
-covered by the console IP allow-list. If the server cannot fetch the files (no internet access from the server, a development
-build, or `LIBREPATCH_AGENT_DOWNLOADS=off`) the card says why, the token dialog leaves out the download lines, and the manual way below applies.
+There is one like it for the exe (`curl.exe -fL -o ...\librepatch-agent.exe <url> && ...\librepatch-agent.exe install --server ... --token ...`).
+Why it looks like this (decision D113): PowerShell 5.1 has no `&&`, and in PowerShell `&` is the call operator, so a plain
+`curl ... && msiexec ...` fails there, while pasting two lines makes Command Prompt stop after the first. Wrapping everything in
+`cmd /s /c "..."` hands PowerShell one quoted argument and Command Prompt a nested command line. `&&` installs only if the
+download worked (`curl -f` fails on an HTTP error instead of saving the error page), `start /wait` makes the prompt come back
+only after `msiexec` is done, and the last part removes the file whatever happened. It uses `curl.exe` (Windows 10 1803 and later),
+not `curl`, which is another command in PowerShell. The PC must trust the console's server certificate (a certificate from DSM or Let's
+Encrypt works out of the box; Caddy's internal CA must first be installed on the PCs, for example by GPO). Look for the device on the
+**Devices** page afterwards, or run `"C:\Program Files\LibrePatch\Agent\slot-a\librepatch-agent.exe" status`.
+
+The two download addresses need no sign-in (a PC has no console login; nothing in the files is secret, the token and the CA pin
+are in the command), are limited per address, and are not covered by the console IP allow-list. If the server cannot fetch the files
+(no internet access from the server, a development build, or `LIBREPATCH_AGENT_DOWNLOADS=off`) the card says why, the token dialog
+shows the plain install command (`msiexec /i librepatch-agent.msi ...`, for a file already in the current folder) instead of the
+one-liner, and the manual way below applies.
 A mirror of the release downloads can be named with `LIBREPATCH_AGENT_DOWNLOAD_BASE_URL` (https). What this does and does not protect
 against is in SECURITY.md, 9k.
 

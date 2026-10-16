@@ -243,13 +243,17 @@ export function TokensPage() {
             <Alert color="yellow" icon={<Icons.Warning size={18} aria-hidden />}>
               This is the only time the token is shown. Anyone with it can enroll devices until it expires or is used up.
             </Alert>
-            <Text fw={500}>Install with the MSI, silently (elevated PowerShell or Command Prompt):</Text>
-            <CommandBlock value={commandText(created.install.msi)} label="Copy MSI install commands" />
-            <Text fw={500}>Or install with the exe:</Text>
-            <CommandBlock value={commandText(created.install.exe)} label="Copy exe install commands" />
-            {(!created.install.msi.download || !created.install.exe.download) && (
+            <Text fw={500}>Install with the MSI, silently. Paste this one line into an elevated Command Prompt or PowerShell:</Text>
+            <CommandBlock value={commandText(created.install.msi)} label="Copy MSI install command" />
+            <Text fw={500}>Or install with the exe (the same, one line):</Text>
+            <CommandBlock value={commandText(created.install.exe)} label="Copy exe install command" />
+            {(!created.install.msi.one_liner || !created.install.exe.one_liner) ? (
               <Text size="sm" c="dimmed">
-                This server does not have the agent files to hand out yet, so the commands above assume the file is already in the current folder. See "Agent downloads" on this page.
+                This server does not have the agent files to hand out yet, so the line above assumes the file is already in the current folder. See "Agent downloads" on this page.
+              </Text>
+            ) : (
+              <Text size="sm" c="dimmed">
+                The line downloads the installer from this server, installs it, waits until it has finished and deletes the downloaded file. It needs Windows 10 version 1803 or later (for curl.exe) and the PC must trust this server's certificate.
               </Text>
             )}
             <Text size="sm" c="dimmed">

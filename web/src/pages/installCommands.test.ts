@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import { commandText, fileSize } from "./installCommands";
 
 describe("commandText", () => {
-  it("puts the download line above the install line", () => {
-    expect(commandText({ download: "curl.exe -L -o a.msi https://x/download/a.msi", command: "msiexec /i a.msi /qn" })).toBe(
-      "curl.exe -L -o a.msi https://x/download/a.msi\nmsiexec /i a.msi /qn",
-    );
+  it("is the one-liner when the server has the installer, and never more than one line", () => {
+    const oneLiner = 'cmd /s /c "curl.exe -fL -o %SystemRoot%\\Temp\\a.msi https://x/download/a.msi && start /wait msiexec /i %SystemRoot%\\Temp\\a.msi /qn & del /q %SystemRoot%\\Temp\\a.msi 2>nul"';
+    const text = commandText({ one_liner: oneLiner, download: "curl.exe -L -o a.msi https://x/download/a.msi", command: "msiexec /i a.msi /qn" });
+    expect(text).toBe(oneLiner);
+    expect(text).not.toContain("\n");
   });
 
-  it("is just the install line while the server does not have the file", () => {
-    expect(commandText({ download: "", command: "librepatch-agent.exe install --server h:8443 --token LP1.x" })).toBe("librepatch-agent.exe install --server h:8443 --token LP1.x");
+  it("is the plain install command while the server does not have the file", () => {
+    expect(commandText({ one_liner: "", download: "", command: "librepatch-agent.exe install --server h:8443 --token LP1.x" })).toBe("librepatch-agent.exe install --server h:8443 --token LP1.x");
   });
 });
 

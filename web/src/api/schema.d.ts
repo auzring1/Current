@@ -7468,9 +7468,11 @@ export interface components {
             boot_time?: string;
         };
         InstallCommands: {
-            /** @description curl.exe line that downloads the installer from this server (empty when it is not available) */
+            /** @description ONE line for an elevated Command Prompt or PowerShell that downloads the installer from this server, installs it, waits for the install and deletes the file (empty when the installer is not on this server) */
+            one_liner: string;
+            /** @description curl.exe line that downloads the installer into the current folder (empty when it is not available) */
             download: string;
-            /** @description The install command (contains the enrollment token) */
+            /** @description The plain install command for a file in the current folder (contains the enrollment token) */
             command: string;
         };
         EnrollmentToken: {
