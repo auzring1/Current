@@ -331,8 +331,21 @@ type updater struct {
 }
 
 type findResult struct {
-	m  wingetindex.Match
-	ok bool
+	m   wingetindex.Match
+	why *wingetindex.Reason
+}
+
+// UpdateCheck says what the update check concluded for an installed program that has no update available, so the
+// console can answer "why is there no update for this?".
+type UpdateCheck struct {
+	Source  string `json:"source"`
+	Scope   string `json:"scope"`
+	UserSID string `json:"user_sid,omitempty"`
+	ItemKey string `json:"item_key"`
+	// Status is "current" (recognised, nothing newer), "unrecognised" (could not be tied to a package) or "skipped"
+	// (not checked on purpose: store apps, portable programs, exclusions).
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 func (s *Service) newUpdater(ctx context.Context, org uuid.UUID) (*updater, error) {
@@ -357,36 +370,80 @@ func fromCatalog(p dbq.CatalogPackage, l latestVersion) *candidate {
 
 // check returns the update available for an installed program, or nil.
 func (u *updater) check(r installRow) *candidate {
+	c, _ := u.assess(r)
+	return c
+}
+
+func joinIDs(ids []string) string { return strings.Join(ids, ", ") }
+
+func reasonMessage(why *wingetindex.Reason, publisher string) (status, msg string) {
+	switch why.Code {
+	case "store_app":
+		return "skipped", "Store app: the Microsoft Store updates it."
+	case "portable":
+		return "skipped", "Portable program: there is no installer to update."
+	case "no_publisher":
+		return "unrecognised", "The name matches winget package " + joinIDs(why.IDs) + ", but this program lists no publisher, so the match is not trusted."
+	case "publisher_differs":
+		return "unrecognised", "The name matches winget package " + joinIDs(why.IDs) + ", but the publisher (" + publisher + ") does not match the winget entry."
+	case "ambiguous":
+		return "unrecognised", "Fits several winget packages equally well (" + joinIDs(why.IDs) + "). Add the one you use to your catalog and it is used."
+	}
+	return "unrecognised", "Not in the winget list: no matching product code, and no package with this name and publisher."
+}
+
+func catalogCurrent(p dbq.CatalogPackage, l latestVersion) *UpdateCheck {
+	switch {
+	case l.excluded:
+		return &UpdateCheck{Status: "skipped", Message: p.Name + " is excluded in your catalog, so no update is offered."}
+	case l.ver == nil:
+		return &UpdateCheck{Status: "skipped", Message: p.Name + " is in your catalog but has no version to compare with."}
+	}
+	return &UpdateCheck{Status: "current", Message: "Up to date: matches " + p.Name + " in your catalog (newest allowed version " + l.ver.Version + ")."}
+}
+
+// assess returns the update available for an installed program, or else the reason there is none.
+func (u *updater) assess(r installRow) (*candidate, *UpdateCheck) {
 	if len(u.m.byName[r.normalizedName]) > 0 {
 		// The catalog knows this program: its decision stands (a pin, an exclusion or being current means no update).
 		if p, l, ok := u.m.outdated(r.normalizedName, r.versionKey); ok {
-			return fromCatalog(p, l)
+			return fromCatalog(p, l), nil
 		}
-		return nil
+		if r.versionKey == nil {
+			return nil, &UpdateCheck{Status: "skipped", Message: "The program reports no usable version number, so it cannot be compared."}
+		}
+		p := u.m.byName[r.normalizedName][0]
+		return nil, catalogCurrent(p, u.m.latest(p))
 	}
-	if u.wm == nil || r.versionKey == nil {
-		return nil
+	if u.wm == nil {
+		return nil, &UpdateCheck{Status: "skipped", Message: "The winget list is not loaded (turned off, or not downloaded yet), so only your catalog is checked."}
+	}
+	if r.versionKey == nil {
+		return nil, &UpdateCheck{Status: "skipped", Message: "The program reports no usable version number, so it cannot be compared."}
 	}
 	key := r.name + "\x00" + r.publisher + "\x00" + r.itemKey + "\x00" + r.productCode + "\x00" + r.source
 	fr, seen := u.memo[key]
 	if !seen {
-		fr.m, fr.ok = u.wm.Find(wingetindex.Installed{Name: r.name, Publisher: r.publisher, ItemKey: r.itemKey, ProductCode: r.productCode, Source: r.source})
+		// When several packages fit equally well, the one already imported into the catalog is the one the administrator chose.
+		prefer := func(id string) bool { _, ok := u.m.byIdent[strings.ToLower(id)]; return ok }
+		fr.m, fr.why = u.wm.Recognise(wingetindex.Installed{Name: r.name, Publisher: r.publisher, ItemKey: r.itemKey, ProductCode: r.productCode, Source: r.source}, prefer)
 		u.memo[key] = fr
 	}
-	if !fr.ok {
-		return nil
+	if fr.why != nil {
+		st, msg := reasonMessage(fr.why, r.publisher)
+		return nil, &UpdateCheck{Status: st, Message: msg}
 	}
 	if p, imported := u.m.byIdent[strings.ToLower(fr.m.ID)]; imported { // already in the catalog under another name
 		l := u.m.latest(p)
 		if l.ver == nil || l.excluded || bytes.Compare(r.versionKey, l.ver.VersionKey) >= 0 {
-			return nil
+			return nil, catalogCurrent(p, l)
 		}
 		c := fromCatalog(p, l)
 		c.matchedBy = fr.m.By
-		return c
+		return c, nil
 	}
 	if !fr.m.Newer(r.versionKey) {
-		return nil
+		return nil, &UpdateCheck{Status: "current", Message: "Up to date: recognised as " + fr.m.Name + " (" + fr.m.ID + "), newest version " + fr.m.LatestVersion + "."}
 	}
 	c := &candidate{pkgName: fr.m.Name, identifier: fr.m.ID, wingetID: fr.m.ID, latest: fr.m.LatestVersion, deployable: true, matchedBy: fr.m.By}
 	if ov := u.s.overlay(); ov != nil {
@@ -395,7 +452,7 @@ func (u *updater) check(r installRow) *candidate {
 		}
 		c.verified = ov.Verified(fr.m.ID, "")
 	}
-	return c
+	return c, nil
 }
 
 func (s *Service) overlay() *catalog.Overlay {
@@ -408,27 +465,38 @@ func (s *Service) overlay() *catalog.Overlay {
 // DeviceUpdates matches a device's installed programs to the catalog and to the winget index and returns those that
 // are older than the newest version available (for catalog packages, the newest their pin allows).
 func (s *Service) DeviceUpdates(ctx context.Context, org, device uuid.UUID) ([]AvailableUpdate, error) {
+	out, _, err := s.DeviceUpdateReport(ctx, org, device)
+	return out, err
+}
+
+// DeviceUpdateReport is DeviceUpdates plus, for every other installed program, what the check concluded.
+func (s *Service) DeviceUpdateReport(ctx context.Context, org, device uuid.UUID) ([]AvailableUpdate, []UpdateCheck, error) {
 	q := dbq.New(s.Pool)
 	rows, err := q.ListDeviceInstallRows(ctx, device)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	u, err := s.newUpdater(ctx, org)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := []AvailableUpdate{}
+	checks := []UpdateCheck{}
 	for _, r := range rows {
-		c := u.check(installRow{name: r.Name, version: r.Version, publisher: r.Publisher, itemKey: r.ItemKey, productCode: r.ProductCode, source: r.Source,
+		c, why := u.assess(installRow{name: r.Name, version: r.Version, publisher: r.Publisher, itemKey: r.ItemKey, productCode: r.ProductCode, source: r.Source,
 			normalizedName: r.NormalizedName, versionKey: r.VersionKey})
 		if c == nil {
+			if why != nil {
+				why.Source, why.Scope, why.UserSID, why.ItemKey = r.Source, r.Scope, r.UserSid, r.ItemKey
+				checks = append(checks, *why)
+			}
 			continue
 		}
 		out = append(out, AvailableUpdate{Name: r.Name, InstalledVersion: r.Version, Source: r.Source, Scope: r.Scope, UserSID: r.UserSid, ItemKey: r.ItemKey,
 			PackageID: c.pkgID, PackageName: c.pkgName, Identifier: c.identifier, LatestVersion: c.latest, Verified: c.verified,
 			SelfUpdating: c.selfUpdating, Deployable: c.deployable, Reason: c.reason, InCatalog: c.inCatalog, WingetID: c.wingetID, MatchedBy: c.matchedBy})
 	}
-	return out, nil
+	return out, checks, nil
 }
 
 // FleetUpdateDevice is one device that has an older version of a package installed.

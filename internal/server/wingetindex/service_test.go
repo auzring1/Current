@@ -38,7 +38,7 @@ func TestRefreshStoresLoadsAndSkipsWhenFresh(t *testing.T) {
 		t.Fatalf("fresh status: %+v", st)
 	}
 	updated, err := s.Refresh(ctx, false)
-	if err != nil || !updated || s.Matcher() == nil || s.Matcher().Len() != 708 {
+	if err != nil || !updated || s.Matcher() == nil || s.Matcher().Len() != 711 {
 		t.Fatalf("first refresh: %v %v", updated, err)
 	}
 	// Fresh enough: no request at all.
@@ -51,13 +51,13 @@ func TestRefreshStoresLoadsAndSkipsWhenFresh(t *testing.T) {
 		t.Fatalf("conditional refresh: %v %v cond=%d", updated, err, conditional.Load())
 	}
 	st, _ = s.Status(ctx)
-	if st.PackageCount != 708 || st.Error != "" || st.FetchedAt == nil || !st.FetchedAt.Equal(now) || st.SourceUpdated == nil {
+	if st.PackageCount != 711 || st.Error != "" || st.FetchedAt == nil || !st.FetchedAt.Equal(now) || st.SourceUpdated == nil {
 		t.Fatalf("status: %+v", st)
 	}
 
 	// After a restart the stored copy is enough, with no network.
 	s2 := &Service{Pool: db.Pool, URL: "http://127.0.0.1:1", AllowHTTP: true, Now: s.Now}
-	if err := s2.Load(ctx); err != nil || s2.Matcher() == nil || s2.Matcher().Len() != 708 {
+	if err := s2.Load(ctx); err != nil || s2.Matcher() == nil || s2.Matcher().Len() != 711 {
 		t.Fatalf("load: %v", err)
 	}
 	if _, ok := s2.Matcher().Find(Installed{Name: "Google Chrome", Publisher: "Google LLC", ItemKey: "Google Chrome", Source: "reg64"}); !ok {
@@ -86,11 +86,11 @@ func TestRefreshFailureKeepsTheOldIndexAndSaysWhy(t *testing.T) {
 	if updated, err := s.Refresh(ctx, true); err == nil || updated {
 		t.Fatalf("a page that is not an index was accepted: %v %v", updated, err)
 	}
-	if s.Matcher() == nil || s.Matcher().Len() != 708 {
+	if s.Matcher() == nil || s.Matcher().Len() != 711 {
 		t.Fatal("the old index was dropped")
 	}
 	st, _ := s.Status(ctx)
-	if st.Error == "" || st.PackageCount != 708 {
+	if st.Error == "" || st.PackageCount != 711 {
 		t.Fatalf("status: %+v", st)
 	}
 	// An address that is not https is refused outright.

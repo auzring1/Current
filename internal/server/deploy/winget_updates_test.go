@@ -189,3 +189,81 @@ func TestUpdateOfAProgramRecognisedUnderAnotherName(t *testing.T) {
 		t.Fatalf("each architecture must get its own installer: %v", files)
 	}
 }
+
+// Citrix Workspace's current and LTSR releases are two winget packages that share one uninstall key and one name.
+// The installed program's name carries the release ("Citrix Workspace 2607"), which no catalog name matches, so it
+// used to be recognised by nobody. The package the administrator imported is the one that counts.
+func TestSharedKeyIsSettledByTheImportedPackage(t *testing.T) {
+	f := newFixture(t)
+	f.useIndex()
+	ctx := context.Background()
+	d := f.device("pc", "amd64")
+	f.program(d, "reg32", "CitrixOnlinePluginPackWeb", "Citrix Workspace 2607", "Citrix Systems, Inc.", "", "26.7.0.269")
+
+	// Not imported yet: two packages fit equally well, so nothing is offered, and the console says why.
+	ups, checks, err := f.svc.DeviceUpdateReport(ctx, f.org, d)
+	if err != nil || len(ups) != 0 || len(checks) != 1 || checks[0].Status != "unrecognised" || !strings.Contains(checks[0].Message, "Citrix.Workspace.LTSR") {
+		t.Fatalf("%+v %+v %v", ups, checks, err)
+	}
+
+	q := dbq.New(f.pool)
+	pid, err := q.UpsertCatalogPackage(ctx, dbq.UpsertCatalogPackageParams{ID: uuid.New(), OrgID: f.org, Source: "winget", Identifier: "Citrix.Workspace.LTSR", Name: "Citrix Workspace", Publisher: "Citrix Systems, Inc."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.UpsertCatalogVersion(ctx, dbq.UpsertCatalogVersionParams{ID: uuid.New(), PackageID: pid, Version: "26.7.1.4", VersionKey: vercmp.Key("26.7.1.4")}); err != nil {
+		t.Fatal(err)
+	}
+	ups, checks, err = f.svc.DeviceUpdateReport(ctx, f.org, d)
+	if err != nil || len(ups) != 1 || len(checks) != 0 {
+		t.Fatalf("%+v %+v %v", ups, checks, err)
+	}
+	if u := ups[0]; !u.InCatalog || u.PackageID != pid || u.LatestVersion != "26.7.1.4" || u.WingetID != "Citrix.Workspace.LTSR" || u.MatchedBy != "product_code" {
+		t.Fatalf("%+v", u)
+	}
+}
+
+func TestChecksExplainWhyThereIsNoUpdate(t *testing.T) {
+	f := newFixture(t)
+	f.useIndex()
+	ctx := context.Background()
+	d := f.device("pc", "amd64")
+	f.program(d, "reg64", "7-Zip", "7-Zip 26.04 (x64 edition)", "Igor Pavlov", "", "26.04")
+	f.program(d, "reg32", "MicroSIP", "MicroSIP", "", "", "3.22.18")
+	f.program(d, "portable", "tool", "Some Portable Tool", "Contoso Health", "", "1.0")
+	f.program(d, "reg64", "HSC", "Hospital Scheduling Client", "Contoso Health", "", "1.0")
+
+	ups, checks, err := f.svc.DeviceUpdateReport(ctx, f.org, d)
+	if err != nil || len(ups) != 0 {
+		t.Fatalf("%+v %v", ups, err)
+	}
+	by := map[string]UpdateCheck{}
+	for _, c := range checks {
+		by[c.ItemKey] = c
+	}
+	if len(by) != 4 {
+		t.Fatalf("%+v", checks)
+	}
+	for key, want := range map[string]struct{ status, text string }{
+		"7-Zip":    {"current", "Up to date"},
+		"MicroSIP": {"unrecognised", "no publisher"},
+		"tool":     {"skipped", "Portable"},
+		"HSC":      {"unrecognised", "Not in the winget list"},
+	} {
+		if got := by[key]; got.Status != want.status || !strings.Contains(got.Message, want.text) {
+			t.Errorf("%s: %+v, want %s containing %q", key, got, want.status, want.text)
+		}
+	}
+	if c := by["7-Zip"]; c.Source != "reg64" || c.Scope != "machine" {
+		t.Fatalf("the row it belongs to: %+v", c)
+	}
+
+	// Without an index the check says so rather than staying silent.
+	f.svc.Winget = nil
+	_, checks, _ = f.svc.DeviceUpdateReport(ctx, f.org, d)
+	for _, c := range checks {
+		if c.Status != "skipped" || !strings.Contains(c.Message, "winget list is not loaded") {
+			t.Fatalf("%+v", c)
+		}
+	}
+}

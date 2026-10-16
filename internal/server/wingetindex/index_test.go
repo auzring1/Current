@@ -20,8 +20,8 @@ func TestParseMSIXReadsPackagesAndKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Packages) != 708 {
-		t.Fatalf("packages = %d, want 708", len(s.Packages))
+	if len(s.Packages) != 711 {
+		t.Fatalf("packages = %d, want 711", len(s.Packages))
 	}
 	if s.Modified.Unix() != 1791572758 {
 		t.Fatalf("modified = %v", s.Modified)

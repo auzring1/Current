@@ -35,7 +35,7 @@ func TestWingetIndexStatusRefreshSearchAndFleetUpdates(t *testing.T) {
 	}
 
 	st, idx = h.do("POST", "/api/v1/catalog/index/refresh", map[string]any{}, nil)
-	if st != 200 || num(idx["package_count"]) != 708 || idx["fetched_at"] == nil {
+	if st != 200 || num(idx["package_count"]) != 711 || idx["fetched_at"] == nil {
 		t.Fatalf("refresh: %d %v", st, idx)
 	}
 	if h.auditCount("catalog.index_refresh") != 1 {

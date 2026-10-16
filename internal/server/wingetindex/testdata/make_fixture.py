@@ -24,6 +24,10 @@ REAL = [  # id, name, moniker, latest, product codes, norm names, norm publisher
     ("Microsoft.Edge", "Microsoft Edge", "", "155.0.4283.45", ["{9459c573-b17a-45aa-bd40-33d76168b4de}"], ["microsoftedge"], ["microsoft"]),
     ("Splashtop.SplashtopStreamer", "Splashtop Streamer", "", "3.8.6.3", [], ["splashtopstreamer"], ["splashtop"]),
     ("7zip.7zip", "7-Zip", "7zip", "26.04", ["7-zip"], ["7zip"], ["igorpavlov"]),
+    # Two editions that share one uninstall key and one normalized name (like Citrix Workspace's current and LTSR releases).
+    ("Citrix.Workspace", "Citrix Workspace", "", "26.8.0.100", ["citrixonlinepluginpackweb"], ["citrixworkspace"], ["citrixsystems"]),
+    ("Citrix.Workspace.LTSR", "Citrix Workspace LTSR", "", "26.7.1.4", ["citrixonlinepluginpackweb"], ["citrixworkspace"], ["citrixsystems"]),
+    ("MicroSIP.MicroSIP", "MicroSIP", "microsip", "3.22.19", [], ["microsip"], ["microsip"]),
 ]
 
 def build():
