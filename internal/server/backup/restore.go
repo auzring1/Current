@@ -509,7 +509,7 @@ func checkMasterKey(ctx context.Context, q querier, key []byte) error {
 			purpose = kek.PurposeJobSigningKey
 		}
 		if _, err := s.Open(purpose, v.enc); err != nil {
-			return fmt.Errorf("the master key (LIBREPATCH_MASTER_KEY_FILE) cannot open the %s key stored in this backup: %w. Restore with the master key that was in use when the backup was made (deploy/secrets/master_key), or pass --skip-kek-check", v.kind, err)
+			return fmt.Errorf("the master key (LIBREPATCH_MASTER_KEY_FILE) cannot open the %s key stored in this backup: %w. Restore with the master key that was in use when the backup was made (store it with set-master-key before restoring), or pass --skip-kek-check", v.kind, err)
 		}
 	}
 	return nil

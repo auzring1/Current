@@ -162,19 +162,18 @@ Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value "127.0.0.1 librep
 
 Every **other** machine that should open the console or run an agent needs the same line in its own hosts file, but with the **server machine's LAN IP** instead of `127.0.0.1` (find it with `ipconfig` on the server machine). A VM on the same PC also uses the server machine's LAN IP, not 127.0.0.1.
 
-### 3.3 Create the secrets and the settings
+### 3.3 Create the settings
 
 In Ubuntu, in the project folder:
 
 ```bash
-./scripts/init-secrets.sh                     # creates deploy/secrets/ with random passwords and the master key
 cp deploy/.env.example deploy/.env
 sed -i 's/^LIBREPATCH_HOSTNAME=.*/LIBREPATCH_HOSTNAME=librepatch.lab/' deploy/.env
 ```
 
 Leave `LIBREPATCH_CADDY_TLS=internal` for a lab. If agents will reach the server by IP address instead of the name, also set `LIBREPATCH_GATEWAY_SANS=<the IP>` in `deploy/.env`.
 
-✅ `ls -ld deploy/secrets` shows `drwx------` and `ls deploy/secrets` lists six files.
+✅ `grep ^LIBREPATCH_HOSTNAME deploy/.env` shows `librepatch.lab`. The database passwords and the master key are created for you when the stack first starts.
 
 ### 3.4 Start the stack
 
@@ -283,7 +282,7 @@ Get-Content C:\ProgramData\LibrePatch\logs\agent.log -Tail 20
 
 Do this now, before you put anything of value on the server.
 
-1. Copy the whole `deploy/secrets/` folder (above all `master_key`) and `deploy/.env` to a safe place **other than the server machine**. Without `master_key` the encrypted keys in the database cannot be read.
+1. Save the **master key** the console showed when you first signed in (a password manager is ideal) and copy `deploy/.env` to a safe place **other than the server machine**. Without the master key the encrypted keys in the database cannot be read. If you did not save it, you can still print it: `docker compose -f deploy/docker-compose.yml exec server /librepatch-server show-master-key`.
 2. Keep the **CA root passphrase** and the **recovery codes** offline.
 3. Database backups with `maintenance backup` are described in `docs/RUNBOOK.md`, section 6.
 
@@ -294,14 +293,14 @@ Do this now, before you put anything of value on the server.
 | Symptom | What to check |
 |---|---|
 | `docker compose ... up` says a port is already in use | Something else uses 80, 443 or 8443 (`netstat -ano \| findstr :443`; common: IIS, other web servers, VPN software). Stop it, or add `LIBREPATCH_HTTP_PORT=8080`, `LIBREPATCH_HTTPS_PORT=8444` and `LIBREPATCH_PUBLIC_PORT_SUFFIX=:8444` to `deploy/.env`, and use `https://librepatch.lab:8444`. |
-| `./scripts/init-secrets.sh: No such file` or `bad interpreter` | The ZIP was extracted by a tool that changed line endings, or you are in PowerShell. Run it inside Ubuntu; if the error mentions `\r`, extract the ZIP again with `unzip` in Ubuntu. |
+| The database container stops with "the database already exists, but its saved passwords ... are missing" | The database volume survived but the `secrets_*` volumes did not. Run `docker compose ... down -v` to start over with an empty database (this deletes its data), or restore the secrets volumes. |
 | Browser shows a certificate warning for the console | The Caddy root was not imported (step 3.5), or you opened the page by IP instead of `librepatch.lab`. |
 | Console says "Cross-origin request rejected" | The address in the browser must be exactly `https://<LIBREPATCH_HOSTNAME>` (plus the port suffix, if you changed the port). |
 | The agent install says it cannot connect / "chain does not match the pinned root" | The agent machine cannot resolve `librepatch.lab` to the server machine (hosts file), port 8443 is blocked (firewall), or a security product intercepts TLS on 8443. |
 | The agent connects but the server log says the name is not in the certificate | You enrolled using an IP or another name. Use the name from the install command, or add the IP to `LIBREPATCH_GATEWAY_SANS` and recreate the server (`docker compose ... up -d server`). |
-| The server container keeps restarting | `docker compose -f deploy/docker-compose.yml logs server`. A password or database-name error means old secrets were reused with the new build: stop the stack, run `docker compose ... down -v`, delete `deploy/secrets`, run `./scripts/init-secrets.sh` again and start again. |
+| The server container keeps restarting | `docker compose -f deploy/docker-compose.yml logs server`. A password or database-name error means old data was reused with the new build: stop the stack, run `docker compose ... down -v` (this deletes the database and the generated secrets) and start again. |
 | Docker is very slow or runs out of disk | Docker Desktop → Settings → Resources; WSL 2 keeps its disk in a `.vhdx` file that you can shrink after pruning. |
-| You lost the master key | Without it the data cannot be decrypted: repeat Parts 1–3 for a fresh server and enroll the machines again. |
+| You lost the master key | If the stack still runs, print it with `show-master-key` (see Part 5). Otherwise the data cannot be decrypted: repeat Parts 1–3 for a fresh server and enroll the machines again. |
 
 ## Removing everything again later
 

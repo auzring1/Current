@@ -91,7 +91,7 @@ You need the Phase 1 to 4 setup ([PHASE1-DEMO.md](PHASE1-DEMO.md) to [PHASE4-DEM
     ```
     ✅ A non-trivial file. `file librepatch.age` says it is age-encrypted (not readable without the key). Verify it: `docker compose -f deploy/docker-compose.yml run --rm -T --no-deps -v $PWD/librepatch-backup.key:/k:ro maintenance backup --verify - --identity-file /k < librepatch.age` ✅ prints the row counts.
 
-19. **Restore on a scratch copy** (never over the live stack): follow RUNBOOK §6.5 on another host or a second compose project with a copy of `deploy/secrets/`. ✅ `restore` ends with "audit chain intact"; you can sign in with your existing password and authenticator; devices appear and the audit log verifies.
+19. **Restore on a scratch copy** (never over the live stack): follow RUNBOOK §6.5 on another host or a second compose project with your saved master key (`maintenance set-master-key`). ✅ `restore` ends with "audit chain intact"; you can sign in with your existing password and authenticator; devices appear and the audit log verifies.
 
 ## Part G: Upgrade check for the agent from Phase 4 (about 5 minutes)
 

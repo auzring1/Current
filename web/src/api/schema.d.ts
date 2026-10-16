@@ -570,6 +570,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/security/master-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the master key the stack generated for itself, until it has been saved (requires settings:write; audited)
+         * @description Only while the key is unacknowledged (a stack that generated its own key shows it to the first administrator once). Afterwards 404: the key is never shown again by the API.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description 64 hexadecimal digits in groups of eight */
+                            key: string;
+                            /** @description Short fingerprint of the key */
+                            key_id: string;
+                            /** Format: date-time */
+                            generated_at: string;
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/security/master-key/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm that the master key has been saved (requires settings:write; audited) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The last six characters of the key */
+                        confirm: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enrollment-tokens": {
         parameters: {
             query?: never;
@@ -6355,6 +6445,8 @@ export interface components {
                 [key: string]: string[];
             };
             csrf_token: string;
+            /** @description True until the administrator has saved the master key the stack generated for itself (D109); until then every call except this one, signing out and the key screen is refused with master_key_unconfirmed */
+            master_key_pending?: boolean;
         };
         AvailableUpdate: {
             name: string;

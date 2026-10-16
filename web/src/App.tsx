@@ -9,6 +9,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { SettingsShell } from "./settings/SettingsShell";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
+import { MasterKeyPage } from "./pages/MasterKeyPage";
 
 // Pages other than the first screens load on demand, which keeps the first download small.
 const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
@@ -60,6 +61,8 @@ export function App() {
       </Routes>
     );
   }
+  // A stack that generated its own master key makes the first administrator save it before anything else works (D109).
+  if (session?.master_key_pending) return <MasterKeyPage />;
   return (
     <Suspense
       fallback={

@@ -43,6 +43,8 @@ RUN go build -trimpath -buildvcs=false \
 
 # Empty content directory owned by the runtime user; compose mounts a volume over it.
 RUN mkdir -p /out/content && chown 65532:65532 /out/content && chmod 700 /out/content
+# Same for the master key directory: the one-shot "maintenance" job writes the key there on the first start of a new stack.
+RUN mkdir -p /out/key && chown 65532:65532 /out/key && chmod 700 /out/key
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 # The source label is what links the published package to this repository on GitHub.
@@ -51,6 +53,7 @@ LABEL org.opencontainers.image.source="https://github.com/auzring1/LibrePatch" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 COPY --from=build /out/librepatch-server /librepatch-server
 COPY --from=build --chown=65532:65532 /out/content /var/lib/librepatch/content
+COPY --from=build --chown=65532:65532 /out/key /run/librepatch/key
 USER 65532:65532
 EXPOSE 8080 8443
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 CMD ["/librepatch-server", "healthcheck"]

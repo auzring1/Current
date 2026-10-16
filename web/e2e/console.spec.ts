@@ -111,6 +111,18 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await page.getByRole("button", { name: "Continue" }).click();
   await typeCode(page, totp(secret, 1));
   await page.getByRole("button", { name: "Verify" }).click();
+  // The stack generated its own master key (scripts/gui-e2e.sh seeds that state): nothing works until it is saved (D109).
+  await expect(page.getByRole("heading", { name: "Save your master key" })).toBeVisible();
+  await a11y(page, "master-key");
+  const masterKey = (await page.locator("pre").first().innerText()).trim();
+  expect(masterKey).toMatch(/^([0-9a-f]{8}-){7}[0-9a-f]{8}$/);
+  await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
+  await page.getByLabel("I have saved the master key somewhere other than this server").check();
+  await page.getByLabel(/^Type the last six characters/).fill("000000");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText(/not the end of the master key/)).toBeVisible();
+  await page.getByLabel(/^Type the last six characters/).fill(masterKey.slice(-6));
+  await page.getByRole("button", { name: "Continue" }).click();
   // The landing page is the dashboard; the device list is one click away.
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(page.getByLabel("Key numbers")).toBeVisible();

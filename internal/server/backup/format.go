@@ -106,8 +106,8 @@ type Manifest struct {
 }
 
 // NotMasterKey is recorded in every archive so nobody has to guess.
-const NotMasterKey = "The master key (LIBREPATCH_MASTER_KEY_FILE) and the rest of deploy/secrets are NOT part of this backup; " +
-	"the database only holds keys sealed with them. Back up the secrets directory separately."
+const NotMasterKey = "The master key (LIBREPATCH_MASTER_KEY_FILE) and the database passwords are NOT part of this backup; " +
+	"the database only holds keys sealed with them. Keep the master key that the console showed at first sign-in (or print it with show-master-key)."
 
 // ErrUnknownFormat is returned for an archive whose format version this binary does not understand.
 var ErrUnknownFormat = errors.New("unsupported backup format")

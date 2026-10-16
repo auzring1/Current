@@ -17,11 +17,10 @@ The examples below use the server name `librepatch.lab`. Use a real DNS name, or
 1. **Get the code and create secrets.**
    ```bash
    git clone -b phase-1 https://github.com/auzring1/librepatch.git && cd current
-   ./scripts/init-secrets.sh
    cp deploy/.env.example deploy/.env
    sed -i 's/^LIBREPATCH_HOSTNAME=.*/LIBREPATCH_HOSTNAME=librepatch.lab/' deploy/.env      # keep LIBREPATCH_CADDY_TLS=internal for a lab
    ```
-   ✅ `deploy/secrets/` contains 5 files, and `ls -ld deploy/secrets` shows `drwx------`.
+   ✅ `deploy/.env` has your host name. (Passwords and the master key are created when the stack first starts.)
 
 2. **Start the stack** (the first build takes a few minutes).
    ```bash

@@ -6,8 +6,10 @@
 package config
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
 	"net/url"
@@ -53,6 +55,11 @@ type Config struct {
 
 	// MasterKey is the 32-byte key-encryption key (KEK).
 	MasterKey []byte
+	// MasterKeyFile is the file the key is read from ("" when it came from LIBREPATCH_MASTER_KEY).
+	MasterKeyFile string
+	// MasterKeyGenerated is true when LIBREPATCH_MASTER_KEY_AUTOGEN=true and the key file does not exist yet: MasterKey
+	// then holds a new random key that only the maintenance service's migrate step persists (decision D109).
+	MasterKeyGenerated bool
 
 	// DeviceCertLifetime and renewal grace (shortened only in tests).
 	DeviceCertLifetime time.Duration
@@ -194,8 +201,31 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		errs = append(errs, fmt.Errorf("LIBREPATCH_MIGRATE_ON_START: %w", err))
 	}
 
-	mk, err := secret("LIBREPATCH_MASTER_KEY")
-	if err != nil {
+	c.MasterKeyFile = get("LIBREPATCH_MASTER_KEY_FILE", "")
+	autogen, aerr := strconv.ParseBool(get("LIBREPATCH_MASTER_KEY_AUTOGEN", "false"))
+	if aerr != nil {
+		errs = append(errs, fmt.Errorf("LIBREPATCH_MASTER_KEY_AUTOGEN: %w", aerr))
+	}
+	missingKeyFile := false
+	if autogen && c.MasterKeyFile != "" {
+		_, serr := os.Stat(c.MasterKeyFile)
+		missingKeyFile = errors.Is(serr, fs.ErrNotExist)
+	}
+	mk := ""
+	switch {
+	case missingKeyFile:
+		// First start of a stack that creates its own key: a fresh random key, written out by the migrate step.
+		key := make([]byte, 32)
+		if _, rerr := rand.Read(key); rerr != nil {
+			errs = append(errs, fmt.Errorf("LIBREPATCH_MASTER_KEY_AUTOGEN: %w", rerr))
+		}
+		c.MasterKey, c.MasterKeyGenerated = key, true
+	default:
+		mk, err = secret("LIBREPATCH_MASTER_KEY")
+	}
+	if c.MasterKeyGenerated {
+		// nothing to read
+	} else if err != nil {
 		errs = append(errs, err)
 	} else if mk == "" {
 		errs = append(errs, errors.New("LIBREPATCH_MASTER_KEY_FILE is required (32 random bytes, hex or base64)"))

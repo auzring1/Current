@@ -109,10 +109,6 @@ vuln: ## govulncheck + npm audit
 licenses: ## Enforce the permissive-license allow-list
 	./scripts/check-licenses.sh
 
-.PHONY: secrets
-secrets: ## Generate Docker secrets for deploy/ (refuses to overwrite)
-	./scripts/init-secrets.sh
-
 .PHONY: up
 up: ## Start the production-style stack (deploy/.env must exist)
 	docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build

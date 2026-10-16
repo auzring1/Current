@@ -5,8 +5,8 @@
 #                  (migrations, backup, restore). It can not run programs or read files on the host.
 #   librepatch_app    the runtime role (DML only; insert-only on audit_log).
 set -eu
-owner_pw="$(cat /run/secrets/postgres_owner_password)"
-app_pw="$(cat /run/secrets/postgres_app_password)"
+owner_pw="$(cat /run/librepatch/pg/postgres_owner_password)"
+app_pw="$(cat /run/librepatch/pg/postgres_app_password)"
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   --set=owner_pw="$owner_pw" --set=app_pw="$app_pw" --set=db="$POSTGRES_DB" <<'SQL'
 CREATE ROLE librepatch_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD :'owner_pw';

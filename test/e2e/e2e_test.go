@@ -67,10 +67,18 @@ func newHarnessWith(t *testing.T, certLife time.Duration) *harness {
 
 // newHarnessCfg is newHarnessWith with a hook to adjust the server configuration.
 func newHarnessCfg(t *testing.T, certLife time.Duration, mutate func(*sconfig.Config)) *harness {
+	return newHarnessPrep(t, certLife, mutate, nil)
+}
+
+// newHarnessPrep also lets a test prepare the database (with the master key the server will use) before the server starts.
+func newHarnessPrep(t *testing.T, certLife time.Duration, mutate func(*sconfig.Config), prepare func(db *pgtest.DB, key []byte)) *harness {
 	t.Helper()
 	db := pgtest.New(t)
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
+	if prepare != nil {
+		prepare(db, key)
+	}
 	pub, _ := url.Parse("http://localhost")
 	cfg := &sconfig.Config{
 		DevMode: true, HTTPAddr: "127.0.0.1:0", PublicURL: pub, GatewayAddr: "127.0.0.1:0",

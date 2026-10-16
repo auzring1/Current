@@ -27,6 +27,7 @@ tags:
   - name: policies
   - name: branding
   - name: settings
+  - name: security
 paths:
   /setup/status:
     get:
@@ -268,6 +269,44 @@ paths:
         "204": { description: Revoked }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /security/master-key:
+    get:
+      tags: [security]
+      summary: Show the master key the stack generated for itself, until it has been saved (requires settings:write; audited)
+      description: >
+        Only while the key is unacknowledged (a stack that generated its own key shows it to the first administrator once).
+        Afterwards 404: the key is never shown again by the API.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, key_id, generated_at]
+                properties:
+                  key: { type: string, description: "64 hexadecimal digits in groups of eight" }
+                  key_id: { type: string, description: Short fingerprint of the key }
+                  generated_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/Error" }
+  /security/master-key/acknowledge:
+    post:
+      tags: [security]
+      summary: Confirm that the master key has been saved (requires settings:write; audited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirm]
+              properties:
+                confirm: { type: string, description: The last six characters of the key }
+      responses:
+        "204": { description: Saved }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /enrollment-tokens:
     get:
       tags: [enrollment]
@@ -2890,6 +2929,7 @@ components:
         scoped_permissions: { type: array, items: { type: string }, description: Permissions held only for some sites }
         site_permissions: { type: object, additionalProperties: { type: array, items: { type: string } }, description: Per-site permissions by site id }
         csrf_token: { type: string }
+        master_key_pending: { type: boolean, description: "True until the administrator has saved the master key the stack generated for itself (D109); until then every call except this one, signing out and the key screen is refused with master_key_unconfirmed" }
     AvailableUpdate:
       type: object
       required: [name, installed_version, source, scope, item_key, package_id, package_name, latest_version, deployable]

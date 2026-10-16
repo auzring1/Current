@@ -18,4 +18,7 @@ regexes = [
   # A made-up enrollment string in installer/windows/package_test.go: "LP1." plus the base64 of {"token":"x"}. It enrolls
   # nothing; the test only checks which MSI properties are accepted.
   '''LP1\.eyJ0b2tlbiI6IngifQ-_x''',
+  # A made-up master key in web/src/pages/masterKeyFile.test.ts (a1b2c3d4 e5f6a7b8 ... in groups). It opens nothing; the test
+  # only checks the text of the download file.
+  '''a1b2c3d4-e5f6a7b8-c9d0e1f2-a3b4c5d6-e7f8a9b0-c1d2e3f4-a5b6c7d8-e9f0a1b2''',
 ]
