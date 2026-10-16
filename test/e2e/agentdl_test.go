@@ -105,13 +105,29 @@ func TestAgentDownloadsAndInstallCommands(t *testing.T) {
 	enc := b["enrollment_string"].(string)
 	inst := b["install"].(map[string]any)
 	m, e := inst["msi"].(map[string]any), inst["exe"].(map[string]any)
-	if m["download"] != "curl.exe -L -o librepatch-agent.msi http://localhost/download/librepatch-agent.msi" ||
-		m["command"] != "msiexec /i librepatch-agent.msi /qn /norestart SERVER=localhost:8443 TOKEN="+enc {
-		t.Fatalf("msi commands: %v", m)
+	msiLine, exeLine := m["one_liner"].(string), e["one_liner"].(string)
+	// One line each, the same in Command Prompt and in PowerShell: no new line, no "$" or back tick (PowerShell would expand
+	// them inside the double quotes), everything inside one "cmd /s /c" argument.
+	for name, line := range map[string]string{"msi": msiLine, "exe": exeLine} {
+		if strings.ContainsAny(line, "\r\n$`") || !strings.HasPrefix(line, `cmd /s /c "`) || !strings.HasSuffix(line, `"`) || strings.Count(line, `"`) != 2 {
+			t.Fatalf("%s one-liner must be one line in one quoted argument: %q", name, line)
+		}
 	}
-	if e["download"] != "curl.exe -L -o librepatch-agent.exe http://localhost/download/librepatch-agent.exe" ||
+	if msiLine != `cmd /s /c "curl.exe -fL -o %SystemRoot%\Temp\librepatch-agent.msi http://localhost/download/librepatch-agent.msi && `+
+		`start /wait msiexec /i %SystemRoot%\Temp\librepatch-agent.msi /qn /norestart SERVER=localhost:8443 TOKEN=`+enc+
+		` & del /q %SystemRoot%\Temp\librepatch-agent.msi 2>nul"` {
+		t.Fatalf("msi one-liner: %s", msiLine)
+	}
+	if exeLine != `cmd /s /c "curl.exe -fL -o %SystemRoot%\Temp\librepatch-agent.exe http://localhost/download/librepatch-agent.exe && `+
+		`%SystemRoot%\Temp\librepatch-agent.exe install --server localhost:8443 --token `+enc+
+		` & del /q %SystemRoot%\Temp\librepatch-agent.exe 2>nul"` {
+		t.Fatalf("exe one-liner: %s", exeLine)
+	}
+	// The plain commands (for a file already in the current folder) are still there.
+	if m["download"] != "curl.exe -L -o librepatch-agent.msi http://localhost/download/librepatch-agent.msi" ||
+		m["command"] != "msiexec /i librepatch-agent.msi /qn /norestart SERVER=localhost:8443 TOKEN="+enc ||
 		e["command"] != "librepatch-agent.exe install --server localhost:8443 --token "+enc || b["install_command"] != e["command"] {
-		t.Fatalf("exe commands: %v", e)
+		t.Fatalf("plain commands: %v %v", m, e)
 	}
 }
 
@@ -135,7 +151,7 @@ func TestNoAgentDownloadsWithoutARelease(t *testing.T) {
 	_ = resp.Body.Close()
 	_, b := h.do("POST", "/api/v1/enrollment-tokens", map[string]any{"name": "x", "max_uses": 1, "expires_in_hours": 1, "require_approval": false}, nil)
 	m := b["install"].(map[string]any)["msi"].(map[string]any)
-	if m["download"] != "" || !strings.HasPrefix(m["command"].(string), "msiexec /i librepatch-agent.msi /qn") {
+	if m["one_liner"] != "" || m["download"] != "" || !strings.HasPrefix(m["command"].(string), "msiexec /i librepatch-agent.msi /qn") {
 		t.Fatalf("msi commands: %v", m)
 	}
 }

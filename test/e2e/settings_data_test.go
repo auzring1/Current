@@ -86,6 +86,14 @@ func TestCustomDeviceFieldsRetentionAndStaleCleanup(t *testing.T) {
 	if st, b := h.do("PUT", "/api/v1/settings/sections/devices", map[string]any{"revision": 1, "values": map[string]any{"stale_cleanup_days": 30}}, nil); st != 200 {
 		t.Fatalf("stale days: %d %v", st, b)
 	}
+	// A connected agent sends a heartbeat every couple of seconds, which resets "last seen" to now. Stop it and wait until
+	// the server sees the device go offline, so nothing can touch the row between the update below and the clean-up
+	// (on a slow runner a heartbeat in that gap made the device look recently seen).
+	taHead.stop()
+	waitFor(t, 20*time.Second, "device offline", func() bool {
+		d := h.devices()
+		return len(d) == 1 && d[0]["online"] == false
+	})
 	if _, err := h.db.Pool.Exec(ctx, `UPDATE devices SET status = 'revoked', revoked_at = now() - interval '90 days', last_seen_at = now() - interval '90 days', online = false WHERE id = $1`, dev); err != nil {
 		t.Fatal(err)
 	}

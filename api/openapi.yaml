@@ -3870,10 +3870,11 @@ components:
         boot_time: { type: string }
     InstallCommands:
       type: object
-      required: [download, command]
+      required: [one_liner, download, command]
       properties:
-        download: { type: string, description: "curl.exe line that downloads the installer from this server (empty when it is not available)" }
-        command: { type: string, description: The install command (contains the enrollment token) }
+        one_liner: { type: string, description: "ONE line for an elevated Command Prompt or PowerShell that downloads the installer from this server, installs it, waits for the install and deletes the file (empty when the installer is not on this server)" }
+        download: { type: string, description: "curl.exe line that downloads the installer into the current folder (empty when it is not available)" }
+        command: { type: string, description: The plain install command for a file in the current folder (contains the enrollment token) }
     EnrollmentToken:
       type: object
       required: [id, name, max_uses, used_count, expires_at, require_approval, created_at, state]

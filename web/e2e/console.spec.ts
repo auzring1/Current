@@ -45,6 +45,16 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 }
 
+/**
+ * The sidebar choice is saved on the account in the background. Reloading or leaving the page while that request is still on
+ * its way cancels it (the database even logs "canceling statement due to user request"), so wait until the server has it.
+ */
+async function savedOnTheAccount(page: Page, collapsed: boolean) {
+  await expect
+    .poll(async () => ((await (await page.request.get("/api/v1/me/preferences")).json()) as { nav?: { collapsed?: boolean } }).nav?.collapsed ?? false, { timeout: 10_000 })
+    .toBe(collapsed);
+}
+
 /** The main navigation (left column or drawer). */
 const mainNav = (page: Page) => page.getByRole("navigation", { name: "Main" });
 
@@ -493,9 +503,12 @@ test("first-run setup, MFA login, enrollment, live device, revoke, audit", async
   await expect(page.locator(".lp-shell")).not.toHaveAttribute("data-rail", "true");
   await page.getByTestId("topbar-nav-toggle").click();
   await expect(page.locator(".lp-shell")).toHaveAttribute("data-rail", "true");
+  await savedOnTheAccount(page, true);
   await page.reload();
   await expect(page.locator(".lp-shell")).toHaveAttribute("data-rail", "true"); // remembered on the account
   await page.getByTestId("nav-rail-toggle").click();
+  await expect(page.locator(".lp-shell")).not.toHaveAttribute("data-rail", "true");
+  await savedOnTheAccount(page, false);
   await page.goto("/devices?state=offline");
   await expect(page.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
   await page.goto("/updates/held");
