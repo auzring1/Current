@@ -66,7 +66,7 @@ jobs:
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
             Start-Sleep -Seconds 1
-            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            $m = Select-String -Path server.err, server.out -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
             if ($m) { $token = $m.Matches[0].Groups[1].Value }
           }
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
@@ -177,7 +177,7 @@ jobs:
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
             Start-Sleep -Seconds 1
-            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            $m = Select-String -Path server.err, server.out -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
             if ($m) { $token = $m.Matches[0].Groups[1].Value }
           }
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
@@ -193,7 +193,7 @@ jobs:
           Get-Content "$env:ProgramData\LibrePatch\logs\agent.log" -Tail 80 -ErrorAction SilentlyContinue
           .\librepatch-agent.exe uninstall
           Stop-Process -Id $server.Id
-          if ($failed.Count -gt 0) { Get-Content server.err -Tail 60; throw "scenarios failed: $($failed -join ', ')" }
+          if ($failed.Count -gt 0) { Get-Content server.err, server.out -Tail 60; throw "scenarios failed: $($failed -join ', ')" }
 
   # Windows Update Agent on a real machine: read-only (policy, pending reboot, scan). Informational
   # until observed passing; installs and restarts are only exercised by the manual demo
@@ -262,7 +262,7 @@ jobs:
           $setup = $null
           for ($i = 0; $i -lt 60 -and -not $setup; $i++) {
             Start-Sleep -Seconds 1
-            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            $m = Select-String -Path server.err, server.out -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
             if ($m) { $setup = $m.Matches[0].Groups[1].Value }
           }
           if (-not $setup) { Get-Content server.err, server.out; throw "no setup token" }
@@ -381,7 +381,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force logs | Out-Null
-          foreach ($f in "msi.log", "fail.log", "upgrade.log", "uninstall.log", "server.err") {
+          foreach ($f in "msi.log", "fail.log", "upgrade.log", "uninstall.log", "server.err", "server.out") {
             if (Test-Path $f) { Copy-Item $f logs\ }
           }
           if (Test-Path "$env:ProgramData\LibrePatch\logs\agent.log") { Copy-Item "$env:ProgramData\LibrePatch\logs\agent.log" logs\ }
@@ -452,7 +452,7 @@ jobs:
           $token = $null
           for ($i = 0; $i -lt 60 -and -not $token; $i++) {
             Start-Sleep -Seconds 1
-            $m = Select-String -Path server.err -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
+            $m = Select-String -Path server.err, server.out -Pattern '^\s{6}([A-Za-z0-9_-]{20,})\s*$' -ErrorAction SilentlyContinue
             if ($m) { $token = $m.Matches[0].Groups[1].Value }
           }
           if (-not $token) { Get-Content server.err, server.out; throw "no setup token" }
@@ -475,4 +475,4 @@ jobs:
           schtasks /Query /TN "\LibrePatch\rollback-check" 2>&1 | Out-Host
           .\librepatch-agent.exe uninstall
           Stop-Process -Id $server.Id
-          if ($failed) { Get-Content server.err -Tail 60; throw "agent-update scenario failed" }
+          if ($failed) { Get-Content server.err, server.out -Tail 60; throw "agent-update scenario failed" }

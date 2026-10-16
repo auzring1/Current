@@ -206,14 +206,16 @@ func (a *App) newSetupToken() error {
 	a.setupToken = base64.RawURLEncoding.EncodeToString(b)
 	tok := a.setupToken
 	a.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "\n"+
+	// Same stream as the JSON log lines, so that the container runtime cannot interleave them with the banner (it reads
+	// stdout and stderr separately, which once split the token from its heading and made `grep -A2` miss it).
+	fmt.Fprintf(os.Stdout, "\n"+
 		"==================================================================\n"+
 		"  "+brand.Name+" first-run setup is pending.\n"+
 		"  Open %s and enter this one-time setup token:\n\n"+
 		"      %s\n\n"+
 		"  The token changes every time the server restarts until setup is done.\n"+
 		"==================================================================\n\n", a.Cfg.Origin(), tok)
-	a.Log.Info("first-run setup pending; setup token printed to stderr")
+	a.Log.Info("first-run setup pending; setup token printed above")
 	return nil
 }
 
