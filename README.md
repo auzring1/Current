@@ -21,6 +21,10 @@ handling) have had little real-world testing. It runs installers as SYSTEM on yo
 new tool with that power: read [docs/SECURITY.md](docs/SECURITY.md), pilot on a few machines first, and keep backups.
 
 ## Quick start (production-style, one host)
+The simplest install is **one file**: download `librepatch-compose-<version>.yml` from the latest
+[release](https://github.com/auzring1/LibrePatch/releases), set your host name in the block at its top, and start it
+(`docker compose up -d`, or paste it into a new project in Synology Container Manager). Everything else is inside the container
+images. Details: [docs/RUNBOOK.md](docs/RUNBOOK.md), section 2.2. To build from a checkout instead:
 ```bash
 cp deploy/.env.example deploy/.env              # set LIBREPATCH_HOSTNAME (and LIBREPATCH_CADDY_TLS)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
@@ -62,7 +66,7 @@ Run the web console against a local server: start the server with `LIBREPATCH_DE
 | `gen/` | Generated code (protobuf, sqlc). CI checks it is up to date |
 | `web/` | React + TypeScript + Mantine console (embedded into the server binary) |
 | `installer/windows` | WiX sources and build scripts for the agent MSI |
-| `deploy/` | Dockerfile, compose stack, Caddyfile, Postgres init |
+| `deploy/` | Dockerfile, compose stack, and the small web proxy (`caddy/`) and database (`postgres/`) images |
 | `test/` | End-to-end, compose integration, VM matrix harness (`test/vm-matrix`), CI tools |
 | `docs/` | Plan, architecture, protocol, data model, security, decisions, runbook, demos |
 

@@ -104,3 +104,53 @@ func TestMasterKeyAutogen(t *testing.T) {
 		t.Fatal("a malformed switch must be refused")
 	}
 }
+
+func TestAddressesAreDerivedFromTheHostname(t *testing.T) {
+	env := baseEnv()
+	delete(env, "LIBREPATCH_PUBLIC_URL")
+	env["LIBREPATCH_HOSTNAME"] = "patch.contoso.test"
+	c, err := load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PublicURL.String() != "https://patch.contoso.test" || c.GatewayPublicAddr != "patch.contoso.test:8443" {
+		t.Fatalf("defaults: %s, %s", c.PublicURL, c.GatewayPublicAddr)
+	}
+	env["LIBREPATCH_PUBLIC_PORT_SUFFIX"] = ":8444"
+	env["LIBREPATCH_GATEWAY_PORT"] = "9443"
+	env["LIBREPATCH_GATEWAY_HOSTNAME"] = "agents.contoso.test"
+	c, err = load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PublicURL.String() != "https://patch.contoso.test:8444" || c.GatewayPublicAddr != "agents.contoso.test:9443" {
+		t.Fatalf("with settings: %s, %s", c.PublicURL, c.GatewayPublicAddr)
+	}
+	// An explicit address still wins over the derived one.
+	env["LIBREPATCH_PUBLIC_URL"] = "https://other.contoso.test"
+	if c, err = load(env); err != nil || c.PublicURL.String() != "https://other.contoso.test" {
+		t.Fatalf("explicit URL ignored: %v %v", c, err)
+	}
+}
+
+func TestPlaceholderHostnameIsRefused(t *testing.T) {
+	env := baseEnv()
+	delete(env, "LIBREPATCH_PUBLIC_URL")
+	env["LIBREPATCH_HOSTNAME"] = PlaceholderHostname
+	if _, err := load(env); err == nil || !strings.Contains(err.Error(), "placeholder") {
+		t.Fatalf("the shipped placeholder name was accepted (err=%v)", err)
+	}
+}
+
+func TestUpstreamProxiesAreTrustedToo(t *testing.T) {
+	env := baseEnv()
+	env["LIBREPATCH_TRUSTED_PROXIES"] = "172.31.250.10/32"
+	env["LIBREPATCH_UPSTREAM_PROXIES"] = "192.168.1.50/32"
+	c, err := load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.TrustedProxies) != 2 || c.TrustedProxies[1].String() != "192.168.1.50/32" {
+		t.Fatalf("trusted proxies = %v", c.TrustedProxies)
+	}
+}

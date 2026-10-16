@@ -431,7 +431,8 @@ Everything except the Windows-specific calls (`mgr`, `schtasks`, the restart) is
 ├── deploy/
 │   ├── docker-compose.yml     production compose (caddy, server, postgres)
 │   ├── compose.dev.yml        dev overrides
-│   ├── Caddyfile
+│   ├── caddy/                 web proxy image (both Caddyfiles built in)
+│   ├── postgres/              database image (role setup + first-start password wrapper)
 │   └── Dockerfile.server      multi-stage → distroless/static:nonroot
 ├── installer/wix/             agent MSI (Phase 5)
 ├── catalog-overlay/           verified-package overlay (signed at release)

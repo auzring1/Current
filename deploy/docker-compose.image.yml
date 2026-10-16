@@ -1,8 +1,35 @@
 # GENERATED from docker-compose.yml by scripts/gen-image-compose.sh. Do not edit by hand.
-# Same stack, but the server image is PULLED from the registry instead of built from source.
-# Install and update steps: docs/RUNBOOK.md, "Install from the published image".
-#   docker compose -f deploy/docker-compose.image.yml --env-file deploy/.env up -d
+# The whole LibrePatch stack in ONE file: the three images are PULLED from the registry, nothing else is needed.
+# Set your host name in the settings block below, then start it (docs/RUNBOOK.md, "Install from the published image"):
+#   docker compose -f docker-compose.image.yml up -d          (in Synology Container Manager: paste this file into a new project)
 name: librepatch
+
+# ====================================== YOUR SETTINGS ======================================
+# The text after ":-" is the value used when nothing else sets it. Edit those values here, or leave this block alone and
+# put LIBREPATCH_... lines in deploy/.env (a value in .env wins). Nothing else in this file normally needs to change.
+x-settings:
+  # DNS name of this server. Browsers use https://<name>, agents connect to <name>:<gateway port>. REQUIRED.
+  hostname: &hostname ${LIBREPATCH_HOSTNAME:-change-me.example.com}
+  # Browser TLS: "internal" (Caddy's own CA, for LAN installs) or an e-mail address (Let's Encrypt, ports 80 and 443 must be reachable).
+  caddy_tls: &caddy_tls ${LIBREPATCH_CADDY_TLS:-internal}
+  # true when your own reverse proxy (for example Synology DSM) does the browser TLS: Caddy then speaks plain HTTP.
+  # In that mode also use 127.0.0.1:8080 as the HTTP port below and a free number such as 8444 as the HTTPS port.
+  behind_proxy: &behind_proxy ${LIBREPATCH_BEHIND_PROXY:-false}
+  # Host ports for the console: <port> or <address>:<port>. Defaults: 80 and 443.
+  http_publish: &http_publish ${LIBREPATCH_HTTP_PORT:-80}:80
+  https_publish: &https_publish ${LIBREPATCH_HTTPS_PORT:-443}:443
+  # What people type after the host name when the HTTPS port is not 443, for example :8444 (leave empty otherwise).
+  public_port_suffix: &public_port_suffix ${LIBREPATCH_PUBLIC_PORT_SUFFIX:-}
+  # Agent gateway (mTLS, never proxied). Agents dial <host name>:<this port>.
+  gateway_port: &gateway_port ${LIBREPATCH_GATEWAY_PORT:-8443}
+  # Optional: a different name agents should dial, and extra certificate names or IPs (comma-separated).
+  gateway_hostname: &gateway_hostname ${LIBREPATCH_GATEWAY_HOSTNAME:-}
+  gateway_sans: &gateway_sans ${LIBREPATCH_GATEWAY_SANS:-}
+  # Behind your own reverse proxy only: the address(es) of that proxy as Caddy sees them. Default: the stack's own network.
+  upstream_proxies: &upstream_proxies ${LIBREPATCH_UPSTREAM_PROXIES:-${LIBREPATCH_FRONTEND_SUBNET:-172.31.250.0/24}}
+  # Public key(s) your agents trust for automatic updates (filled in by the release; see docs/RUNBOOK.md, 5c).
+  release_public_keys: &release_public_keys ${LIBREPATCH_RELEASE_PUBLIC_KEYS:-}
+# ===========================================================================================
 
 x-hardening: &hardening
   security_opt:
@@ -16,22 +43,20 @@ x-hardening: &hardening
 services:
   caddy:
     <<: *hardening
-    image: caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    image: ${LIBREPATCH_REGISTRY:-ghcr.io/auzring1}/librepatch-caddy:${LIBREPATCH_VERSION:-latest}
+    pull_policy: always
     depends_on:
       server: { condition: service_healthy }
     ports:
-      - "${LIBREPATCH_HTTP_PORT:-80}:80"
-      - "${LIBREPATCH_HTTPS_PORT:-443}:443"
-      - "${LIBREPATCH_HTTPS_PORT:-443}:443/udp"
+      - *http_publish
+      - *https_publish
     environment:
-      LIBREPATCH_HOSTNAME: ${LIBREPATCH_HOSTNAME:?set LIBREPATCH_HOSTNAME in deploy/.env}
-      LIBREPATCH_CADDY_TLS: ${LIBREPATCH_CADDY_TLS:-internal}
-      # Only used by Caddyfile.behind-proxy: the addresses whose X-Forwarded-For header Caddy believes.
-      LIBREPATCH_UPSTREAM_PROXIES: ${LIBREPATCH_UPSTREAM_PROXIES:-${LIBREPATCH_FRONTEND_SUBNET:-172.31.250.0/24}}
+      LIBREPATCH_HOSTNAME: *hostname
+      LIBREPATCH_CADDY_TLS: *caddy_tls
+      LIBREPATCH_BEHIND_PROXY: *behind_proxy
+      # Only used when behind your own proxy: the addresses whose X-Forwarded-For header Caddy believes.
+      LIBREPATCH_UPSTREAM_PROXIES: *upstream_proxies
     volumes:
-      # LIBREPATCH_CADDYFILE=./Caddyfile.behind-proxy when your own reverse proxy (for example Synology DSM) does the
-      # browser TLS; see docs/RUNBOOK.md, "Behind your own reverse proxy".
-      - ${LIBREPATCH_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     read_only: true
@@ -45,7 +70,7 @@ services:
 
   server:
     <<: *hardening
-    image: ${LIBREPATCH_IMAGE:-ghcr.io/auzring1/librepatch-server}:${LIBREPATCH_VERSION:-latest}
+    image: ${LIBREPATCH_REGISTRY:-ghcr.io/auzring1}/librepatch-server:${LIBREPATCH_VERSION:-latest}
     pull_policy: always
     depends_on:
       postgres: { condition: service_healthy }
@@ -54,13 +79,18 @@ services:
       maintenance: { condition: service_completed_successfully }
     ports:
       # Agent gateway: mTLS terminated by the server itself (never proxied).
-      - "${LIBREPATCH_GATEWAY_PORT:-8443}:8443"
+      - target: 8443
+        published: *gateway_port
     environment:
-      LIBREPATCH_PUBLIC_URL: https://${LIBREPATCH_HOSTNAME}${LIBREPATCH_PUBLIC_PORT_SUFFIX:-}
-      LIBREPATCH_GATEWAY_PUBLIC_ADDR: ${LIBREPATCH_GATEWAY_HOSTNAME:-${LIBREPATCH_HOSTNAME}}:${LIBREPATCH_GATEWAY_PORT:-8443}
-      LIBREPATCH_GATEWAY_SANS: ${LIBREPATCH_GATEWAY_SANS:-}
+      # The server derives its public addresses from these (https://<name><suffix> and <name>:<gateway port>).
+      LIBREPATCH_HOSTNAME: *hostname
+      LIBREPATCH_PUBLIC_PORT_SUFFIX: *public_port_suffix
+      LIBREPATCH_GATEWAY_HOSTNAME: *gateway_hostname
+      LIBREPATCH_GATEWAY_PORT: *gateway_port
+      LIBREPATCH_GATEWAY_SANS: *gateway_sans
       # Caddy, plus (behind your own reverse proxy only) the addresses of that proxy as Caddy sees them.
-      LIBREPATCH_TRUSTED_PROXIES: ${LIBREPATCH_CADDY_IP:-172.31.250.10}/32 ${LIBREPATCH_UPSTREAM_PROXIES:-${LIBREPATCH_CADDY_IP:-172.31.250.10}/32}
+      LIBREPATCH_TRUSTED_PROXIES: ${LIBREPATCH_CADDY_IP:-172.31.250.10}/32
+      LIBREPATCH_UPSTREAM_PROXIES: *upstream_proxies
       LIBREPATCH_DATABASE_URL_FILE: /run/librepatch/app/database_url
       LIBREPATCH_MIGRATE_ON_START: "false"
       LIBREPATCH_MASTER_KEY_FILE: /run/librepatch/key/master_key
@@ -69,7 +99,7 @@ services:
       LIBREPATCH_CONTENT_DIR: /var/lib/librepatch/content
       LIBREPATCH_WINGET_SOURCE: ${LIBREPATCH_WINGET_SOURCE:-github}
       LIBREPATCH_WINGET_INDEX_URL: ${LIBREPATCH_WINGET_INDEX_URL:-}
-      LIBREPATCH_RELEASE_PUBLIC_KEYS: ${LIBREPATCH_RELEASE_PUBLIC_KEYS:-}
+      LIBREPATCH_RELEASE_PUBLIC_KEYS: *release_public_keys
     volumes:
       - content:/var/lib/librepatch/content
       # Secrets are created by the stack itself (docs/RUNBOOK.md, "Secrets"): the server may read its own database login
@@ -95,15 +125,17 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: "no"
-    image: ${LIBREPATCH_IMAGE:-ghcr.io/auzring1/librepatch-server}:${LIBREPATCH_VERSION:-latest}
+    image: ${LIBREPATCH_REGISTRY:-ghcr.io/auzring1}/librepatch-server:${LIBREPATCH_VERSION:-latest}
     pull_policy: always
     command: ["migrate"]
     depends_on:
       postgres: { condition: service_healthy }
     environment:
-      # Same configuration file parser as the server; these two are required by it.
-      LIBREPATCH_PUBLIC_URL: https://${LIBREPATCH_HOSTNAME}${LIBREPATCH_PUBLIC_PORT_SUFFIX:-}
-      LIBREPATCH_GATEWAY_PUBLIC_ADDR: ${LIBREPATCH_GATEWAY_HOSTNAME:-${LIBREPATCH_HOSTNAME}}:${LIBREPATCH_GATEWAY_PORT:-8443}
+      # Same configuration parser as the server; it needs the host name to start.
+      LIBREPATCH_HOSTNAME: *hostname
+      LIBREPATCH_PUBLIC_PORT_SUFFIX: *public_port_suffix
+      LIBREPATCH_GATEWAY_HOSTNAME: *gateway_hostname
+      LIBREPATCH_GATEWAY_PORT: *gateway_port
       LIBREPATCH_DATABASE_URL_FILE: /run/librepatch/app/database_url
       LIBREPATCH_MIGRATE_DATABASE_URL_FILE: /run/librepatch/owner/migrate_database_url
       LIBREPATCH_MASTER_KEY_FILE: /run/librepatch/key/master_key
@@ -125,7 +157,8 @@ services:
 
   postgres:
     <<: *hardening
-    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    image: ${LIBREPATCH_REGISTRY:-ghcr.io/auzring1}/librepatch-postgres:${LIBREPATCH_VERSION:-latest}
+    pull_policy: always
     # No ports: reachable only from the server on the internal backend network.
     environment:
       POSTGRES_DB: librepatch
@@ -135,14 +168,10 @@ services:
       POSTGRES_PASSWORD_FILE: /run/librepatch/pg/postgres_admin_password
       # Network logins require SCRAM; the local socket is only reachable inside the container.
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    # The wrapper creates the database passwords on the very first start (decision D109) and then runs the official
-    # entrypoint. Started with "sh" so the file needs no executable bit after unpacking a zip.
-    entrypoint: ["sh", "/librepatch/pg-entrypoint.sh"]
-    command: ["postgres"]
+    # The image's wrapper creates the database passwords on the very first start (decision D109) and then runs the
+    # official entrypoint; the role setup script is inside the image too (decision D110).
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
-      - ./postgres/entrypoint.sh:/librepatch/pg-entrypoint.sh:ro
       - secrets_pg:/run/librepatch/pg
       - secrets_app:/run/librepatch/app
       - secrets_owner:/run/librepatch/owner

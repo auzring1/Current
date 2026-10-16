@@ -73,8 +73,13 @@ test-gui: ## Browser end-to-end test (Playwright + real server + real agent)
 image: ## Build the server container image
 	docker build -f deploy/Dockerfile.server --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t librepatch/server:dev .
 
+.PHONY: images-extra
+images-extra: ## Build the web proxy (Caddy) and database container images
+	docker build -t librepatch/caddy:dev deploy/caddy
+	docker build -t librepatch/postgres:dev deploy/postgres
+
 .PHONY: test-compose
-test-compose: image ## Full docker-compose stack + real agent integration test
+test-compose: image images-extra ## Full docker-compose stack + real agent integration test
 	go test -tags compose -count=1 -timeout 15m ./test/integration/
 
 .PHONY: lint

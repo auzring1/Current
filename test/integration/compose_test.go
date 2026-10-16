@@ -70,7 +70,7 @@ func (s *stack) compose(args ...string) string {
 func up(t *testing.T) *stack {
 	dir := t.TempDir()
 	root := repoRoot()
-	for _, f := range []string{"docker-compose.yml", "Caddyfile"} {
+	for _, f := range []string{"docker-compose.yml"} {
 		b, err := os.ReadFile(filepath.Join(root, "deploy", f))
 		if err != nil {
 			t.Fatal(err)
@@ -79,7 +79,8 @@ func up(t *testing.T) *stack {
 			t.Fatal(err)
 		}
 	}
-	run(t, root, "cp", "-r", filepath.Join(root, "deploy", "postgres"), dir)
+	// Only needed so that compose can resolve the build contexts; the stack itself runs from the three images.
+	run(t, root, "cp", "-r", filepath.Join(root, "deploy", "postgres"), filepath.Join(root, "deploy", "caddy"), dir)
 	env := strings.Join([]string{
 		"LIBREPATCH_HOSTNAME=localhost", "LIBREPATCH_CADDY_TLS=internal", "LIBREPATCH_HTTP_PORT=28080", "LIBREPATCH_HTTPS_PORT=" + httpsPort,
 		"LIBREPATCH_PUBLIC_PORT_SUFFIX=:" + httpsPort, "LIBREPATCH_GATEWAY_PORT=" + gwPort, "LIBREPATCH_FRONTEND_SUBNET=172.31.251.0/24",
@@ -165,6 +166,12 @@ func TestComposeStack(t *testing.T) {
 		}
 		if nnp := inspect(svc, "{{.HostConfig.SecurityOpt}}"); !strings.Contains(nnp, "no-new-privileges") {
 			t.Errorf("%s lacks no-new-privileges", svc)
+		}
+	}
+	// Decision D110: the stack needs no files next to the compose file, so no service may mount one from the host.
+	for _, svc := range []string{"server", "postgres", "caddy"} {
+		if m := inspect(svc, "{{json .Mounts}}"); strings.Contains(m, `"Type":"bind"`) {
+			t.Errorf("%s mounts a file or folder from the host: %s", svc, m)
 		}
 	}
 	if ports := inspect("postgres", "{{json .NetworkSettings.Ports}}"); strings.Contains(ports, "HostPort") {
