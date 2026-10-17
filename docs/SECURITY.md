@@ -93,7 +93,7 @@ Statuses: ✅ designed in, 🔜 later phase (number given), ⚠ residual risk.
 |---|---|---|---|
 | T-SUP-1 | Download replaced at the vendor URL | SHA-256 from the catalog is in the signed job. A mismatch blocks the install and raises an alert. | 3 ✅ |
 | T-SUP-2 | Malicious manifest in the winget community repository | Signer pins come from administrator input (the winget manifest carries none); the `verified` overlay is not populated. **Not implemented:** index MSIX signature verification (the index is fetched over TLS from Microsoft's CDN and only suggests matches; nothing installs without an audited administrator action, D98) and automatic signer-change detection. New versions held for a configurable delay in auto-update rings. Unverified packages warned about and role-gated. | 3, 5 ✅ / ⚠ residual |
-| T-SUP-3 | SSRF through server-side fetching (catalog sync, content caching of admin-given URLs) | The server fetches only fixed GitHub hosts, never an administrator-supplied URL (so there is nothing to point at internal addresses); https only, size and time caps, redirects re-checked. Agents fetch vendor URLs themselves, https only | 3 ✅ |
+| T-SUP-3 | SSRF through server-side fetching (catalog sync, content caching of admin-given URLs) | Catalog sync, the winget index and the agent installers are fetched only from fixed hosts (GitHub, Microsoft's CDN, or the mirror named in the server's own environment), never from an address an administrator types into the console; https only, size and time caps, redirects re-checked. **Two features do connect to administrator-supplied addresses:** webhooks (settings:integrations) and the SMTP server (settings:notifications). The webhook sender refuses link-local, loopback and unspecified addresses at connect time, after name resolution (D115); it never reads the answer beyond the status code; the SMTP client refuses a login over a plain connection. Agents fetch vendor URLs themselves, https only | 3 ✅ / D115 |
 
 ### TB1/TB2: Web GUI and API
 | ID | Threat | Mitigation | Phase |
@@ -443,6 +443,26 @@ The server fetches the Windows agent (exe and MSI) from the project's GitHub rel
 | **The list needs a session.** `GET /api/v1/agent-downloads` needs `enrollment:read` | `TestAgentDownloadsListNeedsASession` |
 | **Where it is kept.** A dot-folder (`.agent-downloads`) on the content volume: backups skip dot-folders, so backups do not grow by about 30 MB; after a restore the server fetches the files again | `internal/server/backup` (skips dot entries) |
 
+## 9l. Code review (D115)
+
+A review of the server and agent aimed at administrator permissions and remote fetching, with fixes. Windows-only agent code was
+read and cross-compiled (`GOOS=windows go build/vet`), not run.
+
+| Finding | Fix | Evidence |
+|---|---|---|
+| **An API token could read and confirm the master key.** `settings:write` is a scope a token may carry, and it opened `GET /security/master-key` and its acknowledge call, which are allowed while the key is unconfirmed. A script could read the key, type its last six characters and clear the warning | Both routes now refuse an API token (403): only a signed-in console session may handle the key | `TestMasterKeyRefusesAPITokens` |
+| **Event streams outlived the caller's rights** (R-6): a revoked or expired API token, a disabled account or a removed role kept receiving fleet events until the browser reconnected | The stream re-authenticates from the database every minute (`reauthenticate`) and ends when the caller is gone; role changes take effect at the next check | `TestReauthenticateFollowsTokenUserAndRole` |
+| **A full rate-limiter table was emptied** ("fail open on memory"), so someone filling it with made-up keys also reset the bucket of an account under attack | The least recently seen tenth is dropped instead; keys in use keep their buckets | `TestLimiterKeepsBusyKeysWhenFull` |
+| **Webhooks could reach the server's own listeners.** Only link-local addresses were refused, so `http://127.0.0.1:...` or `0.0.0.0` could be used from the settings page to make the server call itself | Loopback and unspecified addresses are refused too, on the address actually dialled | `TestRefuseLocalTargets`, `TestPosterDoesNotReachLoopback` |
+| **Windows Update support links from an endpoint were stored unchecked** and shown as clickable links; a compromised endpoint could plant a `javascript:` address (the CSP blocks it today, but it is cross-device data) | Only `http(s)` addresses are stored | `TestWebURLKeepsOnlyWebAddresses` |
+| **Text cut in the middle of a character** at about a dozen places (job result messages, installer log texts, enrollment fields, session user agent, notification and report texts, security-event details): protobuf and PostgreSQL both refuse invalid UTF-8, so one unlucky installer message made a job result impossible to send. One helper had a half fix that kept the first byte of the cut character | One helper, `internal/shared/text.Truncate`, used everywhere | `internal/shared/text`, reproduced for the job result before the fix |
+| **Deleting an agent release removed the file inside the database transaction**, before it was committed | The file is removed after the commit | `internal/server/agentrel` tests |
+| **A stored installer could be a partial file after a crash**: the content store renames a file to its hash and trusts it afterwards, without syncing it first | The file is synced before it gets its final name | |
+| The winget index reader (hand-written SQLite parser over network data, run in a background goroutine) had no fuzz target and no panic guard | A fuzz target (`FuzzParseDB`) and a guard that turns a panic into a refused index | 20,000 random mutations: no panic, none slower than 15 ms |
+| Enrollment held its concurrency slot until the transaction returned normally | Released with `defer` | |
+
+Not changed, and why: see the review report (`docs/CODE-REVIEW-D115.md`).
+
 ## 10. Vulnerability disclosure
 Reports go through GitHub private vulnerability reporting (Security tab, "Report a vulnerability"); the full policy is in the
 repository's [SECURITY.md](../SECURITY.md). LibrePatch has a single maintainer, so response times there are goals, not guarantees.
@@ -479,7 +499,7 @@ A line-by-line review of the code against every row of section 5 and every claim
 | R-3 | A compromised server can still sign any typed job (section 6). The mitigations listed there (four-eyes approval, anomaly alerts, HSM-held signing key) are **not implemented** | Largest remaining design risk; the agent-side ceiling and vendor-signed agent updates bound it |
 | R-4 | No scheduled audit-chain verification and no SIEM streaming | Verify from the console or `admin verify-audit`; copy `audit_log` out of band if you need an external record |
 | R-5 | No step-up MFA for sensitive actions (large deployments, role changes, token creation) | Sessions are short (30 min idle) and tokens cannot manage users or mint tokens |
-| R-6 | API tokens and cached site scope on open SSE streams are not re-validated until the stream ends | Streams re-check the session; revoke a token and the next request fails |
+| R-6 | ~~API tokens and cached site scope on open SSE streams are not re-validated until the stream ends~~ **Closed in D115**: every open event stream re-checks its caller (session or API token, account status, role bindings) once a minute and ends when the caller is no longer allowed | `TestReauthenticateFollowsTokenUserAndRole` |
 | R-7 | Unauthenticated connections to the gateway port are bounded only by the TLS handshake timeout and the operating system | Put a firewall or connection limit in front if the port is exposed to untrusted networks |
 | R-8 | The compose file sets no CPU, memory or process limits | Set them to your host in a compose override |
 | R-9 | Per-user (HKCU) MSI uninstalls through the helper may be refused because the helper requires the executable under the staging directory | Fails closed; to be confirmed on a real machine |

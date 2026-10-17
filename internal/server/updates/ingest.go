@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/auzring1/librepatch/gen/dbq"
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 var (
@@ -38,11 +40,15 @@ func clean(s string, n int) string {
 		}
 		return r
 	}, s)
-	if len(s) > n {
-		s = s[:n]
-		for len(s) > 0 && s[len(s)-1]&0xC0 == 0x80 { // do not cut a UTF-8 sequence in half
-			s = s[:len(s)-1]
-		}
+	return text.Truncate(s, n)
+}
+
+// webURL keeps an http(s) address and drops anything else. The text comes from the endpoint, which may be compromised,
+// and the console shows it as a link: a "javascript:" or "data:" address must never be stored.
+func webURL(s string) string {
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return ""
 	}
 	return s
 }
@@ -139,7 +145,7 @@ func (s *Service) ApplySnapshot(ctx context.Context, dev dbq.Device, rev uint64,
 			rd = 0
 		}
 		release = append(release, rd)
-		urls = append(urls, clean(u.SupportUrl, 512))
+		urls = append(urls, webURL(clean(u.SupportUrl, 512)))
 		size := int64(u.SizeBytes) // #nosec G115 -- clamped below
 		if size < 0 || size > 1<<40 {
 			size = 0

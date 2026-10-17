@@ -14,6 +14,7 @@ import (
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 	"github.com/auzring1/librepatch/internal/server/audit"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // ErrUnknownJob is returned when a device reports on a job that is not its own.
@@ -41,11 +42,7 @@ func terminal(status string) bool {
 
 // clean bounds and sanitizes agent-supplied text before it is stored.
 func clean(s string, max int) string {
-	s = strings.ToValidUTF8(strings.ReplaceAll(s, "\x00", ""), "�")
-	if len(s) > max {
-		s = s[:max]
-	}
-	return s
+	return text.Truncate(strings.ToValidUTF8(strings.ReplaceAll(s, "\x00", ""), "�"), max)
 }
 
 // ApplyUpdate records a job update reported by a device.

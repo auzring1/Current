@@ -47,7 +47,14 @@ const (
 )
 
 // ParseMSIX reads the index out of the downloaded source2.msix.
-func ParseMSIX(msix []byte) (*Snapshot, error) {
+func ParseMSIX(msix []byte) (snap *Snapshot, err error) {
+	// The hand-written SQLite reader runs on bytes from the network inside a background goroutine, where a panic would end
+	// the whole server. Turn one into an error: the old index stays in use and the console shows the reason.
+	defer func() {
+		if r := recover(); r != nil {
+			snap, err = nil, fmt.Errorf("wingetindex: the index could not be read (%v)", r)
+		}
+	}()
 	zr, err := zip.NewReader(bytes.NewReader(msix), int64(len(msix)))
 	if err != nil {
 		return nil, fmt.Errorf("wingetindex: the download is not a package file: %w", err)

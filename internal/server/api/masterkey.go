@@ -22,9 +22,23 @@ func keyPendingAllowed(path string) bool {
 
 func (s *server) keyPending() bool { return s.KeyAck.Pending() }
 
+// requireInteractive refuses an API token. The master key decrypts everything the server keeps secret, so only a person
+// signed in to the console may see it or confirm that it was saved; a script holding settings:write must not be able to
+// read the key and then type its last six characters to clear the warning.
+func requireInteractive(w http.ResponseWriter, p *Principal) bool {
+	if p.TokenID != "" {
+		writeError(w, http.StatusForbidden, "forbidden", "The master key can only be handled from a signed-in console session, not with an API token.")
+		return false
+	}
+	return true
+}
+
 // getMasterKey: GET /security/master-key. Shows the key the stack generated for itself, once, until it is saved.
 func (s *server) getMasterKey(w http.ResponseWriter, r *http.Request) {
 	p := principalFrom(r)
+	if !requireInteractive(w, p) {
+		return
+	}
 	k, err := s.KeyAck.View()
 	if errors.Is(err, keyack.ErrNotPending) {
 		writeError(w, http.StatusNotFound, "not_found", "There is no master key to show. It was saved when the stack was set up.")
@@ -42,6 +56,9 @@ func (s *server) getMasterKey(w http.ResponseWriter, r *http.Request) {
 // acknowledgeMasterKey: POST /security/master-key/acknowledge {confirm}. The last six digits prove the key was looked at.
 func (s *server) acknowledgeMasterKey(w http.ResponseWriter, r *http.Request) {
 	p := principalFrom(r)
+	if !requireInteractive(w, p) {
+		return
+	}
 	var req struct {
 		Confirm string `json:"confirm"`
 	}

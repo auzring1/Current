@@ -63,6 +63,11 @@ func (s *Store) Put(org uuid.UUID, r io.Reader, max int64) (sha []byte, size int
 	if n == 0 {
 		return nil, 0, errors.New("empty upload")
 	}
+	// Durable before it gets its final name: a file named after its hash is trusted without being hashed again, so a crash
+	// must not leave a short one behind under that name.
+	if err := f.Sync(); err != nil {
+		return nil, 0, err
+	}
 	if err := f.Close(); err != nil {
 		return nil, 0, err
 	}

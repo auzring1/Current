@@ -22,6 +22,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/pki"
 	"github.com/auzring1/librepatch/internal/server/store"
 	"github.com/auzring1/librepatch/internal/shared/pkix"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // errRejected is the single generic error enrollment returns; the
@@ -41,10 +42,7 @@ func cleanField(s string, max int) string {
 		}
 		return r
 	}, strings.TrimSpace(s))
-	if len(s) > max {
-		s = s[:max]
-	}
-	return s
+	return text.Truncate(s, max)
 }
 
 // Enroll handles first contact from a new agent.
@@ -82,6 +80,7 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 	if gerr != nil {
 		return nil, status.Error(codes.Unavailable, "the server is busy enrolling devices; try again")
 	}
+	defer release()
 	err := store.Tx(ctx, g.pool, func(tx pgx.Tx, q *dbq.Queries) error {
 		tok, err := q.GetEnrollmentTokenByHashForUpdate(ctx, th)
 		switch {
@@ -155,7 +154,6 @@ func (g *Gateway) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agen
 			Outcome: audit.Success, Details: details}, now)
 		return err
 	})
-	release()
 	if errors.Is(err, errRejected) {
 		g.auditEnroll(ctx, nil, ip, "", audit.Denied, denyReason, hostname)
 		return nil, errRejected

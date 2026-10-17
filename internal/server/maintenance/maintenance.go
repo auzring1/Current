@@ -18,6 +18,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/dashboard"
 	"github.com/auzring1/librepatch/internal/server/settings"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 )
 
 // Service runs the clean-up.
@@ -54,7 +55,7 @@ func (s *Service) Run(ctx context.Context, org uuid.UUID) (Result, error) {
 	now := s.now()
 	data := s.Settings.Values(ctx, org, "data")
 	if days := data.Int("job_history_days"); days > 0 {
-		n, err := q.PruneFinishedJobs(ctx, dbq.PruneFinishedJobsParams{OrgID: org, FinishedAt: ptr(now.AddDate(0, 0, -days))})
+		n, err := q.PruneFinishedJobs(ctx, dbq.PruneFinishedJobsParams{OrgID: org, FinishedAt: ptr.Of(now.AddDate(0, 0, -days))})
 		if err != nil {
 			return res, err
 		}
@@ -139,5 +140,3 @@ func (s *Service) Tick(ctx context.Context) {
 		s.log().Error("retention", "err", err)
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

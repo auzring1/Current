@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -35,7 +34,9 @@ import (
 	"github.com/auzring1/librepatch/internal/server/deploy"
 	"github.com/auzring1/librepatch/internal/server/events"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 	"github.com/auzring1/librepatch/internal/shared/release"
+	"github.com/auzring1/librepatch/internal/shared/text"
 	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
@@ -154,10 +155,7 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 		return Release{}, invalid("the upload failed: %v", err)
 	}
 	if !bytes.Equal(sha, m.SHA256Bytes()) || uint64(size) != m.Size { // #nosec G115 -- non-negative
-		// Do not leave a mismatching blob behind unless some other release references it.
-		if n, _ := dbq.New(s.Pool).CountReleaseBlobUses(ctx, dbq.CountReleaseBlobUsesParams{OrgID: a.Org, Sha256: sha}); n == 0 {
-			_ = s.Content.Delete(a.Org, sha)
-		}
+		s.dropBlobIfUnused(ctx, a.Org, sha) // do not leave a mismatching blob behind
 		return Release{}, invalid("the uploaded file does not match the signed manifest")
 	}
 	id, err := uuid.NewV7()
@@ -167,6 +165,7 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	name := "librepatch-agent-" + m.Version + ".exe"
 	now := s.now()
 	err = store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
+		// The same binary may already be stored (another release, or a custom package): the insert then only refreshes the row.
 		if err := q.InsertContentBlob(ctx, dbq.InsertContentBlobParams{OrgID: a.Org, Sha256: sha, Size: size, FileName: name, UploadedBy: &a.User}); err != nil {
 			return err
 		}
@@ -180,12 +179,8 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 		return err
 	})
 	var pe *pgconn.PgError
-	if errors.As(err, &pe) && pe.Code == "23505" {
-		if strings.Contains(pe.ConstraintName, "agent_releases") {
-			return Release{}, fmt.Errorf("%w: version %s for %s/%s is already uploaded", ErrConflict, m.Version, m.OS, m.Arch)
-		}
-		err = nil // the content blob row already exists (same binary uploaded under another release)
-		return s.addExisting(ctx, a, id, m, b, sha, size, now)
+	if errors.As(err, &pe) && pe.Code == pgUniqueViolation && strings.Contains(pe.ConstraintName, "agent_releases") {
+		return Release{}, fmt.Errorf("%w: version %s for %s/%s is already uploaded", ErrConflict, m.Version, m.OS, m.Arch)
 	}
 	if err != nil {
 		return Release{}, err
@@ -197,30 +192,17 @@ func (s *Service) AddRelease(ctx context.Context, a Actor, bundleJSON []byte, bi
 	return view(r), nil
 }
 
-// addExisting registers a release whose binary blob row already existed.
-func (s *Service) addExisting(ctx context.Context, a Actor, id uuid.UUID, m *release.Manifest, b *release.Bundle, sha []byte, size int64, now time.Time) (Release, error) {
-	err := store.Tx(ctx, s.Pool, func(tx pgx.Tx, q *dbq.Queries) error {
-		if err := q.InsertAgentRelease(ctx, dbq.InsertAgentReleaseParams{ID: id, OrgID: a.Org, Version: m.Version, Os: m.OS, Arch: m.Arch, Sha256: sha, Size: size,
-			Manifest: b.Manifest, Signature: b.Signature, KeyID: b.KeyID, Notes: m.Notes, UploadedBy: &a.User}); err != nil {
-			return err
-		}
-		_, err := audit.Write(ctx, tx, audit.Entry{OrgID: &a.Org, ActorType: audit.ActorUser, ActorID: a.User.String(), ActorIP: a.IP, Action: "agent.release_add",
-			TargetType: "agent_release", TargetIDs: []string{id.String()}, Outcome: audit.Success,
-			Details: map[string]any{"version": m.Version, "os": m.OS, "arch": m.Arch, "sha256": m.SHA256, "key_id": b.KeyID}}, now)
-		return err
-	})
-	var pe *pgconn.PgError
-	if errors.As(err, &pe) && pe.Code == "23505" {
-		return Release{}, fmt.Errorf("%w: version %s for %s/%s is already uploaded", ErrConflict, m.Version, m.OS, m.Arch)
+const pgUniqueViolation = "23505"
+
+// dropBlobIfUnused removes a stored file that no release and no custom package refers to. It is best effort: a file left
+// behind costs disk space, never correctness.
+func (s *Service) dropBlobIfUnused(ctx context.Context, org uuid.UUID, sha []byte) {
+	if s.Content == nil {
+		return
 	}
-	if err != nil {
-		return Release{}, err
+	if n, err := dbq.New(s.Pool).CountReleaseBlobUses(ctx, dbq.CountReleaseBlobUsesParams{OrgID: org, Sha256: sha}); err == nil && n == 0 {
+		_ = s.Content.Delete(org, sha)
 	}
-	r, err := dbq.New(s.Pool).GetAgentRelease(ctx, dbq.GetAgentReleaseParams{OrgID: a.Org, ID: id})
-	if err != nil {
-		return Release{}, err
-	}
-	return view(r), nil
 }
 
 // Rollout is how devices converge on a release.
@@ -303,7 +285,8 @@ func (s *Service) SetStatus(ctx context.Context, a Actor, id uuid.UUID, status s
 
 // Delete removes a release that is not the rollout target.
 func (s *Service) Delete(ctx context.Context, a Actor, id uuid.UUID) error {
-	return s.audited(ctx, a, "agent.release_delete", id, func(q *dbq.Queries) error {
+	var sha []byte
+	err := s.audited(ctx, a, "agent.release_delete", id, func(q *dbq.Queries) error {
 		r, err := q.GetAgentRelease(ctx, dbq.GetAgentReleaseParams{OrgID: a.Org, ID: id})
 		if err != nil {
 			return ErrNotFound
@@ -315,11 +298,15 @@ func (s *Service) Delete(ctx context.Context, a Actor, id uuid.UUID) error {
 		if n == 0 {
 			return fmt.Errorf("%w: this release is the rollout target", ErrConflict)
 		}
-		if uses, _ := q.CountReleaseBlobUses(ctx, dbq.CountReleaseBlobUsesParams{OrgID: a.Org, Sha256: r.Sha256}); uses == 0 && s.Content != nil {
-			_ = s.Content.Delete(a.Org, r.Sha256)
-		}
+		sha = r.Sha256
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	// Only once the deletion is committed: a rolled-back transaction must not leave a release without its file.
+	s.dropBlobIfUnused(ctx, a.Org, sha)
+	return nil
 }
 
 func (s *Service) audited(ctx context.Context, a Actor, action string, target uuid.UUID, fn func(q *dbq.Queries) error) error {
@@ -634,15 +621,8 @@ func (s *Service) AfterJob(ctx context.Context, j dbq.Job, status string, u *age
 	if u != nil && u.Result != nil {
 		msg = u.Result.Message
 	}
-	if len(msg) > 512 {
-		msg = msg[:512]
-	}
-	if err := q.FinishAgentAttempt(ctx, dbq.FinishAgentAttemptParams{State: state, LastError: msg, At: ptr(s.now()), DeviceID: at.DeviceID, ReleaseID: at.ReleaseID}); err != nil {
+	if err := q.FinishAgentAttempt(ctx, dbq.FinishAgentAttemptParams{State: state, LastError: text.Truncate(msg, 512), At: ptr.Of(s.now()), DeviceID: at.DeviceID, ReleaseID: at.ReleaseID}); err != nil {
 		s.log().Error("record agent update result", "job", j.ID, "err", err)
 	}
 	s.publish(j.OrgID, j.DeviceID)
 }
-
-func ptr[T any](v T) *T { return &v }
-
-var _ = sha256.Size

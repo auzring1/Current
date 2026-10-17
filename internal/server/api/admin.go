@@ -16,6 +16,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/audit"
 	"github.com/auzring1/librepatch/internal/server/auth"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 )
 
 func (s *server) audit(r *http.Request, p *Principal, action, targetType string, targets []string, details map[string]any) {
@@ -507,7 +508,7 @@ func (s *server) resetUserPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q().DeleteSessionsForUser(r.Context(), u.ID)
-	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())})
+	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr.Of(s.now())})
 	s.audit(r, p, "user.password_reset", "user", []string{u.ID.String()}, nil)
 	resp := map[string]any{}
 	if generated {
@@ -536,7 +537,7 @@ func (s *server) resetUserMFA(w http.ResponseWriter, r *http.Request) {
 		if err := q.DeleteSessionsForUser(r.Context(), u.ID); err != nil {
 			return err
 		}
-		if err := q.RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())}); err != nil {
+		if err := q.RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr.Of(s.now())}); err != nil {
 			return err
 		}
 		_, err := audit.Write(r.Context(), tx, audit.Entry{OrgID: &p.OrgID, ActorType: audit.ActorUser, ActorID: p.UserID.String(), ActorIP: clientIP(r), Action: "user.mfa_reset",
