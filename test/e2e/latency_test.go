@@ -212,3 +212,40 @@ func maxDur(d []time.Duration) time.Duration {
 	}
 	return m
 }
+
+// Two clicks on Restart (a double click, or two administrators) must queue one restart, not two: the second request
+// gets the first one's job back. Once that job has finished, a new click is a new restart.
+func TestRestartClickedTwiceIsOneJob(t *testing.T) {
+	h, _, dev, plat, _ := latencyAgent(t)
+	plat.rebooted = make(chan time.Time, 8)
+	click := func() string {
+		st, rb := h.do("POST", "/api/v1/devices/"+dev+"/reboot", map[string]any{"minutes": 30, "reason": "twice"}, nil)
+		if st != 202 {
+			t.Fatalf("reboot: %d %v", st, rb)
+		}
+		return rb["job_id"].(string)
+	}
+	ids := make(chan string, 2)
+	for i := 0; i < 2; i++ {
+		go func() { ids <- click() }()
+	}
+	first, second := <-ids, <-ids
+	if first != second {
+		t.Fatalf("two simultaneous clicks created two jobs: %s and %s", first, second)
+	}
+	h.waitJobByID(first, "succeeded")
+	if n := len(plat.rebooted); n != 1 {
+		t.Fatalf("the agent started %d countdowns; want 1", n)
+	}
+	var jobsN int
+	_ = h.db.Pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE device_id = $1 AND type = 'reboot'`, dev).Scan(&jobsN)
+	if jobsN != 1 {
+		t.Fatalf("%d restart jobs stored; want 1", jobsN)
+	}
+	if n := h.auditCount("device.reboot"); n != 2 {
+		t.Fatalf("%d audit entries for device.reboot; want 2 (both clicks are recorded)", n)
+	}
+	if third := click(); third == first {
+		t.Fatalf("a click after the job finished must be a new restart, got the old job %s", third)
+	}
+}
