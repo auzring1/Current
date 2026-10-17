@@ -19,6 +19,8 @@ import (
 	"github.com/auzring1/librepatch/gen/dbq"
 	"github.com/auzring1/librepatch/internal/server/branding"
 	"github.com/auzring1/librepatch/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
+	"github.com/auzring1/librepatch/internal/shared/text"
 	"github.com/auzring1/librepatch/internal/shared/vercmp"
 )
 
@@ -232,11 +234,7 @@ func (s *Service) deliver(ctx context.Context) {
 }
 
 func trim(s string, n int) string {
-	s = strings.ReplaceAll(strings.ReplaceAll(s, "\n", " "), "\r", " ")
-	if len(s) > n {
-		return s[:n]
-	}
-	return s
+	return text.Truncate(strings.ReplaceAll(strings.ReplaceAll(s, "\n", " "), "\r", " "), n)
 }
 
 // scan looks for the conditions that nothing announces: devices gone quiet, the license filling up, late agents.
@@ -257,7 +255,7 @@ func (s *Service) scan(ctx context.Context) {
 	if r, ok := rules["device_offline"]; ok {
 		hours := r.Int("threshold")
 		if hours > 0 {
-			rows, err := q.OfflineDevicesSince(ctx, dbq.OfflineDevicesSinceParams{OrgID: org, LastSeenAt: ptr(now.Add(-time.Duration(hours) * time.Hour))})
+			rows, err := q.OfflineDevicesSince(ctx, dbq.OfflineDevicesSinceParams{OrgID: org, LastSeenAt: ptr.Of(now.Add(-time.Duration(hours) * time.Hour))})
 			if err == nil {
 				for _, d := range rows {
 					seen := ""
@@ -288,5 +286,3 @@ func (s *Service) scan(ctx context.Context) {
 		}
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

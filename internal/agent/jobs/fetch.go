@@ -174,7 +174,7 @@ func (e *Engine) fetchOne(ctx context.Context, jobID string, in *agentv1.Install
 	return nil
 }
 
-// hashFile re-hashes the locked handle (the TOCTOU-safe second check).
+// hashLocked re-hashes the locked handle (the TOCTOU-safe second check).
 func hashLocked(r io.Reader) ([]byte, error) {
 	h := sha256.New()
 	if _, err := io.Copy(h, r); err != nil {

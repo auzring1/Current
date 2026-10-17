@@ -14,6 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // DefaultURL is where Microsoft publishes the index the winget client uses.
@@ -168,9 +170,7 @@ ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, fetched_at = EXCLUDED.fetch
 
 // record keeps the reason of a failed attempt for the console.
 func (s *Service) record(ctx context.Context, msg string) {
-	if len(msg) > 300 {
-		msg = msg[:300]
-	}
+	msg = text.Truncate(msg, 300)
 	_, _ = s.Pool.Exec(ctx, `INSERT INTO winget_index (id, checked_at, last_error) VALUES (1, $1, $2)
 ON CONFLICT (id) DO UPDATE SET checked_at = EXCLUDED.checked_at, last_error = EXCLUDED.last_error`, s.now(), msg)
 	s.log().Warn("winget index refresh failed", "err", msg)

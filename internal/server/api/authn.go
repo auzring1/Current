@@ -13,6 +13,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/auth"
 	"github.com/auzring1/librepatch/internal/server/kek"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 )
 
 const (
@@ -234,7 +235,7 @@ func (s *server) mfaVerify(w http.ResponseWriter, r *http.Request) {
 		h := auth.HashRecoveryCode(req.Code)
 		for _, c := range codes {
 			if subtle.ConstantTimeCompare(c.CodeHash, h) == 1 {
-				n, err := q.UseRecoveryCode(ctx, dbq.UseRecoveryCodeParams{ID: c.ID, UsedAt: ptr(s.now())})
+				n, err := q.UseRecoveryCode(ctx, dbq.UseRecoveryCodeParams{ID: c.ID, UsedAt: ptr.Of(s.now())})
 				verified = err == nil && n == 1
 			}
 		}
@@ -325,7 +326,7 @@ func (s *server) finishLogin(w http.ResponseWriter, r *http.Request, pending *au
 		if full, err = s.Sessions.Create(ctx, q, u.ID, true, clientIP(r), r.UserAgent()); err != nil {
 			return err
 		}
-		if err := q.SetUserLoginSuccess(ctx, dbq.SetUserLoginSuccessParams{ID: u.ID, LastLoginAt: ptr(s.now())}); err != nil {
+		if err := q.SetUserLoginSuccess(ctx, dbq.SetUserLoginSuccessParams{ID: u.ID, LastLoginAt: ptr.Of(s.now())}); err != nil {
 			return err
 		}
 		_, err = audit.Write(ctx, tx, audit.Entry{OrgID: &u.OrgID, ActorType: audit.ActorUser, ActorID: u.ID.String(),
@@ -382,5 +383,3 @@ func (s *server) session(w http.ResponseWriter, r *http.Request) {
 		"master_key_pending": s.keyPending(),
 	})
 }
-
-func ptr[T any](v T) *T { return &v }

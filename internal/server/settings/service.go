@@ -22,6 +22,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/audit"
 	"github.com/auzring1/librepatch/internal/server/kek"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // Errors the API maps to statuses.
@@ -533,18 +534,20 @@ func norm(v any) any {
 	return out
 }
 
+func ellipsize(s string) string {
+	if len(s) > maxAuditValue {
+		return text.Truncate(s, maxAuditValue) + "…"
+	}
+	return s
+}
+
 func short(v any) any {
 	switch x := v.(type) {
 	case []any, map[string]any, []string:
 		b, _ := json.Marshal(x)
-		if len(b) > maxAuditValue {
-			return string(b[:maxAuditValue]) + "…"
-		}
-		return string(b)
+		return ellipsize(string(b))
 	case string:
-		if len(x) > maxAuditValue {
-			return x[:maxAuditValue] + "…"
-		}
+		return ellipsize(x)
 	}
 	return v
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -44,14 +45,29 @@ func (l *Limiter) Allow(key string) bool {
 	return e.lim.AllowN(now, 1)
 }
 
+// evict drops entries idle for ten minutes. If the table is still full (someone is filling it with made-up keys), it
+// also drops the least recently seen tenth, so the buckets of keys that are in use, such as an account under attack,
+// survive instead of being reset together with everything else.
 func (l *Limiter) evict(now time.Time) {
 	for k, e := range l.entries {
 		if now.Sub(e.seen) > 10*time.Minute {
 			delete(l.entries, k)
 		}
 	}
-	if len(l.entries) >= l.maxKeys { // still full: drop everything (fail open on memory, not on auth)
-		l.entries = make(map[string]*limEntry)
+	if len(l.entries) < l.maxKeys {
+		return
+	}
+	type aged struct {
+		key  string
+		seen time.Time
+	}
+	all := make([]aged, 0, len(l.entries))
+	for k, e := range l.entries {
+		all = append(all, aged{k, e.seen})
+	}
+	slices.SortFunc(all, func(a, b aged) int { return a.seen.Compare(b.seen) })
+	for _, a := range all[:max(1, len(all)/10)] {
+		delete(l.entries, a.key)
 	}
 }
 

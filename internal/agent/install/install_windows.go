@@ -318,5 +318,3 @@ func copyFile(src, dst string) error {
 	}
 	return os.Rename(tmp, dst)
 }
-
-var _ = unsafe.Sizeof(0)

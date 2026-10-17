@@ -9,11 +9,11 @@ package inventory
 import (
 	"context"
 	"strings"
-	"unicode/utf8"
 
 	"google.golang.org/protobuf/proto"
 
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 const (
@@ -76,14 +76,7 @@ func ItemHash(it *agentv1.SoftwareItem) []byte {
 // data can contain anything) and cuts it to at most max bytes on a rune boundary.
 func clip(s string, max int) string {
 	s = strings.ToValidUTF8(s, "\uFFFD")
-	if len(s) <= max {
-		return s
-	}
-	s = s[:max]
-	for !utf8.ValidString(s) {
-		s = s[:len(s)-1]
-	}
-	return s
+	return text.Truncate(s, max)
 }
 
 // sanitize bounds and cleans an item before it is reported.

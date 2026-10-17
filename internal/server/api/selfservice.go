@@ -23,6 +23,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/audit"
 	"github.com/auzring1/librepatch/internal/server/auth"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 )
 
 // ---- password ----
@@ -75,7 +76,7 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.q().DeleteOtherSessionsForUser(r.Context(), dbq.DeleteOtherSessionsForUserParams{UserID: u.ID, IDHash: sess.IDHash})
 	// A password change is what people do when they suspect a compromise: tokens made before it go too.
-	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr(s.now())})
+	_ = s.q().RevokeAPITokensForUser(r.Context(), dbq.RevokeAPITokensForUserParams{UserID: u.ID, RevokedAt: ptr.Of(s.now())})
 	_ = audit.Log(r.Context(), s.Pool, audit.Entry{OrgID: &u.OrgID, ActorType: audit.ActorUser, ActorID: u.ID.String(), ActorIP: clientIP(r), Action: "auth.password_change",
 		TargetType: "user", TargetIDs: []string{u.ID.String()}, Outcome: audit.Success})
 	u.MustChangePassword = false
@@ -250,7 +251,7 @@ func (s *server) revokeAnyAPIToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) revokeToken2(w http.ResponseWriter, r *http.Request, p *Principal, id uuid.UUID) {
-	n, err := s.q().RevokeAPIToken(r.Context(), dbq.RevokeAPITokenParams{ID: id, OrgID: p.OrgID, RevokedAt: ptr(s.now())})
+	n, err := s.q().RevokeAPIToken(r.Context(), dbq.RevokeAPITokenParams{ID: id, OrgID: p.OrgID, RevokedAt: ptr.Of(s.now())})
 	if err != nil {
 		internalError(w)
 		return
@@ -527,6 +528,6 @@ func (s *server) finishKeyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rec, _ := json.Marshal(cred)
-	_ = s.q().UpdateWebAuthnCredentialUsage(r.Context(), dbq.UpdateWebAuthnCredentialUsageParams{UserID: u.ID, CredentialID: cred.ID, Record: rec, SignCount: int64(cred.Authenticator.SignCount), LastUsedAt: ptr(s.now())})
+	_ = s.q().UpdateWebAuthnCredentialUsage(r.Context(), dbq.UpdateWebAuthnCredentialUsageParams{UserID: u.ID, CredentialID: cred.ID, Record: rec, SignCount: int64(cred.Authenticator.SignCount), LastUsedAt: ptr.Of(s.now())})
 	s.finishLogin(w, r, sess, u, "webauthn", nil)
 }

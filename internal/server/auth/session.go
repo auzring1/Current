@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/auzring1/librepatch/gen/dbq"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // Session cookie names. The __Host- prefix forces Secure, Path=/ and no Domain.
@@ -105,9 +106,7 @@ func (m *Sessions) Create(ctx context.Context, q *dbq.Queries, userID uuid.UUID,
 	} else {
 		idle, abs = now.Add(PreMFALifetime), now.Add(PreMFALifetime)
 	}
-	if len(ua) > 512 {
-		ua = ua[:512]
-	}
+	ua = text.Truncate(ua, 512)
 	s := &Session{Token: tok, IDHash: hashToken(tok), UserID: userID, MFAVerified: mfaVerified, CSRFToken: csrf, AbsExpiresAt: abs}
 	err = q.CreateSession(ctx, dbq.CreateSessionParams{
 		IDHash: s.IDHash, UserID: userID, CreatedAt: now, LastSeenAt: now, IdleExpiresAt: idle,

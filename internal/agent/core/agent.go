@@ -36,6 +36,7 @@ import (
 	"github.com/auzring1/librepatch/internal/agent/store"
 	"github.com/auzring1/librepatch/internal/shared/envelope"
 	"github.com/auzring1/librepatch/internal/shared/pkix"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 const (
@@ -784,10 +785,7 @@ func (a *Agent) securityEvent(_ agentv1.AgentChannelService_ConnectClient, kind 
 	if err != nil {
 		return
 	}
-	if len(detail) > 1000 {
-		detail = detail[:1000]
-	}
-	a.queue(seq, &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_SecurityEvent{SecurityEvent: &agentv1.SecurityEvent{Seq: seq, Kind: kind, Detail: detail}}})
+	a.queue(seq, &agentv1.ConnectRequest{Msg: &agentv1.ConnectRequest_SecurityEvent{SecurityEvent: &agentv1.SecurityEvent{Seq: seq, Kind: kind, Detail: text.Truncate(detail, 1000)}}})
 }
 
 // queue persists a message in the outbox and wakes the stream loop.

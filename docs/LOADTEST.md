@@ -206,7 +206,7 @@ Not fixed (design or larger changes), for the owner to decide:
 * The REST API is exercised only for tokens, job creation and the overview; the console's own load (SSE streams, device lists with 10,000 rows) is not tested.
 * The server-process and PostgreSQL samplers need the same host (`--server-pid`, `--pg-url`); the kernel counters in the script cover the whole host.
 
-## 10. After the performance pass (D115 to D117)
+## 10. After the performance pass (D116 to D118)
 
 Same sandbox as section 7 (4 vCPU, 15.7 GiB, PostgreSQL 16.15 with default settings, generator, server and database on one host, `scripts/loadtest.sh`, Go 1.27.2). Still **not a capacity statement**. `net.core.netdev_max_backlog` was 1000 for the first runs and 65536 from the storm runs on (section 7.3).
 

@@ -57,8 +57,15 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 	ch, cancel := s.Events.Subscribe(p.OrgID)
 	defer cancel()
 	// Site-limited callers only get events about devices of their sites (decided once per device).
-	limited := !p.Access.OrgHas(auth.PermDevicesRead)
-	seen := map[uuid.UUID]bool{}
+	var (
+		limited bool
+		seen    map[uuid.UUID]bool
+	)
+	scope := func() {
+		limited = !p.Access.OrgHas(auth.PermDevicesRead)
+		seen = map[uuid.UUID]bool{}
+	}
+	scope()
 	visible := func(device uuid.UUID) bool {
 		if !limited {
 			return true
@@ -75,7 +82,8 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 	}
 	ping := time.NewTicker(25 * time.Second)
 	defer ping.Stop()
-	// Re-validate the session periodically so logout/expiry ends the stream.
+	// Check the caller again every minute: signing out, an expired session, a revoked or expired API token, a disabled
+	// account or a withdrawn permission must end the stream, not just stop new ones.
 	recheck := time.NewTicker(time.Minute)
 	defer recheck.Stop()
 	for {
@@ -100,11 +108,12 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 			}
 			_ = rc.Flush()
 		case <-recheck.C:
-			if p.TokenID == "" {
-				if _, err := s.Sessions.Lookup(r.Context(), s.Sessions.TokenFromRequest(r)); err != nil {
-					return
-				}
+			np, err := s.reauthenticate(r)
+			if err != nil || !np.Access.HasAnywhere(auth.PermDevicesRead) {
+				return
 			}
+			p = np
+			scope()
 		}
 	}
 }
