@@ -176,16 +176,14 @@ func (g *Gateway) checkIdentity(ctx context.Context, cs tls.ConnectionState) (*p
 	if err != nil {
 		return nil, fmt.Errorf("client certificate rejected: %w", err)
 	}
-	q := dbq.New(g.pool)
-	c, err := q.GetDeviceCert(ctx, ident.Serial)
+	c, err := dbq.New(g.pool).CheckDeviceCert(ctx, ident.Serial)
 	if err != nil {
 		return nil, errors.New("client certificate unknown")
 	}
-	if c.RevokedAt != nil || c.DeviceID != ident.DeviceID {
+	if c.CertRevokedAt != nil || c.CertDeviceID != ident.DeviceID {
 		return nil, errors.New("client certificate revoked")
 	}
-	d, err := q.GetDevice(ctx, ident.DeviceID)
-	if err != nil || d.Status != "active" {
+	if c.DeviceStatus != "active" {
 		return nil, errors.New("device is not active")
 	}
 	return ident, nil
