@@ -579,7 +579,7 @@ export interface paths {
         };
         /**
          * Show the master key the stack generated for itself, until it has been saved (requires settings:write; audited)
-         * @description Only while the key is unacknowledged (a stack that generated its own key shows it to the first administrator once). Afterwards 404: the key is never shown again by the API.
+         * @description Only while the key is unacknowledged (a stack that generated its own key shows it to the first administrator once). Afterwards 404: the key is never shown again by the API. Only a signed-in console session may call it: a request authenticated with an API token answers 403, whatever the token's scopes.
          */
         get: {
             parameters: {
@@ -626,7 +626,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm that the master key has been saved (requires settings:write; audited) */
+        /** Confirm that the master key has been saved (requires settings:write and a console session, not an API token; audited) */
         post: {
             parameters: {
                 query?: never;
