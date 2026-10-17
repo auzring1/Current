@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
@@ -55,9 +56,44 @@ type Engine struct {
 	// user-context helper needs to re-verify a job.
 	Trust func() (root []byte, signing [][]byte, deviceID, orgID string)
 
-	mu      sync.Mutex
-	wake    chan struct{}
-	cancels map[string]context.CancelFunc
+	mu       sync.Mutex
+	wake     chan struct{} // wakes the job loop
+	wakeCtl  chan struct{} // wakes the restart loop (see lane)
+	cancels  map[string]context.CancelFunc
+	rebootMu sync.Mutex   // guards the stored restart plan: both loops read and write it
+	unsafe   atomic.Int32 // jobs running now that a restart would interrupt (installs, uninstalls, updates)
+}
+
+// lane selects which accepted jobs a loop works on. A restart request only writes a plan and starts Windows' own
+// countdown, so it has a loop of its own: it must not wait behind a Windows Update scan, a software inventory or an
+// installer that happens to be running (a Restart click took as long as that other work). It still waits for a job
+// that a restart would interrupt (see Engine.unsafe).
+type lane uint8
+
+const (
+	laneAll     lane = iota // every job: single-step use and tests
+	laneMain                // every job except restart requests
+	laneControl             // restart requests and the restart countdown
+)
+
+func (l lane) handles(t agentv1.JobType) bool {
+	switch l {
+	case laneMain:
+		return t != agentv1.JobType_JOB_TYPE_REBOOT
+	case laneControl:
+		return t == agentv1.JobType_JOB_TYPE_REBOOT
+	}
+	return true
+}
+
+// interruptedByRestart reports whether a restart would break a job of this type halfway.
+func interruptedByRestart(t agentv1.JobType) bool {
+	switch t {
+	case agentv1.JobType_JOB_TYPE_SOFTWARE_INSTALL, agentv1.JobType_JOB_TYPE_SOFTWARE_UPDATE, agentv1.JobType_JOB_TYPE_SOFTWARE_UNINSTALL,
+		agentv1.JobType_JOB_TYPE_WU_INSTALL, agentv1.JobType_JOB_TYPE_AGENT_UPDATE:
+		return true
+	}
+	return false
 }
 
 func (e *Engine) now() time.Time {
@@ -86,6 +122,7 @@ func (e *Engine) init() {
 	defer e.mu.Unlock()
 	if e.wake == nil {
 		e.wake = make(chan struct{}, 1)
+		e.wakeCtl = make(chan struct{}, 1)
 		e.cancels = map[string]context.CancelFunc{}
 	}
 }
@@ -93,9 +130,11 @@ func (e *Engine) init() {
 // Wake makes the loop re-evaluate its queue.
 func (e *Engine) Wake() {
 	e.init()
-	select {
-	case e.wake <- struct{}{}:
-	default:
+	for _, c := range []chan struct{}{e.wake, e.wakeCtl} {
+		select {
+		case c <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -223,16 +262,21 @@ func (e *Engine) cancelJob(target string, self *Record) {
 		Outcome: agentv1.JobOutcome_JOB_OUTCOME_SUCCESS, FinishedAt: e.now().Unix()})
 }
 
-// Run processes the queue until ctx ends.
+// Run processes the queue until ctx ends: jobs one at a time on this goroutine, restart requests on a second loop.
 func (e *Engine) Run(ctx context.Context) {
 	e.init()
 	e.SelfUpdateStartup()
+	go e.loop(ctx, laneControl, e.wakeCtl, nil)
 	var sessions <-chan struct{}
 	if e.P != nil {
 		sessions = e.P.SessionEvents()
 	}
+	e.loop(ctx, laneMain, e.wake, sessions)
+}
+
+func (e *Engine) loop(ctx context.Context, l lane, wake, sessions <-chan struct{}) {
 	for ctx.Err() == nil {
-		wait := e.tick(ctx)
+		wait := e.tickLane(ctx, l)
 		maxIdle := e.MaxIdle
 		if maxIdle == 0 {
 			maxIdle = 5 * time.Minute
@@ -245,7 +289,7 @@ func (e *Engine) Run(ctx context.Context) {
 		case <-ctx.Done():
 			t.Stop()
 			return
-		case <-e.wake:
+		case <-wake:
 		case <-sessions:
 		case <-t.C:
 		}
@@ -254,7 +298,9 @@ func (e *Engine) Run(ctx context.Context) {
 }
 
 // tick runs every job that is eligible now and returns how long to wait for the next one.
-func (e *Engine) tick(ctx context.Context) time.Duration {
+func (e *Engine) tick(ctx context.Context) time.Duration { return e.tickLane(ctx, laneAll) }
+
+func (e *Engine) tickLane(ctx context.Context, l lane) time.Duration {
 	recs, err := loadAll(e.Store)
 	if err != nil {
 		e.log().Error("read jobs", "err", err)
@@ -272,8 +318,10 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 			next = t
 		}
 	}
-	if t := e.autoScan(ctx); !t.IsZero() {
-		soonest(t)
+	if l != laneControl {
+		if t := e.autoScan(ctx); !t.IsZero() {
+			soonest(t)
+		}
 	}
 	if t := e.checkReboot(); !t.IsZero() {
 		soonest(t)
@@ -285,6 +333,9 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 	for _, r := range recs {
 		if ctx.Err() != nil {
 			return 0
+		}
+		if !l.handles(agentv1.JobType(r.Type)) {
+			continue
 		}
 		now := e.now()
 		if r.terminal() {
@@ -336,6 +387,11 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 			soonest(now.Add(userPoll))
 			continue
 		}
+		if l == laneControl && e.unsafe.Load() > 0 {
+			// An installer or update is running: the restart starts when it has finished (runJob wakes this loop).
+			e.setState(r, agentv1.JobState_JOB_STATE_WAITING, "waiting_install_finish", nil)
+			continue
+		}
 		e.runJob(ctx, r, env)
 		if r.state() == agentv1.JobState_JOB_STATE_WAITING && r.NextRun > 0 {
 			soonest(time.Unix(r.NextRun, 0))
@@ -352,6 +408,13 @@ func (e *Engine) tick(ctx context.Context) time.Duration {
 }
 
 func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope) {
+	if interruptedByRestart(env.Type) {
+		e.unsafe.Add(1)
+		defer func() {
+			e.unsafe.Add(-1)
+			e.Wake() // a restart that waited for this job can start now
+		}()
+	}
 	jctx, cancel := context.WithCancel(ctx)
 	e.mu.Lock()
 	e.cancels[r.JobID] = cancel

@@ -248,6 +248,8 @@ func (e *Engine) scheduleReboot(pol *agentv1.RebootPolicy, reason string, force 
 	if pol == nil {
 		return ""
 	}
+	e.rebootMu.Lock()
+	defer e.rebootMu.Unlock()
 	now := e.now()
 	notify := pol.NotifyMinutes
 	if notify == 0 {
@@ -283,6 +285,11 @@ func (e *Engine) scheduleReboot(pol *agentv1.RebootPolicy, reason string, force 
 
 // checkReboot starts the countdown of a due plan and returns when the next plan comes due.
 func (e *Engine) checkReboot() time.Time {
+	if e.unsafe.Load() > 0 {
+		return time.Time{} // an installer or update is running; runJob wakes the loops when it ends
+	}
+	e.rebootMu.Lock()
+	defer e.rebootMu.Unlock()
 	p := e.loadRebootPlan()
 	if p == nil {
 		return time.Time{}

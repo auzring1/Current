@@ -113,9 +113,23 @@ type fakeWU struct {
 	hidden   map[string]bool
 	policy   *agentv1.WuPolicyInfo
 	opts     []wu.Options
+	// scanGate, when set, holds every Scan until it is closed (a slow Windows Update search); scanning is signalled
+	// when a Scan has started.
+	scanGate chan struct{}
+	scanning chan struct{}
 }
 
-func (f *fakeWU) Scan(_ context.Context, o wu.Options) ([]*agentv1.WuUpdate, error) {
+func (f *fakeWU) Scan(ctx context.Context, o wu.Options) ([]*agentv1.WuUpdate, error) {
+	if f.scanGate != nil {
+		select {
+		case f.scanning <- struct{}{}:
+		default:
+		}
+		select {
+		case <-f.scanGate:
+		case <-ctx.Done():
+		}
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.opts = append(f.opts, o)

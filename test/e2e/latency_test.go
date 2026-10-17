@@ -13,13 +13,33 @@ import (
 	"github.com/auzring1/librepatch/internal/agent/core"
 	"github.com/auzring1/librepatch/internal/agent/jobs"
 	"github.com/auzring1/librepatch/internal/agent/store"
+	"github.com/auzring1/librepatch/internal/agent/wu"
 )
 
 // latencyPlatform stamps the moment the agent asks the operating system to restart (the last hop before Windows
 // shows its countdown).
 type latencyPlatform struct {
 	jobs.Platform
-	rebooted chan time.Time
+	rebooted  chan time.Time
+	scanDelay *delay
+}
+
+func (p *latencyPlatform) WindowsUpdate() wu.Client {
+	return slowWU{Client: p.Platform.WindowsUpdate(), delay: p.scanDelay}
+}
+
+// slowWU makes the Windows Update search slow, as the real Windows Update Agent often is (20 to 90 s).
+type slowWU struct {
+	wu.Client
+	delay *delay
+}
+
+func (s slowWU) Scan(ctx context.Context, o wu.Options) ([]*agentv1.WuUpdate, error) {
+	select {
+	case <-time.After(s.delay.get()):
+	case <-ctx.Done():
+	}
+	return s.Client.Scan(ctx, o)
 }
 
 func (p *latencyPlatform) Reboot(delay time.Duration, message string) error {
@@ -97,7 +117,7 @@ func median(d []time.Duration) time.Duration {
 func latencyAgent(t *testing.T) (*harness, *testAgent, string, *latencyPlatform, *delay) {
 	h := newHarness(t)
 	h.setupAndLogin()
-	plat := &latencyPlatform{rebooted: make(chan time.Time, 4)}
+	plat := &latencyPlatform{rebooted: make(chan time.Time, 4), scanDelay: &delay{}}
 	hwDelay := &delay{}
 	hw := &slowHW{fakeHW: &fakeHW{host: "LAT-1", serial: "SLAT1", uuid: "ULAT1"}, delay: hwDelay}
 	ta := h.startAgent(h.createToken("latency", 5, false), hw.fakeHW, nil, func(a *core.Agent, st *store.Store) {
@@ -127,6 +147,24 @@ func TestRestartLatencyIdle(t *testing.T) {
 	t.Logf("click -> API returned   median %v max %v", median(api), maxDur(api))
 	t.Logf("click -> server sent    median %v max %v", median(sent), maxDur(sent))
 	t.Logf("click -> OS restart call median %v max %v", median(os), maxDur(os))
+}
+
+// TestRestartLatencyWhileAScanIsRunning: a Windows Update scan that is already running (the daily one, or a console
+// "check now") must not hold a restart back.
+func TestRestartLatencyWhileAScanIsRunning(t *testing.T) {
+	h, _, dev, plat, _ := latencyAgent(t)
+	plat.scanDelay.set(6 * time.Second)
+	st, sc := h.do("POST", "/api/v1/devices/"+dev+"/windows-updates/scan", map[string]any{}, nil)
+	if st != 202 {
+		t.Fatalf("scan: %d %v", st, sc)
+	}
+	time.Sleep(500 * time.Millisecond) // the scan job is running now
+	r := h.restartOnce(t, dev, plat.rebooted)
+	t.Logf("restart during a 6s Windows Update scan reached the OS after %v", r.agentOS)
+	if r.agentOS > 2*time.Second {
+		t.Errorf("a running scan delayed the restart by %v; want under 2s", r.agentOS)
+	}
+	h.waitJobByID(sc["job_id"].(string), "succeeded")
 }
 
 // TestRestartLatencyWhileHardwareIsCollected: a slow hardware collection in the agent's stream loop (a refresh, the
