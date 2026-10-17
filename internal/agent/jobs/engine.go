@@ -182,7 +182,7 @@ func (e *Engine) Accept(se *agentv1.SignedEnvelope, env *agentv1.JobEnvelope) {
 		e.report(r, r.result())
 		return
 	}
-	r := &Record{JobID: env.JobId, Type: int32(env.Type), SID: env.TargetUserSid, Attempt: env.Attempt,
+	r := &Record{JobID: env.JobId, Type: int32(env.Type), SID: env.TargetUserSid, Attempt: env.Attempt, Accepted: e.now().Unix(),
 		NotBefore: env.NotBefore, Expires: env.ExpiresAt, Keep: env.ExpiresAt + int64((24 * time.Hour).Seconds())}
 	if b, err := marshalSigned(se); err == nil {
 		r.Signed = b
@@ -425,7 +425,18 @@ func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope
 		delete(e.cancels, r.JobID)
 		e.mu.Unlock()
 	}()
-	r.Started = e.now().Unix()
+	started := e.now()
+	r.Started = started.Unix()
+	// These lines are what to read in agent.log when an action seems slow: how long the job waited after the agent
+	// took it, and how long it ran.
+	var waited int64
+	if r.Accepted > 0 { // jobs stored by an older agent have no acceptance time
+		waited = max(started.Unix()-r.Accepted, 0)
+	}
+	e.log().Info("job running", "job", r.JobID, "type", env.Type.String(), "waited_s", waited)
+	defer func() {
+		e.log().Info("job finished", "job", r.JobID, "type", env.Type.String(), "state", r.state().String(), "ran_ms", e.now().Sub(started).Milliseconds())
+	}()
 	e.setState(r, agentv1.JobState_JOB_STATE_RUNNING, "", nil)
 
 	var out *outcome
