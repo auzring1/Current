@@ -90,4 +90,3 @@ const (
 )
 
 // Compile-time check that the hook has the shape deploy expects.
-var _ = context.Background

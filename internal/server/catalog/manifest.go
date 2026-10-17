@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/auzring1/librepatch/internal/shared/installer"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // MaxManifestBytes bounds each manifest file.
@@ -218,11 +219,7 @@ func ParseFiles(files [][]byte) (*Parsed, error) {
 }
 
 func clip(s string, n int) string {
-	s = strings.ToValidUTF8(strings.TrimSpace(s), "")
-	if len(s) > n {
-		s = s[:n]
-	}
-	return s
+	return text.Truncate(strings.ToValidUTF8(strings.TrimSpace(s), ""), n)
 }
 
 func httpsOrEmpty(s string) string {

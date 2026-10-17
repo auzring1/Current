@@ -11,6 +11,7 @@ import (
 	"time"
 
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // Reporter delivers job updates to the server. The agent core implements it on
@@ -394,7 +395,7 @@ func (e *Engine) runJob(ctx context.Context, r *Record, env *agentv1.JobEnvelope
 		return
 	}
 	now := e.now()
-	if r.Cancel || errors.Is(jctx.Err(), context.Canceled) && ctx.Err() == nil {
+	if r.Cancel || (errors.Is(jctx.Err(), context.Canceled) && ctx.Err() == nil) {
 		out = &outcome{res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_FAILED, Message: "cancelled by an administrator"}, cancelled: true}
 	}
 	if ctx.Err() != nil { // shutting down: leave the job to be retried after restart
@@ -468,12 +469,7 @@ func fail(format string, a ...any) *outcome {
 	return &outcome{reason: "failed", res: &agentv1.JobResult{Outcome: agentv1.JobOutcome_JOB_OUTCOME_FAILED, Message: short(msg)}}
 }
 
-func short(s string) string {
-	if len(s) > 1024 {
-		return s[:1024]
-	}
-	return s
-}
+func short(s string) string { return text.Truncate(s, 1024) }
 
 // helperTask prepares the re-verification material for a user-scope run.
 func (e *Engine) helperTask(r *Record, stageDir, file string) *HelperTask {

@@ -22,6 +22,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/catalog"
 	"github.com/auzring1/librepatch/internal/server/deploy"
 	"github.com/auzring1/librepatch/internal/server/pki"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 	"github.com/auzring1/librepatch/internal/shared/release"
 	"github.com/auzring1/librepatch/internal/testutil/pgtest"
 )
@@ -370,7 +371,7 @@ func TestRolloutValidation(t *testing.T) {
 		"threshold": {ReleaseID: &rel.ID, SoakHours: 1, SuccessThreshold: 0, BatchPerTick: 10},
 		"soak":      {ReleaseID: &rel.ID, SoakHours: 9999, SuccessThreshold: 90, BatchPerTick: 10},
 		"batch":     {ReleaseID: &rel.ID, SoakHours: 1, SuccessThreshold: 90, BatchPerTick: 0},
-		"unknown":   {ReleaseID: ptr(uuid.New()), SoakHours: 1, SuccessThreshold: 90, BatchPerTick: 10},
+		"unknown":   {ReleaseID: ptr.Of(uuid.New()), SoakHours: 1, SuccessThreshold: 90, BatchPerTick: 10},
 		"window":    {ReleaseID: &rel.ID, SoakHours: 1, SuccessThreshold: 90, BatchPerTick: 10, Window: &deploy.Window{StartMinute: 5000, DurationMinutes: 60}},
 	} {
 		if err := f.svc.SetRollout(context.Background(), f.actor(), ro); !errors.Is(err, ErrInvalid) {

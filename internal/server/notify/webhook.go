@@ -36,15 +36,17 @@ func (s *Service) poster() Poster {
 	return httpPoster{}
 }
 
-// A webhook may point at an internal receiver (that is the point of an on-premises product), but never at a
-// link-local address: that range holds cloud metadata services and has no legitimate receiver.
-func noLinkLocal(_, address string, _ syscall.RawConn) error {
+// A webhook may point at an internal receiver (that is the point of an on-premises product), but not at an address that
+// reaches the server itself or its host: link-local (cloud metadata services have no legitimate receiver there),
+// loopback and the unspecified address (inside the container these are the server's own listeners). The check runs on the
+// address actually dialled, after name resolution, so a host name cannot be used to get around it.
+func refuseLocalTargets(_, address string, _ syscall.RawConn) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return err
 	}
-	if ip := net.ParseIP(host); ip != nil && (ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()) {
-		return errors.New("webhooks cannot target link-local addresses")
+	if ip := net.ParseIP(host); ip != nil && (ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsLoopback() || ip.IsUnspecified()) {
+		return errors.New("webhooks cannot target link-local, loopback or unspecified addresses")
 	}
 	return nil
 }
@@ -52,7 +54,7 @@ func noLinkLocal(_, address string, _ syscall.RawConn) error {
 func (httpPoster) Post(ctx context.Context, url string, headers map[string]string, body []byte) (int, error) {
 	client := &http.Client{
 		Timeout:       10 * time.Second,
-		Transport:     &http.Transport{DialContext: (&net.Dialer{Timeout: 5 * time.Second, Control: noLinkLocal}).DialContext, DisableKeepAlives: true, Proxy: nil},
+		Transport:     &http.Transport{DialContext: (&net.Dialer{Timeout: 5 * time.Second, Control: refuseLocalTargets}).DialContext, DisableKeepAlives: true, Proxy: nil},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))

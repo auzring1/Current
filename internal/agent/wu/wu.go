@@ -12,6 +12,7 @@ import (
 	"time"
 
 	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
+	sharedtext "github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // MaxUpdates bounds a scan snapshot; a device with more applicable updates is reported truncated.
@@ -62,12 +63,7 @@ func Snapshot(updates []*agentv1.WuUpdate, pol *agentv1.WuPolicyInfo, reboot boo
 	return s
 }
 
-func bound(s string, n int) string {
-	if len(s) > n {
-		return s[:n]
-	}
-	return s
-}
+func bound(s string, n int) string { return sharedtext.Truncate(s, n) }
 
 // InActiveHours reports whether t lies inside the device-local active hours (which may wrap
 // midnight). Equal start and end, or nil, mean there are none.

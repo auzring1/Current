@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/auzring1/librepatch/internal/shared/brand"
 	"slices"
 	"strings"
@@ -162,5 +163,32 @@ func TestLimiter(t *testing.T) {
 	}
 	if !l.Allow("other") {
 		t.Fatal("keys must be independent")
+	}
+}
+
+// Flooding the limiter with made-up keys must not reset the bucket of a key that is being attacked.
+func TestLimiterKeepsBusyKeysWhenFull(t *testing.T) {
+	l := NewLimiter(1, time.Hour, 2)
+	l.maxKeys = 50
+	victim := "victim@example.test"
+	for i := 0; i < 2; i++ {
+		if !l.Allow(victim) {
+			t.Fatal("the burst must be allowed")
+		}
+	}
+	if l.Allow(victim) {
+		t.Fatal("the burst is spent")
+	}
+	for i := 0; i < 500; i++ {
+		l.Allow(fmt.Sprintf("noise-%d", i))
+		if i%5 == 0 && l.Allow(victim) { // the attack on the account goes on while the table is being flooded
+			t.Fatal("filling the table with other keys reset the victim's bucket")
+		}
+	}
+	if l.Allow(victim) {
+		t.Fatal("filling the table with other keys reset the victim's bucket")
+	}
+	if n := len(l.entries); n > l.maxKeys {
+		t.Fatalf("table grew to %d entries, limit %d", n, l.maxKeys)
 	}
 }

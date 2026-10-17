@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
@@ -317,5 +316,3 @@ func (g *Gateway) certRefresher(ctx context.Context) {
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
-
-var _ = uuid.Nil

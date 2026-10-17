@@ -18,6 +18,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/events"
 	"github.com/auzring1/librepatch/internal/server/pki"
 	"github.com/auzring1/librepatch/internal/server/store"
+	"github.com/auzring1/librepatch/internal/shared/ptr"
 )
 
 const helloTimeout = 30 * time.Second
@@ -79,7 +80,7 @@ func (g *Gateway) Connect(stream agentv1.AgentChannelService_ConnectServer) erro
 
 	defer func() {
 		if g.hub.unregister(c) {
-			_ = dbq.New(g.pool).SetDeviceOffline(context.Background(), dbq.SetDeviceOfflineParams{ID: dev.ID, LastSeenAt: ptr(g.now())})
+			_ = dbq.New(g.pool).SetDeviceOffline(context.Background(), dbq.SetDeviceOfflineParams{ID: dev.ID, LastSeenAt: ptr.Of(g.now())})
 			g.events.Publish(dev.OrgID, events.Event{Type: events.DeviceOffline, DeviceID: dev.ID})
 		}
 		g.log.Info("agent disconnected", "device", dev.ID)
@@ -285,5 +286,3 @@ func (g *Gateway) securityAudit(ctx context.Context, dev dbq.Device, reason stri
 		ActorIP: peerIP(ctx), Action: "gateway.protocol_violation", TargetType: "device", TargetIDs: []string{dev.ID.String()},
 		Outcome: audit.Denied, Details: map[string]any{"reason": reason}})
 }
-
-func ptr[T any](v T) *T { return &v }

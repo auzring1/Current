@@ -23,6 +23,7 @@ import (
 	"github.com/auzring1/librepatch/internal/server/notify"
 	"github.com/auzring1/librepatch/internal/server/pdf"
 	"github.com/auzring1/librepatch/internal/server/settings"
+	"github.com/auzring1/librepatch/internal/shared/text"
 )
 
 // Grace is how late a due report may still be sent.
@@ -142,11 +143,7 @@ func (s *Service) run(ctx context.Context, org uuid.UUID, sc settings.V, due tim
 }
 
 func trim(s string) string {
-	s = strings.ReplaceAll(strings.ReplaceAll(s, "\n", " "), "\r", " ")
-	if len(s) > 400 {
-		return s[:400]
-	}
-	return s
+	return text.Truncate(strings.ReplaceAll(strings.ReplaceAll(s, "\n", " "), "\r", " "), 400)
 }
 
 // SendNow sends one schedule's report immediately (the "Send now" button) and records the run.

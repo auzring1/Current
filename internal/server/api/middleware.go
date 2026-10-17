@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"log/slog"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -211,7 +212,7 @@ func (s *server) loadSession(next http.Handler) http.Handler {
 			sess, err := s.Sessions.Lookup(r.Context(), tok)
 			if err == nil {
 				r = r.WithContext(context.WithValue(r.Context(), ctxSession, sess))
-			} else if err != auth.ErrNoSession {
+			} else if !errors.Is(err, auth.ErrNoSession) {
 				s.Log.Error("session lookup", "err", err)
 				internalError(w)
 				return
@@ -339,79 +340,117 @@ func (s *server) principal(w http.ResponseWriter, r *http.Request) (*Principal, 
 	return p, true
 }
 
+var (
+	errUnauthenticated = errors.New("sign in required")
+	errInvalidToken    = errors.New("invalid API token")
+)
+
+// bearerSecret returns the API token of an "Authorization: Bearer lp_..." header ("" when there is none).
+func bearerSecret(r *http.Request) string {
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer "+apiTokenPrefix) {
+		return strings.TrimPrefix(h, "Bearer ")
+	}
+	return ""
+}
+
 func (s *server) resolvePrincipal(w http.ResponseWriter, r *http.Request) (*Principal, bool) {
 	if p := principalFrom(r); p != nil {
 		return p, true
 	}
+	var (
+		p   *Principal
+		err = errUnauthenticated
+	)
 	if sess := sessionFrom(r); sess != nil && sess.MFAVerified {
-		return s.sessionPrincipal(w, r, sess)
+		p, err = s.sessionPrincipal(r.Context(), sess)
+	} else if secret := bearerSecret(r); secret != "" && s.Sessions.TokenFromRequest(r) == "" {
+		p, err = s.tokenPrincipal(r, secret)
 	}
-	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer "+apiTokenPrefix) && s.Sessions.TokenFromRequest(r) == "" {
-		return s.tokenPrincipal(w, r, strings.TrimPrefix(h, "Bearer "))
+	switch {
+	case err == nil:
+		return p, true
+	case errors.Is(err, errInvalidToken):
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "That API token is not valid.")
+	case errors.Is(err, errUnauthenticated):
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
+	default:
+		s.Log.Error("resolve caller", "err", err)
+		internalError(w)
 	}
-	writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
 	return nil, false
 }
 
-func (s *server) sessionPrincipal(w http.ResponseWriter, r *http.Request, sess *auth.Session) (*Principal, bool) {
-	u, err := s.q().GetUserByID(r.Context(), sess.UserID)
-	if err != nil || u.Status != "active" {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in required.")
-		return nil, false
+// reauthenticate checks again, from the database and without anything cached on the request, who the caller of a
+// long-lived request (the event stream) is. An error means the person is no longer allowed in: signed out, session
+// expired, token revoked or expired, account disabled.
+func (s *server) reauthenticate(r *http.Request) (*Principal, error) {
+	if tok := s.Sessions.TokenFromRequest(r); tok != "" {
+		sess, err := s.Sessions.Lookup(r.Context(), tok)
+		if err != nil {
+			return nil, err
+		}
+		if !sess.MFAVerified {
+			return nil, errUnauthenticated
+		}
+		return s.sessionPrincipal(r.Context(), sess)
 	}
-	acc, ok := s.accessOf(w, r, u)
-	if !ok {
-		return nil, false
+	if secret := bearerSecret(r); secret != "" {
+		return s.tokenPrincipal(r, secret)
 	}
-	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc}, true
+	return nil, errUnauthenticated
 }
 
-func (s *server) accessOf(w http.ResponseWriter, r *http.Request, u dbq.User) (auth.Access, bool) {
-	binds, err := s.q().ListRoleBindingsForUser(r.Context(), u.ID)
+func (s *server) sessionPrincipal(ctx context.Context, sess *auth.Session) (*Principal, error) {
+	u, err := s.q().GetUserByID(ctx, sess.UserID)
+	if err != nil || u.Status != "active" {
+		return nil, errUnauthenticated
+	}
+	acc, err := s.accessOf(ctx, u)
 	if err != nil {
-		s.Log.Error("role bindings", "err", err)
-		internalError(w)
-		return auth.Access{}, false
+		return nil, err
+	}
+	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc}, nil
+}
+
+func (s *server) accessOf(ctx context.Context, u dbq.User) (auth.Access, error) {
+	binds, err := s.q().ListRoleBindingsForUser(ctx, u.ID)
+	if err != nil {
+		return auth.Access{}, fmt.Errorf("role bindings: %w", err)
 	}
 	grants := make([]auth.Grant, len(binds))
 	for i, b := range binds {
 		grants[i] = auth.Grant{Role: b.Role, ScopeType: b.ScopeType, ScopeID: b.ScopeID}
 	}
-	return auth.NewAccess(u.OrgID, grants), true
+	return auth.NewAccess(u.OrgID, grants), nil
 }
 
 // tokenPrincipal authenticates an API token. The token's power is its scopes intersected with the
 // owner's CURRENT permissions, so demoting or disabling a user immediately weakens their tokens.
-func (s *server) tokenPrincipal(w http.ResponseWriter, r *http.Request, secret string) (*Principal, bool) {
-	fail := func() (*Principal, bool) {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "That API token is not valid.")
-		return nil, false
-	}
+func (s *server) tokenPrincipal(r *http.Request, secret string) (*Principal, error) {
 	if len(secret) > 100 {
-		return fail()
+		return nil, errInvalidToken
 	}
+	ctx := r.Context()
 	sum := sha256.Sum256([]byte(secret))
-	t, err := s.q().GetAPITokenByHash(r.Context(), sum[:])
+	t, err := s.q().GetAPITokenByHash(ctx, sum[:])
 	if err != nil {
-		return fail()
+		return nil, errInvalidToken
 	}
 	now := s.now()
 	if t.RevokedAt != nil || !now.Before(t.ExpiresAt) {
-		return fail()
+		return nil, errInvalidToken
 	}
-	u, err := s.q().GetUserByID(r.Context(), t.UserID)
+	u, err := s.q().GetUserByID(ctx, t.UserID)
 	if err != nil || u.Status != "active" {
-		return fail()
+		return nil, errInvalidToken
 	}
-	acc, ok := s.accessOf(w, r, u)
-	if !ok {
-		return nil, false
+	acc, err := s.accessOf(ctx, u)
+	if err != nil {
+		return nil, err
 	}
 	acc = acc.Restrict(t.Scopes)
 	if t.LastUsedAt == nil || now.Sub(*t.LastUsedAt) > time.Minute {
-		_ = s.q().TouchAPIToken(r.Context(), dbq.TouchAPITokenParams{ID: t.ID, LastUsedAt: &now, LastUsedIp: clientIP(r)})
+		_ = s.q().TouchAPIToken(ctx, dbq.TouchAPITokenParams{ID: t.ID, LastUsedAt: &now, LastUsedIp: clientIP(r)})
 	}
-	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc, TokenID: t.ID.String()}, true
+	return &Principal{UserID: u.ID, OrgID: u.OrgID, Email: u.Email, DisplayName: u.DisplayName, Permissions: acc.OrgPermissions(), Access: acc, TokenID: t.ID.String()}, nil
 }
-
-var _ = slog.LevelInfo
