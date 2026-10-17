@@ -93,6 +93,7 @@ type fakePlatform struct {
 	wuc       *fakeWU
 	su        *fakeUpdater
 	rebootReq bool
+	rebootErr error // returned by Reboot after the call is recorded
 	reboots   []rebootCall
 	aborts    int
 }
@@ -207,7 +208,7 @@ func (f *fakePlatform) Reboot(d time.Duration, m string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.reboots = append(f.reboots, rebootCall{d, m})
-	return nil
+	return f.rebootErr
 }
 func (f *fakePlatform) AbortReboot() error { f.mu.Lock(); f.aborts++; f.mu.Unlock(); return nil }
 func (f *fakePlatform) RebootRequired() bool {

@@ -324,13 +324,19 @@ func (e *Engine) checkReboot() time.Time {
 		msg = "Your computer will restart to finish installing updates."
 	}
 	msg = fmt.Sprintf("%s Please save your work. The restart starts in %d minute(s).", msg, p.NotifyMin)
-	if err := e.P.Reboot(time.Duration(p.NotifyMin)*time.Minute, msg); err != nil {
+	switch err := e.P.Reboot(time.Duration(p.NotifyMin)*time.Minute, msg); {
+	case err == nil:
+		e.log().Info("restart countdown started", "minutes", p.NotifyMin)
+	case errors.Is(err, ErrRebootScheduled):
+		// A countdown is already running (the same restart asked for twice). Starting another would restart the
+		// computer a second time after it comes back, so this plan simply joins the running one.
+		e.log().Info("a restart is already scheduled; not starting another")
+	default:
 		e.log().Error("restart failed", "err", err)
 		p.Due = now.Add(10 * time.Minute).Unix() // try again later
 		e.saveRebootPlan(p)
 		return time.Unix(p.Due, 0)
 	}
-	e.log().Info("restart countdown started", "minutes", p.NotifyMin)
 	p.Fired = now.Unix()
 	e.saveRebootPlan(p)
 	return time.Time{}

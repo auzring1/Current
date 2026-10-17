@@ -105,3 +105,43 @@ func TestRestartWaitsForARunningInstaller(t *testing.T) {
 		t.Fatalf("restart state %v, countdowns %d; want succeeded and 1 after the installer ended", r.state("restart"), r.rebootCount())
 	}
 }
+
+// Clicking Restart twice must restart the computer once. Windows refuses a second countdown while one runs
+// (ERROR_SHUTDOWN_IS_SCHEDULED); the agent used to read that as a failure, keep the plan and start another
+// countdown right after the computer came back.
+func TestSecondRestartRequestDoesNotRestartTheComputerTwice(t *testing.T) {
+	r := newRig(t)
+	r.e.init()
+	r.p.rebootReq = true
+
+	a, aEnv := r.wuEnv("restart-a", agentv1.JobType_JOB_TYPE_REBOOT, nil)
+	r.e.Accept(a, aEnv)
+	r.tick()
+	if r.rebootCount() != 1 || r.e.loadRebootPlan() == nil || r.e.loadRebootPlan().Fired == 0 {
+		t.Fatalf("first restart: %d countdowns, plan %+v", r.rebootCount(), r.e.loadRebootPlan())
+	}
+
+	// The second click arrives while the first countdown is running.
+	r.p.rebootErr = ErrRebootScheduled
+	b, bEnv := r.wuEnv("restart-b", agentv1.JobType_JOB_TYPE_REBOOT, nil)
+	r.e.Accept(b, bEnv)
+	r.tick()
+	if r.state("restart-b") != agentv1.JobState_JOB_STATE_SUCCEEDED {
+		t.Fatalf("second restart request: %v; it should succeed because a restart is on its way", r.state("restart-b"))
+	}
+	if p := r.e.loadRebootPlan(); p == nil || p.Fired == 0 {
+		t.Fatalf("the second request must join the running countdown, plan %+v", p)
+	}
+
+	// The computer restarts and comes back: nothing may start another countdown.
+	r.p.rebootErr, r.p.rebootReq = nil, false
+	r.now = r.now.Add(20 * time.Minute)
+	r.tick()
+	r.tick()
+	if r.rebootCount() != 2 { // the first countdown and the refused second attempt, nothing after the restart
+		t.Fatalf("%d countdown calls; want 2 (the second one was refused by Windows)", r.rebootCount())
+	}
+	if r.e.loadRebootPlan() != nil {
+		t.Fatalf("the plan should be gone after the restart: %+v", r.e.loadRebootPlan())
+	}
+}
