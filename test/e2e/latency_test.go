@@ -217,39 +217,49 @@ func maxDur(d []time.Duration) time.Duration {
 	return m
 }
 
-// Two clicks on Restart (a double click, or two administrators) must queue one restart, not two: the second request
-// gets the first one's job back. Once that job has finished, a new click is a new restart.
-func TestRestartClickedTwiceIsOneJob(t *testing.T) {
-	h, _, dev, plat, _ := latencyAgent(t)
-	plat.rebooted = make(chan time.Time, 8)
+// Clicks on Restart while an earlier restart for the device has not finished queue one restart, not several: they
+// all get the first one's job back. Once that job has finished, a new click is a new restart. The agent is stopped
+// (and the device left marked online, as it is for the seconds before the server notices a lost connection), so the
+// first job cannot finish before the other clicks arrive; on a slow machine a finished job would be correct to replace.
+func TestRestartClickedSeveralTimesIsOneJob(t *testing.T) {
+	h, ta, dev, _, _ := latencyAgent(t)
+	ta.stop()
+	waitFor(t, 10*time.Second, "agent offline", func() bool { return h.device(dev)["online"] == false })
+	if _, err := h.db.Pool.Exec(context.Background(), `UPDATE devices SET online = true WHERE id = $1`, dev); err != nil {
+		t.Fatal(err)
+	}
 	click := func() string {
-		st, rb := h.do("POST", "/api/v1/devices/"+dev+"/reboot", map[string]any{"minutes": 30, "reason": "twice"}, nil)
+		st, rb := h.do("POST", "/api/v1/devices/"+dev+"/reboot", map[string]any{"minutes": 30, "reason": "several"}, nil)
 		if st != 202 {
-			t.Fatalf("reboot: %d %v", st, rb)
+			t.Errorf("reboot: %d %v", st, rb)
+			return ""
 		}
 		return rb["job_id"].(string)
 	}
-	ids := make(chan string, 2)
-	for i := 0; i < 2; i++ {
+	const clicks = 8
+	ids := make(chan string, clicks)
+	for i := 0; i < clicks; i++ {
 		go func() { ids <- click() }()
 	}
-	first, second := <-ids, <-ids
-	if first != second {
-		t.Fatalf("two simultaneous clicks created two jobs: %s and %s", first, second)
-	}
-	h.waitJobByID(first, "succeeded")
-	if n := len(plat.rebooted); n != 1 {
-		t.Fatalf("the agent started %d countdowns; want 1", n)
+	first := <-ids
+	for i := 1; i < clicks; i++ {
+		if id := <-ids; id != first {
+			t.Fatalf("simultaneous clicks created more than one job: %s and %s", first, id)
+		}
 	}
 	var jobsN int
 	_ = h.db.Pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE device_id = $1 AND type = 'reboot'`, dev).Scan(&jobsN)
 	if jobsN != 1 {
 		t.Fatalf("%d restart jobs stored; want 1", jobsN)
 	}
-	if n := h.auditCount("device.reboot"); n != 2 {
-		t.Fatalf("%d audit entries for device.reboot; want 2 (both clicks are recorded)", n)
+	if n := h.auditCount("device.reboot"); n != clicks {
+		t.Fatalf("%d audit entries for device.reboot; want %d (every click is recorded)", n, clicks)
 	}
-	if third := click(); third == first {
-		t.Fatalf("a click after the job finished must be a new restart, got the old job %s", third)
+	// Once the job is finished, the next click is a new restart.
+	if _, err := h.db.Pool.Exec(context.Background(), `UPDATE jobs SET status = 'succeeded', finished_at = now() WHERE id = $1`, first); err != nil {
+		t.Fatal(err)
+	}
+	if next := click(); next == first || next == "" {
+		t.Fatalf("a click after the job finished must be a new restart, got %q", next)
 	}
 }
