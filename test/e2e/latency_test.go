@@ -3,11 +3,13 @@ package e2e
 import (
 	"context"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	agentv1 "github.com/auzring1/librepatch/gen/proto/librepatch/agent/v1"
 	"github.com/auzring1/librepatch/internal/agent/core"
 	"github.com/auzring1/librepatch/internal/agent/jobs"
 	"github.com/auzring1/librepatch/internal/agent/store"
@@ -26,6 +28,30 @@ func (p *latencyPlatform) Reboot(delay time.Duration, message string) error {
 	default:
 	}
 	return p.Platform.Reboot(delay, message)
+}
+
+// delay is a duration the test can change while the agent runs.
+type delay struct {
+	mu sync.Mutex
+	d  time.Duration
+}
+
+func (d *delay) set(v time.Duration) { d.mu.Lock(); d.d = v; d.mu.Unlock() }
+func (d *delay) get() time.Duration  { d.mu.Lock(); defer d.mu.Unlock(); return d.d }
+
+// slowHW makes the hardware collector slow on demand (a WMI BitLocker query takes seconds on a real PC and is
+// abandoned only after 20 s).
+type slowHW struct {
+	*fakeHW
+	delay *delay
+}
+
+func (h *slowHW) Collect(ctx context.Context) (*agentv1.HardwareInventory, error) {
+	select {
+	case <-time.After(h.delay.get()):
+	case <-ctx.Done():
+	}
+	return h.fakeHW.Collect(ctx)
 }
 
 type hops struct {
@@ -68,25 +94,28 @@ func median(d []time.Duration) time.Duration {
 	return s[len(s)/2]
 }
 
-func latencyAgent(t *testing.T) (*harness, *testAgent, string, *latencyPlatform) {
+func latencyAgent(t *testing.T) (*harness, *testAgent, string, *latencyPlatform, *delay) {
 	h := newHarness(t)
 	h.setupAndLogin()
 	plat := &latencyPlatform{rebooted: make(chan time.Time, 4)}
-	ta := h.startAgent(h.createToken("latency", 5, false), &fakeHW{host: "LAT-1", serial: "SLAT1", uuid: "ULAT1"}, nil, func(a *core.Agent, st *store.Store) {
+	hwDelay := &delay{}
+	hw := &slowHW{fakeHW: &fakeHW{host: "LAT-1", serial: "SLAT1", uuid: "ULAT1"}, delay: hwDelay}
+	ta := h.startAgent(h.createToken("latency", 5, false), hw.fakeHW, nil, func(a *core.Agent, st *store.Store) {
 		plat.Platform = jobs.NewPlatform(a.DataDir)
 		a.Jobs = &jobs.Engine{P: plat, Store: st, Log: a.Log}
+		a.HW = hw
 	})
 	waitFor(t, 20*time.Second, "agent connected", func() bool { return ta.state() == "connected" })
 	dev := h.devices()[0]["id"].(string)
 	// Let the first inventory exchange and the first heartbeat settle so the probe measures a quiet, connected agent.
 	time.Sleep(2 * time.Second)
-	return h, ta, dev, plat
+	return h, ta, dev, plat, hwDelay
 }
 
 // TestRestartLatencyIdle is the ordinary case: an idle, connected agent. The restart must arrive by push within
 // two seconds (it is typically a few milliseconds; the bound is generous for a loaded CI machine).
 func TestRestartLatencyIdle(t *testing.T) {
-	h, _, dev, plat := latencyAgent(t)
+	h, _, dev, plat, _ := latencyAgent(t)
 	var api, sent, os []time.Duration
 	for i := 0; i < 10; i++ {
 		r := h.restartOnce(t, dev, plat.rebooted)
@@ -98,6 +127,44 @@ func TestRestartLatencyIdle(t *testing.T) {
 	t.Logf("click -> API returned   median %v max %v", median(api), maxDur(api))
 	t.Logf("click -> server sent    median %v max %v", median(sent), maxDur(sent))
 	t.Logf("click -> OS restart call median %v max %v", median(os), maxDur(os))
+}
+
+// TestRestartLatencyWhileHardwareIsCollected: a slow hardware collection in the agent's stream loop (a refresh, the
+// six-hourly report, or the first report after a start) must not hold a restart back.
+func TestRestartLatencyWhileHardwareIsCollected(t *testing.T) {
+	h, _, dev, plat, hwDelay := latencyAgent(t)
+	hwDelay.set(6 * time.Second)
+	// A refresh makes the agent collect hardware inside its stream loop.
+	st, rf := h.do("POST", "/api/v1/devices/"+dev+"/refresh", map[string]any{}, nil)
+	if st != 202 {
+		t.Fatalf("refresh: %d %v", st, rf)
+	}
+	time.Sleep(1500 * time.Millisecond) // the refresh job is done; the slow collection is running
+	r := h.restartOnce(t, dev, plat.rebooted)
+	t.Logf("restart during a 6s hardware collection reached the OS after %v", r.agentOS)
+	if r.agentOS > 2*time.Second {
+		t.Errorf("a running hardware collection delayed the restart by %v; want under 2s", r.agentOS)
+	}
+}
+
+// TestRestartLatencyRightAfterTheAgentConnects: after a PC starts, the agent reports hardware and software before it
+// reads anything else. A restart sent in that window (the device is already shown online) must still arrive at once.
+func TestRestartLatencyRightAfterTheAgentConnects(t *testing.T) {
+	h, ta, dev, plat, hwDelay := latencyAgent(t)
+	hwDelay.set(6 * time.Second)
+	ta.stop()
+	waitFor(t, 10*time.Second, "agent offline", func() bool { return h.device(dev)["online"] == false })
+	ta2 := h.restartAgent(ta, func(a *core.Agent, st *store.Store) {
+		a.Jobs = &jobs.Engine{P: plat, Store: st, Log: a.Log}
+		a.HW = &slowHW{fakeHW: &fakeHW{host: "LAT-1", serial: "SLAT1", uuid: "ULAT1"}, delay: hwDelay}
+	})
+	_ = ta2
+	waitFor(t, 10*time.Second, "agent online", func() bool { return h.device(dev)["online"] == true })
+	r := h.restartOnce(t, dev, plat.rebooted)
+	t.Logf("restart sent while the first inventory runs reached the OS after %v", r.agentOS)
+	if r.agentOS > 2*time.Second {
+		t.Errorf("the first inventory delayed the restart by %v; want under 2s", r.agentOS)
+	}
 }
 
 func maxDur(d []time.Duration) time.Duration {
