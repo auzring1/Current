@@ -1,3 +1,7 @@
+//go:build !windows
+
+// The restart probes replace the platform's Reboot (the Linux dev platform only writes a file); on Windows the real
+// service would restart the machine, so these run on Linux only, like the scripted Windows Update client they use.
 package e2e
 
 import (
