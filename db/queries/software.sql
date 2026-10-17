@@ -139,6 +139,23 @@ GROUP BY st.id
 ORDER BY device_count DESC, lower(st.display_name), st.id
 LIMIT @row_limit::int OFFSET @row_offset::int;
 
+-- name: SearchSoftwareTitlesNoSystem :many
+-- SearchSoftwareTitles without system components (the page's default view). The condition is written out instead of
+-- passed as a parameter so the planner can use software_installs_title_device, a partial index on that condition.
+SELECT st.id, st.display_name, st.display_publisher,
+       count(DISTINCT si.device_id)::int AS device_count,
+       count(DISTINCT si.version)::int AS version_count,
+       count(*) OVER ()::bigint AS total
+FROM software_titles st
+JOIN software_installs si ON si.title_id = st.id
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE st.org_id = @org_id::uuid
+  AND NOT si.system_component
+  AND (@q::text = '' OR strpos(st.normalized_name, @q::text) > 0 OR strpos(st.normalized_publisher, @q::text) > 0)
+GROUP BY st.id
+ORDER BY device_count DESC, lower(st.display_name), st.id
+LIMIT @row_limit::int OFFSET @row_offset::int;
+
 -- name: GetSoftwareTitle :one
 SELECT * FROM software_titles WHERE id = @id::uuid AND org_id = @org_id::uuid;
 

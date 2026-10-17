@@ -28,7 +28,7 @@ audit. Start with `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (late
   plain `bash` may resolve to WSL.
 
 ## Conventions
-- Database changes are goose migrations in `db/migrations` (latest 00020) plus sqlc queries in `db/queries`.
+- Database changes are goose migrations in `db/migrations` (latest 00021) plus sqlc queries in `db/queries`.
 - Every state-changing API action writes an audit entry (`audit.Write`/`audit.Log`) and has an RBAC permission
   (`internal/server/auth/rbac.go`). Update `api/openapi.yaml` with the API.
 - A guard test forbids the owner's real organization name in code and tests; use "Contoso Health" in fixtures.

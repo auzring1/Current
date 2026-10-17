@@ -894,6 +894,72 @@ func (q *Queries) SearchSoftwareTitles(ctx context.Context, arg SearchSoftwareTi
 	return items, nil
 }
 
+const searchSoftwareTitlesNoSystem = `-- name: SearchSoftwareTitlesNoSystem :many
+SELECT st.id, st.display_name, st.display_publisher,
+       count(DISTINCT si.device_id)::int AS device_count,
+       count(DISTINCT si.version)::int AS version_count,
+       count(*) OVER ()::bigint AS total
+FROM software_titles st
+JOIN software_installs si ON si.title_id = st.id
+JOIN devices d ON d.id = si.device_id AND d.status = 'active'
+WHERE st.org_id = $1::uuid
+  AND NOT si.system_component
+  AND ($2::text = '' OR strpos(st.normalized_name, $2::text) > 0 OR strpos(st.normalized_publisher, $2::text) > 0)
+GROUP BY st.id
+ORDER BY device_count DESC, lower(st.display_name), st.id
+LIMIT $4::int OFFSET $3::int
+`
+
+type SearchSoftwareTitlesNoSystemParams struct {
+	OrgID     uuid.UUID
+	Q         string
+	RowOffset int32
+	RowLimit  int32
+}
+
+type SearchSoftwareTitlesNoSystemRow struct {
+	ID               uuid.UUID
+	DisplayName      string
+	DisplayPublisher string
+	DeviceCount      int32
+	VersionCount     int32
+	Total            int64
+}
+
+// SearchSoftwareTitles without system components (the page's default view). The condition is written out instead of
+// passed as a parameter so the planner can use software_installs_title_device, a partial index on that condition.
+func (q *Queries) SearchSoftwareTitlesNoSystem(ctx context.Context, arg SearchSoftwareTitlesNoSystemParams) ([]SearchSoftwareTitlesNoSystemRow, error) {
+	rows, err := q.db.Query(ctx, searchSoftwareTitlesNoSystem,
+		arg.OrgID,
+		arg.Q,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchSoftwareTitlesNoSystemRow{}
+	for rows.Next() {
+		var i SearchSoftwareTitlesNoSystemRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.DisplayPublisher,
+			&i.DeviceCount,
+			&i.VersionCount,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setUsersRev = `-- name: SetUsersRev :exec
 UPDATE devices SET users_rev = $2 WHERE id = $1
 `
